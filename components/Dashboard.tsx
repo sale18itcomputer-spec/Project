@@ -56,7 +56,7 @@ const DashboardContent: React.FC = () => {
   const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error } = useData();
   const { handleNavigation } = useNavigation();
   const { currentUser } = useAuth();
-  const { filters, setFilter } = useFilter();
+  const { filters } = useFilter();
   const [renderStep, setRenderStep] = useState(0);
   const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -430,7 +430,7 @@ const DashboardContent: React.FC = () => {
       )}
       
       {renderStep >= 3 && (
-        <div className={`${transitionClass(3)} h-[480px]`}>
+        <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
           <MonthlyWinValueChart 
             data={revenueByPeriodData.chartData} 
             period={revenuePeriod}
@@ -441,31 +441,31 @@ const DashboardContent: React.FC = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {renderStep >= 4 && (
-          <div className={transitionClass(4)}>
+          <div className={`${transitionClass(4)} min-h-[400px] min-w-0`}>
             <WinRateChart winRate={winRateData.winRate} won={winRateData.won} total={winRateData.total} />
           </div>
         )}
         {renderStep >= 5 && (
-          <div className={transitionClass(5)}>
+          <div className={`${transitionClass(5)} min-h-[400px] min-w-0`}>
             <PendingWorks todayItems={pendingWorks.todayItems} upcomingItems={pendingWorks.upcomingItems} />
           </div>
         )}
         {renderStep >= 6 && (
-          <div className={transitionClass(6)}>
-            <ProjectOutcomeChart data={projectOutcomeData} setFilter={setFilter} />
+          <div className={`${transitionClass(6)} min-h-[400px] min-w-0`}>
+            <ProjectOutcomeChart data={projectOutcomeData} />
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {renderStep >= 7 && (
-          <div className={`lg:col-span-2 ${transitionClass(7)} h-[480px]`}>
-            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} setFilter={setFilter} />
+          <div className={`lg:col-span-2 ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
+            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} />
           </div>
         )}
         {renderStep >= 8 && (
-          <div className={`lg:col-span-1 ${transitionClass(8)} h-[480px]`}>
-            <ProjectsByBrandChart data={projectsByBrandData} setFilter={setFilter} />
+          <div className={`lg:col-span-1 ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
+            <ProjectsByBrandChart data={projectsByBrandData} />
           </div>
         )}
       </div>
