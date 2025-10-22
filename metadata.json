@@ -1,0 +1,7 @@
+{
+  "name": "Limperial Project Dashboard",
+  "description": "A modern dashboard for managing and tracking technology projects, built in the signature Limperial style. It provides a comprehensive overview of project statuses, key metrics, task activities, and team members.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
