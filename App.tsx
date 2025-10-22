@@ -22,6 +22,7 @@ const SiteSurveyDashboard = lazy(() => import('./components/SiteSurveyDashboard'
 const MeetingDashboard = lazy(() => import('./components/MeetingDashboard'));
 const QuotationDashboard = lazy(() => import('./components/QuotationDashboard'));
 const SaleOrderDashboard = lazy(() => import('./components/SaleOrderDashboard'));
+const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
@@ -130,6 +131,8 @@ const AuthenticatedLayout: React.FC = () => {
         return <QuotationDashboard />;
       case 'sale-orders':
         return <SaleOrderDashboard quotationForSO={navigation.payload as Quotation | undefined} />;
+      case 'pricelist':
+        return <PricelistDashboard />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -143,6 +146,7 @@ const AuthenticatedLayout: React.FC = () => {
     'contact-logs', 
     'site-surveys', 
     'meetings',
+    'pricelist',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);

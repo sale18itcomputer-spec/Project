@@ -188,16 +188,16 @@ export interface Quotation {
   'Quote No.': string;
   'File': string;
   'Quote Date': string;
+  'Validity Date'?: string;
   'Company Name': string;
+  'Company Address'?: string;
   'Contact Name': string;
   'Contact Number': string;
+  'Contact Email'?: string;
   'Amount': string;
   'CM'?: string;
   'Status': 'Open' | 'Close (Win)' | 'Close (Lose)' | 'Cancel';
   'Reason'?: string;
-  'Validity Date'?: string;
-  'Company Address'?: string;
-  'Contact Email'?: string;
   'Payment Term'?: string;
   'Stock Status'?: string;
   'Created By'?: string;
@@ -222,5 +222,20 @@ export interface SaleOrder {
   'Bill Invoice'?: 'VAT' | 'NON-VAT';
   'Install Software'?: string;
   'Created By'?: string;
+  [key: string]: any;
+}
+
+export interface PricelistItem {
+  'Item Code': string;
+  'Brand': string;
+  'Model': string;
+  'Item Description': string;
+  'SRP': string;
+  'SRP (B)': string;
+  'Qty': string;
+  'OTW': string;
+  'Category': string;
+  'Detail Spec': string;
+  'Status': string;
   [key: string]: any;
 }

@@ -200,3 +200,18 @@ export const SALE_ORDER_HEADERS = [
   'Install Software',
   'Created By'
 ] as const;
+
+// Headers for Pricelist Sheet
+export const PRICELIST_HEADERS = [
+  'Item Code',
+  'Brand',
+  'Model',
+  'Item Description',
+  'SRP',
+  'SRP (B)',
+  'Qty',
+  'OTW',
+  'Category',
+  'Detail Spec',
+  'Status'
+] as const;

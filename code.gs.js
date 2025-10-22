@@ -36,7 +36,8 @@ const SPREADSHEET_IDS_DEFAULT = {
   'COMPANY_DATA': '1lCMC7pSiYzB2orFMJTL9MznYeNXFEmsP5bK9HR1D4Ts',
   'LOG_DATA': '17I4d9dsM5u2xMAIcjlQDZD2F5jVw_WN8vPeC3aLGuIE',
   'QUOTATION_DATA': '1zogMOf4x5vtqlBVtLwFCR6-bcbICoSLA3KGtckk-vyU',
-  'SALE_ORDER_DATA': '1Teok1eSWrgbOrJa1y_gGLO3XiOKyt5CqjpaUq9C19jE', // IMPORTANT: Corresponds to SALE_ORDER_DATA_SHEET_ID in constants.ts
+  'SALE_ORDER_DATA': '1Teok1eSWrgbOrJa1y_gGLO3XiOKyt5CqjpaUq9C19jE',
+  'PRICELIST_DATA': '1Z0xeN_yb9TtBdgyN6XDIbosBarnd9U7AD3eJdKVzMcI',
 };
 
 
@@ -61,6 +62,7 @@ function doPost(e) {
       'Contact_Logs': SPREADSHEET_IDS.LOG_DATA,
       'Site_Survey_Logs': SPREADSHEET_IDS.LOG_DATA,
       'Meeting_Logs': SPREADSHEET_IDS.LOG_DATA,
+      'Raw': SPREADSHEET_IDS.PRICELIST_DATA,
     };
 
     // The 'uploadFile' action doesn't operate on a sheet but still needs a valid spreadsheet ID

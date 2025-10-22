@@ -50,6 +50,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
       case 'meetings': return 'Meetings';
       case 'quotations': return 'Quotations';
       case 'sale-orders': return 'Sale Orders';
+      case 'pricelist': return 'Pricelist';
       case 'dashboard': default: return 'Dashboard';
     }
   };

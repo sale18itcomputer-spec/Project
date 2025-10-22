@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags } from 'lucide-react';
 import { useNavigation, NavigationState } from '../contexts/NavigationContext';
 
 interface SidebarProps {
@@ -116,6 +116,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                 onClick={() => onNavigate({ view: 'sale-orders' })}
                 isCollapsed={isCollapsed}
               />
+            </ul>
+          </div>
+          <div>
+            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Products</h3>}
+            <ul className="mt-2 space-y-1">
+                <NavItem
+                icon={<Tags size={20} />}
+                label="Pricelist"
+                isActive={navigation.view === 'pricelist'}
+                onClick={() => onNavigate({ view: 'pricelist' })}
+                isCollapsed={isCollapsed}
+                />
             </ul>
           </div>
           <div>

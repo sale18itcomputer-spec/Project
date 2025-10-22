@@ -8,12 +8,13 @@ export const COMPANY_SHEET_ID = '1lCMC7pSiYzB2orFMJTL9MznYeNXFEmsP5bK9HR1D4Ts';
 export const LOG_DATA_SHEET_ID = '17I4d9dsM5u2xMAIcjlQDZD2F5jVw_WN8vPeC3aLGuIE';
 
 // Quotation Data Spreadsheet: Quotations
-// IMPORTANT: Replace this with the actual Google Sheet ID for your quotations.
 export const QUOTATION_DATA_SHEET_ID = '1zogMOf4x5vtqlBVtLwFCR6-bcbICoSLA3KGtckk-vyU';
 
 // Sale Order Data Spreadsheet: Sale Orders
-// IMPORTANT: Replace this with the actual Google Sheet ID for your sale orders.
 export const SALE_ORDER_DATA_SHEET_ID = '1Teok1eSWrgbOrJa1y_gGLO3XiOKyt5CqjpaUq9C19jE';
+
+// Pricelist Data Spreadsheet: Pricelist
+export const PRICELIST_DATA_SHEET_ID = '1Z0xeN_yb9TtBdgyN6XDIbosBarnd9U7AD3eJdKVzMcI';
 
 
 // The following exports are maintained for potential legacy use, but it's recommended
@@ -36,6 +37,7 @@ export const SALE_ORDERS_SHEET_GID = '1001071894'; // Updated for testing
 export const COMPANY_SHEET_GID = '69906124'; // GID for the company sheet
 export const CONTACT_LIST_SHEET_GID = '615486413';
 export const USERS_SHEET_GID = '0'; // GID for the Users sheet
+export const PRICELIST_SHEET_GID = '0';
 
 // --- Google Drive Folder ID ---
 // IMPORTANT: Create a folder in your Google Drive for patent files.

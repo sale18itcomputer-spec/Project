@@ -10,6 +10,7 @@ import MetricCard from './MetricCard';
 import { parseSheetValue } from '../utils/formatters';
 import { ShoppingCart, DollarSign, CheckCircle } from 'lucide-react';
 import FileLinkCell from './FileLinkCell';
+import SaleOrderDetailModal from './SaleOrderDetailModal';
 
 interface SaleOrderDashboardProps {
     quotationForSO?: Quotation;
@@ -35,6 +36,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
     const { saleOrders, loading, error } = useData();
     const [isCreating, setIsCreating] = useState(false);
     const [selectedSaleOrder, setSelectedSaleOrder] = useState<SaleOrder | null>(null);
+    const [viewedSaleOrder, setViewedSaleOrder] = useState<SaleOrder | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const { handleNavigation } = useNavigation();
 
@@ -61,8 +63,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
     };
 
     const handleEditSaleOrder = (saleOrder: SaleOrder) => {
+        setViewedSaleOrder(null);
         setSelectedSaleOrder(saleOrder);
         setIsCreating(true);
+    };
+
+    const handleViewSaleOrder = (saleOrder: SaleOrder) => {
+        setViewedSaleOrder(saleOrder);
     };
     
     const handleBackToDashboard = () => {
@@ -221,10 +228,15 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
               data={filteredData}
               columns={columns}
               loading={loading}
-              onRowClick={handleEditSaleOrder}
+              onRowClick={handleViewSaleOrder}
               initialSort={{ key: 'SO Date', direction: 'descending' }}
             />
           </div>
+            <SaleOrderDetailModal
+                saleOrder={viewedSaleOrder}
+                onClose={() => setViewedSaleOrder(null)}
+                onEditRequest={handleEditSaleOrder}
+            />
         </div>
       );
 }

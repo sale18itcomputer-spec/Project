@@ -9,7 +9,8 @@ import {
     Meeting,
     User,
     Quotation,
-    SaleOrder
+    SaleOrder,
+    PricelistItem
 } from '../types';
 import { 
     PIPELINE_HEADERS, 
@@ -20,7 +21,8 @@ import {
     MEETING_HEADERS,
     USER_HEADERS,
     QUOTATION_HEADERS,
-    SALE_ORDER_HEADERS
+    SALE_ORDER_HEADERS,
+    PRICELIST_HEADERS
 } from '../schemas';
 
 interface DataContextProps {
@@ -42,6 +44,8 @@ interface DataContextProps {
   setQuotations: React.Dispatch<React.SetStateAction<Quotation[] | null>>;
   saleOrders: SaleOrder[] | null;
   setSaleOrders: React.Dispatch<React.SetStateAction<SaleOrder[] | null>>;
+  pricelist: PricelistItem[] | null;
+  setPricelist: React.Dispatch<React.SetStateAction<PricelistItem[] | null>>;
   loading: boolean;
   error: string | null;
   activeCompanyNames: Set<string>;
@@ -64,6 +68,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [users, setUsers] = useState<User[] | null>(null);
   const [quotations, setQuotations] = useState<Quotation[] | null>(null);
   const [saleOrders, setSaleOrders] = useState<SaleOrder[] | null>(null);
+  const [pricelist, setPricelist] = useState<PricelistItem[] | null>(null);
 
   const refetchData = useCallback(() => {
     setRefetchCounter(c => c + 1);
@@ -78,6 +83,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { data: fetchedUsers, loading: usersLoading, error: usersError } = useGoogleSheetData<User>('Users', USER_HEADERS, refetchCounter);
   const { data: fetchedQuotations, loading: quotationsLoading, error: quotationsError } = useGoogleSheetData<Quotation>('Quotations', QUOTATION_HEADERS, refetchCounter);
   const { data: fetchedSaleOrders, loading: saleOrdersLoading, error: saleOrdersError } = useGoogleSheetData<SaleOrder>('Sale Orders', SALE_ORDER_HEADERS, refetchCounter);
+  const { data: fetchedPricelist, loading: pricelistLoading, error: pricelistError } = useGoogleSheetData<PricelistItem>('Raw', PRICELIST_HEADERS, refetchCounter);
 
   useEffect(() => { setProjects(fetchedProjects); }, [fetchedProjects]);
   useEffect(() => { setCompanies(fetchedCompanies); }, [fetchedCompanies]);
@@ -88,6 +94,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { setUsers(fetchedUsers); }, [fetchedUsers]);
   useEffect(() => { setQuotations(fetchedQuotations); }, [fetchedQuotations]);
   useEffect(() => { setSaleOrders(fetchedSaleOrders); }, [fetchedSaleOrders]);
+  useEffect(() => { setPricelist(fetchedPricelist); }, [fetchedPricelist]);
 
 
   const { activeCompanyNames, activeContactNames, activePipelineIds } = useMemo(() => {
@@ -106,9 +113,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { activeCompanyNames, activeContactNames, activePipelineIds };
   }, [projects]);
   
-  const loading = projectsLoading || companiesLoading || contactsLoading || contactLogsLoading || siteSurveysLoading || meetingsLoading || usersLoading || quotationsLoading || saleOrdersLoading;
+  const loading = projectsLoading || companiesLoading || contactsLoading || contactLogsLoading || siteSurveysLoading || meetingsLoading || usersLoading || quotationsLoading || saleOrdersLoading || pricelistLoading;
   
-  const error = [projectsError, companiesError, contactsError, contactLogsError, siteSurveysError, meetingsError, usersError, quotationsError, saleOrdersError]
+  const error = [projectsError, companiesError, contactsError, contactLogsError, siteSurveysError, meetingsError, usersError, quotationsError, saleOrdersError, pricelistError]
     .filter(Boolean)
     .join('; ');
 
@@ -122,6 +129,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     users, setUsers,
     quotations, setQuotations,
     saleOrders, setSaleOrders,
+    pricelist, setPricelist,
     loading,
     error: error || null,
     activeCompanyNames,

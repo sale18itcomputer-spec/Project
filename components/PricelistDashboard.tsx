@@ -1,0 +1,386 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { PricelistItem } from '../types';
+import { useData } from '../contexts/DataContext';
+import DataTable, { ColumnDef } from './DataTable';
+import { parseSheetValue } from '../utils/formatters';
+import { LayoutGrid, Table, ListTree, ChevronDown } from 'lucide-react';
+import ViewToggle from './ViewToggle';
+import ItemActionsMenu from './ItemActionsMenu';
+import NewPricelistItemModal from './NewPricelistItemModal';
+import GeminiPricelistInsights from './GeminiPricelistInsights';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+
+const PriceCell: React.FC<{ value: string }> = ({ value }) => {
+    const num = parseSheetValue(value);
+    if (num === 0 && String(value || '').trim() === '') {
+        return <span className="text-slate-400 text-right block w-full">-</span>;
+    }
+    return (
+        <span className="text-sm font-medium text-slate-800 text-right block w-full">
+            {num.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+        </span>
+    );
+};
+
+const StockCell: React.FC<{ value: string }> = ({ value }) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) {
+        return <span className="text-slate-400">{value}</span>;
+    }
+    
+    let colorClass = 'text-slate-800';
+    if (num === 0) {
+        colorClass = 'text-rose-600 font-bold';
+    } else if (num > 0 && num <= 5) {
+        colorClass = 'text-amber-600 font-semibold';
+    }
+    
+    return <span className={`text-center block w-full ${colorClass}`}>{num}</span>;
+};
+
+const OnOrderCell: React.FC<{ value: string }> = ({ value }) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num === 0) {
+        return <span className="text-slate-400 text-center block w-full">-</span>;
+    }
+    return <span className="text-sky-600 font-semibold text-center block w-full">{num}</span>;
+}
+
+const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status, className }) => {
+    if (!status) return null;
+    const lowerStatus = status.toLowerCase();
+
+    let variant: 'destructive' | 'secondary' | 'outline' = 'secondary';
+    let customClass = '';
+
+    if (lowerStatus.includes('out of stock')) {
+        variant = 'destructive';
+    } else if (lowerStatus.includes('available')) {
+        variant = 'outline';
+        customClass = 'font-semibold text-emerald-700 border-emerald-500/80 bg-emerald-50';
+    } else if (lowerStatus.includes('pre-order')) {
+        variant = 'outline';
+        customClass = 'font-semibold text-amber-700 border-amber-500/80 bg-amber-50';
+    }
+
+    return <Badge variant={variant} className={`${customClass} ${className}`}>{status}</Badge>;
+};
+
+
+const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit: () => void; onDelete: () => void; }> = ({ item, onView, onEdit, onDelete }) => (
+    <Card
+        className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative cursor-pointer border hover:border-primary hover:shadow-xl hover:-translate-y-1.5"
+        onClick={onView}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? onView() : undefined}
+        tabIndex={0}
+        role="button"
+        aria-label={`View details for ${item.Model}`}
+    >
+        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+
+        <CardHeader className="pb-2">
+            <div className="flex justify-between items-start gap-2">
+                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-slate-500">{item.Brand}</CardDescription>
+                <StatusBadge status={item.Status} />
+            </div>
+            <CardTitle className="pt-0.5 group-hover:text-primary transition-colors text-lg leading-tight font-bold break-words">
+                {item.Model}
+            </CardTitle>
+        </CardHeader>
+
+        <CardContent className="flex-grow text-xs text-slate-500">
+            <p>{item['Item Description']}</p>
+        </CardContent>
+
+        <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-slate-50/70 border-t">
+            <div>
+                <p className="text-2xl font-bold text-slate-900">
+                    {parseSheetValue(item.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+            </div>
+            <div className="text-right">
+                <p className="text-sm font-semibold text-slate-700">Stock: <span className="font-bold text-slate-900">{item.Qty || '0'}</span></p>
+                {parseInt(item.OTW, 10) > 0 && (
+                    <p className="text-xs text-sky-600 font-semibold">OTW: <span className="font-bold">{item.OTW}</span></p>
+                )}
+            </div>
+        </CardFooter>
+    </Card>
+);
+
+const CategorySection: React.FC<{
+    category: string;
+    items: PricelistItem[];
+    onViewItem: (item: PricelistItem) => void;
+    onEditItem: (item: PricelistItem) => void;
+    onDeleteItem: (item: PricelistItem) => void;
+}> = ({ category, items, onViewItem, onEditItem, onDeleteItem }) => {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+        <Card className="overflow-hidden transition-shadow hover:shadow-md">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-expanded={isOpen}
+            >
+                <div className="flex items-center gap-3">
+                    <h3 className="font-semibold text-lg text-slate-800">{category}</h3>
+                    <Badge variant="secondary">{items.length}</Badge>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                <div className="overflow-hidden">
+                    <div className="border-t border-slate-200">
+                        <ul className="divide-y divide-slate-100">
+                            {items.map(item => (
+                                <li key={item['Item Code']} className="group relative" >
+                                    <div 
+                                        className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-slate-50 cursor-pointer"
+                                        onClick={() => onViewItem(item)}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onViewItem(item)}
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-slate-900 truncate group-hover:text-primary">{item.Model}</p>
+                                            <p className="text-sm text-slate-500 truncate font-mono">{item['Item Code']}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4 ml-4 flex-shrink-0">
+                                            <div className="w-28 text-right">
+                                                <PriceCell value={item.SRP} />
+                                            </div>
+                                            <div className="w-24">
+                                                <StatusBadge status={item.Status} />
+                                            </div>
+                                            <div className="w-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                                <ItemActionsMenu
+                                                    onView={() => onViewItem(item)}
+                                                    onEdit={() => onEditItem(item)}
+                                                    onDelete={() => onDeleteItem(item)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+
+type ViewMode = 'table' | 'grid' | 'category';
+
+const PricelistDashboard: React.FC = () => {
+    const { pricelist, loading, error } = useData();
+    const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('All Categories');
+    const [brandFilter, setBrandFilter] = useState('All Brands');
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
+    const [renderStep, setRenderStep] = useState(0);
+
+    useEffect(() => {
+        if (!loading) {
+            const timer = setTimeout(() => setRenderStep(1), 100);
+            return () => clearTimeout(timer);
+        }
+    }, [loading]);
+
+    const handleCloseModal = () => setModalConfig({ item: null, isReadOnly: false, isOpen: false });
+    const handleViewItem = (item: PricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
+    const handleEditItem = (item: PricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
+    const handleNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
+    const handleDeleteItem = (item: PricelistItem) => {
+        // Open the modal in view mode, where the user can then click the delete button to confirm.
+        setModalConfig({ item, isReadOnly: true, isOpen: true });
+    };
+
+    const filterOptions = useMemo(() => {
+        if (!pricelist) return { categories: [], brands: [] };
+        const categories = new Set<string>();
+        const brands = new Set<string>();
+        pricelist.forEach(item => {
+            if (item.Category) categories.add(item.Category);
+            if (item.Brand) brands.add(item.Brand);
+        });
+        return {
+            categories: ['All Categories', ...Array.from(categories).sort()],
+            brands: ['All Brands', ...Array.from(brands).sort()],
+        };
+    }, [pricelist]);
+
+    const filteredData = useMemo(() => {
+        let data = pricelist || [];
+        if (categoryFilter !== 'All Categories') {
+            data = data.filter(item => item.Category === categoryFilter);
+        }
+        if (brandFilter !== 'All Brands') {
+            data = data.filter(item => item.Brand === brandFilter);
+        }
+        if (searchQuery) {
+            const lowerQuery = searchQuery.toLowerCase();
+            data = data.filter(item =>
+                Object.values(item).some(val =>
+                    String(val).toLowerCase().includes(lowerQuery)
+                )
+            );
+        }
+        return data;
+    }, [pricelist, searchQuery, categoryFilter, brandFilter]);
+
+    const groupedByCategory = useMemo(() => {
+        if (!filteredData) return {};
+        return filteredData.reduce((acc, item) => {
+            const category = item.Category || 'Uncategorized';
+            if (!acc[category]) {
+                acc[category] = [];
+            }
+            acc[category].push(item);
+            return acc;
+        }, {} as Record<string, PricelistItem[]>);
+    }, [filteredData]);
+
+    const columns = useMemo<ColumnDef<PricelistItem>[]>(() => [
+        { accessorKey: 'Category', header: 'Category', isSortable: true },
+        { accessorKey: 'Item Code', header: 'Item Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
+        { accessorKey: 'Brand', header: 'Brand', isSortable: true },
+        { accessorKey: 'Model', header: 'Model', isSortable: true },
+        { accessorKey: 'Item Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
+        { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string) => <PriceCell value={value} /> },
+        { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string) => <PriceCell value={value} /> },
+        { accessorKey: 'Qty', header: 'Stock', isSortable: true, cell: (value: string) => <StockCell value={value} /> },
+        { accessorKey: 'OTW', header: 'OTW', isSortable: true, cell: (value: string) => <OnOrderCell value={value} /> },
+        { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: string) => <StatusBadge status={value} /> },
+    ], []);
+    
+    const VIEW_OPTIONS: { id: ViewMode, label: string, icon: React.ReactNode }[] = [
+        { id: 'table', label: 'Table', icon: <Table /> },
+        { id: 'grid', label: 'Grid', icon: <LayoutGrid /> },
+        { id: 'category', label: 'Category', icon: <ListTree /> },
+    ];
+
+    if (error) {
+        return (
+            <div className="p-6 md:p-8">
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
+                    <p className="font-bold">Error</p>
+                    <p>Could not load pricelist data: {error}</p>
+                </div>
+            </div>
+        );
+    }
+    
+    const renderContent = () => {
+        switch (viewMode) {
+            case 'table':
+                return (
+                    <div className="bg-white">
+                        <DataTable
+                            tableId="pricelist-table"
+                            data={filteredData}
+                            columns={columns}
+                            loading={loading}
+                            onRowClick={handleViewItem}
+                            initialSort={{ key: 'Category', direction: 'ascending' }}
+                        />
+                    </div>
+                );
+            case 'grid':
+                return (
+                    <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                        {filteredData.map(item => (
+                            <PricelistCard 
+                                key={item['Item Code']} 
+                                item={item} 
+                                onView={() => handleViewItem(item)} 
+                                onEdit={() => handleEditItem(item)} 
+                                onDelete={() => handleDeleteItem(item)}
+                            />
+                        ))}
+                    </div>
+                );
+            case 'category':
+                 return (
+                    <div className="p-4 sm:p-6 space-y-4">
+                        {Object.entries(groupedByCategory)
+                            .sort(([catA], [catB]) => catA.localeCompare(catB))
+                            .map(([category, items]) => (
+                            <CategorySection
+                                key={category}
+                                category={category}
+                                items={items}
+                                onViewItem={handleViewItem}
+                                onEditItem={handleEditItem}
+                                onDeleteItem={handleDeleteItem}
+                            />
+                        ))}
+                    </div>
+                );
+        }
+    }
+    
+    return (
+        <div className="h-full flex flex-col">
+            <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
+                <p className="text-base text-slate-500">
+                    <span className="font-bold text-slate-800">{filteredData.length}</span> items found
+                </p>
+                <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+                    <div className="relative flex-grow sm:w-56">
+                        <label htmlFor="pricelist-search" className="sr-only">Search</label>
+                        <input
+                            id="pricelist-search"
+                            type="text"
+                            placeholder="Search pricelist..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                        />
+                        <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
+                        {filterOptions.categories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
+                        {filterOptions.brands.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                    <button
+                        onClick={handleNewItem}
+                        className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
+                    >
+                        <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span className="hidden sm:inline">New Item</span>
+                    </button>
+                </div>
+            </div>
+
+            <div className={`flex-1 overflow-auto bg-slate-50 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                {!loading && pricelist && (
+                    <div className="p-4 sm:p-6">
+                        <GeminiPricelistInsights items={filteredData} />
+                    </div>
+                )}
+                {renderContent()}
+            </div>
+            
+            <NewPricelistItemModal
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal}
+                existingData={modalConfig.item}
+                initialReadOnly={modalConfig.isReadOnly}
+            />
+        </div>
+    );
+};
+
+export default PricelistDashboard;

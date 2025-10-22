@@ -11,6 +11,7 @@ import { parseSheetValue } from '../utils/formatters';
 // FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
 import { FileText, DollarSign, CheckCircle, ShoppingCart } from 'lucide-react';
 import FileLinkCell from './FileLinkCell';
+import QuotationDetailModal from './QuotationDetailModal';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -29,54 +30,12 @@ const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   );
 };
 
-const ActionsMenu: React.FC<{ quotation: Quotation, onEdit: (q: Quotation) => void, onNav: (view: any, payload: any) => void }> = ({ quotation, onEdit, onNav }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const menuRef = React.useRef<HTMLDivElement>(null);
-    const isApproved = quotation.Status === 'Close (Win)';
-
-    React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) setIsOpen(false);
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const handleAction = (action: () => void) => (e: React.MouseEvent) => {
-        e.stopPropagation();
-        action();
-        setIsOpen(false);
-    };
-
-    return (
-        <div className="relative text-right" ref={menuRef}>
-            <button onClick={(e) => { e.stopPropagation(); setIsOpen(prev => !prev); }} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
-            </button>
-            {isOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border z-10 animate-contentFadeIn" style={{animationDuration: '0.15s'}}>
-                    <button onClick={handleAction(() => onEdit(quotation))} className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                      <FileText className="w-4 h-4"/>
-                      <span>View / Edit</span>
-                    </button>
-                    <button 
-                      onClick={handleAction(() => onNav('sale-orders', quotation))} 
-                      disabled={!isApproved}
-                      className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent"
-                    >
-                      <ShoppingCart className="w-4 h-4"/>
-                      <span>Create Sale Order</span>
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const QuotationDashboard: React.FC = () => {
   const { quotations, loading, error } = useData();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [viewedQuotation, setViewedQuotation] = useState<Quotation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { handleNavigation } = useNavigation();
 
@@ -88,8 +47,13 @@ const QuotationDashboard: React.FC = () => {
   };
 
   const handleEditQuotation = (quotation: Quotation) => {
+    setViewedQuotation(null);
     setSelectedQuotation(quotation);
     setIsCreating(true);
+  };
+  
+  const handleViewQuotation = (quotation: Quotation) => {
+    setViewedQuotation(quotation);
   };
 
   const handleBackToDashboard = () => {
@@ -254,10 +218,15 @@ const QuotationDashboard: React.FC = () => {
           data={filteredData}
           columns={columns}
           loading={loading}
-          onRowClick={handleEditQuotation}
+          onRowClick={handleViewQuotation}
           initialSort={{ key: 'Quote Date', direction: 'descending' }}
         />
       </div>
+       <QuotationDetailModal
+        quotation={viewedQuotation}
+        onClose={() => setViewedQuotation(null)}
+        onEditRequest={handleEditQuotation}
+      />
     </div>
   );
 };
