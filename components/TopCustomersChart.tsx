@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { BarChartHorizontal } from 'lucide-react';
@@ -12,6 +12,7 @@ echarts.registerTheme('limperial', limperialTheme);
 interface CustomerData {
   name: string;
   winValue: number;
+  projectCount: number;
 }
 
 interface TopCustomersChartProps {
@@ -41,6 +42,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
     const chartRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { filters, setFilter } = useFilter();
+    const titleId = useId();
 
     const handleResize = useDebouncedCallback(() => {
         const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -59,7 +61,8 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
     const onEvents = {
         'click': (params: any) => {
             if (params.name) {
-                const clickedCompany = params.name;
+                // Remove the ranking number before filtering
+                const clickedCompany = params.name.replace(/^\d+\.\s*/, '');
                 const currentCompanyFilter = (filters.companyName || []) as string[];
 
                 if (currentCompanyFilter.length === 1 && currentCompanyFilter[0] === clickedCompany) {
@@ -71,54 +74,108 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
         }
     };
     
+    // Sort data descending by winValue to establish ranking
+    const rankedData = useMemo(() => 
+        [...data]
+            .sort((a, b) => b.winValue - a.winValue)
+            .map((d, i) => ({ ...d, rank: i + 1 })), 
+    [data]);
+
     const option = {
         grid: {
             left: '1%',
-            right: isMobile ? '15%' : '10%',
+            right: '12%',
             bottom: '3%',
-            top: '3%',
+            top: '8%',
             containLabel: true,
+        },
+        toolbox: {
+            show: true,
+            orient: 'vertical',
+            right: 10,
+            top: 'center',
+            feature: {
+              dataView: { show: true, readOnly: false, title: "Data View" },
+              saveAsImage: { show: true, title: "Save Image" }
+            },
+            iconStyle: {
+                borderColor: '#9ca3af' // slate-400
+            },
         },
         xAxis: {
             type: 'value',
             axisLabel: {
                 formatter: (val: number) => formatShortCurrency(val),
+                color: '#64748b' // slate-500
+            },
+            splitLine: {
+                lineStyle: {
+                    color: '#f1f5f9' // slate-100
+                }
             }
         },
         yAxis: {
             type: 'category',
-            data: data.map(d => d.name).reverse(),
+            data: rankedData.map(d => `${d.rank}. ${d.name}`).reverse(),
             axisLabel: {
-                width: isMobile ? 80 : 160,
-                overflow: 'truncate',
-                fontWeight: 500,
-            }
+                fontWeight: 600,
+                color: '#334155', // slate-700
+                inside: false,
+                formatter: (value: string) => {
+                    if (isMobile && value.length > 20) {
+                        return value.substring(0, 20) + '...';
+                    }
+                    return value;
+                }
+            },
+            axisTick: { show: false },
+            axisLine: { show: false },
         },
         series: [{
             name: 'Total Win Value',
             type: 'bar',
             cursor: 'pointer',
-            data: data.map(d => d.winValue).reverse(),
-            itemStyle: {
-                color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                    { offset: 0, color: '#93c5fd' },
-                    { offset: 1, color: '#004aad' }
-                ])
-            },
-            emphasis: {
+            barMaxWidth: 30,
+            data: rankedData.map(d => ({ 
+                value: d.winValue, 
+                projectCount: d.projectCount,
+                name: `${d.rank}. ${d.name}`,
                 itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                        { offset: 0, color: '#add6ff' },
-                        { offset: 1, color: '#3077d3' }
+                    color: d.rank <= 3 
+                    ? new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                        { offset: 0, color: '#2563eb' }, // blue-600
+                        { offset: 1, color: '#004aad' }  // brand-600
+                    ])
+                    : new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                        { offset: 0, color: '#93c5fd' }, // blue-300
+                        { offset: 1, color: '#3b82f6' }  // blue-500
                     ])
                 }
+            })).reverse(),
+            itemStyle: {
+                borderRadius: [0, 8, 8, 0],
+            },
+            emphasis: {
+                focus: 'series',
+                blur: {
+                    itemStyle: {
+                        opacity: 0.5,
+                    },
+                },
             },
             label: {
                 show: true,
-                position: isMobile ? 'right' : 'insideRight',
-                formatter: (params: any) => isMobile ? formatShortCurrency(params.value) : new Intl.NumberFormat('en-US').format(params.value),
-                color: isMobile ? '#4b5563' : '#fff',
-                fontWeight: 600,
+                position: 'right',
+                formatter: (params: any) => new Intl.NumberFormat('en-US').format(params.value),
+                color: '#1e293b',
+                fontWeight: 'bold',
+                distance: 8,
+                textShadowBlur: 4,
+                textShadowColor: 'rgba(255,255,255,0.7)',
+            },
+            animationEasing: 'cubicOut',
+            animationDelay: (idx: number) => {
+                return idx * 50;
             }
         }],
         tooltip: {
@@ -127,18 +184,37 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             formatter: (params: any) => {
                 const param = Array.isArray(params) ? params[0] : params;
                 if (!param || param.value === undefined) return '';
-
-                const value = param.value;
-                const name = param.name;
+                
+                // param.name has the rank, param.data is the object with projectCount
+                const { value, name, data } = param;
+                const { projectCount } = data;
+                
                 const percentage = totalWinValue > 0 ? ((value / totalWinValue) * 100).toFixed(1) : 0;
-                const marker = `<span class="w-3 h-3 rounded-full mr-2 inline-block" style="background-color: ${param.color.colorStops ? param.color.colorStops[1].color : param.color};"></span>`;
+                
+                const color = param.color.colorStops ? param.color.colorStops[1].color : param.color;
+                const marker = `<span class="w-3 h-3 rounded-full mr-2 inline-block" style="background-color: ${color};"></span>`;
+                
                 return `
-                        <div class="flex items-center mb-1 font-bold text-gray-800">
-                           ${marker}
-                           <span>${name}</span>
-                        </div>
-                        <div class="text-sm text-gray-600 pl-5">Win Value: <strong>${formatCurrency(value)}</strong></div>
-                        <div class="text-sm text-gray-600 pl-5">Contribution: <strong>${percentage}%</strong></div>`;
+                        <div class="font-sans p-2 w-64">
+                            <div class="flex items-center mb-2 font-bold text-slate-800 text-base">
+                               ${marker}
+                               <span class="truncate">${name.replace(/^\d+\.\s*/, '')}</span>
+                            </div>
+                            <div class="space-y-1 text-sm pl-5">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-600">Revenue:</span>
+                                    <span class="font-semibold text-slate-800">${formatCurrency(value)}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-600">Projects Won:</span>
+                                    <span class="font-semibold text-slate-800">${projectCount}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-600">Contribution:</span>
+                                    <span class="font-semibold text-slate-800">${percentage}%</span>
+                                </div>
+                            </div>
+                        </div>`;
             }
         },
         legend: { show: false },
@@ -148,15 +224,15 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
       <div className="flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Top 10 Customers by Revenue</h2>
-          <p className="text-sm text-gray-500 mb-4">Highest revenue-generating clients from won pipelines.</p>
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1">Top 10 Customers by Revenue</h2>
+          <p className="text-sm text-slate-600 mb-4">Highest revenue-generating clients from won pipelines.</p>
       </div>
       {data && data.length > 0 ? (
-        <div className="w-full flex-grow min-h-0">
+        <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
             <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
-         <div className="flex flex-col items-center justify-center flex-grow text-gray-500">
+         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
             <BarChartHorizontal className="w-12 h-12 text-gray-300" />
             <p className="mt-4 text-sm font-medium">No customer data to display.</p>
         </div>

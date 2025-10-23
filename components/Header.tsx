@@ -18,9 +18,13 @@ interface HeaderProps {
 }
 
 const OfflineIndicator = () => (
-    <div className="ml-4 flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+    <div
+      role="status"
+      aria-live="assertive"
+      className="ml-4 flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full"
+    >
         <AlertTriangle className="h-4 w-4" />
-        <span>Offline</span>
+        <span>You are currently offline</span>
     </div>
 );
 
@@ -98,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
         <div className={`flex items-center space-x-2 sm:space-x-4 ${isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative text-muted-foreground">
+                    <Button variant="ghost" size="icon" className="relative text-muted-foreground" aria-label={`View notifications (${unreadCount} unread)`}>
                         <Bell />
                         {unreadCount > 0 && (
                           <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
@@ -141,7 +145,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full">
+                    <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full" aria-label="Open user menu">
                       <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
                         {currentUser && avatarUrl && !isAvatarError ? (
                            <AvatarImage src={`${avatarUrl}&t=${new Date().getTime()}`} alt={currentUser.Name} onError={() => setAvatarError(true)} />
@@ -153,7 +157,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
                 <DropdownMenuContent align="end" className="w-64">
                     <DropdownMenuLabel>
                         <p className="font-semibold truncate">{currentUser?.Name || 'User'}</p>
-                        <p className="text-sm text-muted-foreground font-normal truncate">{currentUser?.Role || 'Role'}</p>
+                        <p className="text-sm text-slate-600 font-normal truncate">{currentUser?.Role || 'Role'}</p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem>

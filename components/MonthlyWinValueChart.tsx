@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { BarChart2 } from 'lucide-react';
@@ -12,6 +12,7 @@ echarts.registerTheme('limperial', limperialTheme);
 interface MonthlyWinValueData {
   name: string; // e.g., "Apr 2024", "Q2 2024", "2024"
   winValue: number;
+  projectCount: number;
 }
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
@@ -50,6 +51,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
   const chartRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { filters, setFilter } = useFilter();
+  const titleId = useId();
 
   const handleResize = useDebouncedCallback(() => {
     const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -109,12 +111,28 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
     }
   };
 
+  const avgValue = data.length > 0 ? data.reduce((sum, d) => sum + d.winValue, 0) / data.length : 0;
+
   const option = {
     grid: {
       left: isMobile ? '1%' : '3%',
       right: isMobile ? '4%' : '4%',
       bottom: isMobile ? '20%' : 80, // Increased bottom margin for slider
+      top: 70, // Add space for toolbox
       containLabel: true,
+    },
+    toolbox: {
+        show: true,
+        orient: 'vertical',
+        left: 'right',
+        top: 'center',
+        feature: {
+          mark: { show: true },
+          dataView: { show: true, readOnly: false, title: "Data View" },
+          magicType: { show: true, type: ['line', 'bar'], title: { line: "Line", bar: "Bar" }},
+          restore: { show: true, title: "Restore" },
+          saveAsImage: { show: true, title: "Save Image" }
+        }
     },
     xAxis: {
       type: 'category',
@@ -144,7 +162,8 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: '#60a5fa' },
                 { offset: 1, color: '#004aad' }
-            ])
+            ]),
+            borderRadius: [4, 4, 0, 0],
         },
         emphasis: {
             itemStyle: {
@@ -160,6 +179,29 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
           formatter: (params: any) => new Intl.NumberFormat('en-US').format(params.value),
           fontSize: 12,
         },
+        markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [
+              {
+                yAxis: avgValue,
+                name: 'Average',
+                lineStyle: {
+                  type: 'dashed',
+                  color: '#f59e0b',
+                  width: 2
+                },
+                label: {
+                  formatter: `Avg: ${formatCurrency(avgValue)}`,
+                  position: 'insideEndTop',
+                  color: '#b45309',
+                  padding: [2, 4],
+                  backgroundColor: 'rgba(255, 251, 235, 0.8)',
+                  borderRadius: 4,
+                }
+              }
+            ]
+        }
       },
     ],
     tooltip: {
@@ -167,17 +209,22 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
         const param = Array.isArray(params) ? params[0] : params;
         if (!param || param.value === undefined) return '';
         
-        const periodName = param.name;
-        const revenue = param.value;
-        
+        const { name, value, dataIndex } = param;
+        const { projectCount } = data[dataIndex];
+
         const marker = `<span class="w-3 h-3 rounded-full mr-2 inline-block" style="background-color: ${param.color.colorStops ? param.color.colorStops[1].color : param.color};"></span>`;
         
         return `
-            <div class="font-bold text-gray-800 mb-2">${periodName}</div>
+            <div class="font-bold text-gray-800 mb-2">${name}</div>
             <div class="flex items-center">
                 ${marker}
                 <span class="text-gray-600">Revenue:</span>
-                <span class="font-semibold text-gray-800 ml-auto">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(revenue)}</span>
+                <span class="font-semibold text-gray-800 ml-auto">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)}</span>
+            </div>
+            <div class="flex items-center mt-1">
+                <span class="w-3 h-3 rounded-full mr-2 inline-block bg-slate-400"></span>
+                <span class="text-gray-600">Projects Won:</span>
+                <span class="font-semibold text-gray-800 ml-auto">${projectCount}</span>
             </div>`;
       }
     },
@@ -211,8 +258,8 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
         <div className="flex flex-col sm:flex-row justify-between items-start mb-4 flex-shrink-0 gap-2">
             <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">{chartTitle}</h2>
-                <p className="text-sm text-gray-500">Revenue from won projects. Click and drag to zoom.</p>
+                <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1">{chartTitle}</h2>
+                <p className="text-sm text-slate-600">Revenue from won projects. Click and drag to zoom.</p>
             </div>
             <div className="bg-slate-100 p-1 rounded-lg flex gap-1 flex-shrink-0">
                 <ToggleButton period='monthly' label='Monthly' activePeriod={period} onClick={onPeriodChange} />
@@ -221,11 +268,11 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
             </div>
         </div>
       {data && data.length > 0 ? (
-        <div className="w-full flex-grow min-h-0">
+        <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
             <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
-         <div className="flex flex-col items-center justify-center flex-grow text-gray-500">
+         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
             <BarChart2 className="w-12 h-12 text-gray-300" />
             <p className="mt-4 text-sm font-medium">No revenue data to display for the selected filters.</p>
         </div>

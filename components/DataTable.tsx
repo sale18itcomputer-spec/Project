@@ -246,7 +246,7 @@ function DataTable<T extends object>({
         {loading ? (
             <TableSkeleton columns={columns.length} rows={itemsPerPage} />
         ) : (
-            <table ref={tableRef} className="w-full text-sm text-left text-gray-500 min-w-[640px] table-fixed md:border-l md:border-t md:border-slate-200">
+            <table ref={tableRef} className="w-full text-sm text-left text-gray-500 min-w-[640px] table-fixed md:border-l md:border-t md:border-slate-200" aria-busy={loading}>
             <colgroup>
                 {columns.map(col => (
                     <col
@@ -263,6 +263,7 @@ function DataTable<T extends object>({
                         key={String(col.accessorKey)} 
                         scope="col" 
                         className={`pl-6 pr-4 py-3 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:[&:not(:last-child)]:border-brand-700/50 transition-colors ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''}`}
+                        aria-sort={sortConfig.key === col.accessorKey ? sortConfig.direction : 'none'}
                     >
                         <div className="truncate">
                             {col.isSortable ? (
@@ -307,6 +308,8 @@ function DataTable<T extends object>({
                             : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')
                         } md:hover:bg-sky-50 transition-colors duration-200 ${onRowClick ? 'cursor-pointer' : ''}`}
                         onClick={() => onRowClick?.(item)}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onRowClick?.(item)}
+                        tabIndex={onRowClick ? 0 : -1}
                       >
                       {columns.map((col, colIndex) => (
                           <td 
@@ -366,13 +369,13 @@ function DataTable<T extends object>({
             </div>
             
             <nav className="flex items-center gap-1" aria-label="Table navigation">
-                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} title="First page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-slate-600" /></button>
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} title="Previous page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
+                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-slate-600" /></button>
+                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
                 
                 <div className="flex items-center gap-1 px-2">
                 {paginationRange.map((page, index) => {
                     if (page === DOTS) {
-                        return <span key={index} className="px-2 py-1 text-sm text-slate-500">...</span>
+                        return <span key={index} className="px-2 py-1 text-sm text-slate-500" aria-hidden="true">...</span>
                     }
                     const pageNumber = page as number;
                     const isActive = pageNumber === currentPage;
@@ -381,6 +384,7 @@ function DataTable<T extends object>({
                             key={index}
                             onClick={() => handlePageChange(pageNumber)}
                             className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-brand-100 text-brand-700' : 'hover:bg-slate-100 text-slate-600'}`}
+                            aria-current={isActive ? 'page' : undefined}
                         >
                             {pageNumber}
                         </button>
@@ -388,8 +392,8 @@ function DataTable<T extends object>({
                 })}
                 </div>
 
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} title="Next page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
-                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} title="Last page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-slate-600" /></button>
+                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
+                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-slate-600" /></button>
             </nav>
         </div>
       )}

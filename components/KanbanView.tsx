@@ -85,7 +85,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
         <div className="flex-1 flex items-center justify-center bg-slate-50">
            <EmptyState illustration={<ClipboardList className="w-20 h-20 text-slate-300" />}>
               <h3 className="mt-2 text-lg font-semibold text-gray-900">No Items to Display</h3>
-              <p className="mt-1 text-sm text-gray-500">There are currently no items in the board.</p>
+              <p className="mt-1 text-sm text-slate-600">There are currently no items in the board.</p>
            </EmptyState>
         </div>
     );
@@ -115,7 +115,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
                             <div>
                                 <div className="flex items-center gap-2">
                                     <span className={`w-2 h-2 rounded-full ${colors.bgDot}`}></span>
-                                    <h3 className="font-semibold uppercase tracking-wider text-xs text-slate-500">
+                                    <h3 className="font-semibold uppercase tracking-wider text-xs text-slate-600">
                                         {column.title}
                                     </h3>
                                 </div>
@@ -151,7 +151,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-16 px-4 text-slate-500 text-sm h-full flex flex-col items-center justify-center">
+                            <div className="text-center py-16 px-4 text-slate-600 text-sm h-full flex flex-col items-center justify-center">
                                <div className="p-6 rounded-lg border-2 border-dashed border-slate-200 w-full">
                                     <p className="font-medium text-slate-400">{onItemMove ? "Drag items here" : "No items to display"}</p>
                                 </div>

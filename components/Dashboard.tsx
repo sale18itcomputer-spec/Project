@@ -159,11 +159,18 @@ const DashboardContent: React.FC = () => {
   }, [filteredProjects]);
 
   const pendingWorks = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get the current date at midnight in UTC+7 to match the timezone of parsed dates from sheets.
+    const now = new Date();
+    const todayStrInUTC7 = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    const today = parseDate(todayStrInUTC7);
 
-    const endOfUpcoming = new Date(today);
-    endOfUpcoming.setDate(today.getDate() + 8); // Today + 7 days
+    // If today can't be parsed, we can't calculate pending items.
+    if (!today) {
+      console.error("Could not determine today's date for pending works.");
+      return { todayItems: [], upcomingItems: [] };
+    }
+
+    const endOfUpcoming = new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000); // Today + 8 days to include the 7th day
 
     const todayItems: PendingWorkItem[] = [];
     const upcomingItems: PendingWorkItem[] = [];
@@ -172,16 +179,16 @@ const DashboardContent: React.FC = () => {
         processedFilteredProjects.forEach(p => {
             if (p['Responsible By'] !== currentUser?.Name) return;
 
-            if (p.Status === 'Quote Submitted' && p.calculatedDueDate) {
-                const dueDate = new Date(p.calculatedDueDate);
-                dueDate.setHours(0, 0, 0, 0);
-                
+            // Use the calculatedDueDate directly. It's already a Date object at midnight UTC+7.
+            const dueDate = p.calculatedDueDate;
+            if (p.Status === 'Quote Submitted' && dueDate) {
+                // Compare timestamps directly. No need to modify the date objects.
                 if (dueDate.getTime() === today.getTime()) {
                     todayItems.push({
                         id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
                         date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
                     });
-                } else if (dueDate > today && dueDate < endOfUpcoming) {
+                } else if (dueDate.getTime() > today.getTime() && dueDate.getTime() < endOfUpcoming.getTime()) {
                     upcomingItems.push({
                         id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
                         date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
@@ -196,15 +203,15 @@ const DashboardContent: React.FC = () => {
             if (m['Responsible By'] !== currentUser?.Name) return;
 
             if ((m.Status === 'Open' || m.Status === 'Pending') && m['Meeting ID']) {
+                // parseDate returns a Date object at midnight UTC+7. Use it directly.
                 const meetingDate = parseDate(m['Meeting Date']);
                 if (meetingDate) {
-                    meetingDate.setHours(0, 0, 0, 0);
                     if (meetingDate.getTime() === today.getTime()) {
                         todayItems.push({
                             id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
                             date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
                         });
-                    } else if (meetingDate > today && meetingDate < endOfUpcoming) {
+                    } else if (meetingDate.getTime() > today.getTime() && meetingDate.getTime() < endOfUpcoming.getTime()) {
                          upcomingItems.push({
                             id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
                             date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
@@ -272,7 +279,9 @@ const DashboardContent: React.FC = () => {
 
     const getQuarter = (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`;
 
-    const aggregation = wonProjects.reduce((acc, project) => {
+    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
+    // @ts-ignore
+    const aggregation = wonProjects.reduce((acc: { [key: string]: { winValue: number; projectCount: number } }, project) => {
       const bidValue = parseSheetValue(project['Bid Value']);
       const dateStr = project['Inv Date'];
       
@@ -295,15 +304,19 @@ const DashboardContent: React.FC = () => {
           }
 
           if (key) {
-            acc[key] = (acc[key] || 0) + bidValue;
+            if (!acc[key]) {
+              acc[key] = { winValue: 0, projectCount: 0 };
+            }
+            acc[key].winValue += bidValue;
+            acc[key].projectCount += 1;
           }
         }
       }
       return acc;
-    }, {} as { [key: string]: number });
+    }, {});
 
     const chartData = Object.entries(aggregation)
-      .map(([key, winValue]) => {
+      .map(([key, { winValue, projectCount }]) => {
           let name = '';
           switch (revenuePeriod) {
             case 'monthly': {
@@ -321,7 +334,7 @@ const DashboardContent: React.FC = () => {
               name = key;
               break;
           }
-          return { name, winValue, sortKey: key };
+          return { name, winValue, projectCount, sortKey: key };
       })
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     
@@ -334,18 +347,24 @@ const DashboardContent: React.FC = () => {
 
     const wonProjects = baseData.filter(p => p.Status === 'Close (win)');
     
-    const customerValues = wonProjects.reduce((acc, project) => {
+    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
+    // @ts-ignore
+    const customerValues = wonProjects.reduce((acc: { [key: string]: { winValue: number, projectCount: number } }, project) => {
         const customer = project['Company Name'];
         const bidValue = parseSheetValue(project['Bid Value']);
         if (customer && bidValue > 0) {
-            acc[customer] = (acc[customer] || 0) + bidValue;
+            if (!acc[customer]) {
+                acc[customer] = { winValue: 0, projectCount: 0 };
+            }
+            acc[customer].winValue += bidValue;
+            acc[customer].projectCount += 1;
         }
         return acc;
-    }, {} as { [key: string]: number });
+    }, {});
 
     return Object.entries(customerValues)
-        .map(([name, winValue]) => ({ name, winValue }))
-        .sort((a: { name: string; winValue: number }, b: { name: string; winValue: number }) => b.winValue - a.winValue)
+        .map(([name, { winValue, projectCount }]) => ({ name, winValue, projectCount }))
+        .sort((a, b) => b.winValue - a.winValue)
         .slice(0, 10);
   }, [projects, filteredProjects, filters.companyName]);
 
@@ -353,17 +372,23 @@ const DashboardContent: React.FC = () => {
     const baseData = filters.brand1?.length ? filteredProjects : projects;
     if (!baseData) return [];
 
-    const brandCounts = baseData.reduce((acc, project) => {
+    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
+    // @ts-ignore
+    const brandCounts = baseData.reduce((acc: { [key: string]: { count: number; totalValue: number } }, project) => {
         const brand = project['Brand 1'];
         if (brand && brand.trim() !== '' && brand.trim() !== 'N/A') {
-            acc[brand] = (acc[brand] || 0) + 1;
+            if (!acc[brand]) {
+                acc[brand] = { count: 0, totalValue: 0 };
+            }
+            acc[brand].count += 1;
+            acc[brand].totalValue += parseSheetValue(project['Bid Value']);
         }
         return acc;
-    }, {} as { [key: string]: number });
+    }, {});
 
     return Object.entries(brandCounts)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a: { name: string; count: number }, b: { name: string; count: number }) => b.count - a.count);
+        .map(([name, { count, totalValue }]) => ({ name, count, totalValue }))
+        .sort((a, b) => b.count - a.count);
   }, [projects, filteredProjects, filters.brand1]);
 
 

@@ -31,6 +31,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
   const [isResizing, setIsResizing] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
+  const titleId = `resizable-modal-title-${React.useId()}`;
   const resizeStartRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
 
   useEffect(() => {
@@ -42,6 +43,49 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
       setIsShowing(false);
     }
   }, [isOpen, initialWidth, initialHeight]);
+  
+  // Focus trap
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select'
+      );
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const triggerElement = document.activeElement as HTMLElement;
+
+      const handleTabKey = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+      };
+
+      const handleEscapeKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      };
+
+      firstElement?.focus();
+
+      document.addEventListener('keydown', handleTabKey);
+      document.addEventListener('keydown', handleEscapeKey);
+
+      return () => {
+        document.removeEventListener('keydown', handleTabKey);
+        document.removeEventListener('keydown', handleEscapeKey);
+        triggerElement?.focus();
+      };
+    }
+  }, [isOpen, onClose]);
   
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -99,10 +143,10 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
         ref={modalRef}
         style={{ width: `${size.width}px`, height: `${size.height}px` }}
         className={`relative bg-white rounded-xl shadow-xl flex flex-col transform transition-all duration-300 ease-in-out ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isResizing ? 'transition-none' : ''}`}
-        onClick={(e) => e.stopPropagation()}
+        aria-labelledby={titleId}
       >
         <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm p-6 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-xl">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{title}</h2>
+          <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors" aria-label="Close form">
             <CloseIcon />
           </button>

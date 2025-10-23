@@ -66,9 +66,9 @@ const WorkItem: React.FC<{ item: PendingWorkItem }> = ({ item }) => {
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-brand-600 transition-colors">{item.title}</p>
-                    <p className="text-sm text-gray-500 truncate">{item.subtitle}</p>
+                    <p className="text-sm text-slate-600 truncate">{item.subtitle}</p>
                 </div>
-                <div className="text-xs text-right text-gray-500 font-medium whitespace-nowrap">
+                <div className="text-xs text-right text-slate-600 font-medium whitespace-nowrap">
                     {timeDisplay(item)}
                 </div>
             </button>
@@ -101,7 +101,7 @@ const PendingWorks: React.FC<{ todayItems: PendingWorkItem[], upcomingItems: Pen
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <p className="mt-4 text-base font-semibold text-slate-800">All caught up!</p>
-                        <p className="mt-1 text-sm text-slate-500">No pending items for this period.</p>
+                        <p className="mt-1 text-sm text-slate-600">No pending items for this period.</p>
                     </div>
                 )}
             </div>

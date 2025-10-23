@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useId } from 'react';
 import { PricelistItem } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
@@ -10,6 +10,7 @@ import NewPricelistItemModal from './NewPricelistItemModal';
 import GeminiPricelistInsights from './GeminiPricelistInsights';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import PricelistFilterBar from './PricelistFilterBar';
 
 const PriceCell: React.FC<{ value: string }> = ({ value }) => {
     const num = parseSheetValue(value);
@@ -83,7 +84,7 @@ const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit:
 
         <CardHeader className="pb-2">
             <div className="flex justify-between items-start gap-2">
-                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-slate-500">{item.Brand}</CardDescription>
+                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-slate-600">{item.Brand}</CardDescription>
                 <StatusBadge status={item.Status} />
             </div>
             <CardTitle className="pt-0.5 group-hover:text-primary transition-colors text-lg leading-tight font-bold break-words">
@@ -91,7 +92,7 @@ const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit:
             </CardTitle>
         </CardHeader>
 
-        <CardContent className="flex-grow text-xs text-slate-500">
+        <CardContent className="flex-grow text-xs text-slate-600">
             <p>{item['Item Description']}</p>
         </CardContent>
 
@@ -119,6 +120,7 @@ const CategorySection: React.FC<{
     onDeleteItem: (item: PricelistItem) => void;
 }> = ({ category, items, onViewItem, onEditItem, onDeleteItem }) => {
     const [isOpen, setIsOpen] = useState(true);
+    const contentId = useId();
 
     return (
         <Card className="overflow-hidden transition-shadow hover:shadow-md">
@@ -126,6 +128,7 @@ const CategorySection: React.FC<{
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={isOpen}
+                aria-controls={contentId}
             >
                 <div className="flex items-center gap-3">
                     <h3 className="font-semibold text-lg text-slate-800">{category}</h3>
@@ -133,7 +136,7 @@ const CategorySection: React.FC<{
                 </div>
                 <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
-            <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+            <div id={contentId} className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
                     <div className="border-t border-slate-200">
                         <ul className="divide-y divide-slate-100">
@@ -183,8 +186,8 @@ const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
     const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
     const [searchQuery, setSearchQuery] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('All Categories');
-    const [brandFilter, setBrandFilter] = useState('All Brands');
+    const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+    const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [renderStep, setRenderStep] = useState(0);
 
@@ -213,18 +216,18 @@ const PricelistDashboard: React.FC = () => {
             if (item.Brand) brands.add(item.Brand);
         });
         return {
-            categories: ['All Categories', ...Array.from(categories).sort()],
-            brands: ['All Brands', ...Array.from(brands).sort()],
+            categories: [...Array.from(categories).sort()],
+            brands: [...Array.from(brands).sort()],
         };
     }, [pricelist]);
 
     const filteredData = useMemo(() => {
         let data = pricelist || [];
-        if (categoryFilter !== 'All Categories') {
-            data = data.filter(item => item.Category === categoryFilter);
+        if (categoryFilter.length > 0) {
+            data = data.filter(item => item.Category && categoryFilter.includes(item.Category));
         }
-        if (brandFilter !== 'All Brands') {
-            data = data.filter(item => item.Brand === brandFilter);
+        if (brandFilter.length > 0) {
+            data = data.filter(item => item.Brand && brandFilter.includes(item.Brand));
         }
         if (searchQuery) {
             const lowerQuery = searchQuery.toLowerCase();
@@ -296,7 +299,7 @@ const PricelistDashboard: React.FC = () => {
                 );
             case 'grid':
                 return (
-                    <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    <div className="px-4 sm:px-6 pb-4 sm:pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                         {filteredData.map(item => (
                             <PricelistCard 
                                 key={item['Item Code']} 
@@ -310,7 +313,7 @@ const PricelistDashboard: React.FC = () => {
                 );
             case 'category':
                  return (
-                    <div className="p-4 sm:p-6 space-y-4">
+                    <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
                         {Object.entries(groupedByCategory)
                             .sort(([catA], [catB]) => catA.localeCompare(catB))
                             .map(([category, items]) => (
@@ -331,7 +334,7 @@ const PricelistDashboard: React.FC = () => {
     return (
         <div className="h-full flex flex-col">
             <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-                <p className="text-base text-slate-500">
+                <p className="text-base text-slate-600">
                     <span className="font-bold text-slate-800">{filteredData.length}</span> items found
                 </p>
                 <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
@@ -347,12 +350,6 @@ const PricelistDashboard: React.FC = () => {
                         />
                         <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
-                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
-                        {filterOptions.categories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
-                        {filterOptions.brands.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
                     <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                     <button
                         onClick={handleNewItem}
@@ -365,11 +362,19 @@ const PricelistDashboard: React.FC = () => {
             </div>
 
             <div className={`flex-1 overflow-auto bg-slate-50 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'}`}>
-                {!loading && pricelist && (
-                    <div className="p-4 sm:p-6">
+                <div className="p-4 sm:p-6 space-y-4">
+                    {!loading && pricelist && (
                         <GeminiPricelistInsights items={filteredData} />
-                    </div>
-                )}
+                    )}
+                    <PricelistFilterBar
+                        categories={filterOptions.categories}
+                        brands={filterOptions.brands}
+                        categoryFilter={categoryFilter}
+                        brandFilter={brandFilter}
+                        onCategoryChange={setCategoryFilter}
+                        onBrandChange={setBrandFilter}
+                    />
+                </div>
                 {renderContent()}
             </div>
             

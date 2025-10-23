@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { ProjectStatusData } from '../types';
@@ -28,6 +28,7 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
   const chartRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { filters, setFilter } = useFilter();
+  const titleId = useId();
 
   const handleResize = useDebouncedCallback(() => {
     const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -76,14 +77,43 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
                 </div>`;
       }
     },
+    legend: {
+      show: isMobile,
+      type: 'scroll',
+      orient: 'horizontal',
+      bottom: 10,
+      textStyle: {
+        fontSize: 10,
+      }
+    },
+    toolbox: {
+        show: true,
+        orient: 'vertical',
+        left: 'right',
+        top: 'center',
+        feature: {
+          mark: { show: true },
+          dataView: { show: true, readOnly: false, title: "Data View" },
+          restore: { show: true, title: "Restore" },
+          saveAsImage: { show: true, title: "Save Image" }
+        }
+    },
+    title: {
+      text: totalProjects.toString(),
+      subtext: 'Pipelines',
+      left: 'center',
+      top: isMobile ? '35%' : 'center',
+      textStyle: { fontSize: isMobile ? 24 : 32, fontWeight: 'bold' },
+      subtextStyle: { fontSize: isMobile ? 12: 14, color: '#6b7280' }
+    },
     color: data.map(d => getStatusColor(d.name)),
     series: [
       {
         name: 'Pipeline Status',
         type: 'pie',
         cursor: 'pointer',
-        radius: [isMobile ? 10 : 20, isMobile ? 80 : 110],
-        center: ['50%', '50%'],
+        radius: [isMobile ? '30%' : '45%', isMobile ? '55%' : '70%'],
+        center: [isMobile ? '50%' : '50%', isMobile ? '40%' : '50%'],
         roseType: 'radius',
         itemStyle: {
             borderRadius: 5
@@ -111,14 +141,14 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
 
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
-      <h2 className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Status</h2>
-      <p className="text-sm text-gray-500 mb-4 flex-shrink-0">A summary of all pipelines by their current status.</p>
+      <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Status</h2>
+      <p className="text-sm text-slate-600 mb-4 flex-shrink-0">A summary of all pipelines by their current status.</p>
       {data && data.length > 0 ? (
-        <div className="w-full h-full flex-grow min-h-0">
+        <div className="w-full h-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
             <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial"/>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center flex-grow text-gray-500">
+        <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
             <PieChart className="w-12 h-12 text-gray-300" />
             <p className="mt-4 text-sm font-medium">No project outcome data to display.</p>
         </div>

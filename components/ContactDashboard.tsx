@@ -48,12 +48,12 @@ const ContactCard: React.FC<{
       >
         <div className="min-w-0 flex-grow">
           <p className="font-semibold text-slate-900 truncate">{contact.Name}</p>
-          <p className="text-sm text-slate-500 truncate mt-0.5">{contact.Role || 'No role specified'}</p>
+          <p className="text-sm text-slate-600 truncate mt-0.5">{contact.Role || 'No role specified'}</p>
           <p className="text-sm text-brand-600 font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
         </div>
          {contact.totalAmount > 0 && (
           <div className="mt-3 pt-3 border-t border-slate-100">
-              <p className="text-xs text-slate-500 font-medium">Won Pipeline Value</p>
+              <p className="text-xs text-slate-600 font-medium">Won Pipeline Value</p>
               <p className="text-base font-semibold text-slate-800">
                 {contact.totalAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </p>
@@ -219,7 +219,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div className="flex items-center">
                 <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
-                <span className="ml-2 text-sm text-gray-500">contacts</span>
+                <span className="ml-2 text-sm text-slate-600">contacts</span>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
                 <div className="relative flex-grow sm:w-64">

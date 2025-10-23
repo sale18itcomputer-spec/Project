@@ -212,7 +212,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                     <div className="flex justify-between items-start">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">{selectedCompany['Company Name']}</h1>
-                        <p className="text-slate-500 mt-1">{selectedCompany.Field}</p>
+                        <p className="text-slate-600 mt-1">{selectedCompany.Field}</p>
                     </div>
                     <button 
                         onClick={() => setModalConfig({ company: selectedCompany, isReadOnly: false, isOpen: true })}
@@ -260,7 +260,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                                 <div className="flex items-center justify-between">
                                 <div>
                                     <p className="font-semibold text-slate-800 group-hover:text-brand-600">{contact.Name}</p>
-                                    <p className="text-sm text-slate-500">{contact.Role}</p>
+                                    <p className="text-sm text-slate-600">{contact.Role}</p>
                                 </div>
                                 <p className="text-sm text-slate-600">{contact['Tel (1)']}</p>
                                 </div>
@@ -268,7 +268,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                             </li>
                         ))}
                         </ul>
-                    ) : <p className="text-sm text-slate-500">No contacts found for this company.</p>}
+                    ) : <p className="text-sm text-slate-600">No contacts found for this company.</p>}
                 </div>
 
                 {/* Related Pipelines */}
@@ -282,7 +282,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                                 <div className="flex items-center justify-between">
                                     <div>
                                     <p className="font-semibold text-slate-800 group-hover:text-brand-600">{project.Require}</p>
-                                    <p className="text-sm text-slate-500">{project['Pipeline No.']}</p>
+                                    <p className="text-sm text-slate-600">{project['Pipeline No.']}</p>
                                     </div>
                                     <p className="text-sm font-semibold text-slate-600">{parseSheetValue(project['Bid Value']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
                                 </div>
@@ -290,7 +290,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                             </li>
                         ))}
                         </ul>
-                    ) : <p className="text-sm text-slate-500">No pipelines found for this company.</p>}
+                    ) : <p className="text-sm text-slate-600">No pipelines found for this company.</p>}
                 </div>
             </div>
             ) : (
@@ -311,7 +311,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div className="flex items-center">
                 <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
-                <span className="ml-2 text-sm text-gray-500">companies</span>
+                <span className="ml-2 text-sm text-slate-600">companies</span>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
                 <div className="relative flex-grow sm:w-64">

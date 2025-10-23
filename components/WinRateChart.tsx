@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { Target } from 'lucide-react';
@@ -15,10 +15,9 @@ interface WinRateChartProps {
 }
 
 const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
-  const { width } = useWindowSize();
-  const isMobile = width ? width < 768 : false;
   const chartRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   const handleResize = useDebouncedCallback(() => {
     const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -36,85 +35,77 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
 
   const option = {
     series: [
-      {
+      { // Background track
         type: 'gauge',
-        center: ['50%', isMobile ? '70%' : '60%'],
-        radius: '100%',
+        center: ['50%', '60%'],
+        radius: '90%',
+        startAngle: 180,
+        endAngle: 0,
+        min: 0,
+        max: 100,
+        splitLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { show: false },
+        pointer: { show: false },
+        axisLine: {
+          lineStyle: {
+            width: 18,
+            color: [[1, '#f1f5f9']], // slate-100
+            roundCap: true,
+          }
+        },
+        detail: { show: false },
+      },
+      { // Main progress gauge
+        type: 'gauge',
+        center: ['50%', '60%'],
+        radius: '90%',
         startAngle: 180,
         endAngle: 0,
         min: 0,
         max: 100,
         axisLine: {
           lineStyle: {
-            width: isMobile ? 14 : 18,
+            width: 18,
             color: [
-              [0.25, '#f43f5e'], // Red for 0-25%
-              [0.5, '#f59e0b'], // Amber for 25-50%
-              [1, '#10b981']   // Emerald for 50-100%
-            ]
+              [0.4, '#f43f5e'], // rose-500
+              [0.6, '#f59e0b'], // amber-500
+              [1, '#10b981']   // emerald-500
+            ],
           }
         },
-        pointer: {
+        progress: {
+          show: true,
+          roundCap: true,
+          width: 18,
           itemStyle: {
-            color: 'auto'
-          },
-          length: '75%',
-          width: 6,
-        },
-        axisTick: {
-          distance: -25,
-          length: 6,
-          lineStyle: {
-            color: '#fff',
-            width: 1
+            color: 'auto',
+            shadowColor: 'rgba(0, 0, 0, 0.25)',
+            shadowBlur: 10,
+            shadowOffsetY: 4
           }
         },
-        splitLine: {
-          distance: -25,
-          length: 12,
-          lineStyle: {
-            color: '#fff',
-            width: 2
-          }
-        },
-        axisLabel: {
-          color: '#6b7280',
-          distance: isMobile ? 10 : 25,
-          fontSize: 10,
-          formatter: function (value: number) {
-            if ([0, 25, 50, 75, 100].includes(value)) {
-              return value + '%';
-            }
-            return '';
-          }
-        },
-        anchor: {
-            show: true,
-            showAbove: true,
-            size: 16,
-            itemStyle: {
-                borderColor: '#fff',
-                borderWidth: 4,
-                shadowBlur: 10,
-                shadowColor: 'rgba(0,0,0,0.2)'
-            }
-        },
+        pointer: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        anchor: { show: false },
         data: [{
           value: winRate,
           name: `${won} won of ${total}`,
           title: {
-            offsetCenter: ['0%', isMobile ? '20%' : '35%'],
-            fontSize: isMobile ? 12 : 16,
+            offsetCenter: ['0%', '35%'],
+            fontSize: 16,
             fontWeight: 500,
-            color: '#6b7280'
+            color: '#64748b' // slate-500
           },
           detail: {
             valueAnimation: true,
             formatter: (value: number) => `${value.toFixed(1)}%`,
-            fontSize: isMobile ? 32 : 40,
+            fontSize: 40,
             fontWeight: '700',
             color: 'auto',
-            offsetCenter: ['0%', isMobile ? '-5%' : '10%']
+            offsetCenter: ['0%', '10%']
           },
         }],
       }
@@ -122,21 +113,21 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
     tooltip: {
         formatter: (params: any) => {
             if (!params || params.value === undefined) return '';
-            return `Win Rate: <strong>${params.value.toFixed(1)}%</strong>`;
+            return `Win Rate: <strong>${params.value.toFixed(1)}%</strong><br/>(${won} won out of ${total} closed deals)`;
         }
     }
   };
   
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
-      <h2 className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Win Rate</h2>
-      <p className="text-sm text-gray-500 mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
+      <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Win Rate</h2>
+      <p className="text-sm text-slate-600 mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
       {total > 0 ? (
-        <div className="h-full w-full flex-grow min-h-0 -mt-4">
+        <div className="h-full w-full flex-grow min-h-0 -mt-8" role="figure" aria-labelledby={titleId}>
           <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center flex-grow text-gray-500">
+        <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
           <Target className="w-12 h-12 text-gray-300" />
           <p className="mt-4 text-sm font-medium">No win/loss data to display.</p>
         </div>

@@ -11,6 +11,7 @@ import { Toaster } from './components/ui/sonner';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import BrandedLoader from './components/DashboardSkeleton';
 import ContentSkeleton from './components/ContentSkeleton';
+import Footer from './components/Footer';
 
 // Lazy load components for code splitting and faster initial loads
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -187,6 +188,7 @@ const AuthenticatedLayout: React.FC = () => {
             </div>
           </Suspense>
         </main>
+        <Footer />
       </div>
     </div>
   );

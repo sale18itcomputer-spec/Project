@@ -25,10 +25,11 @@ const NavItem: React.FC<{
   const inactiveClasses = 'text-muted-foreground hover:bg-accent hover:text-accent-foreground';
 
   return (
-    <li title={isCollapsed ? label : undefined}>
+    <li>
       <button
         onClick={onClick}
         className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${isCollapsed ? 'justify-center px-3' : 'px-3'}`}
+        aria-label={isCollapsed ? label : undefined}
       >
         <span className={`transition-colors ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-accent-foreground'}`}>{icon}</span>
         {!isCollapsed && <span className="ml-3 truncate">{label}</span>}
@@ -74,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <nav className="pt-6 space-y-6">
           <div>
-            {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</h3>}
+            {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Main</h3>}
             <ul className="mt-2 space-y-1">
               <NavItem
                 icon={<LayoutDashboard size={20} />}
@@ -100,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
             </ul>
           </div>
            <div>
-            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Documents</h3>}
+            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Sales Documents</h3>}
             <ul className="mt-2 space-y-1">
               <NavItem
                 icon={<FileText size={20} />}
@@ -119,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
             </ul>
           </div>
           <div>
-            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Products</h3>}
+            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Products</h3>}
             <ul className="mt-2 space-y-1">
                 <NavItem
                 icon={<Tags size={20} />}
@@ -131,7 +132,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
             </ul>
           </div>
           <div>
-            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Logs</h3>}
+            {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Logs</h3>}
             <ul className="mt-2 space-y-1">
               <NavItem
                 icon={<Filter size={20} />}

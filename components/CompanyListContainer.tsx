@@ -48,7 +48,7 @@ const CompanyListContainer: React.FC<CompanyListContainerProps> = ({ companies, 
                       }`}>
                         {company['Company Name']}
                       </h3>
-                      <p className="text-sm text-slate-500 truncate mt-0.5">{company.Field || 'No industry specified'}</p>
+                      <p className="text-sm text-slate-600 truncate mt-0.5">{company.Field || 'No industry specified'}</p>
                     </button>
                   </li>
                 ))}

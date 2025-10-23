@@ -1,31 +1,27 @@
 import { EChartsOption } from 'echarts';
 
-// Using the brand colors from the Tailwind config
+// A modern, sleek theme with a teal and amber palette
 const colors = {
-  primary: '#004aad', // brand-600
-  secondary: '#60a5fa', // brand-300
-  accent: '#93c5fd', // brand-200
-  light: '#dbeafe', // brand-50
-  text: '#1f2937', // gray-800
-  textSecondary: '#6b7280', // gray-500
-  axisLine: '#d1d5db', // gray-300
-  splitLine: '#e5e7eb', // gray-200
+  primary: '#0d9488',    // teal-600
+  secondary: '#f59e0b',  // amber-500
+  accent: '#6366f1',     // indigo-500
+  text: '#1e293b',       // slate-800
+  textSecondary: '#64748b', // slate-500
+  axisLine: '#cbd5e1',     // slate-300
+  splitLine: '#f1f5f9',    // slate-100
   bg: '#ffffff',
-  tooltipBg: 'rgba(255, 255, 255, 0.95)',
+  tooltipBg: 'rgba(255, 255, 255, 0.98)',
+  shadow: 'rgba(0, 0, 0, 0.08)'
 };
 
 export const limperialTheme: EChartsOption = {
   color: [
     colors.primary,
-    '#5470c6',
-    '#91cc75',
-    '#fac858',
-    '#ee6666',
-    '#73c0de',
-    '#3ba272',
-    '#fc8452',
-    '#9a60b4',
-    '#ea7ccc',
+    colors.secondary,
+    colors.accent,
+    '#ec4899', // pink-500
+    '#84cc16', // lime-500
+    '#3b82f6', // blue-500
   ],
   backgroundColor: colors.bg,
   textStyle: {
@@ -43,38 +39,63 @@ export const limperialTheme: EChartsOption = {
   },
   line: {
     itemStyle: {
-      borderWidth: 1,
+      borderWidth: 2,
     },
     lineStyle: {
-      width: 2,
+      width: 3,
+      shadowColor: colors.shadow,
+      shadowBlur: 8,
+      shadowOffsetY: 4
     },
-    symbolSize: 4,
+    symbolSize: 8,
     symbol: 'circle',
     smooth: true,
   },
   bar: {
     itemStyle: {
-        borderRadius: [4, 4, 0, 0]
-    }
+        borderRadius: [6, 6, 0, 0]
+    },
+    barMaxWidth: 40
   },
   pie: {
     itemStyle: {
-      borderWidth: 0,
+      borderRadius: 8,
+      borderColor: colors.bg,
+      borderWidth: 2,
+      shadowColor: colors.shadow,
+      shadowBlur: 10,
     },
+    label: {
+        color: colors.textSecondary
+    }
   },
   gauge: {
     axisLine: {
         lineStyle: {
-            width: 18,
-            color: [[1, '#f3f4f6']]
+            width: 20,
+            color: [
+                [1, colors.splitLine]
+            ]
         }
     },
     progress: {
+        show: true,
+        roundCap: true,
+        width: 20,
         itemStyle: {
             shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.1)'
+            shadowColor: colors.shadow
         }
-    }
+    },
+    pointer: {
+        show: false
+    },
+    detail: {
+        valueAnimation: true,
+        fontSize: 40,
+        fontWeight: 'bold',
+        offsetCenter: [0, '0%']
+    },
   },
   tooltip: {
     trigger: 'axis',
@@ -83,7 +104,7 @@ export const limperialTheme: EChartsOption = {
     borderWidth: 1,
     textStyle: {
       color: colors.text,
-      fontSize: 12,
+      fontSize: 13,
     },
     axisPointer: {
       type: 'cross',
@@ -101,7 +122,7 @@ export const limperialTheme: EChartsOption = {
         color: 'rgba(200,200,200,0.2)'
       }
     },
-    extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px; padding: 10px;',
+    extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); border-radius: 8px; padding: 12px; backdrop-filter: blur(4px);',
   },
   xAxis: {
     axisLine: {
@@ -116,6 +137,7 @@ export const limperialTheme: EChartsOption = {
     axisLabel: {
       color: colors.textSecondary,
       fontSize: 12,
+      margin: 12,
     },
     splitLine: {
       show: false,
@@ -131,6 +153,7 @@ export const limperialTheme: EChartsOption = {
     axisLabel: {
       color: colors.textSecondary,
       fontSize: 12,
+      margin: 12,
     },
     splitLine: {
       show: true,
@@ -143,15 +166,19 @@ export const limperialTheme: EChartsOption = {
   dataZoom: {
     handleStyle: {
         borderColor: colors.primary,
+        color: colors.bg
     },
     dataBackground: {
-        areaStyle: { color: colors.accent },
-        lineStyle: { opacity: 0.8, color: colors.secondary }
+        areaStyle: { color: colors.splitLine },
+        lineStyle: { opacity: 0.8, color: colors.axisLine }
     },
     selectedDataBackground: {
-        areaStyle: { color: colors.secondary },
+        areaStyle: { color: colors.primary, opacity: 0.2 },
         lineStyle: { color: colors.primary }
     },
+    textStyle: {
+        color: colors.textSecondary
+    }
   },
   legend: {
     textStyle: {
