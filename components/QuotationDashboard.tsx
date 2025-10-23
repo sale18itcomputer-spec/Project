@@ -56,6 +56,11 @@ const QuotationDashboard: React.FC = () => {
     setViewedQuotation(quotation);
   };
 
+  const handleCreateSaleOrder = (quotation: Quotation) => {
+    setViewedQuotation(null); // Close the detail modal
+    handleNavigation({ view: 'sale-orders', payload: quotation });
+  };
+
   const handleBackToDashboard = () => {
     setIsCreating(false);
     setSelectedQuotation(null);
@@ -226,6 +231,7 @@ const QuotationDashboard: React.FC = () => {
         quotation={viewedQuotation}
         onClose={() => setViewedQuotation(null)}
         onEditRequest={handleEditQuotation}
+        onCreateSaleOrder={handleCreateSaleOrder}
       />
     </div>
   );

@@ -287,11 +287,11 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
     sheet.getRange('C7').setValue(data['Company Name'] || '');
     try { sheet.getRange('C8:C10').breakApart(); } catch(e) { /* ignore if not merged */ }
     sheet.getRange('C8:C9').merge().setValue(data['Company Address'] || '').setVerticalAlignment('top');
-    sheet.getRange('C10').setValue(data['Contact Name'] || '');
-    sheet.getRange('C11').setValue(data['Contact Number'] || '');
+    sheet.getRange('C10').setValue(data['Contact Person'] || data['Contact Name'] || '');
+    sheet.getRange('C11').setValue(data['Contact Tel'] || data['Contact Number'] || '');
     sheet.getRange('C12').setValue(data['Contact Email'] || '');
 
-    sheet.getRange('F7').setValue(data['Quote No.'] || '');
+    sheet.getRange('F7').setValue(data['Quotation ID'] || '');
     try {
       var quoteDate = new Date(data['Quote Date']);
       sheet.getRange('F8').setValue(quoteDate).setNumberFormat("mmmm dd, yyyy");
@@ -303,46 +303,99 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
     sheet.getRange('F11').setValue(data['Stock Status'] || '');
     sheet.getRange('F12').setValue(data['Payment Term'] || '');
     
-    const items = JSON.parse(data.ItemsJSON || '[]');
-    const itemStartRow = 14; 
-    const templateItemRowCount = 10;
-    const requiredRows = items.length;
+    // --- NEW ITEM HANDLING LOGIC ---
+    const itemsFromJSON = JSON.parse(data.ItemsJSON || '[]');
+    const sheetItems = [];
+    var currentItemNumber = 1;
 
-    if (requiredRows > templateItemRowCount) {
-      const numToInsert = requiredRows - templateItemRowCount;
-      sheet.insertRowsAfter(itemStartRow + templateItemRowCount - 1, numToInsert);
-    }
+    itemsFromJSON.forEach(function(item) {
+      // Only process items that have some identifying information.
+      if ((item.modelName && item.modelName.trim() !== '') || (item.itemCode && item.itemCode.trim() !== '')) {
+        
+        let modelName = (item.modelName || '').trim();
+        let fullDescription = modelName;
+        
+        // Check for additional specs and format them.
+        if (item.description && item.description.trim() !== '') {
+          var descriptionLines = item.description.split('\n');
+          var formattedSpecs = descriptionLines
+            .filter(function(line) { return line.trim() !== ''; })
+            .map(function(line) { return "  - " + line.trim(); }) // Indent specs
+            .join('\n');
+          
+          if (formattedSpecs) {
+            fullDescription += '\n' + formattedSpecs;
+          }
+        }
 
+        sheetItems.push({
+          no: currentItemNumber++,
+          itemCode: item.itemCode || '',
+          description: fullDescription,
+          modelName: modelName, // Keep original model name for styling length
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+        });
+      }
+    });
+
+    const itemStartRow = 14;
+    const templateItemRowCount = 10; // Number of item rows in the template
+    const requiredRows = sheetItems.length;
+
+    // Clear existing template item rows
     if (templateItemRowCount > 0) {
       sheet.getRange(itemStartRow, 1, templateItemRowCount, sheet.getLastColumn()).clearContent();
     }
-
+    
+    // Add more rows if needed
+    if (requiredRows > templateItemRowCount) {
+      sheet.insertRowsAfter(itemStartRow + templateItemRowCount - 1, requiredRows - templateItemRowCount);
+    }
+    
     if (requiredRows > 0) {
-      const formatSourceRange = sheet.getRange(itemStartRow, 1, 1, sheet.getLastColumn());
+      // Copy formatting from the template's first item row to all new rows
+      const formatSourceRange = templateSheet.getRange(itemStartRow, 1, 1, sheet.getLastColumn());
       const formatTargetRange = sheet.getRange(itemStartRow, 1, requiredRows, sheet.getLastColumn());
       formatSourceRange.copyTo(formatTargetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
       
-      const itemValues = items.map(function(item) {
-          return [item.no, item.itemCode, item.description, "", item.qty, item.unitPrice, ""];
-      });
-      sheet.getRange(itemStartRow, 1, requiredRows, 7).setValues(itemValues);
-      
+      // Loop through each item to set values and apply rich text formatting
       for (var i = 0; i < requiredRows; i++) {
-          var item = items[i];
-          var currentRow = itemStartRow + i;
-          sheet.getRange(currentRow, 3, 1, 2).merge();
+        var item = sheetItems[i];
+        var currentRow = itemStartRow + i;
+        
+        // Set values for standard cells
+        sheet.getRange(currentRow, 1).setValue(item.no);
+        sheet.getRange(currentRow, 2).setValue(item.itemCode);
+        sheet.getRange(currentRow, 5).setValue(item.qty).setNumberFormat('#,##0');
+        sheet.getRange(currentRow, 6).setValue(item.unitPrice).setNumberFormat('$#,##0.00');
+        sheet.getRange(currentRow, 7).setFormula("=E" + currentRow + "*F" + currentRow).setNumberFormat('$#,##0.00');
+        
+        // Merge description cell
+        const descriptionCell = sheet.getRange(currentRow, 3);
+        sheet.getRange(currentRow, 3, 1, 2).merge();
 
-          if (item.no && typeof item.no === 'number') { 
-              sheet.getRange(currentRow, 3).setFontWeight('bold');
-              sheet.getRange(currentRow, 7).setFormula("=E" + currentRow + "*F" + currentRow);
-              sheet.getRange(currentRow, 5).setNumberFormat('#,##0');
-              sheet.getRange(currentRow, 6, 1, 2).setNumberFormat('$#,##0.00');
-          } else { 
-              sheet.getRange(currentRow, 3).setFontStyle('italic').setFontSize(10).setWrap(true).setVerticalAlignment('top');
-          }
+        // Create and apply Rich Text for the description
+        const modelNameLength = (item.modelName || '').length;
+        const fullDescriptionText = item.description;
+
+        const boldStyle = SpreadsheetApp.newTextStyle().setBold(true).build();
+        const normalStyle = SpreadsheetApp.newTextStyle().setBold(false).setFontSize(10).build();
+
+        let richTextBuilder = SpreadsheetApp.newRichTextValue()
+          .setText(fullDescriptionText)
+          .setTextStyle(0, modelNameLength, boldStyle);
+
+        if (modelNameLength < fullDescriptionText.length) {
+          richTextBuilder.setTextStyle(modelNameLength, fullDescriptionText.length, normalStyle);
+        }
+        
+        const richText = richTextBuilder.build();
+        descriptionCell.setRichTextValue(richText).setWrap(true).setVerticalAlignment('top');
       }
     }
-
+    // --- END NEW ITEM HANDLING LOGIC ---
+    
     try {
       const amountColumn = 'G';
       const itemRangeFormula = requiredRows > 0 ? "=SUM(" + amountColumn + itemStartRow + ":" + amountColumn + (itemStartRow + requiredRows - 1) + ")" : "0";
@@ -442,8 +495,7 @@ function getSheetByGid(spreadsheet, gid) {
 function readDetailedSheetData(spreadsheet, sheetNameToRead) {
   let sheet = spreadsheet.getSheetByName(sheetNameToRead);
 
-  // If sheet is not found by name, and the name looks like a URL,
-  // try to find it by GID.
+  // If sheet is not found by name, and the name looks like a URL, try to find it by GID.
   if (!sheet && String(sheetNameToRead).includes('gid=')) {
     const gidMatch = String(sheetNameToRead).match(/gid=(\d+)/);
     if (gidMatch && gidMatch[1]) {
@@ -480,15 +532,14 @@ function readDetailedSheetData(spreadsheet, sheetNameToRead) {
   
   let endOfItemsRow = lastRow;
   try {
-    const textFinder = sheet.createTextFinder("Grand Total (USD)");
-    const grandTotalLabelCell = textFinder.findNext();
-    if (grandTotalLabelCell) {
-        endOfItemsRow = grandTotalLabelCell.getRow() - 1;
+    // Find the cell with "Sub Total (USD)" to determine where the item list ends.
+    const subTotalLabelCell = sheet.createTextFinder("Sub Total (USD)").findNext();
+    if (subTotalLabelCell) {
+        endOfItemsRow = subTotalLabelCell.getRow() - 1;
     }
   } catch(e) {
-    Logger.log("Could not find 'Grand Total (USD)' label to determine end of items. Reading until last row. Error: " + e.message);
+    Logger.log("Could not find 'Sub Total (USD)' label to determine end of items. Reading until last row. Error: " + e.message);
   }
-
 
   if (endOfItemsRow >= itemsStartRow) {
     const itemsRange = sheet.getRange(itemsStartRow, 1, endOfItemsRow - itemsStartRow + 1, 7);
@@ -496,26 +547,25 @@ function readDetailedSheetData(spreadsheet, sheetNameToRead) {
 
     for (var i = 0; i < itemDisplayValues.length; i++) {
       var displayRow = itemDisplayValues[i];
-      var noStr = displayRow[0]; 
+      var noStr = String(displayRow[0]).trim();
       
-      if (noStr !== '' && noStr !== null && !isNaN(parseInt(noStr, 10))) {
-        const modelName = displayRow[2];
-        let description = '';
-
-        if (i + 1 < itemDisplayValues.length) {
-          const nextRow = itemDisplayValues[i + 1];
-          const nextNoStr = nextRow[0];
-          if (nextNoStr === '' || isNaN(parseInt(nextNoStr, 10))) {
-            description = nextRow[2]; 
-            i++; 
-          }
-        }
+      // Check if it's a main item row (the 'No.' column is a valid number)
+      if (noStr !== '' && !isNaN(parseInt(noStr, 10))) {
         
+        var fullDescriptionText = String(displayRow[2]);
+        var descriptionLines = fullDescriptionText.split('\n');
+        
+        var modelName = descriptionLines[0] || '';
+        var additionalSpecs = descriptionLines.slice(1).map(function(line) {
+          // remove "  - " or "- " prefixes
+          return line.trim().replace(/^\s*-\s*/, '');
+        }).filter(Boolean).join('\n');
+
         items.push({
           no: parseInt(noStr, 10),
           itemCode: displayRow[1],
-          modelName: modelName,
-          description: description,
+          modelName: modelName.trim(),
+          description: additionalSpecs,
           qty: parseFloat(String(displayRow[4]).replace(/[^0-9.-]+/g,"")) || 0,
           unitPrice: parseFloat(String(displayRow[5]).replace(/[^0-9.-]+/g,"")) || 0,
           amount: parseFloat(String(displayRow[6]).replace(/[^0-9.-]+/g,"")) || 0,

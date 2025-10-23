@@ -41,7 +41,7 @@ const SOFTWARE_OPTIONS = ["Assembly", "Office User", "Design User", "Window 11",
 
 
 const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder }) => {
-    const { saleOrders, companies, contacts, quotations, refetchData } = useData();
+    const { saleOrders, companies, contacts, quotations, refetchData, pricelist } = useData();
     const { currentUser } = useAuth();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,17 +80,28 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 const { items: fetchedItems } = await readQuotationSheetData(quoteId);
                 if (fetchedItems && fetchedItems.length > 0) {
                     const newItems: LineItem[] = fetchedItems.map((item: any, index: number) => {
-                        const modelName = (item.modelName || '').trim();
-                        const itemDescription = (item.description || '').trim();
-                        const descriptionParts = [];
-                        if (modelName) descriptionParts.push(modelName);
-                        if (itemDescription) descriptionParts.push(itemDescription);
+                        let description = '';
+                        // Find the corresponding item in the main pricelist using the itemCode.
+                        const pricelistEntry = pricelist?.find(p => p['Item Code'] === item.itemCode);
+
+                        if (pricelistEntry) {
+                            // If found, construct the description from the Model and Item Description.
+                            description = `${pricelistEntry.Model} ${pricelistEntry['Item Description']}`.trim();
+                        } else {
+                            // Fallback to the original logic if not found in the pricelist.
+                            const modelName = (item.modelName || '').trim();
+                            const itemDescription = (item.description || '').trim();
+                            const descriptionParts = [];
+                            if (modelName) descriptionParts.push(modelName);
+                            if (itemDescription) descriptionParts.push(itemDescription);
+                            description = descriptionParts.join('\n');
+                        }
 
                         return {
                             id: `item-${Date.now()}-${index}`,
                             no: item.no || index + 1,
                             itemCode: item.itemCode || '',
-                            description: descriptionParts.join('\n'),
+                            description: description,
                             qty: item.qty || 1,
                             unitPrice: item.unitPrice || 0,
                             commission: 0, // Default commission to 0
@@ -108,12 +119,19 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         };
         
         if (existingSaleOrder) {
-             setSaleOrder({
+             const baseData = {
                 ...existingSaleOrder,
                 'SO No.': existingSaleOrder['SO No.'] || nextSaleOrderNumber,
                 'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
                 'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
-            });
+             };
+             if (isFromQuote) {
+                 baseData.Status = 'Pending';
+                 baseData['Created By'] = currentUser?.Name || '';
+                 baseData['Bill Invoice'] = 'NON-VAT';
+             }
+             setSaleOrder(baseData);
+
 
             if (existingSaleOrder['Quote No.']) {
                 fetchQuoteItems(existingSaleOrder['Quote No.']);
@@ -130,7 +148,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Created By': currentUser?.Name || '',
             });
         }
-    }, [existingSaleOrder, nextSaleOrderNumber, currentUser]);
+    }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist]);
     
     useEffect(() => {
         if (existingSaleOrder && existingSaleOrder['Install Software']) {

@@ -6,13 +6,14 @@ import { useData } from '../contexts/DataContext';
 import { deleteRecord } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import { useToast } from '../contexts/ToastContext';
-import { X, Trash2, Pencil } from 'lucide-react';
+import { X, Trash2, Pencil, ShoppingCart } from 'lucide-react';
 import { parseSheetValue } from '../utils/formatters';
 
 interface QuotationDetailModalProps {
   quotation: Quotation | null;
   onClose: () => void;
   onEditRequest: (quotation: Quotation) => void;
+  onCreateSaleOrder: (quotation: Quotation) => void;
 }
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
@@ -27,7 +28,7 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
     );
 };
 
-const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({ quotation, onClose, onEditRequest }) => {
+const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({ quotation, onClose, onEditRequest, onCreateSaleOrder }) => {
   const { quotations, setQuotations } = useData();
   const { addToast } = useToast();
   const [isShowing, setIsShowing] = useState(false);
@@ -128,6 +129,12 @@ const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({ quotation, 
             </button>
             <div className="flex items-center gap-3">
                 <button onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                {quotation.Status === 'Close (Win)' && (
+                    <button onClick={() => onCreateSaleOrder(quotation)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                        <ShoppingCart className="w-5 h-5" />
+                        Create Sale Order
+                    </button>
+                )}
                 <button onClick={() => onEditRequest(quotation)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
                     <Pencil className="w-5 h-5" /> Edit
                 </button>

@@ -68,7 +68,7 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
         {/* Right Side: Quote Info */}
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
             <span className="font-semibold text-right">Quotation No:</span>
-            <span className="font-bold text-base">{headerData['Quotation ID'] || '{{Quotation ID}}'}</span>
+            <span className="font-bold text-base">{headerData['Quotation ID'] || headerData['Quote No.'] || '{{Quotation ID}}'}</span>
             
             <span className="font-semibold text-right">Quote Date:</span>
             <span>{headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric'}) : '{{Quote Date}}'}</span>

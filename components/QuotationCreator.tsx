@@ -1,16 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Quotation, Company, Contact } from '../types';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Quotation, Company, Contact, PricelistItem } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createRecord, updateRecord, createQuotationSheet, readQuotationSheetData } from '../services/api';
 import { formatToSheetDate, formatToInputDate } from '../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from './FormControls';
 import PrintableQuotation from './PrintableQuotation';
-// FIX: Replaced non-modular local icon import with an icon from the 'lucide-react' library.
 import { Trash2 } from 'lucide-react';
 import Spinner from './Spinner';
 import SuccessModal from './SuccessModal';
 import DocumentEditorContainer from './DocumentEditorContainer';
+import { parseSheetValue } from '../utils/formatters';
+import { ScrollArea } from './ui/scroll-area';
 
 interface QuotationCreatorProps {
     onBack: () => void;
@@ -40,7 +41,7 @@ const getTodayDateString = () => {
 const STATUS_OPTIONS: Quotation['Status'][] = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
 
 const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation }) => {
-    const { quotations, companies, contacts, refetchData } = useData();
+    const { quotations, companies, contacts, pricelist, refetchData } = useData();
     const { currentUser } = useAuth();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -209,6 +210,26 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         });
     };
 
+    const handlePricelistItemSelect = (lineItem: LineItem, pricelistItem: PricelistItem) => {
+        setItems(currentItems => {
+            const newItems = currentItems.map(item => {
+                if (item.id === lineItem.id) {
+                    const unitPrice = parseSheetValue(pricelistItem.SRP);
+                    return {
+                        ...item,
+                        itemCode: pricelistItem['Item Code'],
+                        modelName: pricelistItem.Model,
+                        description: pricelistItem['Detail Spec'],
+                        unitPrice: unitPrice,
+                        amount: item.qty * unitPrice,
+                    };
+                }
+                return item;
+            });
+            return newItems;
+        });
+    };
+
     const addItem = (afterId?: string) => {
         setItems(prev => {
             const newItem = { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 };
@@ -277,6 +298,17 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'Created By': quote['Created By'] || currentUser?.Name || '',
             };
             
+            const itemsForSheet = items.map(item => {
+                return {
+                    no: item.no || '',
+                    itemCode: item.itemCode,
+                    description: `${item.modelName}\n${item.description}`,
+                    qty: item.qty,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                };
+            }).filter(item => item.no); // Only include items with a number
+            
             // Data for individual quotation sheet template
             const sheetGenerationData = {
                 'Quotation ID': masterSheetData['Quote No.'],
@@ -284,12 +316,12 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'Validity Date': quote['Validity Date'],
                 'Company Name': quote['Company Name'],
                 'Company Address': quote['Company Address'],
-                'Contact Person': quote['Contact Name'],
-                'Contact Tel': quote['Contact Number'],
+                'Contact Name': quote['Contact Name'],
+                'Contact Number': quote['Contact Number'],
                 'Contact Email': quote['Contact Email'],
                 'Payment Term': quote['Payment Term'],
                 'Stock Status': quote['Stock Status'],
-                'ItemsJSON': JSON.stringify(items.map(i => ({...i, description: `${i.modelName}\n${i.description}`}))),
+                'ItemsJSON': JSON.stringify(items),
             };
 
             const { url } = await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData);
@@ -316,6 +348,104 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     }
     
     const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
+
+    const PricelistCombobox: React.FC<{
+        item: LineItem;
+        onItemChange: (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => void;
+        onPricelistItemSelect: (item: LineItem, pricelistItem: PricelistItem) => void;
+    }> = ({ item, onItemChange, onPricelistItemSelect }) => {
+        const { pricelist } = useData();
+        const [isOpen, setIsOpen] = useState(false);
+        const wrapperRef = useRef<HTMLDivElement>(null);
+
+        useEffect(() => {
+            function handleClickOutside(event: MouseEvent) {
+                if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                    setIsOpen(false);
+                }
+            }
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, [wrapperRef]);
+        
+        const filteredPricelist = useMemo(() => {
+            if (!pricelist || !isOpen) return [];
+            const query = item.itemCode?.toLowerCase() || '';
+            if (query === '') return pricelist.slice(0, 50);
+            return pricelist.filter(p => 
+                p['Item Code']?.toLowerCase().includes(query) ||
+                p.Model?.toLowerCase().includes(query) ||
+                p.Brand?.toLowerCase().includes(query)
+            ).slice(0, 50);
+        }, [pricelist, item.itemCode, isOpen]);
+        
+        const handleBlur = () => {
+            // Delay to allow dropdown item clicks to register first.
+            setTimeout(() => {
+                if (!document.body.contains(wrapperRef.current)) {
+                    return; // Component was unmounted
+                }
+                setIsOpen(false);
+                const exactMatch = pricelist?.find(p => p['Item Code']?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
+                
+                // Auto-fill if there is an exact match and the model name is empty
+                if (exactMatch && !item.modelName) {
+                    onPricelistItemSelect(item, exactMatch);
+                }
+            }, 200);
+        };
+    
+        return (
+            <div ref={wrapperRef} className="relative">
+                <input
+                    type="text"
+                    value={item.itemCode}
+                    onChange={e => {
+                        onItemChange(item.id, 'itemCode', e.target.value);
+                        if (!isOpen) setIsOpen(true);
+                    }}
+                    onFocus={() => setIsOpen(true)}
+                    onBlur={handleBlur}
+                    className={lineItemInputClasses}
+                    placeholder="Type to search..."
+                    autoComplete="off"
+                />
+                {isOpen && filteredPricelist.length > 0 && (
+                    <div className="absolute z-50 w-[450px] mt-1 bg-white rounded-md shadow-lg border border-slate-200">
+                        <ScrollArea className="max-h-72">
+                            <ul>
+                                {filteredPricelist.map(pItem => (
+                                    <li key={pItem['Item Code']}>
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                onPricelistItemSelect(item, pItem);
+                                                setIsOpen(false);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                                        >
+                                            <div className="flex justify-between w-full items-center">
+                                                <div className="truncate pr-4">
+                                                    <p className="font-semibold text-slate-800">{pItem.Model}</p>
+                                                    <p className="text-xs text-slate-500">{pItem.Brand} - {pItem['Item Code']}</p>
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                     <p className="font-semibold text-slate-700">{parseSheetValue(pItem.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                                                     <p className="text-xs text-slate-500">Stock: {pItem.Qty}</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </ScrollArea>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
 
     return (
        <>
@@ -356,7 +486,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         <tr className="text-left text-xs text-slate-500">
                                             <th className="p-2 w-16">No.</th>
                                             <th className="p-2">Item Code</th>
-                                            <th className="p-2">Description</th>
+                                            <th className="p-2">Item Description</th>
                                             <th className="p-2 w-20">Qty</th>
                                             <th className="p-2 w-32">Unit Price</th>
                                             <th className="p-2 w-32">Amount</th>
@@ -367,7 +497,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         {items.map((item) => (
                                             <tr key={item.id} className="border-t border-slate-200 group">
                                                 <td className="p-1"><input type="text" value={item.no || ''} readOnly className="w-full bg-slate-50 text-center text-slate-600 border-slate-200 rounded-md"/></td>
-                                                <td className="p-1"><input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)} className={lineItemInputClasses} /></td>
+                                                <td className="p-1">
+                                                    <PricelistCombobox
+                                                        item={item}
+                                                        onItemChange={handleItemChange}
+                                                        onPricelistItemSelect={handlePricelistItemSelect}
+                                                    />
+                                                </td>
                                                 <td className="p-1">
                                                     <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)} placeholder="Model Name" className={`${lineItemInputClasses} mb-1 font-semibold`} />
                                                     <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} placeholder="Additional specs..." className={`${lineItemInputClasses} text-xs`} rows={2} />
