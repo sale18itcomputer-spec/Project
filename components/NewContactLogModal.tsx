@@ -12,6 +12,7 @@ import NewCompanyModal from './NewCompanyModal';
 import NewContactModal from './NewContactModal';
 import { useToast } from '../contexts/ToastContext';
 import ResizableModal from './ResizableModal';
+import SearchableSelect from './SearchableSelect';
 
 interface NewContactLogModalProps {
   isOpen: boolean;
@@ -89,8 +90,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
     
-    const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const companyName = e.target.value;
+    const handleCompanySelect = (companyName: string) => {
         setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Position': '' }));
     };
 
@@ -111,37 +111,45 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
 
         if (isEditMode) {
             const originalLogs = contactLogs ? [...contactLogs] : [];
-            const optimisticData = { ...existingData, ...submissionData } as ContactLog;
-
-            setContactLogs(current => current ? current.map(l => l['Log ID'] === existingData['Log ID'] ? optimisticData : l) : [optimisticData]);
+            const updatedId = existingData['Log ID']!;
+            // Optimistic update
+            setContactLogs(current => current ? current.map(l => l['Log ID'] === updatedId ? { ...l, ...submissionData } as ContactLog : l) : null);
 
             try {
-                await updateRecord('Contact_Logs', existingData['Log ID']!, submissionData);
+                const updatedRecord: ContactLog = await updateRecord('Contact_Logs', updatedId, submissionData);
                 addToast('Contact log updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update log.', 'error');
-                setContactLogs(originalLogs);
+                // Replace optimistic with server record
+                setContactLogs(current => current ? current.map(l => l['Log ID'] === updatedId ? updatedRecord : l) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update log: ${err.message}`, 'error');
+                setContactLogs(originalLogs); // Revert
             }
-        } else {
-            const optimisticData = submissionData as ContactLog;
-            
-            setContactLogs(current => current ? [optimisticData, ...current] : [optimisticData]);
+        } else { // CREATE
+            const tempId = submissionData['Log ID']!;
+            // Optimistic update
+            setContactLogs(current => current ? [submissionData as ContactLog, ...current] : [submissionData as ContactLog]);
             
             try {
-                await createRecord('Contact_Logs', optimisticData);
+                const createdRecord: ContactLog = await createRecord('Contact_Logs', submissionData);
                 addToast('Contact log created!', 'success');
-            } catch (err) {
-                addToast('Failed to create log.', 'error');
-                setContactLogs(current => current ? current.filter(l => l['Log ID'] !== optimisticData['Log ID']) : null);
+                // Replace temp record with the one from the server.
+                setContactLogs(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(l => l['Log ID'] === tempId ? createdRecord : l);
+                });
+            } catch (err: any) {
+                addToast(`Failed to create log: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setContactLogs(current => current ? current.filter(l => l['Log ID'] !== tempId) : null);
             }
         }
     };
 
     const handleDelete = async () => {
-        if (!existingData) return;
+        if (!existingData || !existingData['Log ID']) return;
         
         const originalLogs = contactLogs ? [...contactLogs] : [];
-        const logToDeleteId = existingData['Log ID']!;
+        const logToDeleteId = existingData['Log ID'];
         
         setDeleteConfirmOpen(false);
         onClose();
@@ -149,11 +157,15 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
         setContactLogs(current => current ? current.filter(l => l['Log ID'] !== logToDeleteId) : null);
 
         try {
-            await deleteRecord('Contact_Logs', logToDeleteId);
-            addToast('Contact log deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete log.', 'error');
-            setContactLogs(originalLogs);
+            const response: { deletedId: string } = await deleteRecord('Contact_Logs', logToDeleteId);
+            if (response.deletedId === logToDeleteId) {
+                addToast('Contact log deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete log: ${err.message}`, 'error');
+            setContactLogs(originalLogs); // Revert
         }
     };
 
@@ -217,13 +229,14 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
                         {isReadOnly ? <FormDisplay label="Type" value={formData.Type} /> : <FormSelect name="Type" label="Type" value={formData.Type} onChange={handleChange} options={TYPE_OPTIONS} required />}
                         {isReadOnly ? <FormDisplay label="Contact Date" value={formatToInputDate(formData['Contact Date'])} /> : <FormInput name="Contact Date" label="Contact Date" value={formData['Contact Date']} onChange={handleChange} type="date" required />}
                         {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <FormSelect 
+                            <SearchableSelect 
                                 name="Company Name" 
                                 label="Company Name" 
-                                value={formData['Company Name']} 
-                                onChange={handleCompanyChange} 
-                                options={companyOptions} 
+                                value={formData['Company Name'] || ''}
+                                onChange={handleCompanySelect}
+                                options={companyOptions}
                                 required 
+                                placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
                         {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> : 

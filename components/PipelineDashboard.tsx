@@ -4,15 +4,17 @@ import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
 import { useNavigation } from '../contexts/NavigationContext';
 // FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock } from 'lucide-react';
+import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock, SlidersHorizontal } from 'lucide-react';
 import { formatDateAsMDY, calculateDueDate, parseDate } from '../utils/time';
-import { parseSheetValue } from '../utils/formatters';
+import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
 import NewProjectModal from './NewProjectModal';
 import Avatar from './Avatar';
 import ViewToggle from './ViewToggle';
 import KanbanView, { KanbanColumn } from './KanbanView';
 import { updateRecord } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
 type ProcessedProject = PipelineProject & {
   calculatedDueDate: Date | null;
@@ -175,8 +177,10 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
     { id: 'board', label: 'Board', icon: <LayoutGrid /> },
 ];
 
+const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility';
+
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
-  const { projects: pipelineData, setProjects, meetings, contactLogs, users, loading, error } = useData();
+  const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error } = useData();
   const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -264,17 +268,42 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         color: statusColors[status] as any,
         items: filteredData.filter(p => p.Status === status),
         renderHeader: (items: ProcessedProject[]) => {
-            const totalValue = items.reduce((sum, item) => sum + parseSheetValue(item['Bid Value']), 0);
+            const { totalUSD, totalKHR } = items.reduce((acc, item) => {
+                const value = parseSheetValue(item['Bid Value']);
+                const determinedCurrency = determineCurrency(value, item.Currency);
+                if (determinedCurrency === 'KHR') {
+                    acc.totalKHR += value;
+                } else {
+                    acc.totalUSD += value;
+                }
+                return acc;
+            }, { totalUSD: 0, totalKHR: 0 });
+
+            const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+            const usdStr = totalUSD > 0 ? totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', ...formatOptions }) : '';
+            const khrStr = totalKHR > 0 ? `៛${totalKHR.toLocaleString('en-US', formatOptions)}` : '';
+
+            if (usdStr && khrStr) {
+                return (
+                    <div>
+                        <span className="text-xl font-bold text-slate-800 block">{usdStr}</span>
+                        <span className="text-lg font-bold text-slate-600 block">{khrStr}</span>
+                    </div>
+                );
+            }
+            
+            const singleValue = usdStr || khrStr || '$0';
+
             return (
                 <span className="text-2xl font-bold text-slate-800">
-                    {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {singleValue}
                 </span>
             );
         }
     }));
   }, [filteredData]);
   
-  const columns = useMemo<ColumnDef<ProcessedProject>[]>(() => [
+  const allColumns = useMemo<ColumnDef<ProcessedProject>[]>(() => [
     {
       accessorKey: 'Pipeline No.',
       header: 'Pipeline No.',
@@ -343,12 +372,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       accessorKey: 'Bid Value',
       header: 'Bid Value',
       isSortable: true,
-      cell: (value: string) => {
-        const num = parseSheetValue(value);
-        if (num === 0) return <span className="text-slate-400 text-right block w-full">-</span>;
+      cell: (value: string, row: ProcessedProject) => {
+        const formattedValue = formatCurrencySmartly(value, row.Currency);
+        if (formattedValue === '-') {
+            return <span className="text-slate-400 text-right block w-full">-</span>;
+        }
         return (
             <span className="text-sm font-medium text-slate-800 text-right block w-full">
-                {num.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits:0 })}
+                {formattedValue}
             </span>
         )
     }},
@@ -359,6 +390,52 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         cell: (status: PipelineProject['Status']) => <StatusBadge status={status} />
     },
   ], [handleNavigation]);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+        const saved = localStorage.getItem(PIPELINE_COLUMNS_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return new Set(parsed);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load visible columns from storage", e);
+    }
+    // Default to all columns being visible
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+  
+  useEffect(() => {
+    const saved = localStorage.getItem(PIPELINE_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorage.setItem(PIPELINE_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
 
 
   if (error) {
@@ -380,6 +457,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
         ageText = `${diffDays}d ago`;
     }
+    
+    const formattedValue = formatCurrencySmartly(item['Bid Value'], item.Currency);
 
     return (
         <>
@@ -389,7 +468,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
             <h4 className="font-bold text-slate-900 pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
             <p className="text-lg font-semibold text-brand-800 mt-1">
-                {parseSheetValue(item['Bid Value']).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits:0 })}
+                {formattedValue}
             </p>
 
             <p className="text-sm text-slate-600 mt-2.5 line-clamp-2">{item.Require}</p>
@@ -430,7 +509,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
           <span className="ml-2 text-sm text-gray-500">opportunities</span>
         </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="relative flex-grow">
               <label htmlFor="pipeline-search" className="sr-only">Search</label>
               <input
@@ -444,6 +523,13 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+             {viewMode === 'table' && (
+              <DataTableColumnToggle
+                allColumns={allColumns}
+                visibleColumns={visibleColumns}
+                onColumnToggle={handleColumnToggle}
+              />
+            )}
             <button
               onClick={handleOpenNewProject}
               className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
@@ -459,7 +545,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           <DataTable
               tableId="pipeline-table"
               data={filteredData}
-              columns={columns}
+              columns={displayedColumns}
               loading={loading}
               onRowClick={handleViewProject}
           />

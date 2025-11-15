@@ -73,6 +73,14 @@ function doPost(e) {
             .createTextOutput(JSON.stringify({ status: 'success', data: result }))
             .setMimeType(ContentService.MimeType.JSON);
     }
+    
+    // The 'batchRead' action operates on multiple sheets, so we handle it before the single-sheet check
+    if (action === 'batchRead') {
+        const result = batchReadRecords(requestData.sheets);
+        return ContentService
+            .createTextOutput(JSON.stringify({ status: 'success', data: result }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
 
     if (!sheetName || !SHEET_MAP[sheetName]) {
       throw new Error("Invalid or missing 'sheetName'.");
@@ -158,7 +166,7 @@ function uploadFileToDrive(payload) {
 }
 
 
-// --- HELPER FUNCTION ---
+// --- HELPER FUNCTIONS ---
 function sheetDataToJSON(values, formulas) {
   if (values.length < 2) return []; 
   const headers = values[0].map(function(h) { return String(h).trim(); });
@@ -166,20 +174,20 @@ function sheetDataToJSON(values, formulas) {
 
   for (let i = 1; i < values.length; i++) {
     const valueRow = values[i];
-    const formulaRow = formulas[i];
+    const formulaRow = formulas ? formulas[i] : [];
     if (valueRow.every(function(cell) { return cell === ""})) continue;
 
     const obj = {};
     for (let j = 0; j < headers.length; j++) {
       const header = headers[j]; 
-      if (header.toLowerCase() === 'file') {
-        if (formulaRow[j]) {
-          obj[header] = formulaRow[j];
+      if (header) { // Ensure header is not empty
+        const formula = formulaRow && formulaRow[j];
+        // Only prioritize formula if it's a HYPERLINK, otherwise use the display value.
+        if (formula && formula.toUpperCase().startsWith('=HYPERLINK(')) {
+          obj[header] = formula;
         } else {
           obj[header] = valueRow[j];
         }
-      } else {
-        obj[header] = valueRow[j];
       }
     }
     jsonData.push(obj);
@@ -187,18 +195,43 @@ function sheetDataToJSON(values, formulas) {
   return jsonData;
 }
 
+function rowToJSON(headers, values, formulas) {
+  const obj = {};
+  headers.forEach(function(header, index) {
+    if (header) { // Ensure header is not empty
+      const formula = formulas && formulas[index];
+      // Only prioritize formula if it's a HYPERLINK, otherwise use the display value.
+      if (formula && formula.toUpperCase().startsWith('=HYPERLINK(')) {
+        obj[header] = formula;
+      } else if (values) {
+        obj[header] = values[index];
+      }
+    }
+  });
+  return obj;
+}
+
 
 // --- CRUD IMPLEMENTATIONS ---
 function createRecord(sheet, payload) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const trimmedHeaders = headers.map(function(h) { return String(h).trim(); });
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).trim(); });
   
-  const newRow = trimmedHeaders.map(function(header) { 
+  const newRow = headers.map(function(header) { 
     return payload[header] !== undefined ? payload[header] : ''; 
   });
 
   sheet.appendRow(newRow);
-  return { message: 'Record created successfully.' };
+  
+  const lastRowIndex = sheet.getLastRow();
+
+  // Read the newly created row back and return it
+  const newRowRange = sheet.getRange(lastRowIndex, 1, 1, sheet.getLastColumn());
+  const newRowValues = newRowRange.getDisplayValues()[0];
+  const newRowFormulas = newRowRange.getFormulas()[0];
+  
+  const newRecord = rowToJSON(headers, newRowValues, newRowFormulas);
+
+  return newRecord; // Return the full record object
 }
 
 function readRecords(sheet) {
@@ -206,6 +239,59 @@ function readRecords(sheet) {
   const values = dataRange.getDisplayValues(); 
   const formulas = dataRange.getFormulas();
   return sheetDataToJSON(values, formulas);
+}
+
+function batchReadRecords(sheetNames) {
+  if (!Array.isArray(sheetNames)) {
+    throw new Error("Invalid 'sheets' payload: must be an array of sheet names.");
+  }
+
+  const SPREADSHEET_IDS = SPREADSHEET_IDS_DEFAULT;
+  
+  const SHEET_MAP = {
+    'Pipelines': SPREADSHEET_IDS.LOG_DATA,
+    'Users': SPREADSHEET_IDS.MAIN_DATA,
+    'Quotations': SPREADSHEET_IDS.QUOTATION_DATA,
+    'Sale Orders': SPREADSHEET_IDS.SALE_ORDER_DATA,
+    'Company List': SPREADSHEET_IDS.COMPANY_DATA,
+    'Contact_List': SPREADSHEET_IDS.COMPANY_DATA,
+    'Contact_Logs': SPREADSHEET_IDS.LOG_DATA,
+    'Site_Survey_Logs': SPREADSHEET_IDS.LOG_DATA,
+    'Meeting_Logs': SPREADSHEET_IDS.LOG_DATA,
+    'Raw': SPREADSHEET_IDS.PRICELIST_DATA,
+  };
+
+  const results = {};
+  const openedSpreadsheets = {}; // Cache opened spreadsheets
+
+  sheetNames.forEach(function(sheetName) {
+    try {
+      const spreadsheetId = SHEET_MAP[sheetName];
+      if (!spreadsheetId) {
+        return; 
+      }
+      
+      let spreadsheet;
+      if (openedSpreadsheets[spreadsheetId]) {
+        spreadsheet = openedSpreadsheets[spreadsheetId];
+      } else {
+        spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+        openedSpreadsheets[spreadsheetId] = spreadsheet;
+      }
+
+      const sheet = spreadsheet.getSheetByName(sheetName);
+      if (sheet) {
+        results[sheetName] = readRecords(sheet); // reuse existing readRecords logic
+      } else {
+        results[sheetName] = []; // Return empty array if sheet not found
+      }
+    } catch(e) {
+      Logger.log("Error reading sheet: " + sheetName + ". " + e.toString());
+      results[sheetName] = []; // Return empty array on error
+    }
+  });
+
+  return results;
 }
 
 function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
@@ -224,12 +310,13 @@ function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
       const rowIndexInSheet = i + 1; 
       const rowRange = sheet.getRange(rowIndexInSheet, 1, 1, sheet.getLastColumn());
       
-      const rowValues = rowRange.getValues()[0];
-      const rowFormulas = rowRange.getFormulas()[0];
-      
-      const newRow = rowFormulas.map(function(formula, colIndex) {
-        return formula || rowValues[colIndex];
+      const oldRowValues = rowRange.getValues()[0];
+      const oldRowFormulas = rowRange.getFormulas()[0];
+      const oldRow = oldRowFormulas.map(function(formula, colIndex) {
+        return formula || oldRowValues[colIndex];
       });
+
+      const newRow = [...oldRow]; // Create a copy
 
       Object.keys(payload).forEach(function(key) {
         const columnIndex = headers.indexOf(key.trim());
@@ -240,7 +327,12 @@ function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
       
       rowRange.setValues([newRow]);
       
-      return { message: `Record '${primaryKeyValue}' updated.` };
+      // Read the updated row back
+      const updatedValues = rowRange.getDisplayValues()[0];
+      const updatedFormulas = rowRange.getFormulas()[0];
+      const updatedRecord = rowToJSON(headers, updatedValues, updatedFormulas);
+      
+      return updatedRecord; // Return the full updated record
     }
   }
 
@@ -259,227 +351,189 @@ function deleteRecord(sheet, primaryKey, primaryKeyValue) {
   for (let i = data.length - 1; i >= 1; i--) {
     if (String(data[i][primaryKeyIndex]).trim() == String(primaryKeyValue).trim()) {
       sheet.deleteRow(i + 1);
-      return { message: `Record '${primaryKeyValue}' deleted.` };
+      return { deletedId: primaryKeyValue };
     }
   }
 
   throw new Error(`Record with ${primaryKey} = '${primaryKeyValue}' not found for deletion.`);
 }
 
+/**
+ * Creates a new sheet from scratch and populates it with headers (row 1) and data (row 2).
+ * No template is needed - creates a fresh sheet every time.
+ */
 function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, data) {
-  const templateSheet = spreadsheet.getSheetByName(templateSheetName);
-  if (!templateSheet) {
-    throw new Error("Action failed: A sheet named '" + templateSheetName + "' must exist in your spreadsheet to be used as a template.");
-  }
-  
+  // Check if sheet already exists
   let sheet = spreadsheet.getSheetByName(newSheetName);
+  
   if (sheet) {
+    // If sheet exists, clear all content
     sheet.clear();
-    const templateRange = templateSheet.getDataRange();
-    templateRange.copyTo(sheet.getRange(1, 1));
   } else {
-    sheet = templateSheet.copyTo(spreadsheet).setName(newSheetName);
+    // Create a completely new sheet (no template copying)
+    sheet = spreadsheet.insertSheet(newSheetName);
   }
   
+  // Activate the new sheet
   sheet.activate();
   
+  // Handle different template types
   if (templateSheetName === 'Quotation Template') {
-    sheet.getRange('C7').setValue(data['Company Name'] || '');
-    try { sheet.getRange('C8:C10').breakApart(); } catch(e) { /* ignore if not merged */ }
-    sheet.getRange('C8:C9').merge().setValue(data['Company Address'] || '').setVerticalAlignment('top');
-    sheet.getRange('C10').setValue(data['Contact Person'] || data['Contact Name'] || '');
-    sheet.getRange('C11').setValue(data['Contact Tel'] || data['Contact Number'] || '');
-    sheet.getRange('C12').setValue(data['Contact Email'] || '');
-
-    sheet.getRange('F7').setValue(data['Quotation ID'] || '');
-    try {
-      var quoteDate = new Date(data['Quote Date']);
-      sheet.getRange('F8').setValue(quoteDate).setNumberFormat("mmmm dd, yyyy");
-    } catch(e) { sheet.getRange('F8').setValue(data['Quote Date'] || ''); }
-    try {
-      var validityDate = new Date(data['Validity Date']);
-      sheet.getRange('F10').setValue(validityDate).setNumberFormat("mmmm dd, yyyy");
-    } catch(e) { sheet.getRange('F10').setValue(data['Validity Date'] || ''); }
-    sheet.getRange('F11').setValue(data['Stock Status'] || '');
-    sheet.getRange('F12').setValue(data['Payment Term'] || '');
+    // Define headers for quotation
+    const headers = [
+      'Quote No.',
+      'Quote Date',
+      'Validity Date',
+      'Company Name',
+      'Company Address',
+      'Contact Name',
+      'Contact Number',
+      'Contact Email',
+      'Stock Status',
+      'Payment Term',
+      'ItemsJSON',
+      'Sub Total',
+      'VAT',
+      'Grand Total',
+      'Currency',
+      'Prepared By',
+      'Approved By',
+      'Remark',
+      'Terms and Conditions',
+      'Prepared By Position',
+      'Approved By Position',
+    ];
     
-    // --- NEW ITEM HANDLING LOGIC ---
-    const itemsFromJSON = JSON.parse(data.ItemsJSON || '[]');
-    const sheetItems = [];
-    var currentItemNumber = 1;
-
-    itemsFromJSON.forEach(function(item) {
-      // Only process items that have some identifying information.
-      if ((item.modelName && item.modelName.trim() !== '') || (item.itemCode && item.itemCode.trim() !== '')) {
-        
-        let modelName = (item.modelName || '').trim();
-        let fullDescription = modelName;
-        
-        // Check for additional specs and format them.
-        if (item.description && item.description.trim() !== '') {
-          var descriptionLines = item.description.split('\n');
-          var formattedSpecs = descriptionLines
-            .filter(function(line) { return line.trim() !== ''; })
-            .map(function(line) { return "  - " + line.trim(); }) // Indent specs
-            .join('\n');
-          
-          if (formattedSpecs) {
-            fullDescription += '\n' + formattedSpecs;
-          }
-        }
-
-        sheetItems.push({
-          no: currentItemNumber++,
-          itemCode: item.itemCode || '',
-          description: fullDescription,
-          modelName: modelName, // Keep original model name for styling length
-          qty: item.qty,
-          unitPrice: item.unitPrice,
-        });
+    // Parse items to calculate totals
+    const items = JSON.parse(data.ItemsJSON || '[]');
+    let subTotal = 0;
+    items.forEach(function(item) {
+      if (item.no && typeof item.no === 'number') {
+        subTotal += (item.qty || 0) * (item.unitPrice || 0);
       }
     });
-
-    const itemStartRow = 14;
-    const templateItemRowCount = 10; // Number of item rows in the template
-    const requiredRows = sheetItems.length;
-
-    // Clear existing template item rows
-    if (templateItemRowCount > 0) {
-      sheet.getRange(itemStartRow, 1, templateItemRowCount, sheet.getLastColumn()).clearContent();
-    }
+    const vat = subTotal * 0.1;
+    const grandTotal = subTotal + vat;
+    const currency = data.Currency || 'USD';
     
-    // Add more rows if needed
-    if (requiredRows > templateItemRowCount) {
-      sheet.insertRowsAfter(itemStartRow + templateItemRowCount - 1, requiredRows - templateItemRowCount);
-    }
+    // Create data row matching headers
+    const dataRow = [
+      data['Quote No.'] || '',
+      data['Quote Date'] || '',
+      data['Validity Date'] || '',
+      data['Company Name'] || '',
+      data['Company Address'] || '',
+      data['Contact Name'] || '',
+      data['Contact Number'] || '',
+      data['Contact Email'] || '',
+      data['Stock Status'] || '',
+      data['Payment Term'] || '',
+      data.ItemsJSON || '[]',
+      subTotal,
+      vat,
+      grandTotal,
+      currency,
+      data['Prepared By'] || '',
+      data['Approved By'] || '',
+      data.Remark || '',
+      data['Terms and Conditions'] || '',
+      data['Prepared By Position'] || '',
+      data['Approved By Position'] || '',
+    ];
     
-    if (requiredRows > 0) {
-      // Copy formatting from the template's first item row to all new rows
-      const formatSourceRange = templateSheet.getRange(itemStartRow, 1, 1, sheet.getLastColumn());
-      const formatTargetRange = sheet.getRange(itemStartRow, 1, requiredRows, sheet.getLastColumn());
-      formatSourceRange.copyTo(formatTargetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-      
-      // Loop through each item to set values and apply rich text formatting
-      for (var i = 0; i < requiredRows; i++) {
-        var item = sheetItems[i];
-        var currentRow = itemStartRow + i;
-        
-        // Set values for standard cells
-        sheet.getRange(currentRow, 1).setValue(item.no);
-        sheet.getRange(currentRow, 2).setValue(item.itemCode);
-        sheet.getRange(currentRow, 5).setValue(item.qty).setNumberFormat('#,##0');
-        sheet.getRange(currentRow, 6).setValue(item.unitPrice).setNumberFormat('$#,##0.00');
-        sheet.getRange(currentRow, 7).setFormula("=E" + currentRow + "*F" + currentRow).setNumberFormat('$#,##0.00');
-        
-        // Merge description cell
-        const descriptionCell = sheet.getRange(currentRow, 3);
-        sheet.getRange(currentRow, 3, 1, 2).merge();
-
-        // Create and apply Rich Text for the description
-        const modelNameLength = (item.modelName || '').length;
-        const fullDescriptionText = item.description;
-
-        const boldStyle = SpreadsheetApp.newTextStyle().setBold(true).build();
-        const normalStyle = SpreadsheetApp.newTextStyle().setBold(false).setFontSize(10).build();
-
-        let richTextBuilder = SpreadsheetApp.newRichTextValue()
-          .setText(fullDescriptionText)
-          .setTextStyle(0, modelNameLength, boldStyle);
-
-        if (modelNameLength < fullDescriptionText.length) {
-          richTextBuilder.setTextStyle(modelNameLength, fullDescriptionText.length, normalStyle);
-        }
-        
-        const richText = richTextBuilder.build();
-        descriptionCell.setRichTextValue(richText).setWrap(true).setVerticalAlignment('top');
-      }
-    }
-    // --- END NEW ITEM HANDLING LOGIC ---
+    // Set headers in row 1
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    // Set data in row 2
+    sheet.getRange(2, 1, 1, dataRow.length).setValues([dataRow]);
     
-    try {
-      const amountColumn = 'G';
-      const itemRangeFormula = requiredRows > 0 ? "=SUM(" + amountColumn + itemStartRow + ":" + amountColumn + (itemStartRow + requiredRows - 1) + ")" : "0";
-      
-      const findSubTotal = sheet.createTextFinder("Grand Total (USD)").findNext();
-      const findVat = sheet.createTextFinder("VAT 10% (USD)").findNext();
-      const findGrandTotal = sheet.createTextFinder("Sub Total (USD)").findNext();
-
-      if (findSubTotal && findVat && findGrandTotal) {
-        findSubTotal.setValue("Sub Total (USD)");
-        findGrandTotal.setValue("Grand Total (USD)");
-        
-        const subTotalValueCell = sheet.getRange(findSubTotal.getRow(), 7);
-        const vatValueCell = sheet.getRange(findVat.getRow(), 7);
-        const grandTotalValueCell = sheet.getRange(findGrandTotal.getRow(), 7);
-
-        subTotalValueCell.setFormula(itemRangeFormula).setNumberFormat('$#,##0.00');
-        vatValueCell.setFormula("=" + subTotalValueCell.getA1Notation() + "*0.1").setNumberFormat('$#,##0.00');
-        grandTotalValueCell.setFormula("=" + subTotalValueCell.getA1Notation() + "+" + vatValueCell.getA1Notation()).setNumberFormat('$#,##0.00');
-      }
-    } catch(e) {
-      Logger.log("Could not find total labels to populate formulas. Error: " + e.message);
-    }
+    // Format headers (bold, background color)
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#4285f4')
+      .setFontColor('#ffffff');
+    
+    // Format number columns
+    const currencyFormat = currency === 'KHR' ? '៛#,##0.00' : '$#,##0.00';
+    sheet.getRange(2, 12, 1, 3).setNumberFormat(currencyFormat); // Sub Total, VAT, Grand Total
+    
+    // Auto-resize columns
+    sheet.autoResizeColumns(1, headers.length);
+    
   } else if (templateSheetName === 'Sale Order Template') {
-    sheet.getRange('C2').setValue(data['Company Name'] || '');
-    sheet.getRange('C3').setValue(data['Company Address'] || '');
-    sheet.getRange('C5').setValue(data['Contact Person'] || '');
-    sheet.getRange('C6').setValue(data['Contact Tel'] || '');
-    sheet.getRange('C7').setValue(data['Email'] || '');
-
-    sheet.getRange('H3').setValue(data['SO NO.'] || '');
-    try {
-      var soDate = new Date(data['Order Date']);
-      sheet.getRange('H4').setValue(soDate).setNumberFormat("m/d/yyyy");
-    } catch(e) { sheet.getRange('H4').setValue(data['Order Date'] || ''); }
-    try {
-      var deliveryDate = new Date(data['Delivery Date']);
-      sheet.getRange('H5').setValue(deliveryDate).setNumberFormat("m/d/yyyy");
-    } catch(e) { sheet.getRange('H5').setValue(data['Delivery Date'] || ''); }
-    sheet.getRange('H6').setValue(data['Payment Term'] || '');
-    sheet.getRange('H7').setValue(data['Bill Invoice'] || '');
-
-    sheet.getRange('C20').setValue(data['Install Software'] || '');
+    // Define headers for sale order
+    const headers = [
+      'SO NO.',
+      'Order Date',
+      'Delivery Date',
+      'Company Name',
+      'Company Address',
+      'Contact Person',
+      'Contact Tel',
+      'Email',
+      'Payment Term',
+      'Bill Invoice',
+      'Install Software',
+      'ItemsJSON',
+      'Sub Total',
+      'VAT',
+      'Grand Total',
+      'Currency'
+    ];
     
+    // Parse items to calculate totals
     const items = JSON.parse(data.ItemsJSON || '[]');
-    const itemStartRow = 10;
-    const templateItemRowCount = 10; 
-    const requiredRows = items.length;
+    let subTotal = 0;
+    items.forEach(function(item) {
+      subTotal += parseFloat(item.amount || 0);
+    });
+    const vat = subTotal * 0.1;
+    const grandTotal = subTotal + vat;
+    const currency = data.Currency || 'USD';
     
-    if (templateItemRowCount > 0) {
-      sheet.getRange(itemStartRow, 1, templateItemRowCount, 9).clearContent();
-    }
+    // Create data row matching headers
+    const dataRow = [
+      data['SO NO.'] || '',
+      data['Order Date'] || '',
+      data['Delivery Date'] || '',
+      data['Company Name'] || '',
+      data['Company Address'] || '',
+      data['Contact Person'] || '',
+      data['Contact Tel'] || '',
+      data['Email'] || '',
+      data['Payment Term'] || '',
+      data['Bill Invoice'] || '',
+      data['Install Software'] || '',
+      data.ItemsJSON || '[]',
+      subTotal,
+      vat,
+      grandTotal,
+      currency
+    ];
     
-    if (requiredRows > templateItemRowCount) {
-      sheet.insertRowsAfter(itemStartRow + templateItemRowCount - 1, requiredRows - templateItemRowCount);
-    }
+    // Set headers in row 1
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    // Set data in row 2
+    sheet.getRange(2, 1, 1, dataRow.length).setValues([dataRow]);
     
-    if (requiredRows > 0) {
-      var itemData = items.map(function(item, index) {
-        return [
-          item.no,
-          item.itemCode,
-          item.description,
-          '', 
-          item.qty,
-          item.unitPrice,
-          item.commission,
-          item.amount
-        ];
-      });
-      
-      var itemRange = sheet.getRange(itemStartRow, 1, requiredRows, 8);
-      itemRange.setValues(itemData);
-      
-      for (var i = 0; i < requiredRows; i++) {
-        var currentRow = itemStartRow + i;
-        sheet.getRange(currentRow, 3, 1, 2).merge();
-        sheet.getRange(currentRow, 6, 1, 3).setNumberFormat('$#,##0.00'); 
-      }
-    }
+    // Format headers
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#34a853')
+      .setFontColor('#ffffff');
+    
+    // Format number columns
+    const currencyFormat = currency === 'KHR' ? '៛#,##0.00' : '$#,##0.00';
+    sheet.getRange(2, 13, 1, 3).setNumberFormat(currencyFormat); // Sub Total, VAT, Grand Total
+    
+    // Auto-resize columns
+    sheet.autoResizeColumns(1, headers.length);
   }
-
+  
+  // Freeze header row
+  sheet.setFrozenRows(1);
+  
   const sheetUrl = spreadsheet.getUrl() + '#gid=' + sheet.getSheetId();
-  return { message: 'Sheet created and populated successfully.', url: sheetUrl };
+  return { message: 'Sheet created with headers and data successfully.', url: sheetUrl };
 }
 
 function getSheetByGid(spreadsheet, gid) {
@@ -495,7 +549,6 @@ function getSheetByGid(spreadsheet, gid) {
 function readDetailedSheetData(spreadsheet, sheetNameToRead) {
   let sheet = spreadsheet.getSheetByName(sheetNameToRead);
 
-  // If sheet is not found by name, and the name looks like a URL, try to find it by GID.
   if (!sheet && String(sheetNameToRead).includes('gid=')) {
     const gidMatch = String(sheetNameToRead).match(/gid=(\d+)/);
     if (gidMatch && gidMatch[1]) {
@@ -508,71 +561,31 @@ function readDetailedSheetData(spreadsheet, sheetNameToRead) {
     throw new Error(`Sheet with name or GID matching '${sheetNameToRead}' not found.`);
   }
 
-  const headerRanges = {
-    'Company Name': 'C7',
-    'Company Address': 'C8', 
-    'Contact Name': 'C10',
-    'Contact Number': 'C11',
-    'Contact Email': 'C12',
-    'Quote No.': 'F7',
-    'Quote Date': 'F8',
-    'Validity Date': 'F10',
-    'Stock Status': 'F11',
-    'Payment Term': 'F12'
-  };
+  // Check if this is the new data format (by checking if A1 is 'Quote No.')
+  const firstHeader = sheet.getRange("A1").getDisplayValue();
+  if (firstHeader !== 'Quote No.') {
+    throw new Error("The sheet format is not the expected data format. It might be an old template-based sheet which is no longer supported for editing.");
+  }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const dataRow = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
 
   const headerData = {};
-  for (const key in headerRanges) {
-    headerData[key] = sheet.getRange(headerRanges[key]).getDisplayValue();
-  }
-  
-  const itemsStartRow = 14;
-  const lastRow = sheet.getLastRow();
-  const items = [];
-  
-  let endOfItemsRow = lastRow;
-  try {
-    // Find the cell with "Sub Total (USD)" to determine where the item list ends.
-    const subTotalLabelCell = sheet.createTextFinder("Sub Total (USD)").findNext();
-    if (subTotalLabelCell) {
-        endOfItemsRow = subTotalLabelCell.getRow() - 1;
-    }
-  } catch(e) {
-    Logger.log("Could not find 'Sub Total (USD)' label to determine end of items. Reading until last row. Error: " + e.message);
-  }
+  let items = [];
 
-  if (endOfItemsRow >= itemsStartRow) {
-    const itemsRange = sheet.getRange(itemsStartRow, 1, endOfItemsRow - itemsStartRow + 1, 7);
-    const itemDisplayValues = itemsRange.getDisplayValues();
-
-    for (var i = 0; i < itemDisplayValues.length; i++) {
-      var displayRow = itemDisplayValues[i];
-      var noStr = String(displayRow[0]).trim();
-      
-      // Check if it's a main item row (the 'No.' column is a valid number)
-      if (noStr !== '' && !isNaN(parseInt(noStr, 10))) {
-        
-        var fullDescriptionText = String(displayRow[2]);
-        var descriptionLines = fullDescriptionText.split('\n');
-        
-        var modelName = descriptionLines[0] || '';
-        var additionalSpecs = descriptionLines.slice(1).map(function(line) {
-          // remove "  - " or "- " prefixes
-          return line.trim().replace(/^\s*-\s*/, '');
-        }).filter(Boolean).join('\n');
-
-        items.push({
-          no: parseInt(noStr, 10),
-          itemCode: displayRow[1],
-          modelName: modelName.trim(),
-          description: additionalSpecs,
-          qty: parseFloat(String(displayRow[4]).replace(/[^0-9.-]+/g,"")) || 0,
-          unitPrice: parseFloat(String(displayRow[5]).replace(/[^0-9.-]+/g,"")) || 0,
-          amount: parseFloat(String(displayRow[6]).replace(/[^0-9.-]+/g,"")) || 0,
-        });
+  headers.forEach(function(header, index) {
+    const value = dataRow[index];
+    if (header === 'ItemsJSON') {
+      try {
+        items = JSON.parse(value || '[]');
+      } catch (e) {
+        Logger.log("Error parsing ItemsJSON for sheet " + sheetNameToRead + ": " + e.message);
+        items = [];
       }
+    } else {
+      headerData[header] = value;
     }
-  }
+  });
 
   return {
       header: headerData,

@@ -7,7 +7,7 @@ import { deleteRecord } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import { useToast } from '../contexts/ToastContext';
 import { X, Trash2, Pencil, ShoppingCart } from 'lucide-react';
-import { parseSheetValue } from '../utils/formatters';
+import { formatCurrencySmartly } from '../utils/formatters';
 
 interface QuotationDetailModalProps {
   quotation: Quotation | null;
@@ -88,16 +88,32 @@ const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({ quotation, 
       </div>
        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
         <div className="flex flex-wrap items-center gap-3">
-            <DetailItem label="Amount" value={parseSheetValue(quotation.Amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
+            <DetailItem label="Amount" value={formatCurrencySmartly(quotation.Amount, quotation.Currency)} />
             <DetailItem label="CM" value={quotation.CM} />
             <DetailItem label="Payment Term" value={quotation['Payment Term']} />
             <DetailItem label="Stock Status" value={quotation['Stock Status']} />
+            <DetailItem label="Prepared By" value={quotation['Prepared By']} />
+            <DetailItem label="Prepared By Position" value={quotation['Prepared By Position']} />
+            <DetailItem label="Approved By" value={quotation['Approved By']} />
+            <DetailItem label="Approved By Position" value={quotation['Approved By Position']} />
         </div>
       </div>
       {quotation.Reason && (
         <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
           <p className="text-sm font-semibold text-slate-600 mb-2">Reason for Status</p>
           <p className="text-sm text-slate-800 whitespace-pre-wrap">{quotation.Reason}</p>
+        </div>
+      )}
+       {quotation.Remark && (
+        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+          <p className="text-sm font-semibold text-slate-600 mb-2">Remark</p>
+          <p className="text-sm text-slate-800 whitespace-pre-wrap">{quotation.Remark}</p>
+        </div>
+      )}
+      {quotation['Terms and Conditions'] && (
+        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+          <p className="text-sm font-semibold text-slate-600 mb-2">Terms and Conditions</p>
+          <p className="text-sm text-slate-800 whitespace-pre-wrap">{quotation['Terms and Conditions']}</p>
         </div>
       )}
     </div>

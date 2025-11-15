@@ -148,6 +148,8 @@ const AuthenticatedLayout: React.FC = () => {
     'site-surveys', 
     'meetings',
     'pricelist',
+    'quotations',
+    'sale-orders',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);
@@ -207,8 +209,8 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <DataProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <DataProvider>
         <NavigationProvider>
           <NotificationProvider>
             <ConnectivityProvider>
@@ -217,8 +219,8 @@ const App: React.FC = () => {
             </ConnectivityProvider>
           </NotificationProvider>
         </NavigationProvider>
-      </AuthProvider>
-    </DataProvider>
+      </DataProvider>
+    </AuthProvider>
   );
 };
 

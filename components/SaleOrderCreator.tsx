@@ -1,15 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SaleOrder, Company, Contact, Quotation } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { createRecord, updateRecord, createSaleOrderSheet, readQuotationSheetData } from '../services/api';
+import { createRecord, updateRecord, createSaleOrderSheet, readQuotationSheetData, uploadFile } from '../services/api';
 import { formatToSheetDate, formatToInputDate } from '../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from './FormControls';
 import PrintableSaleOrder from './PrintableSaleOrder';
 import SuccessModal from './SuccessModal';
 import Spinner from './Spinner';
 import DocumentEditorContainer from './DocumentEditorContainer';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, X, Upload } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import SearchableSelect from './SearchableSelect';
 
 interface SaleOrderCreatorProps {
     onBack: () => void;
@@ -38,16 +40,28 @@ const getTodayDateString = () => {
 const STATUS_OPTIONS: SaleOrder['Status'][] = ['Pending', 'Completed', 'Cancel'];
 const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT'];
 const SOFTWARE_OPTIONS = ["Assembly", "Office User", "Design User", "Window 11", "Window 10", "Window 8", "Window 7"];
+const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
+
+const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
+    switch (currency) {
+        case 'USD': return '$';
+        case 'KHR': return '៛';
+        default: return '$';
+    }
+};
 
 
 const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder }) => {
-    const { saleOrders, companies, contacts, quotations, refetchData, pricelist } = useData();
+    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist } = useData();
     const { currentUser } = useAuth();
+    const { addToast } = useToast();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [successInfo, setSuccessInfo] = useState<{ url: string; soNo: string } | null>(null);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
     const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
@@ -124,6 +138,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'SO No.': existingSaleOrder['SO No.'] || nextSaleOrderNumber,
                 'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
                 'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
+                'Currency': (existingSaleOrder.Currency === 'KHR' ? 'KHR' : 'USD') as ('USD' | 'KHR'),
              };
              if (isFromQuote) {
                  baseData.Status = 'Pending';
@@ -146,6 +161,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Tax': '0',
                 'Bill Invoice': 'NON-VAT',
                 'Created By': currentUser?.Name || '',
+                'Currency': 'USD',
             });
         }
     }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist]);
@@ -212,17 +228,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         return { subTotal, tax, grandTotal };
     }, [items, saleOrder.Tax]);
 
-    useEffect(() => {
-        setSaleOrder(prev => ({...prev, 'Total Amount': String(totals.grandTotal)}));
-    }, [totals.grandTotal])
-
     const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setSaleOrder(prev => ({...prev, [name]: value}));
     }
 
-    const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const companyName = e.target.value;
+    const handleCompanySelect = (companyName: string) => {
         setSaleOrder(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Phone Number': '', 'Email': '', 'Quote No.': '' }));
     }
     
@@ -238,6 +249,29 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         if (quote) {
             setSaleOrder(prev => ({ ...prev, 'Quote No.': quoteId, 'Company Name': quote['Company Name'], 'Contact Name': quote['Contact Name'], 'Phone Number': quote['Contact Number'], 'Total Amount': quote.Amount, Status: 'Confirmed' }));
         }
+    };
+    
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const response = await uploadFile(file);
+            setSaleOrder(prev => ({ ...prev, 'Attachment': response.url }));
+            addToast('File uploaded successfully!', 'success');
+        } catch (err: any) {
+            addToast(err.message || 'File upload failed.', 'error');
+        } finally {
+            setIsUploading(false);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setSaleOrder(prev => ({ ...prev, 'Attachment': '' }));
     };
 
     const handleSave = async () => {
@@ -261,42 +295,59 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Payment Term': saleOrder['Payment Term'],
                 'Bill Invoice': saleOrder['Bill Invoice'],
                 'Install Software': saleOrder['Install Software'],
+                'Currency': saleOrder.Currency || 'USD',
                 'Created By': saleOrder['Created By'] || currentUser?.Name || '',
+                'Attachment': saleOrder['Attachment'] || '',
             };
 
             const companyDetails = companies?.find(c => c['Company Name'] === masterSheetData['Company Name']);
+            
+            // Data for individual sale order sheet template
             const sheetGenerationData = {
-                'SO NO.': masterSheetData['SO No.'], // Match key for Apps Script
-                'Sale Order ID': masterSheetData['SO No.'],
+                'SO NO.': masterSheetData['SO No.'],
                 'Order Date': saleOrder['SO Date'],
+                'Delivery Date': saleOrder['Delivery Date'],
                 'Company Name': masterSheetData['Company Name'],
                 'Company Address': companyDetails?.['Address (English)'] || '',
                 'Contact Person': masterSheetData['Contact Name'],
                 'Contact Tel': masterSheetData['Phone Number'],
                 'Email': masterSheetData.Email,
                 'Payment Term': saleOrder['Payment Term'] || companyDetails?.['Payment Term'] || '',
-                'Prepared By': currentUser?.Name || '',
-                'Grand Total': totals.grandTotal,
-                'VAT': totals.tax,
-                'Sub Total': totals.subTotal,
-                'ItemsJSON': JSON.stringify(items),
-                'Install Software': masterSheetData['Install Software'],
                 'Bill Invoice': masterSheetData['Bill Invoice'],
-                'Delivery Date': saleOrder['Delivery Date']
+                'Install Software': masterSheetData['Install Software'],
+                'ItemsJSON': JSON.stringify(items),
+                'Currency': masterSheetData.Currency,
             };
 
             const { url } = await createSaleOrderSheet(masterSheetData['SO No.'], sheetGenerationData);
             masterSheetData.File = `=HYPERLINK("${url}", "${masterSheetData['SO No.']}")`;
 
-            if(existingSaleOrder && existingSaleOrder['SO No.']) {
-                await updateRecord('Sale Orders', existingSaleOrder['SO No.'], masterSheetData);
-            } else {
-                await createRecord('Sale Orders', masterSheetData);
+            if (existingSaleOrder && existingSaleOrder['SO No.']) {
+                const originalSaleOrders = saleOrders ? [...saleOrders] : [];
+                // Optimistic update
+                setSaleOrders(current => current ? current.map(so => so['SO No.'] === masterSheetData['SO No.'] ? masterSheetData : so) : [masterSheetData]);
+                try {
+                    await updateRecord('Sale Orders', existingSaleOrder['SO No.'], masterSheetData);
+                    setSuccessInfo({ url: url || '#', soNo: masterSheetData['SO No.'] });
+                } catch (err) {
+                    addToast('Failed to update sale order.', 'error');
+                    setSaleOrders(originalSaleOrders); // Revert
+                    throw err; // Re-throw to be caught by outer catch block
+                }
+            } else { // Create
+                // Optimistic update
+                setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
+                try {
+                    await createRecord('Sale Orders', masterSheetData);
+                    setSuccessInfo({ url: url || '#', soNo: masterSheetData['SO No.'] });
+                } catch (err) {
+                    addToast('Failed to create sale order.', 'error');
+                    // Revert
+                    setSaleOrders(current => current ? current.filter(so => so['SO No.'] !== masterSheetData['SO No.']) : null);
+                    throw err; // Re-throw
+                }
             }
             
-            await refetchData();
-            setSuccessInfo({ url: url || '#', soNo: masterSheetData['SO No.'] });
-
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred.');
         } finally {
@@ -307,6 +358,26 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
     const contactOptions = useMemo(() => contacts?.filter(c => c['Company Name'] === saleOrder['Company Name']).map(c => c.Name) || [], [contacts, saleOrder]);
     const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No.']) || [], [quotations, saleOrder]);
+    const currencySymbol = getCurrencySymbol(saleOrder.Currency);
+
+    const printableProps = {
+        headerData: {
+            'Sale Order ID': saleOrder['SO No.'],
+            'Order Date': saleOrder['SO Date'],
+            'Delivery Date': saleOrder['Delivery Date'],
+            'Company Name': saleOrder['Company Name'],
+            'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+            'Contact Person': saleOrder['Contact Name'],
+            'Contact Tel': saleOrder['Phone Number'],
+            'Email': saleOrder.Email,
+            'Payment Term': saleOrder['Payment Term'],
+            'Bill Invoice': saleOrder['Bill Invoice'],
+            'Install Software': saleOrder['Install Software'],
+        },
+        items: items,
+        totals: totals,
+        currency: saleOrder.Currency || 'USD',
+    };
 
     return (
        <>
@@ -318,93 +389,118 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             isSubmitting={isSubmitting}
             saveButtonText="Save & Generate File"
          >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Form Section */}
-                <div className="space-y-6">
-                    <FormSection title="Customer & Order Info">
-                        <FormSelect name="Company Name" label="Company" value={saleOrder['Company Name']} onChange={handleCompanyChange} options={companyOptions} required />
-                        <FormSelect name="Contact Name" label="Contact" value={saleOrder['Contact Name']} onChange={handleContactChange} options={contactOptions} disabled={!saleOrder['Company Name']} />
-                        <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
-                        <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
-                    </FormSection>
+            <div className="screen-only">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Form Section */}
+                    <div className="space-y-6">
+                        <FormSection title="Customer & Order Info">
+                            <SearchableSelect 
+                                name="Company Name" 
+                                label="Company" 
+                                value={saleOrder['Company Name'] || ''}
+                                onChange={handleCompanySelect}
+                                options={companyOptions}
+                                required
+                                placeholder="Search companies..."
+                            />
+                            <FormSelect name="Contact Name" label="Contact" value={saleOrder['Contact Name']} onChange={handleContactChange} options={contactOptions} disabled={!saleOrder['Company Name']} />
+                            <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
+                            <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
+                        </FormSection>
 
-                    <FormSection title="Financial & Delivery">
-                        <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
-                        <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
-                        <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
-                        <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
-                    </FormSection>
-                    
-                    <FormSection title="Software Installation">
-                        <div className="md:col-span-2">
-                             <div className="flex gap-2 items-end">
-                                <FormSelect name="software_select" label="Select Software" value={""} onChange={(e) => handleAddSoftware(e.target.value)} options={SOFTWARE_OPTIONS.filter(s => !selectedSoftware.includes(s))}/>
+                        <FormSection title="Financial & Delivery">
+                            <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
+                            <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
+                            <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
+                            <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
+                            <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
+                        </FormSection>
+
+                        <FormSection title="Attachment">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Attach File</label>
+                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                                {isUploading ? (
+                                    <div className="flex items-center gap-3 text-sm text-slate-600 p-3 rounded-lg bg-slate-100 border border-slate-200">
+                                        <Spinner size="sm" />
+                                        <span>Uploading...</span>
+                                    </div>
+                                ) : saleOrder['Attachment'] ? (
+                                    <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                                        <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 hover:underline truncate max-w-xs sm:max-w-md">
+                                            View Uploaded File
+                                        </a>
+                                        <button type="button" onClick={handleRemoveFile} className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors ml-2 flex-shrink-0">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border-2 border-dashed border-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
+                                        <Upload className="w-4 h-4" />
+                                        Click to Upload File
+                                    </button>
+                                )}
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {selectedSoftware.map(software => (
-                                    <span key={software} className="inline-flex items-center py-1.5 pl-3 pr-2 bg-brand-100 text-brand-800 rounded-full text-sm font-medium">
-                                        {software}
-                                        <button type="button" onClick={() => handleRemoveSoftware(software)} className="ml-2 flex-shrink-0 bg-brand-200 hover:bg-brand-300 text-brand-700 rounded-full p-0.5"><X className="w-3 h-3" /></button>
-                                    </span>
-                                ))}
+                        </FormSection>
+                        
+                        <FormSection title="Software Installation">
+                            <div className="md:col-span-2">
+                                <div className="flex gap-2 items-end">
+                                    <FormSelect name="software_select" label="Select Software" value={""} onChange={(e) => handleAddSoftware(e.target.value)} options={SOFTWARE_OPTIONS.filter(s => !selectedSoftware.includes(s))}/>
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {selectedSoftware.map(software => (
+                                        <span key={software} className="inline-flex items-center py-1.5 pl-3 pr-2 bg-brand-100 text-brand-800 rounded-full text-sm font-medium">
+                                            {software}
+                                            <button type="button" onClick={() => handleRemoveSoftware(software)} className="ml-2 flex-shrink-0 bg-brand-200 hover:bg-brand-300 text-brand-700 rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
+                        </FormSection>
+                        
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                            {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead><tr className="text-left text-xs text-slate-500">
+                                            <th className="p-2 w-12">No.</th><th className="p-2">Item Code</th><th className="p-2">Description</th>
+                                            <th className="p-2 w-20">Qty</th><th className="p-2 w-28">Unit Price</th><th className="p-2 w-28">Commission</th>
+                                            <th className="p-2 w-28">Amount</th><th className="p-2 w-10"></th>
+                                        </tr></thead>
+                                        <tbody>
+                                            {items.map((item) => (
+                                                <tr key={item.id} className="border-t border-slate-200 group">
+                                                    <td className="p-1"><input type="text" value={item.no} readOnly className="w-full bg-slate-50 text-center text-slate-600 border-slate-200 rounded-md"/></td>
+                                                    <td className="p-1"><input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)} className={lineItemInputClasses} /></td>
+                                                    <td className="p-1"><textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={2} /></td>
+                                                    <td className="p-1"><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className={lineItemInputClasses} /></td>
+                                                    <td className="p-1"><input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className={lineItemInputClasses} /></td>
+                                                    <td className="p-1"><input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className={lineItemInputClasses} /></td>
+                                                    <td className="p-1"><input type="text" value={`${currencySymbol}${item.amount.toFixed(2)}`} readOnly className="w-full bg-slate-50 text-right text-slate-600 border-slate-200 rounded-md"/></td>
+                                                    <td className="p-1 text-center"><button type="button" onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-rose-100 opacity-50 group-hover:opacity-100"><Trash2 className="w-4 h-4"/></button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    <button type="button" onClick={addItem} className="mt-4 text-sm font-semibold text-brand-600 hover:underline">+ Add Item</button>
+                                </div>
+                            )}
                         </div>
-                    </FormSection>
-                    
-                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
-                        {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead><tr className="text-left text-xs text-slate-500">
-                                        <th className="p-2 w-12">No.</th><th className="p-2">Item Code</th><th className="p-2">Description</th>
-                                        <th className="p-2 w-20">Qty</th><th className="p-2 w-28">Unit Price</th><th className="p-2 w-28">Commission</th>
-                                        <th className="p-2 w-28">Amount</th><th className="p-2 w-10"></th>
-                                    </tr></thead>
-                                    <tbody>
-                                        {items.map((item) => (
-                                            <tr key={item.id} className="border-t border-slate-200 group">
-                                                <td className="p-1"><input type="text" value={item.no} readOnly className="w-full bg-slate-50 text-center text-slate-600 border-slate-200 rounded-md"/></td>
-                                                <td className="p-1"><input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)} className={lineItemInputClasses} /></td>
-                                                <td className="p-1"><textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={2} /></td>
-                                                <td className="p-1"><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className={lineItemInputClasses} /></td>
-                                                <td className="p-1"><input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className={lineItemInputClasses} /></td>
-                                                <td className="p-1"><input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className={lineItemInputClasses} /></td>
-                                                <td className="p-1"><input type="text" value={`$${item.amount.toFixed(2)}`} readOnly className="w-full bg-slate-50 text-right text-slate-600 border-slate-200 rounded-md"/></td>
-                                                <td className="p-1 text-center"><button type="button" onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-rose-100 opacity-50 group-hover:opacity-100"><Trash2 className="w-4 h-4"/></button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                <button type="button" onClick={addItem} className="mt-4 text-sm font-semibold text-brand-600 hover:underline">+ Add Item</button>
-                            </div>
-                        )}
                     </div>
-                </div>
 
-                {/* Preview Section */}
-                <div className="print-only-container">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 screen-only">Live Preview</h3>
-                    <div className="w-full bg-slate-200 p-4 sm:p-8 screen-only overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                         <PrintableSaleOrder
-                            headerData={{
-                                'Sale Order ID': saleOrder['SO No.'],
-                                'Order Date': saleOrder['SO Date'],
-                                'Delivery Date': saleOrder['Delivery Date'],
-                                'Company Name': saleOrder['Company Name'],
-                                'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
-                                'Contact Person': saleOrder['Contact Name'],
-                                'Contact Tel': saleOrder['Phone Number'],
-                                'Email': saleOrder.Email,
-                                'Payment Term': saleOrder['Payment Term'],
-                                'Bill Invoice': saleOrder['Bill Invoice'],
-                                'Install Software': saleOrder['Install Software'],
-                            }}
-                            items={items}
-                            totals={totals}
-                        />
+                    {/* Preview Section */}
+                    <div className="print-only-container">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Live Preview</h3>
+                        <div className="w-full bg-slate-200 p-4 sm:p-8 overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                             <PrintableSaleOrder {...printableProps} />
+                        </div>
                     </div>
                 </div>
+            </div>
+            <div className="print-only">
+                 <PrintableSaleOrder {...printableProps} />
             </div>
          </DocumentEditorContainer>
          {successInfo && (

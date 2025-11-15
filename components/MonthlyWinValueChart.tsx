@@ -21,14 +21,8 @@ interface MonthlyWinValueChartProps {
     data: MonthlyWinValueData[];
     period: Period;
     onPeriodChange: (period: Period) => void;
+    currency: 'USD' | 'KHR';
 }
-
-const formatCurrency = (value: number) => {
-    if (!value) return '$0';
-    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
 
 const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Period, onClick: (period: Period) => void }> = 
 ({ period, label, activePeriod, onClick }) => {
@@ -45,13 +39,33 @@ const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Peri
     );
 }
 
-const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, period, onPeriodChange }) => {
+const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, period, onPeriodChange, currency }) => {
   const { width } = useWindowSize();
   const isMobile = width ? width < 768 : false;
   const chartRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { filters, setFilter } = useFilter();
   const titleId = useId();
+
+  const formatCurrency = (value: number) => {
+    if (!value) return currency === 'KHR' ? '៛0' : '$0';
+    if (currency === 'KHR') {
+        if (value >= 1000000) return `៛${(value / 1000000).toFixed(1)}M`;
+        if (value >= 1000) return `៛${(value / 1000).toFixed(0)}K`;
+        return `៛${value.toFixed(0)}`;
+    }
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+    return `$${value.toFixed(0)}`;
+  };
+  
+  const formatFullCurrency = (value: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+        currencyDisplay: currency === 'KHR' ? 'code' : 'symbol'
+      }).format(value).replace('KHR', '៛');
+  }
 
   const handleResize = useDebouncedCallback(() => {
     const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -219,7 +233,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
             <div class="flex items-center">
                 ${marker}
                 <span class="text-gray-600">Revenue:</span>
-                <span class="font-semibold text-gray-800 ml-auto">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)}</span>
+                <span class="font-semibold text-gray-800 ml-auto">${formatFullCurrency(value)}</span>
             </div>
             <div class="flex items-center mt-1">
                 <span class="w-3 h-3 rounded-full mr-2 inline-block bg-slate-400"></span>

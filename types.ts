@@ -70,6 +70,7 @@ export interface PipelineProject {
   'Conditional': string;
   'Attach Invoice': string;
   'Attach D.O': string;
+  'Currency'?: 'USD' | 'KHR';
 }
 
 export interface Company {
@@ -201,6 +202,13 @@ export interface Quotation {
   'Payment Term'?: string;
   'Stock Status'?: string;
   'Created By'?: string;
+  'Currency'?: 'USD' | 'KHR';
+  'Prepared By'?: string;
+  'Approved By'?: string;
+  'Remark'?: string;
+  'Terms and Conditions'?: string;
+  'Prepared By Position'?: string;
+  'Approved By Position'?: string;
   [key: string]: any;
 }
 
@@ -222,6 +230,8 @@ export interface SaleOrder {
   'Bill Invoice'?: 'VAT' | 'NON-VAT';
   'Install Software'?: string;
   'Created By'?: string;
+  'Currency'?: 'USD' | 'KHR';
+  'Attachment'?: string;
   [key: string]: any;
 }
 
@@ -237,5 +247,6 @@ export interface PricelistItem {
   'Category': string;
   'Detail Spec': string;
   'Status': string;
+  'Currency'?: 'USD' | 'KHR';
   [key: string]: any;
 }

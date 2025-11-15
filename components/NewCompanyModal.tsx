@@ -141,28 +141,37 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
         if (isEditMode) {
             const originalCompanies = companies ? [...companies] : [];
-            const optimisticData = { ...existingData, ...submissionData } as Company;
-            
-            setCompanies(current => current ? current.map(c => c['Company ID'] === existingData['Company ID'] ? optimisticData : c) : [optimisticData]);
+            const updatedId = existingData['Company ID'];
+            // Optimistic update
+            setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? { ...c, ...submissionData } as Company : c) : null);
             
             try {
-                await updateRecord('Company List', existingData['Company ID'], submissionData);
+                const updatedRecord: Company = await updateRecord('Company List', updatedId, submissionData);
                 addToast('Company updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update company.', 'error');
-                setCompanies(originalCompanies);
+                // Replace optimistic with server record
+                setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? updatedRecord : c) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update company: ${err.message}`, 'error');
+                setCompanies(originalCompanies); // Revert on failure
             }
         } else { // CREATE
-            const optimisticData = submissionData as Company;
-            setCompanies(current => current ? [optimisticData, ...current] : [optimisticData]);
+            const tempId = submissionData['Company ID'];
+            // Optimistic update
+            setCompanies(current => current ? [submissionData as Company, ...current] : [submissionData as Company]);
 
             try {
-                await createRecord('Company List', submissionData);
+                const createdRecord: Company = await createRecord('Company List', submissionData);
                 addToast('Company created!', 'success');
-                if (onSaveSuccess) onSaveSuccess(optimisticData);
-            } catch (err) {
-                addToast('Failed to create company.', 'error');
-                setCompanies(current => current ? current.filter(c => c['Company ID'] !== optimisticData['Company ID']) : null);
+                // Replace temp record with the one from the server.
+                setCompanies(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(c => c['Company ID'] === tempId ? createdRecord : c);
+                });
+                if (onSaveSuccess) onSaveSuccess(createdRecord);
+            } catch (err: any) {
+                addToast(`Failed to create company: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setCompanies(current => current ? current.filter(c => c['Company ID'] !== tempId) : null);
             }
         }
     };
@@ -179,11 +188,15 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
 
         try {
-            await deleteRecord('Company List', companyToDeleteId);
-            addToast('Company deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete company.', 'error');
-            setCompanies(originalCompanies);
+            const response: { deletedId: string } = await deleteRecord('Company List', companyToDeleteId);
+            if (response.deletedId === companyToDeleteId) {
+                addToast('Company deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete company: ${err.message}`, 'error');
+            setCompanies(originalCompanies); // Revert on failure
         }
     };
     

@@ -6,12 +6,13 @@ import NewCompanyModal from './NewCompanyModal';
 // FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
 import { Info, Briefcase, Users, DollarSign, Table, Columns, ExternalLink } from 'lucide-react';
 import Spinner from './Spinner';
-import { parseSheetValue } from '../utils/formatters';
+import { parseSheetValue, formatMixedCurrency, determineCurrency } from '../utils/formatters';
 import EmptyState from './EmptyState';
 import CompanyListContainer from './CompanyListContainer';
 import ViewToggle from './ViewToggle';
 import DataTable, { ColumnDef } from './DataTable';
 import { formatDateAsMDY, parseDate } from '../utils/time';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
 
 interface CompanyDashboardProps {
@@ -25,8 +26,11 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
     { id: 'detail', label: 'Detail', icon: <Columns /> },
 ];
 
+const COMPANY_COLUMNS_VISIBILITY_KEY = 'limperial-company-columns-visibility';
+
 type ProcessedCompany = Company & {
-  totalValue: number;
+  totalValueUSD: number;
+  totalValueKHR: number;
   status: 'Active' | 'Inactive';
 };
 
@@ -62,11 +66,20 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     return validCompanies.map(company => {
         const companyName = company['Company Name'];
         
-        const totalValue = projects
+        const { totalValueUSD, totalValueKHR } = projects
             ? projects
                 .filter(p => p['Company Name'] === companyName && p.Status === 'Close (win)')
-                .reduce((sum, p) => sum + parseSheetValue(p['Bid Value']), 0)
-            : 0;
+                .reduce((acc, p) => {
+                    const value = parseSheetValue(p['Bid Value']);
+                    const determinedCurrency = determineCurrency(value, p.Currency);
+                    if (determinedCurrency === 'KHR') {
+                        acc.totalValueKHR += value;
+                    } else {
+                        acc.totalValueUSD += value;
+                    }
+                    return acc;
+                }, { totalValueUSD: 0, totalValueKHR: 0 })
+            : { totalValueUSD: 0, totalValueKHR: 0 };
             
         const isActive = saleOrders
             ? saleOrders.some(so => {
@@ -79,7 +92,8 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
         
         return {
             ...company,
-            totalValue,
+            totalValueUSD,
+            totalValueKHR,
             status: isActive ? 'Active' as const : 'Inactive' as const
         };
     });
@@ -116,12 +130,21 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     const companyName = selectedCompany['Company Name'];
     const relatedProjects = projects?.filter(p => p['Company Name'] === companyName) || [];
     const relatedContacts = contacts?.filter(c => c['Company Name'] === companyName) || [];
-    const totalValue = relatedProjects.reduce((sum, p) => sum + parseSheetValue(p['Bid Value']), 0);
+    const { totalValueUSD, totalValueKHR } = relatedProjects.reduce((sum, p) => {
+      const value = parseSheetValue(p['Bid Value']);
+       const determinedCurrency = determineCurrency(value, p.Currency);
+       if (determinedCurrency === 'KHR') {
+          sum.totalValueKHR += value;
+      } else {
+          sum.totalValueUSD += value;
+      }
+      return sum;
+    }, { totalValueUSD: 0, totalValueKHR: 0 });
 
-    return { relatedProjects, relatedContacts, totalValue };
+    return { relatedProjects, relatedContacts, totalValueUSD, totalValueKHR };
   }, [selectedCompany, projects, contacts]);
 
-  const columns = useMemo<ColumnDef<ProcessedCompany>[]>(() => [
+  const allColumns = useMemo<ColumnDef<ProcessedCompany>[]>(() => [
     {
       accessorKey: 'Company ID',
       header: 'Company ID',
@@ -149,12 +172,12 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     { accessorKey: 'Payment Term', header: 'Payment Term', isSortable: true },
     { accessorKey: 'Field', header: 'Industry', isSortable: true },
     {
-      accessorKey: 'totalValue',
+      accessorKey: 'totalValueUSD', // Sort by USD value
       header: 'Total Amount',
       isSortable: true,
-      cell: (value: number) => (
+      cell: (_, row) => (
         <span className="text-sm font-medium text-slate-800 text-right block w-full">
-          {value > 0 ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+          {formatMixedCurrency(row.totalValueUSD, row.totalValueKHR)}
         </span>
       ),
     },
@@ -172,6 +195,51 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
       },
     },
   ], []);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+        const saved = localStorage.getItem(COMPANY_COLUMNS_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return new Set(parsed);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load visible columns from storage", e);
+    }
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+  
+  useEffect(() => {
+    const saved = localStorage.getItem(COMPANY_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorage.setItem(COMPANY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
 
 
   if (error) {
@@ -225,7 +293,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
                     <div className="bg-slate-50 p-4 rounded-lg">
                         <dt className="text-sm font-medium text-gray-500 flex items-center justify-center gap-2"><DollarSign className="w-5 h-5"/> Total Value</dt>
-                        <dd className="mt-1 text-xl font-semibold text-gray-900">{companyDetails.totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</dd>
+                        <dd className="mt-1 text-xl font-semibold text-gray-900">{formatMixedCurrency(companyDetails.totalValueUSD, companyDetails.totalValueKHR)}</dd>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-lg">
                         <dt className="text-sm font-medium text-gray-500 flex items-center justify-center gap-2"><Briefcase className="w-5 h-5"/> Pipelines</dt>
@@ -327,6 +395,13 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                     <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
                 <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                {viewMode === 'table' && (
+                    <DataTableColumnToggle
+                        allColumns={allColumns}
+                        visibleColumns={visibleColumns}
+                        onColumnToggle={handleColumnToggle}
+                    />
+                )}
                 <button
                     onClick={() => handleOpenNewCompany()}
                     className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
@@ -344,7 +419,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                 <DataTable
                     tableId="company-table"
                     data={filteredData}
-                    columns={columns}
+                    columns={displayedColumns}
                     loading={loading && !companyData}
                     onRowClick={handleViewCompany}
                     initialSort={{ key: 'Company ID', direction: 'ascending' }}

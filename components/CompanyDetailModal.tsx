@@ -33,7 +33,7 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 
 const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClose, onEditRequest, projects, contacts }) => {
   const { handleNavigation } = useNavigation();
-  const { refetchData } = useData();
+  const { companies, setCompanies } = useData();
   const { addToast } = useToast();
   const [isShowing, setIsShowing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,16 +68,26 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
   
   const handleDelete = async () => {
     if (!company || !company['Company ID']) return;
-    setIsSubmitting(true);
+
+    const originalCompanies = companies ? [...companies] : [];
+    const companyToDeleteId = company['Company ID'];
+
+    setDeleteConfirmOpen(false);
+    onClose();
+
+    // Optimistic update
+    setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
+
     try {
-        await deleteRecord('Company List', company['Company ID']);
-        addToast('Company deleted successfully!', 'success');
-        await refetchData();
-        onClose();
+        const response: { deletedId: string } = await deleteRecord('Company List', companyToDeleteId);
+        if (response.deletedId === companyToDeleteId) {
+            addToast('Company deleted successfully!', 'success');
+        } else {
+            throw new Error("Backend did not confirm deletion.");
+        }
     } catch (err: any) {
-        addToast(err.message || 'Failed to delete company.', 'error');
-    } finally {
-        setIsSubmitting(false);
+        addToast(`Failed to delete company: ${err.message}`, 'error');
+        setCompanies(originalCompanies); // Revert on error
     }
   };
 
@@ -92,7 +102,7 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
                 <DetailItem label="Company ID" value={company['Company ID']} />
                 <DetailItem label="Company Name (Khmer)" value={company['Company Name (Khmer)']} />
                 <DetailItem label="Phone Number" value={company['Phone Number']} />
-                <DetailItem label="Email" value={company['Email']} />
+                <DetailItem label="Email" value={company.Email} />
                 <DetailItem label="Website" value={company.Website ? <a href={company.Website} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{company.Website}</a> : null} />
                 <DetailItem label="Field" value={company.Field} />
                 <DetailItem label="Payment Term" value={company['Payment Term']} />

@@ -1,11 +1,12 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { useData } from './DataContext';
 import { User } from '../types';
+import { readRecords } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isAuthLoading: boolean;
   currentUser: User | null;
+  users: User[] | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
 }
@@ -13,34 +14,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { users, loading: isDataLoading } = useData();
+  const [users, setUsers] = useState<User[] | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isInitialAuthCheckComplete, setInitialAuthCheckComplete] = useState(false);
 
-  // Check for saved session only on the initial data load
   useEffect(() => {
-    // This effect should only run once when the user data is available for the first time.
-    if (!isDataLoading && !isInitialAuthCheckComplete) {
+    const bootstrapAuth = async () => {
       try {
+        const fetchedUsers = await readRecords<User>('Users');
+        setUsers(fetchedUsers);
+
         const savedUserId = localStorage.getItem('limperial_auth_user');
-        if (savedUserId && users) {
-          const user = users.find(u => u.UserID === savedUserId);
+        if (savedUserId && fetchedUsers) {
+          const user = fetchedUsers.find(u => u.UserID === savedUserId);
           if (user) {
             setCurrentUser(user);
           }
         }
       } catch (error) {
-        console.error("Failed to load user session from localStorage", error);
+        console.error("Failed to load user data for authentication", error);
       } finally {
-        // Mark the initial check as complete, regardless of outcome.
-        setInitialAuthCheckComplete(true);
+        setIsAuthLoading(false);
       }
-    }
-  }, [isDataLoading, users, isInitialAuthCheckComplete]);
+    };
+
+    bootstrapAuth();
+  }, []);
+
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     if (!users) {
-      return { success: false, message: "User data is not available. Please try again later." };
+      return { success: false, message: "Authentication service is temporarily unavailable. Please try again later." };
     }
     
     const trimmedEmail = email.trim().toLowerCase();
@@ -79,8 +83,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const value = {
     isAuthenticated: !!currentUser,
-    isAuthLoading: !isInitialAuthCheckComplete,
+    isAuthLoading,
     currentUser,
+    users,
     login,
     logout,
   };

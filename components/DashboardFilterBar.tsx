@@ -26,6 +26,18 @@ const ContextAwareMultiSelectFilter: React.FC<Omit<ComponentProps<typeof MultiSe
     return <MultiSelectFilter {...props} selectedValues={selectedValues} onApply={handleApply} />;
 };
 
+const CurrencyToggle: React.FC = () => {
+    const { filters, setFilter } = useFilter();
+    const activeCurrency = filters.currency || 'USD';
+    
+    return (
+        <div className="bg-slate-100 p-1 rounded-full flex gap-1 flex-shrink-0">
+            <button onClick={() => setFilter('currency', 'USD')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'USD' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-600 hover:bg-slate-200'}`}>USD</button>
+            <button onClick={() => setFilter('currency', 'KHR')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'KHR' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-600 hover:bg-slate-200'}`}>KHR</button>
+        </div>
+    );
+};
+
 
 const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assignees, companies, brands, months, years, onMenuVisibilityChange }) => {
     const { filters, clearFilters } = useFilter();
@@ -297,6 +309,7 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
                 <span className="text-sm font-semibold text-slate-800 hidden lg:block">Filters</span>
             </div>
             <div className="flex-1 flex flex-wrap items-center gap-2">
+                <CurrencyToggle />
                 <DateRangeFilterButton />
                 {filterConfig.map(config => (
                     <ContextAwareMultiSelectFilter 

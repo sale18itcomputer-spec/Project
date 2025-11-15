@@ -11,6 +11,7 @@ import NewContactModal from './NewContactModal';
 import { useToast } from '../contexts/ToastContext';
 import ResizableModal from './ResizableModal';
 import { Check, Pencil, Trash2, Calendar, MessageSquare } from 'lucide-react';
+import SearchableSelect from './SearchableSelect';
 
 const ensureHyperlink = (url?: string): string => {
     if (!url || typeof url !== 'string' || url.trim() === '') return '';
@@ -49,6 +50,7 @@ const getTodayDateString = () => {
 const STATUS_OPTIONS: PipelineProject['Status'][] = ['Quote Submitted', 'Close (win)', 'Close (lose)'];
 const TYPE_OPTIONS = ['Project', 'Maintenance', 'Consultant'];
 const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['Yes', 'No'];
+const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
 const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, meetings, contactLogs }) => {
     const { projects, setProjects, companies, contacts } = useData();
@@ -76,7 +78,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         }
         const initialState: Partial<PipelineProject> = {
             'Pipeline No.': nextPipelineNo, 'Created Date': getTodayDateString(), 'Status': 'Quote Submitted',
-            'Taxable': 'Yes', 'Type': 'Project',
+            'Taxable': 'Yes', 'Type': 'Project', 'Currency': 'USD',
         };
         return initialState;
     }, [projects]);
@@ -109,8 +111,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
 
-    const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const companyName = e.target.value;
+    const handleCompanySelect = (companyName: string) => {
         setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '' }));
     };
 
@@ -136,27 +137,37 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
 
         if (isEditMode) {
             const originalProjects = projects ? [...projects] : [];
-            const optimisticData = { ...existingData, ...submissionData } as PipelineProject;
-
-            setProjects(current => current ? current.map(p => p['Pipeline No.'] === existingData['Pipeline No.'] ? optimisticData : p) : [optimisticData]);
+            const updatedId = existingData['Pipeline No.'];
+            // Optimistic update
+            setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
             
             try {
-                await updateRecord('Pipelines', existingData['Pipeline No.'], submissionData);
+                const updatedRecord: PipelineProject = await updateRecord('Pipelines', updatedId, submissionData);
                 addToast('Pipeline updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update pipeline.', 'error');
-                setProjects(originalProjects);
+                // Replace optimistic with server record
+                setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? updatedRecord : p) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update pipeline: ${err.message}`, 'error');
+                setProjects(originalProjects); // Revert on failure
             }
         } else { // CREATE
-            const optimisticData = submissionData as PipelineProject;
-            setProjects(current => current ? [optimisticData, ...current] : [optimisticData]);
+            const tempId = submissionData['Pipeline No.'];
+            // Optimistic update
+            setProjects(current => current ? [submissionData as PipelineProject, ...current] : [submissionData as PipelineProject]);
 
             try {
-                await createRecord('Pipelines', submissionData);
+                const createdRecord: PipelineProject = await createRecord('Pipelines', submissionData);
                 addToast('Pipeline created!', 'success');
-            } catch (err) {
-                addToast('Failed to create pipeline.', 'error');
-                setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== optimisticData['Pipeline No.']) : null);
+                // Replace temp record with the one from the server.
+                setProjects(current => {
+                    if (!current) return [createdRecord];
+                    // Use tempId to find and replace, in case the returned ID is different (it shouldn't be, but it's safer)
+                    return current.map(p => p['Pipeline No.'] === tempId ? createdRecord : p);
+                });
+            } catch (err: any) {
+                addToast(`Failed to create pipeline: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== tempId) : null);
             }
         }
     };
@@ -166,18 +177,22 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         
         const originalProjects = projects ? [...projects] : [];
         const projectToDeleteId = existingData['Pipeline No.'];
-
+        
         setDeleteConfirmOpen(false);
         onClose();
 
         setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
 
         try {
-            await deleteRecord('Pipelines', projectToDeleteId);
-            addToast('Pipeline deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete pipeline.', 'error');
-            setProjects(originalProjects);
+            const response: { deletedId: string } = await deleteRecord('Pipelines', projectToDeleteId);
+            if (response.deletedId === projectToDeleteId) {
+                addToast('Pipeline deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete pipeline: ${err.message}`, 'error');
+            setProjects(originalProjects); // Revert on failure
         }
     };
     
@@ -262,13 +277,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                     </FormSection>
                     <FormSection title="Company & Contact">
                         {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <FormSelect 
+                            <SearchableSelect 
                                 name="Company Name" 
                                 label="Company Name" 
-                                value={formData['Company Name']} 
-                                onChange={handleCompanyChange} 
-                                options={companyOptions} 
-                                required 
+                                value={formData['Company Name'] || ''} 
+                                onChange={handleCompanySelect}
+                                options={companyOptions}
+                                required
+                                placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
                         {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> : 
@@ -297,6 +313,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                     </FormSection>
                     <FormSection title="Financials & Documents">
                         {isReadOnly ? <FormDisplay label="Bid Value" value={formData['Bid Value']} /> : <FormInput name="Bid Value" label="Bid Value" value={formData['Bid Value']} onChange={handleChange} type="text" placeholder="e.g., 5000 or =5000*0.7" />}
+                        {isReadOnly ? <FormDisplay label="Currency" value={formData.Currency} /> : <FormSelect name="Currency" label="Currency" value={formData.Currency} onChange={handleChange} options={CURRENCY_OPTIONS} />}
                         {isReadOnly ? <FormDisplay label="Quote Link">{formData.Quote && <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{formData.Quote}</a>}</FormDisplay> : <FormInput name="Quote" label="Quote Link" value={formData.Quote} onChange={handleChange} type="url" placeholder="Paste a shareable link here" />}
                         {isReadOnly ? <FormDisplay label="Invoice No." value={formData['Invoice No.']} /> : <FormInput name="Invoice No." label="Invoice No." value={formData['Invoice No.']} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Invoice Date" value={formatToInputDate(formData['Inv Date'])} /> : <FormInput name="Inv Date" label="Invoice Date" value={formData['Inv Date']} onChange={handleChange} type="date" />}

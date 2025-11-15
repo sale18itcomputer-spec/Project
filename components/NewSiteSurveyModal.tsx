@@ -91,37 +91,45 @@ const NewSiteSurveyModal: React.FC<NewSiteSurveyModalProps> = ({ isOpen, onClose
 
         if (isEditMode) {
             const originalSurveys = siteSurveys ? [...siteSurveys] : [];
-            const optimisticData = { ...existingData, ...submissionData } as SiteSurveyLog;
-
-            setSiteSurveys(current => current ? current.map(s => s['Site ID'] === existingData['Site ID'] ? optimisticData : s) : [optimisticData]);
+            const updatedId = existingData['Site ID']!;
+            // Optimistic update
+            setSiteSurveys(current => current ? current.map(s => s['Site ID'] === updatedId ? { ...s, ...submissionData } as SiteSurveyLog : s) : null);
 
             try {
-                await updateRecord('Site_Survey_Logs', existingData['Site ID']!, submissionData);
+                const updatedRecord: SiteSurveyLog = await updateRecord('Site_Survey_Logs', updatedId, submissionData);
                 addToast('Survey updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update survey.', 'error');
-                setSiteSurveys(originalSurveys);
+                // Replace optimistic with server record
+                setSiteSurveys(current => current ? current.map(s => s['Site ID'] === updatedId ? updatedRecord : s) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update survey: ${err.message}`, 'error');
+                setSiteSurveys(originalSurveys); // Revert
             }
-        } else {
-            const optimisticData = { ...submissionData } as SiteSurveyLog;
-            
-            setSiteSurveys(current => current ? [optimisticData, ...current] : [optimisticData]);
+        } else { // CREATE
+            const tempId = submissionData['Site ID']!;
+            // Optimistic update
+            setSiteSurveys(current => current ? [submissionData as SiteSurveyLog, ...current] : [submissionData as SiteSurveyLog]);
             
             try {
-                await createRecord('Site_Survey_Logs', optimisticData);
+                const createdRecord: SiteSurveyLog = await createRecord('Site_Survey_Logs', submissionData);
                 addToast('Survey created!', 'success');
-            } catch (err) {
-                addToast('Failed to create survey.', 'error');
-                setSiteSurveys(current => current ? current.filter(s => s['Site ID'] !== optimisticData['Site ID']) : null);
+                // Replace temp record with the one from the server.
+                setSiteSurveys(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(s => s['Site ID'] === tempId ? createdRecord : s);
+                });
+            } catch (err: any) {
+                addToast(`Failed to create survey: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setSiteSurveys(current => current ? current.filter(s => s['Site ID'] !== tempId) : null);
             }
         }
     };
 
     const handleDelete = async () => {
-        if (!existingData) return;
+        if (!existingData || !existingData['Site ID']) return;
         
         const originalSurveys = siteSurveys ? [...siteSurveys] : [];
-        const surveyToDeleteId = existingData['Site ID']!;
+        const surveyToDeleteId = existingData['Site ID'];
         
         setDeleteConfirmOpen(false);
         onClose();
@@ -129,11 +137,15 @@ const NewSiteSurveyModal: React.FC<NewSiteSurveyModalProps> = ({ isOpen, onClose
         setSiteSurveys(current => current ? current.filter(s => s['Site ID'] !== surveyToDeleteId) : null);
 
         try {
-            await deleteRecord('Site_Survey_Logs', surveyToDeleteId);
-            addToast('Survey deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete survey.', 'error');
-            setSiteSurveys(originalSurveys);
+            const response: { deletedId: string } = await deleteRecord('Site_Survey_Logs', surveyToDeleteId);
+            if (response.deletedId === surveyToDeleteId) {
+                addToast('Survey deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete survey: ${err.message}`, 'error');
+            setSiteSurveys(originalSurveys); // Revert
         }
     };
 

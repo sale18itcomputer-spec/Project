@@ -137,28 +137,37 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
 
         if (isEditMode) {
             const originalContacts = contacts ? [...contacts] : [];
-            const optimisticData = { ...existingData, ...submissionData } as Contact;
-
-            setContacts(current => current ? current.map(c => c['Customer ID'] === existingData['Customer ID'] ? optimisticData : c) : [optimisticData]);
+            const updatedId = existingData['Customer ID'];
+            // Optimistic update
+            setContacts(current => current ? current.map(c => c['Customer ID'] === updatedId ? { ...c, ...submissionData } as Contact : c) : null);
 
             try {
-                await updateRecord('Contact_List', existingData['Customer ID'], submissionData);
+                const updatedRecord: Contact = await updateRecord('Contact_List', updatedId, submissionData);
                 addToast('Contact updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update contact.', 'error');
-                setContacts(originalContacts);
+                 // Replace optimistic with server record
+                setContacts(current => current ? current.map(c => c['Customer ID'] === updatedId ? updatedRecord : c) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update contact: ${err.message}`, 'error');
+                setContacts(originalContacts); // Revert
             }
-        } else {
-            const optimisticData = submissionData as Contact;
-            setContacts(current => current ? [optimisticData, ...current] : [optimisticData]);
+        } else { // CREATE
+            const tempId = submissionData['Customer ID'];
+            // Optimistic update
+            setContacts(current => current ? [submissionData as Contact, ...current] : [submissionData as Contact]);
 
             try {
-                await createRecord('Contact_List', submissionData);
+                const createdRecord: Contact = await createRecord('Contact_List', submissionData);
                 addToast('Contact created!', 'success');
-                if (onSaveSuccess) onSaveSuccess(optimisticData);
-            } catch (err) {
-                addToast('Failed to create contact.', 'error');
-                setContacts(current => current ? current.filter(c => c['Customer ID'] !== optimisticData['Customer ID']) : null);
+                // Replace temp record with the one from the server.
+                setContacts(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(c => c['Customer ID'] === tempId ? createdRecord : c);
+                });
+                if (onSaveSuccess) onSaveSuccess(createdRecord);
+            } catch (err: any) {
+                addToast(`Failed to create contact: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setContacts(current => current ? current.filter(c => c['Customer ID'] !== tempId) : null);
             }
         }
     };
@@ -175,11 +184,15 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
         setContacts(current => current ? current.filter(c => c['Customer ID'] !== contactToDeleteId) : null);
 
         try {
-            await deleteRecord('Contact_List', contactToDeleteId);
-            addToast('Contact deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete contact.', 'error');
-            setContacts(originalContacts);
+            const response: { deletedId: string } = await deleteRecord('Contact_List', contactToDeleteId);
+            if (response.deletedId === contactToDeleteId) {
+                addToast('Contact deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete contact: ${err.message}`, 'error');
+            setContacts(originalContacts); // Revert
         }
     };
     

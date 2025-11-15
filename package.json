@@ -34,7 +34,8 @@
     "@radix-ui/react-collapsible": "1.0.3",
     "@radix-ui/react-primitive": "1.0.3",
     "react-apexcharts": "^1.8.0",
-    "apexcharts": "^5.3.5"
+    "apexcharts": "^5.3.5",
+    "idb": "8.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

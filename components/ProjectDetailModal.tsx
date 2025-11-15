@@ -8,7 +8,7 @@ import { useData } from '../contexts/DataContext';
 // Import parseDate to handle date parsing for activities.
 import { formatDateAsMDY, formatDisplayDate, parseDate } from '../utils/time';
 import ModalActionFooter from './ModalActionFooter';
-import { parseSheetValue } from '../utils/formatters';
+import { formatCurrencySmartly } from '../utils/formatters';
 import ConfirmationModal from './ConfirmationModal';
 import EmptyState from './EmptyState';
 import { generateGoogleCalendarLink } from '../utils/calendar';
@@ -176,9 +176,10 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bid Value</p>
                     <div className="text-lg font-bold text-slate-800 mt-1">
                         {(() => {
-                            const num = parseSheetValue(project['Bid Value']);
-                            if (num === 0 && String(project['Bid Value'] || '').trim() === '') return <span className="text-gray-400 italic text-base">N/A</span>;
-                            return num.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            const formattedValue = formatCurrencySmartly(project['Bid Value'], project.Currency);
+                            return formattedValue === '-'
+                                ? <span className="text-gray-400 italic text-base">N/A</span>
+                                : formattedValue;
                         })()}
                     </div>
                 </div>
@@ -210,6 +211,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
                     <DetailItem label="Type" value={project['Type']} />
                     <DetailItem label="Brand" value={project['Brand 1']} />
                     <DetailItem label="Taxable" value={project['Taxable']} />
+                    <DetailItem label="Currency" value={project.Currency} />
                 </div>
             </div>
              <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">

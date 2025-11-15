@@ -19,105 +19,245 @@ interface PrintableSaleOrderProps {
     tax: number;
     grandTotal: number;
   };
+  currency: 'USD' | 'KHR';
 }
 
-// Make the 'children' prop optional to allow for empty table cells.
-const Td: React.FC<{ children?: React.ReactNode; colSpan?: number; rowSpan?: number; className?: string; isHeader?: boolean }> = 
-({ children, colSpan, rowSpan, className, isHeader = false }) => {
-    const baseClasses = "border border-black p-1 align-top";
-    const headerClasses = isHeader ? "font-semibold" : "";
-    return <td colSpan={colSpan} rowSpan={rowSpan} className={`${baseClasses} ${headerClasses} ${className}`}>{children}</td>
-}
+const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
+    switch (currency) {
+        case 'USD': return '$';
+        case 'KHR': return '៛';
+        default: return '$';
+    }
+};
 
 
-const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items }) => {
-  const tableRows = 12; // Minimum number of rows to display in the items table
-  const filledItems = [...items, ...Array(Math.max(0, tableRows - items.length)).fill({})];
+const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, currency }) => {
+  const currencySymbol = getCurrencySymbol(currency);
+
+  const formatCurrency = (value: number) => {
+      if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
+      return `${currencySymbol}${value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    // The format in the example is MM/DD/YYYY
+    const date = new Date(dateString + 'T00:00:00'); // Ensure it's parsed as local time
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US');
+  };
+
+  // Styles from the provided HTML
+  const styles: { [key: string]: React.CSSProperties } = {
+    document: {
+      maxWidth: '900px',
+      margin: '0 auto',
+      background: 'white',
+      padding: '40px',
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '11px',
+      color: 'black',
+    },
+    header: {
+      textAlign: 'right',
+      marginBottom: '30px',
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: 'bold',
+      marginBottom: '20px',
+    },
+    infoSection: {
+      fontSize: '12px',
+      lineHeight: 1.8,
+      marginBottom: '20px',
+    },
+    infoRow: {
+      display: 'grid',
+      gridTemplateColumns: '120px 20px 1fr 150px 20px 200px',
+      marginBottom: '8px',
+    },
+    infoLabel: {
+      fontWeight: 'normal',
+    },
+    infoColon: {
+      textAlign: 'center',
+    },
+    infoValue: {
+      fontWeight: 'normal',
+    },
+    rightLabel: {
+      textAlign: 'right',
+      fontWeight: 'normal',
+    },
+    rightValue: {
+      fontWeight: 'normal',
+    },
+    boldValue: {
+      fontWeight: 'bold',
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      margin: '20px 0',
+      fontSize: '11px',
+    },
+    th: {
+      background: '#1e4d8b',
+      color: 'white',
+      padding: '10px 8px',
+      textAlign: 'center',
+      fontWeight: 'bold',
+      border: '1px solid #1e4d8b',
+    },
+    td: {
+      padding: '10px 8px',
+      border: '1px solid #000',
+      verticalAlign: 'top',
+    },
+    itemDescription: {
+      lineHeight: 1.5,
+      whiteSpace: 'pre-wrap',
+    },
+    textCenter: {
+      textAlign: 'center',
+    },
+    textRight: {
+      textAlign: 'right',
+    },
+    remarks: {
+      marginTop: '30px',
+      fontSize: '11px',
+      lineHeight: 1.6,
+    },
+    remarksTitle: {
+      fontWeight: 'bold',
+      marginBottom: '10px',
+    },
+    signatures: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      marginTop: '100px',
+    },
+    signatureBlock: {
+      textAlign: 'center',
+      width: '45%',
+    },
+    signatureLine: {
+      borderTop: '1px solid #000',
+      paddingTop: '10px',
+      fontSize: '12px',
+    },
+  };
 
   return (
-    <div className="printable-area bg-white p-2 font-[Arial,sans-serif] text-[9px] text-black shadow-lg border border-gray-200 rounded-lg">
-      <table className="w-full border-collapse">
-        <tbody>
-          {/* Row 1: Title */}
-          <tr>
-            <td colSpan={8} className="text-center py-2"><h1 className="text-lg font-bold">SALE ORDER</h1></td>
-          </tr>
-          
-          {/* Header section */}
-          <tr>
-            <Td isHeader={true}>Company Name</Td>
-            <Td colSpan={3}>: {headerData['Company Name']}</Td>
-            <Td isHeader={true} colSpan={2}>SO No.</Td>
-            <Td colSpan={2} isHeader={true}>: {headerData['Sale Order ID']}</Td>
-          </tr>
-          <tr>
-            <Td isHeader={true} rowSpan={2}>Address</Td>
-            <Td colSpan={3} rowSpan={2}>: {headerData['Company Address']}</Td>
-            <Td isHeader={true} colSpan={2}>SO Date</Td>
-            <Td colSpan={2}>: {headerData['Order Date'] ? new Date(headerData['Order Date'] + 'T00:00:00').toLocaleDateString('en-GB') : ''}</Td>
-          </tr>
-          <tr>
-             <Td isHeader={true} colSpan={2}>Delivery Date</Td>
-            <Td colSpan={2}>: {headerData['Delivery Date'] ? new Date(headerData['Delivery Date'] + 'T00:00:00').toLocaleDateString('en-GB') : ''}</Td>
-          </tr>
-          <tr>
-            <Td isHeader={true}>Contact Person</Td>
-            <Td colSpan={3}>: {headerData['Contact Person']}</Td>
-            <Td isHeader={true} colSpan={2}>Payment Terms</Td>
-            <Td colSpan={2}>: {headerData['Payment Term']}</Td>
-          </tr>
-          <tr>
-            <Td isHeader={true}>Telephone</Td>
-            <Td colSpan={3}>: {headerData['Contact Tel']}</Td>
-            <Td isHeader={true} colSpan={2} className="border-b-0">Bill Invoice</Td>
-            <Td colSpan={2} className="border-b-0">: {headerData['Bill Invoice']}</Td>
-          </tr>
-          <tr>
-            <Td isHeader={true}>Email</Td>
-            <Td colSpan={3}>: {headerData.Email}</Td>
-            <Td colSpan={4} className="border-l-0"></Td>
-          </tr>
-
-          {/* Empty row for spacing */}
-          <tr style={{ height: '10px' }}>
-            <td colSpan={8}></td>
-          </tr>
-
-          {/* Items Table Header */}
-          <tr className="print-bg-blue bg-brand-800 print-text-white text-white font-bold text-center">
-            <Td className="w-[4%]">No.</Td>
-            <Td className="w-[12%]">Item Code</Td>
-            <Td colSpan={2} className="w-[38%]">Item Description</Td>
-            <Td className="w-[6%]">Qty</Td>
-            <Td className="w-[12%]">Unit Price</Td>
-            <Td className="w-[12%]">Commission</Td>
-            <Td className="w-[16%]">Amount</Td>
-          </tr>
-
-          {/* Items Rows */}
-          {filledItems.map((item, index) => (
-            <tr key={item.id || `fill-${index}`} style={{height: '40px'}}>
-              <Td className="text-center">{item.no || ''}</Td>
-              <Td>{item.itemCode || ''}</Td>
-              <Td colSpan={2} className="whitespace-pre-wrap">{item.description || ''}</Td>
-              <Td className="text-center">{item.qty || ''}</Td>
-              <Td className="text-right">{item.unitPrice ? `$${item.unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : ''}</Td>
-              <Td className="text-right">{item.commission ? `$${item.commission.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : (item.no ? '$ -' : '')}</Td>
-              <Td className="text-right">{item.amount ? `$${item.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : (item.no ? '$ -' : '')}</Td>
-            </tr>
-          ))}
-          
-          {/* Footer section */}
-          <tr>
-            <Td colSpan={3} className="border-b-0 font-semibold">Install Software</Td>
-            <Td colSpan={5} className="border-b-0">: {headerData['Install Software']}</Td>
-          </tr>
-          <tr>
-            <Td colSpan={8} className="border-t-0"></Td>
-          </tr>
-          
-        </tbody>
-      </table>
+    <div style={styles.document} className="printable-area">
+        <div style={styles.header}>
+            <div style={styles.title}>SALE ORDER (B2C)</div>
+        </div>
+        
+        <div style={styles.infoSection}>
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}>Company Name</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.infoValue}>{headerData['Company Name']}</div>
+                <div style={styles.rightLabel}></div>
+                <div style={styles.infoColon}></div>
+                <div style={styles.rightValue}></div>
+            </div>
+            
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}>Address</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={{...styles.infoValue, whiteSpace: 'pre-wrap' }}>{headerData['Company Address']}</div>
+                <div style={styles.rightLabel}>SO No.</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={{...styles.rightValue, ...styles.boldValue}}>{headerData['Sale Order ID']}</div>
+            </div>
+            
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}></div>
+                <div style={styles.infoColon}></div>
+                <div style={styles.infoValue}></div>
+                <div style={styles.rightLabel}>SO Date</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.rightValue}>{formatDate(headerData['Order Date'])}</div>
+            </div>
+            
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}>Contact Person</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.infoValue}>{headerData['Contact Person']}</div>
+                <div style={styles.rightLabel}>Delivery Date</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.rightValue}>{formatDate(headerData['Delivery Date'])}</div>
+            </div>
+            
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}>Telephone</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.infoValue}>{headerData['Contact Tel']}</div>
+                <div style={styles.rightLabel}>Payment Terms</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.rightValue}>{headerData['Payment Term']}</div>
+            </div>
+            
+            <div style={styles.infoRow}>
+                <div style={styles.infoLabel}>Email</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={styles.infoValue}>{headerData.Email}</div>
+                <div style={styles.rightLabel}>Bill Invoice</div>
+                <div style={styles.infoColon}>:</div>
+                <div style={{...styles.rightValue, ...styles.boldValue}}>{headerData['Bill Invoice']}</div>
+            </div>
+        </div>
+        
+        <table style={styles.table}>
+            <thead>
+                <tr>
+                    <th style={{...styles.th, width: '40px'}}>No.</th>
+                    <th style={{...styles.th, width: '100px'}}>Item Code</th>
+                    <th style={styles.th}>Item Description</th>
+                    <th style={{...styles.th, width: '50px'}}>Qty</th>
+                    <th style={{...styles.th, width: '100px'}}>Unit Price</th>
+                    <th style={{...styles.th, width: '100px'}}>Commission</th>
+                    <th style={{...styles.th, width: '100px'}}>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {items.map((item) => (
+                    <tr key={item.id}>
+                        <td style={{...styles.td, ...styles.textCenter}}>{item.no}</td>
+                        <td style={{...styles.td, ...styles.textCenter}}>{item.itemCode}</td>
+                        <td style={{...styles.td, ...styles.itemDescription}}>{item.description}</td>
+                        <td style={{...styles.td, ...styles.textCenter}}>{item.qty}</td>
+                        <td style={{...styles.td, ...styles.textRight}}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
+                        <td style={{...styles.td, ...styles.textRight}}>{item.commission ? formatCurrency(item.commission) : ''}</td>
+                        <td style={{...styles.td, ...styles.textRight}}>{item.amount ? formatCurrency(item.amount) : ''}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+        
+        {headerData['Install Software'] && (
+            <div style={styles.remarks}>
+                <div style={styles.remarksTitle}>*** Install Software :</div>
+                <div style={{ marginLeft: '20px' }}>{headerData['Install Software']}</div>
+            </div>
+        )}
+        
+        <div style={styles.signatures}>
+            <div style={styles.signatureBlock}>
+                <div style={styles.signatureLine}>
+                    Ordered By
+                </div>
+            </div>
+            <div style={styles.signatureBlock}>
+                <div style={styles.signatureLine}>
+                    Received By
+                </div>
+            </div>
+        </div>
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 interface MetricCardProps {
   title: string;
   value: string;
+  subValue?: string;
   change: string;
   changeType: 'increase' | 'decrease';
   onClick?: () => void;
@@ -13,7 +14,7 @@ interface MetricCardProps {
   isCompact?: boolean;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, onClick, className, isCompact = false, icon }) => {
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, subValue, onClick, className, isCompact = false, icon }) => {
   const cardProps = {
     className: cn(
       "transition-all duration-300 transform",
@@ -31,6 +32,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, onClick, classNam
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
+        {subValue && <div className="text-base font-semibold text-slate-600 -mt-1">{subValue}</div>}
       </CardContent>
     </Card>
   );

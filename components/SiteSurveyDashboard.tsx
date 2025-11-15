@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SiteSurveyLog } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
@@ -9,6 +9,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { ExternalLink, Table, CalendarDays, MapPin, Clock } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import AgendaView, { AgendaItem } from './AgendaView';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -20,6 +21,8 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
     { id: 'table', label: 'Table', icon: <Table /> },
     { id: 'agenda', label: 'Agenda', icon: <CalendarDays /> },
 ];
+
+const SITE_SURVEY_COLUMNS_VISIBILITY_KEY = 'limperial-site-survey-columns-visibility';
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
   const { siteSurveys: surveyData, loading, error } = useData();
@@ -53,7 +56,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
   }, [filteredData]);
 
 
-  const columns = useMemo<ColumnDef<SiteSurveyLog>[]>(() => [
+  const allColumns = useMemo<ColumnDef<SiteSurveyLog>[]>(() => [
     { 
       accessorKey: 'Site ID', 
       header: 'Site ID', 
@@ -105,6 +108,51 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
     },
   ], [handleNavigation]);
 
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+        const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return new Set(parsed);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load visible columns from storage", e);
+    }
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+  
+  useEffect(() => {
+    const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorage.setItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
+
 
   if (error) {
     return (
@@ -153,6 +201,13 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
               <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+            {viewMode === 'table' && (
+              <DataTableColumnToggle
+                allColumns={allColumns}
+                visibleColumns={visibleColumns}
+                onColumnToggle={handleColumnToggle}
+              />
+            )}
             <button
               onClick={handleOpenNewSurvey}
               className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
@@ -169,7 +224,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
             <DataTable
               tableId="site-survey-table"
               data={filteredData}
-              columns={columns}
+              columns={displayedColumns}
               loading={loading}
               onRowClick={handleViewSurvey}
               initialSort={{ key: 'Date', direction: 'descending' }}

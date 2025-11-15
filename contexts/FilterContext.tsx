@@ -9,6 +9,7 @@ export interface FilterState {
   endDate?: string;
   month?: string[];
   year?: string[];
+  currency?: 'USD' | 'KHR';
 }
 
 type FilterKey = keyof FilterState;

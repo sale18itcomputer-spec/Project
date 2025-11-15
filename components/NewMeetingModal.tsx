@@ -11,6 +11,7 @@ import ConfirmationModal from './ConfirmationModal';
 import NewCompanyModal from './NewCompanyModal';
 import { useToast } from '../contexts/ToastContext';
 import ResizableModal from './ResizableModal';
+import SearchableSelect from './SearchableSelect';
 
 
 interface NewMeetingModalProps {
@@ -90,8 +91,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
 
-    const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const companyName = e.target.value;
+    const handleCompanySelect = (companyName: string) => {
         setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Pipeline_ID': '' }));
     };
 
@@ -106,37 +106,45 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
 
         if (isEditMode) {
             const originalMeetings = meetings ? [...meetings] : [];
-            const optimisticData = { ...existingData, ...submissionData } as Meeting;
-            
-            setMeetings(current => current ? current.map(m => m['Meeting ID'] === existingData['Meeting ID'] ? optimisticData : m) : [optimisticData]);
+            const updatedId = existingData['Meeting ID']!;
+            // Optimistic update
+            setMeetings(current => current ? current.map(m => m['Meeting ID'] === updatedId ? { ...m, ...submissionData } as Meeting : m) : null);
 
             try {
-                await updateRecord('Meeting_Logs', existingData['Meeting ID']!, submissionData);
+                const updatedRecord: Meeting = await updateRecord('Meeting_Logs', updatedId, submissionData);
                 addToast('Meeting updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update meeting.', 'error');
-                setMeetings(originalMeetings);
+                // Replace optimistic with server record
+                setMeetings(current => current ? current.map(m => m['Meeting ID'] === updatedId ? updatedRecord : m) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update meeting: ${err.message}`, 'error');
+                setMeetings(originalMeetings); // Revert
             }
-        } else {
-            const optimisticData = { ...submissionData } as Meeting;
-            
-            setMeetings(current => current ? [optimisticData, ...current] : [optimisticData]);
+        } else { // CREATE
+            const tempId = submissionData['Meeting ID']!;
+            // Optimistic update
+            setMeetings(current => current ? [submissionData as Meeting, ...current] : [submissionData as Meeting]);
             
             try {
-                await createRecord('Meeting_Logs', optimisticData);
+                const createdRecord: Meeting = await createRecord('Meeting_Logs', submissionData);
                 addToast('Meeting created!', 'success');
-            } catch (err) {
-                addToast('Failed to create meeting.', 'error');
-                setMeetings(current => current ? current.filter(m => m['Meeting ID'] !== optimisticData['Meeting ID']) : null);
+                // Replace temp record with the one from the server.
+                setMeetings(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(m => m['Meeting ID'] === tempId ? createdRecord : m);
+                });
+            } catch (err: any) {
+                addToast(`Failed to create meeting: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setMeetings(current => current ? current.filter(m => m['Meeting ID'] !== tempId) : null);
             }
         }
     };
 
     const handleDelete = async () => {
-        if (!existingData) return;
+        if (!existingData || !existingData['Meeting ID']) return;
         
         const originalMeetings = meetings ? [...meetings] : [];
-        const meetingToDeleteId = existingData['Meeting ID']!;
+        const meetingToDeleteId = existingData['Meeting ID'];
 
         setDeleteConfirmOpen(false);
         onClose();
@@ -144,11 +152,15 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
         setMeetings(current => current ? current.filter(m => m['Meeting ID'] !== meetingToDeleteId) : null);
 
         try {
-            await deleteRecord('Meeting_Logs', meetingToDeleteId);
-            addToast('Meeting deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete meeting.', 'error');
-            setMeetings(originalMeetings);
+            const response: { deletedId: string } = await deleteRecord('Meeting_Logs', meetingToDeleteId);
+            if (response.deletedId === meetingToDeleteId) {
+                addToast('Meeting deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete meeting: ${err.message}`, 'error');
+            setMeetings(originalMeetings); // Revert
         }
     };
 
@@ -209,13 +221,14 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
                             : <FormInput name="Meeting ID" label="Meeting ID" value={formData['Meeting ID']} onChange={() => {}} required readOnly />
                         }
                         {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <FormSelect 
+                            <SearchableSelect 
                                 name="Company Name" 
                                 label="Company Name" 
-                                value={formData['Company Name']} 
-                                onChange={handleCompanyChange} 
+                                value={formData['Company Name'] || ''}
+                                onChange={handleCompanySelect}
                                 options={companyOptions} 
                                 required 
+                                placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
                         {isReadOnly ? <FormDisplay label="Pipeline ID" value={formData.Pipeline_ID} /> : <FormSelect name="Pipeline_ID" label="Pipeline ID" value={formData.Pipeline_ID} onChange={handleChange} options={pipelineOptions} disabled={isPipelineDisabled || pipelineOptions.length === 0} disabledPlaceholder={pipelinePlaceholder}/>}

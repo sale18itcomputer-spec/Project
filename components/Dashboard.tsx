@@ -71,6 +71,8 @@ const DashboardContent: React.FC = () => {
     }
   }, [loading]);
 
+  const currencyFilter = filters.currency || 'USD';
+
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
     const hasFilters = Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val);
@@ -231,12 +233,16 @@ const DashboardContent: React.FC = () => {
 
   const totalWinValue = useMemo(() => {
     return filteredProjects
-      .filter(p => p.Status === 'Close (win)')
+      .filter(p => {
+        if (p.Status !== 'Close (win)') return false;
+        if (currencyFilter === 'USD') return p.Currency !== 'KHR';
+        return p.Currency === currencyFilter;
+      })
       .reduce((acc, project) => {
         const value = parseSheetValue(project['Bid Value']);
         return acc + value;
       }, 0);
-  }, [filteredProjects]);
+  }, [filteredProjects, currencyFilter]);
   
   const winRateData = useMemo(() => {
     const wonCount = filteredProjects.filter(p => p.Status === 'Close (win)').length;
@@ -275,13 +281,15 @@ const DashboardContent: React.FC = () => {
   }, [projects, filteredProjects, filters.status]);
   
   const revenueByPeriodData = useMemo(() => {
-    const wonProjects = filteredProjects.filter(p => p.Status === 'Close (win)');
+    const wonProjects = filteredProjects.filter(p => {
+        if (p.Status !== 'Close (win)') return false;
+        if (currencyFilter === 'USD') return p.Currency !== 'KHR';
+        return p.Currency === currencyFilter;
+    });
 
     const getQuarter = (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`;
 
-    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
-    // @ts-ignore
-    const aggregation = wonProjects.reduce((acc: { [key: string]: { winValue: number; projectCount: number } }, project) => {
+    const aggregation = wonProjects.reduce((acc, project) => {
       const bidValue = parseSheetValue(project['Bid Value']);
       const dateStr = project['Inv Date'];
       
@@ -313,7 +321,8 @@ const DashboardContent: React.FC = () => {
         }
       }
       return acc;
-    }, {});
+    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
+    }, {} as { [key: string]: { winValue: number; projectCount: number } });
 
     const chartData = Object.entries(aggregation)
       .map(([key, { winValue, projectCount }]) => {
@@ -339,17 +348,19 @@ const DashboardContent: React.FC = () => {
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     
     return { chartData };
-  }, [filteredProjects, revenuePeriod]);
+  }, [filteredProjects, revenuePeriod, currencyFilter]);
   
   const topCustomersData = useMemo(() => {
     const baseData = filters.companyName?.length ? filteredProjects : projects;
     if (!baseData) return [];
 
-    const wonProjects = baseData.filter(p => p.Status === 'Close (win)');
+    const wonProjects = baseData.filter(p => {
+        if (p.Status !== 'Close (win)') return false;
+        if (currencyFilter === 'USD') return p.Currency !== 'KHR';
+        return p.Currency === currencyFilter;
+    });
     
-    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
-    // @ts-ignore
-    const customerValues = wonProjects.reduce((acc: { [key: string]: { winValue: number, projectCount: number } }, project) => {
+    const customerValues = wonProjects.reduce((acc, project) => {
         const customer = project['Company Name'];
         const bidValue = parseSheetValue(project['Bid Value']);
         if (customer && bidValue > 0) {
@@ -360,21 +371,20 @@ const DashboardContent: React.FC = () => {
             acc[customer].projectCount += 1;
         }
         return acc;
-    }, {});
+    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
+    }, {} as { [key: string]: { winValue: number, projectCount: number } });
 
     return Object.entries(customerValues)
         .map(([name, { winValue, projectCount }]) => ({ name, winValue, projectCount }))
         .sort((a, b) => b.winValue - a.winValue)
         .slice(0, 10);
-  }, [projects, filteredProjects, filters.companyName]);
+  }, [projects, filteredProjects, filters.companyName, currencyFilter]);
 
   const projectsByBrandData = useMemo(() => {
     const baseData = filters.brand1?.length ? filteredProjects : projects;
     if (!baseData) return [];
 
-    // FIX: Explicitly typed the accumulator in `reduce` to resolve 'property does not exist on type {}' error.
-    // @ts-ignore
-    const brandCounts = baseData.reduce((acc: { [key: string]: { count: number; totalValue: number } }, project) => {
+    const brandCounts = baseData.reduce((acc, project) => {
         const brand = project['Brand 1'];
         if (brand && brand.trim() !== '' && brand.trim() !== 'N/A') {
             if (!acc[brand]) {
@@ -384,7 +394,8 @@ const DashboardContent: React.FC = () => {
             acc[brand].totalValue += parseSheetValue(project['Bid Value']);
         }
         return acc;
-    }, {});
+    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
+    }, {} as { [key: string]: { count: number; totalValue: number } });
 
     return Object.entries(brandCounts)
         .map(([name, { count, totalValue }]) => ({ name, count, totalValue }))
@@ -459,7 +470,8 @@ const DashboardContent: React.FC = () => {
           <MonthlyWinValueChart 
             data={revenueByPeriodData.chartData} 
             period={revenuePeriod}
-            onPeriodChange={setRevenuePeriod} 
+            onPeriodChange={setRevenuePeriod}
+            currency={currencyFilter}
           />
         </div>
       )}
@@ -485,7 +497,7 @@ const DashboardContent: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {renderStep >= 7 && (
           <div className={`lg:col-span-2 ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
-            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} />
+            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
           </div>
         )}
         {renderStep >= 8 && (

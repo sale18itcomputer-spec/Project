@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Contact, PipelineProject } from '../types';
 import { useData } from '../contexts/DataContext';
 import NewContactModal from './NewContactModal';
@@ -12,7 +12,9 @@ import ItemActionsMenu from './ItemActionsMenu';
 import ConfirmationModal from './ConfirmationModal';
 import { deleteRecord } from '../services/api';
 import { formatDateAsMDY, parseDate } from '../utils/time';
-import { parseSheetValue } from '../utils/formatters';
+import { parseSheetValue, formatMixedCurrency, determineCurrency } from '../utils/formatters';
+import { useToast } from '../contexts/ToastContext';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -25,9 +27,12 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
     { id: 'grid', label: 'Grid', icon: <LayoutGrid /> },
 ];
 
+const CONTACT_COLUMNS_VISIBILITY_KEY = 'limperial-contact-columns-visibility';
+
 type ProcessedContact = Contact & {
   status: 'Active' | 'Inactive';
-  totalAmount: number;
+  totalAmountUSD: number;
+  totalAmountKHR: number;
 };
 
 
@@ -51,11 +56,11 @@ const ContactCard: React.FC<{
           <p className="text-sm text-slate-600 truncate mt-0.5">{contact.Role || 'No role specified'}</p>
           <p className="text-sm text-brand-600 font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
         </div>
-         {contact.totalAmount > 0 && (
+         {(contact.totalAmountUSD > 0 || contact.totalAmountKHR > 0) && (
           <div className="mt-3 pt-3 border-t border-slate-100">
               <p className="text-xs text-slate-600 font-medium">Won Pipeline Value</p>
               <p className="text-base font-semibold text-slate-800">
-                {contact.totalAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {formatMixedCurrency(contact.totalAmountUSD, contact.totalAmountKHR)}
               </p>
           </div>
         )}
@@ -65,7 +70,8 @@ const ContactCard: React.FC<{
 }
 
 const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) => {
-  const { contacts: contactData, projects, contactLogs, meetings, quotations, loading, error, companies, refetchData } = useData();
+  const { contacts, setContacts, projects, contactLogs, meetings, quotations, loading, error, companies } = useData();
+  const { addToast } = useToast();
   const [modalConfig, setModalConfig] = useState<{ contact: Contact | null, isReadOnly: boolean, isOpen: boolean }>({ contact: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
@@ -80,34 +86,56 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   
   const handleConfirmDelete = async () => {
     if (!contactToDelete) return;
+
+    const originalContacts = contacts ? [...contacts] : [];
+    const contactToDeleteId = contactToDelete['Customer ID'];
+
+    setContactToDelete(null); // Close confirmation modal
+
+    // Optimistic update
+    setContacts(current => current ? current.filter(c => c['Customer ID'] !== contactToDeleteId) : null);
+
     try {
-        await deleteRecord('Contact_List', contactToDelete['Customer ID']);
-        await refetchData();
-        setContactToDelete(null);
-    } catch (e) {
-        alert('Failed to delete contact. Please try again.');
-        console.error(e);
+        const response: { deletedId: string } = await deleteRecord('Contact_List', contactToDeleteId);
+        if (response.deletedId === contactToDeleteId) {
+            addToast('Contact deleted!', 'success');
+        } else {
+            throw new Error("Backend did not confirm deletion.");
+        }
+    } catch (err: any) {
+        addToast(`Failed to delete contact: ${err.message}`, 'error');
+        setContacts(originalContacts); // Revert on error
     }
   };
 
   const validContacts = useMemo(() => {
-    if (!contactData) return [];
-    return contactData.filter(contact => contact.Name && contact.Name.trim() !== '');
-  }, [contactData]);
+    if (!contacts) return [];
+    return contacts.filter(contact => contact.Name && contact.Name.trim() !== '');
+  }, [contacts]);
   
   const processedData = useMemo<ProcessedContact[]>(() => {
     if (!validContacts || !projects) return [];
 
     return validContacts.map(contact => {
         const isActive = projects.some(p => p['Contact Name'] === contact.Name && p.Status === 'Quote Submitted');
-        const totalAmount = projects
+        const { totalAmountUSD, totalAmountKHR } = projects
             .filter(p => p['Contact Name'] === contact.Name && p.Status === 'Close (win)')
-            .reduce((sum, p) => sum + parseSheetValue(p['Bid Value']), 0);
+            .reduce((acc, p) => {
+                const value = parseSheetValue(p['Bid Value']);
+                const determinedCurrency = determineCurrency(value, p.Currency);
+                if (determinedCurrency === 'KHR') {
+                    acc.totalAmountKHR += value;
+                } else {
+                    acc.totalAmountUSD += value;
+                }
+                return acc;
+            }, { totalAmountUSD: 0, totalAmountKHR: 0 });
 
         return {
             ...contact,
             status: isActive ? 'Active' : 'Inactive',
-            totalAmount,
+            totalAmountUSD,
+            totalAmountKHR,
         };
     });
   }, [validContacts, projects]);
@@ -137,7 +165,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
     return data;
   }, [processedData, searchQuery, companyFilter]);
   
-  const columns = useMemo<ColumnDef<ProcessedContact>[]>(() => [
+  const allColumns = useMemo<ColumnDef<ProcessedContact>[]>(() => [
     {
         accessorKey: 'Customer ID',
         header: 'Customer ID',
@@ -174,14 +202,15 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
         isSortable: true,
     },
     {
-        accessorKey: 'totalAmount',
+        accessorKey: 'totalAmountUSD',
         header: 'Total Amount',
         isSortable: true,
-        cell: (value: number) => {
-            if (value === 0) return <span className="text-slate-400 text-right block w-full">-</span>;
+        cell: (_, row) => {
+            const displayValue = formatMixedCurrency(row.totalAmountUSD, row.totalAmountKHR);
+            if (displayValue === '$0') return <span className="text-slate-400 text-right block w-full">-</span>;
             return (
               <span className="text-sm font-medium text-slate-800 text-right block w-full">
-                {value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {displayValue}
               </span>
             );
         },
@@ -200,6 +229,52 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
         },
     },
   ], []);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+        const saved = localStorage.getItem(CONTACT_COLUMNS_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return new Set(parsed);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load visible columns from storage", e);
+    }
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(CONTACT_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorage.setItem(CONTACT_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
+
 
   if (error) {
     return (
@@ -242,6 +317,13 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                     {companyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                {viewMode === 'list' && (
+                  <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                  />
+                )}
                 <button
                     onClick={handleOpenNewContact}
                     className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
@@ -276,7 +358,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                 <DataTable
                   tableId="contact-table"
                   data={filteredData}
-                  columns={columns}
+                  columns={displayedColumns}
                   loading={loading}
                   onRowClick={handleViewContact}
                   initialSort={{ key: 'Customer ID', direction: 'ascending' }}

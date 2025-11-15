@@ -100,27 +100,36 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 
         if (isEditMode) {
             const originalPricelist = pricelist ? [...pricelist] : [];
-            const optimisticData = { ...existingData, ...submissionData } as PricelistItem;
-
-            setPricelist(current => current ? current.map(p => p['Item Code'] === existingData['Item Code'] ? optimisticData : p) : [optimisticData]);
+            const updatedId = existingData['Item Code'];
+            // Optimistic update
+            setPricelist(current => current ? current.map(p => p['Item Code'] === updatedId ? { ...p, ...submissionData } as PricelistItem : p) : null);
             
             try {
-                await updateRecord('Raw', existingData['Item Code'], submissionData);
+                const updatedRecord: PricelistItem = await updateRecord('Raw', updatedId, submissionData);
                 addToast('Pricelist item updated!', 'success');
-            } catch (err) {
-                addToast('Failed to update item.', 'error');
-                setPricelist(originalPricelist);
+                // Replace optimistic with server record
+                setPricelist(current => current ? current.map(p => p['Item Code'] === updatedId ? updatedRecord : p) : [updatedRecord]);
+            } catch (err: any) {
+                addToast(`Failed to update item: ${err.message}`, 'error');
+                setPricelist(originalPricelist); // Revert
             }
         } else { // CREATE
-            const optimisticData = submissionData as PricelistItem;
-            setPricelist(current => current ? [optimisticData, ...current] : [optimisticData]);
+            const tempId = submissionData['Item Code'];
+             // Optimistic update
+            setPricelist(current => current ? [submissionData as PricelistItem, ...current] : [submissionData as PricelistItem]);
 
             try {
-                await createRecord('Raw', submissionData);
+                const createdRecord: PricelistItem = await createRecord('Raw', submissionData);
                 addToast('Pricelist item created!', 'success');
-            } catch (err) {
-                addToast('Failed to create item.', 'error');
-                setPricelist(current => current ? current.filter(p => p['Item Code'] !== optimisticData['Item Code']) : null);
+                // Replace temp record with the one from the server.
+                setPricelist(current => {
+                    if (!current) return [createdRecord];
+                    return current.map(p => p['Item Code'] === tempId ? createdRecord : p);
+                });
+            } catch (err: any) {
+                addToast(`Failed to create item: ${err.message}`, 'error');
+                // Revert by removing the optimistic data.
+                setPricelist(current => current ? current.filter(p => p['Item Code'] !== tempId) : null);
             }
         }
     };
@@ -137,11 +146,15 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         setPricelist(current => current ? current.filter(p => p['Item Code'] !== itemToDeleteId) : null);
 
         try {
-            await deleteRecord('Raw', itemToDeleteId);
-            addToast('Pricelist item deleted!', 'success');
-        } catch (err) {
-            addToast('Failed to delete item.', 'error');
-            setPricelist(originalPricelist);
+            const response: { deletedId: string } = await deleteRecord('Raw', itemToDeleteId);
+            if (response.deletedId === itemToDeleteId) {
+                addToast('Pricelist item deleted!', 'success');
+            } else {
+                throw new Error("Backend did not confirm deletion.");
+            }
+        } catch (err: any) {
+            addToast(`Failed to delete item: ${err.message}`, 'error');
+            setPricelist(originalPricelist); // Revert
         }
     };
     

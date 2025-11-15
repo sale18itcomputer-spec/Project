@@ -6,8 +6,8 @@ import { useData } from '../contexts/DataContext';
 import { deleteRecord } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import { useToast } from '../contexts/ToastContext';
-import { X, Trash2, Pencil } from 'lucide-react';
-import { parseSheetValue } from '../utils/formatters';
+import { X, Trash2, Pencil, ExternalLink } from 'lucide-react';
+import { formatCurrencySmartly } from '../utils/formatters';
 
 interface SaleOrderDetailModalProps {
   saleOrder: SaleOrder | null;
@@ -87,9 +87,9 @@ const SaleOrderDetailModal: React.FC<SaleOrderDetailModalProps> = ({ saleOrder, 
       </div>
        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
         <div className="flex flex-wrap items-center gap-3">
-            <DetailItem label="Total Amount" value={parseSheetValue(saleOrder['Total Amount']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
-            <DetailItem label="Tax" value={parseSheetValue(saleOrder.Tax).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
-            <DetailItem label="Commission" value={saleOrder.Commission} />
+            <DetailItem label="Total Amount" value={formatCurrencySmartly(saleOrder['Total Amount'], saleOrder.Currency)} />
+            <DetailItem label="Tax" value={formatCurrencySmartly(saleOrder.Tax, saleOrder.Currency)} />
+            <DetailItem label="Commission" value={formatCurrencySmartly(saleOrder.Commission, saleOrder.Currency)} />
             <DetailItem label="Payment Term" value={saleOrder['Payment Term']} />
             <DetailItem label="Delivery Date" value={formatDisplayDate(saleOrder['Delivery Date'])} />
             <DetailItem label="Bill Invoice" value={saleOrder['Bill Invoice']} />
@@ -101,6 +101,15 @@ const SaleOrderDetailModal: React.FC<SaleOrderDetailModalProps> = ({ saleOrder, 
             <p className="text-sm text-slate-800 whitespace-pre-wrap">{saleOrder['Install Software']}</p>
         </div>
        )}
+        {saleOrder['Attachment'] && (
+            <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+                <p className="text-sm font-semibold text-slate-600 mb-2">Attachment</p>
+                <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:underline">
+                    View Attached File
+                    <ExternalLink className="w-4 h-4" />
+                </a>
+            </div>
+        )}
     </div>
   );
 

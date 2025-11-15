@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ContactLog } from '../types';
 import { useData } from '../contexts/DataContext';
 import { parseDate, formatDateAsMDY } from '../utils/time';
@@ -13,6 +13,9 @@ import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import ConfirmationModal from './ConfirmationModal';
 import { deleteRecord } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email', 'Meeting'] as const;
 type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
@@ -28,8 +31,11 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
     { id: 'board', label: 'Board', icon: <LayoutGrid /> },
 ];
 
+const CONTACT_LOG_COLUMNS_VISIBILITY_KEY = 'limperial-contact-log-columns-visibility';
+
 const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
-  const { contactLogs: logData, users, loading, error, refetchData } = useData();
+  const { contactLogs, setContactLogs, loading, error } = useData();
+  const { users } = useAuth();
   const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -37,6 +43,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
   const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
   const { handleNavigation } = useNavigation();
+  const { addToast } = useToast();
   
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewLog = () => setModalConfig({ log: null, isReadOnly: false, isOpen: true });
@@ -46,14 +53,25 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
 
   const handleConfirmDelete = async () => {
     if (!logToDelete || !logToDelete['Log ID']) return;
+
+    const originalLogs = contactLogs ? [...contactLogs] : [];
+    const logToDeleteId = logToDelete['Log ID'];
+
+    setLogToDelete(null);
+
+    // Optimistic UI update
+    setContactLogs(current => current ? current.filter(l => l['Log ID'] !== logToDeleteId) : null);
+
     try {
-      await deleteRecord('Contact_Logs', logToDelete['Log ID']);
-      await refetchData();
+      const response: { deletedId: string } = await deleteRecord('Contact_Logs', logToDeleteId);
+      if (response.deletedId === logToDeleteId) {
+        addToast('Contact log deleted!', 'success');
+      } else {
+        throw new Error("Backend did not confirm deletion.");
+      }
     } catch (err: any) {
-      console.error("Failed to delete log:", err);
-      alert(`Error: ${err.message}`);
-    } finally {
-      setLogToDelete(null);
+      addToast(`Failed to delete log: ${err.message}`, 'error');
+      setContactLogs(originalLogs); // Revert on failure
     }
   };
 
@@ -65,7 +83,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   }, [users]);
 
   const filteredData = useMemo(() => {
-    let data = logData || [];
+    let data = contactLogs || [];
 
     if (logTypeFilter !== 'All Types') {
       data = data.filter(log => log.Type === logTypeFilter);
@@ -79,7 +97,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     }
     // Sort by date descending
     return data.sort((a, b) => (parseDate(b['Contact Date'])?.getTime() ?? 0) - (parseDate(a['Contact Date'])?.getTime() ?? 0));
-  }, [logData, searchQuery, logTypeFilter, responsibleUserFilter]);
+  }, [contactLogs, searchQuery, logTypeFilter, responsibleUserFilter]);
 
   const kanbanColumns = useMemo<KanbanColumn<ContactLog>[]>(() => {
     const statusColors: Record<KanbanColumnId, string> = {
@@ -97,7 +115,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     }));
   }, [filteredData]);
 
-  const columns = useMemo<ColumnDef<ContactLog>[]>(() => [
+  const allColumns = useMemo<ColumnDef<ContactLog>[]>(() => [
     {
       accessorKey: 'Log ID',
       header: 'Log ID',
@@ -142,6 +160,52 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
       cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-1 max-w-sm">{value}</p>,
     },
   ], [handleNavigation]);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+        const saved = localStorage.getItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return new Set(parsed);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load visible columns from storage", e);
+    }
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorage.setItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
+
 
   if (error) {
     return (
@@ -206,7 +270,13 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             </select>
 
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-
+            {viewMode === 'table' && (
+              <DataTableColumnToggle
+                allColumns={allColumns}
+                visibleColumns={visibleColumns}
+                onColumnToggle={handleColumnToggle}
+              />
+            )}
             <button
               onClick={handleOpenNewLog}
               className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
@@ -230,7 +300,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
           <DataTable
             tableId="contact-logs-table"
             data={filteredData}
-            columns={columns}
+            columns={displayedColumns}
             loading={loading}
             onRowClick={handleViewLog}
             initialSort={{ key: 'Contact Date', direction: 'descending' }}

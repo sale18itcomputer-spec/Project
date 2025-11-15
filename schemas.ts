@@ -21,7 +21,8 @@ export const PIPELINE_HEADERS = [
   'Remarks',
   'Conditional',
   'Attach Invoice',
-  'Attach D.O'
+  'Attach D.O',
+  'Currency'
 ] as const;
 
 export const COMPACT_PIPELINE_HEADERS = [
@@ -177,7 +178,14 @@ export const QUOTATION_HEADERS = [
   'Reason',
   'Payment Term',
   'Stock Status',
-  'Created By'
+  'Created By',
+  'Currency',
+  'Prepared By',
+  'Approved By',
+  'Remark',
+  'Terms and Conditions',
+  'Prepared By Position',
+  'Approved By Position'
 ] as const;
 
 // Headers for Sale Orders Sheet
@@ -198,7 +206,9 @@ export const SALE_ORDER_HEADERS = [
   'Payment Term',
   'Bill Invoice',
   'Install Software',
-  'Created By'
+  'Created By',
+  'Currency',
+  'Attachment'
 ] as const;
 
 // Headers for Pricelist Sheet
@@ -213,5 +223,6 @@ export const PRICELIST_HEADERS = [
   'OTW',
   'Category',
   'Detail Spec',
-  'Status'
+  'Status',
+  'Currency'
 ] as const;

@@ -11,15 +11,21 @@ import GeminiPricelistInsights from './GeminiPricelistInsights';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import PricelistFilterBar from './PricelistFilterBar';
+import { DataTableColumnToggle } from './DataTableColumnToggle';
 
-const PriceCell: React.FC<{ value: string }> = ({ value }) => {
+const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
     if (num === 0 && String(value || '').trim() === '') {
         return <span className="text-slate-400 text-right block w-full">-</span>;
     }
+
+    const formatted = currency === 'KHR'
+        ? `៛${num.toLocaleString('en-US')}`
+        : num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
     return (
         <span className="text-sm font-medium text-slate-800 text-right block w-full">
-            {num.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+            {formatted}
         </span>
     );
 };
@@ -99,7 +105,10 @@ const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit:
         <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-slate-50/70 border-t">
             <div>
                 <p className="text-2xl font-bold text-slate-900">
-                    {parseSheetValue(item.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {item.Currency === 'KHR'
+                        ? `៛${parseSheetValue(item.SRP).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                        : parseSheetValue(item.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                    }
                 </p>
             </div>
             <div className="text-right">
@@ -155,7 +164,7 @@ const CategorySection: React.FC<{
                                         </div>
                                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
                                             <div className="w-28 text-right">
-                                                <PriceCell value={item.SRP} />
+                                                <PriceCell value={item.SRP} currency={item.Currency} />
                                             </div>
                                             <div className="w-24">
                                                 <StatusBadge status={item.Status} />
@@ -181,6 +190,8 @@ const CategorySection: React.FC<{
 
 
 type ViewMode = 'table' | 'grid' | 'category';
+
+const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility';
 
 const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
@@ -252,18 +263,64 @@ const PricelistDashboard: React.FC = () => {
         }, {} as Record<string, PricelistItem[]>);
     }, [filteredData]);
 
-    const columns = useMemo<ColumnDef<PricelistItem>[]>(() => [
+    const allColumns = useMemo<ColumnDef<PricelistItem>[]>(() => [
         { accessorKey: 'Category', header: 'Category', isSortable: true },
         { accessorKey: 'Item Code', header: 'Item Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
         { accessorKey: 'Brand', header: 'Brand', isSortable: true },
         { accessorKey: 'Model', header: 'Model', isSortable: true },
         { accessorKey: 'Item Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
-        { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string) => <PriceCell value={value} /> },
-        { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string) => <PriceCell value={value} /> },
+        { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
+        { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
         { accessorKey: 'Qty', header: 'Stock', isSortable: true, cell: (value: string) => <StockCell value={value} /> },
         { accessorKey: 'OTW', header: 'OTW', isSortable: true, cell: (value: string) => <OnOrderCell value={value} /> },
         { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: string) => <StatusBadge status={value} /> },
     ], []);
+
+    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+        try {
+            const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                    return new Set(parsed);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load visible columns from storage", e);
+        }
+        return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+    });
+
+    useEffect(() => {
+        const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+        if (!saved && allColumns.length > 0) {
+          setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+        }
+    }, [allColumns]);
+    
+    const handleColumnToggle = (columnKey: string) => {
+        setVisibleColumns(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(columnKey)) {
+            if (newSet.size > 1) { // Prevent hiding the last column
+              newSet.delete(columnKey);
+            }
+          } else {
+            newSet.add(columnKey);
+          }
+          try {
+            localStorage.setItem(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+          } catch (e) {
+            console.error("Failed to save visible columns to storage", e);
+          }
+          return newSet;
+        });
+    };
+
+    const displayedColumns = useMemo(() => {
+        return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+    }, [allColumns, visibleColumns]);
+
     
     const VIEW_OPTIONS: { id: ViewMode, label: string, icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
@@ -290,7 +347,7 @@ const PricelistDashboard: React.FC = () => {
                         <DataTable
                             tableId="pricelist-table"
                             data={filteredData}
-                            columns={columns}
+                            columns={displayedColumns}
                             loading={loading}
                             onRowClick={handleViewItem}
                             initialSort={{ key: 'Category', direction: 'ascending' }}
@@ -351,6 +408,13 @@ const PricelistDashboard: React.FC = () => {
                         <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
                     <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                    {viewMode === 'table' && (
+                        <DataTableColumnToggle
+                            allColumns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onColumnToggle={handleColumnToggle}
+                        />
+                    )}
                     <button
                         onClick={handleNewItem}
                         className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"

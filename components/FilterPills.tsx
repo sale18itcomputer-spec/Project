@@ -2,6 +2,7 @@ import React from 'react';
 import { useFilter, FilterState } from '../contexts/FilterContext';
 import { X } from 'lucide-react';
 
+// FIX: Added 'currency' to satisfy the Record<keyof FilterState, string> type.
 const FILTER_LABELS: Record<keyof FilterState, string> = {
   status: 'Status',
   responsibleBy: 'Assignee',
@@ -11,11 +12,13 @@ const FILTER_LABELS: Record<keyof FilterState, string> = {
   endDate: 'End Date',
   month: 'Month',
   year: 'Year',
+  currency: 'Currency',
 };
 
 const FilterPills: React.FC = () => {
   const { filters, removeFilter, clearFilters } = useFilter();
-  const activeFilters = Object.entries(filters).filter(([_, value]) => (Array.isArray(value) ? value.length > 0 : !!value));
+  // FIX: Exclude the 'currency' filter from being shown as a removable pill.
+  const activeFilters = Object.entries(filters).filter(([key, value]) => key !== 'currency' && (Array.isArray(value) ? value.length > 0 : !!value));
 
 
   if (activeFilters.length === 0) {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
-import { useGoogleSheetData } from '../hooks/useGoogleSheetData';
+import { batchReadRecords } from '../services/api';
 import { 
     PipelineProject, 
     Company, 
@@ -7,7 +7,6 @@ import {
     ContactLog, 
     SiteSurveyLog, 
     Meeting,
-    User,
     Quotation,
     SaleOrder,
     PricelistItem
@@ -19,11 +18,12 @@ import {
     CONTACT_LOG_HEADERS, 
     SITE_SURVEY_LOG_HEADERS, 
     MEETING_HEADERS,
-    USER_HEADERS,
     QUOTATION_HEADERS,
     SALE_ORDER_HEADERS,
     PRICELIST_HEADERS
 } from '../schemas';
+import { useAuth } from './AuthContext';
+import * as db from '../utils/db';
 
 interface DataContextProps {
   projects: PipelineProject[] | null;
@@ -38,8 +38,6 @@ interface DataContextProps {
   setSiteSurveys: React.Dispatch<React.SetStateAction<SiteSurveyLog[] | null>>;
   meetings: Meeting[] | null;
   setMeetings: React.Dispatch<React.SetStateAction<Meeting[] | null>>;
-  users: User[] | null;
-  setUsers: React.Dispatch<React.SetStateAction<User[] | null>>;
   quotations: Quotation[] | null;
   setQuotations: React.Dispatch<React.SetStateAction<Quotation[] | null>>;
   saleOrders: SaleOrder[] | null;
@@ -56,8 +54,55 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
+const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    const normalizedItems = items.map(item => {
+      const trimmedKeyItem: { [key: string]: any } = {};
+      for (const key in item) {
+          trimmedKeyItem[key.trim()] = (item as any)[key];
+      }
+      const normalizedItem = {} as T;
+      headers.forEach(header => {
+        (normalizedItem as any)[header] = trimmedKeyItem[header] ?? '';
+      });
+      return normalizedItem;
+    });
+    return normalizedItems;
+};
+
+const storeToSheetMap: Record<db.StoreName, string> = {
+    projects: 'Pipelines',
+    companies: 'Company List',
+    contacts: 'Contact_List',
+    contactLogs: 'Contact_Logs',
+    siteSurveys: 'Site_Survey_Logs',
+    meetings: 'Meeting_Logs',
+    quotations: 'Quotations',
+    saleOrders: 'Sale Orders',
+    pricelist: 'Raw'
+};
+
+const sheetToStoreMap = Object.fromEntries(Object.entries(storeToSheetMap).map(([k, v]) => [v, k]));
+
+const sheetToHeadersMap: Record<string, readonly string[]> = {
+    'Pipelines': PIPELINE_HEADERS,
+    'Company List': COMPANY_HEADERS,
+    'Contact_List': CONTACT_HEADERS,
+    'Contact_Logs': CONTACT_LOG_HEADERS,
+    'Site_Survey_Logs': SITE_SURVEY_LOG_HEADERS,
+    'Meeting_Logs': MEETING_HEADERS,
+    'Quotations': QUOTATION_HEADERS,
+    'Sale Orders': SALE_ORDER_HEADERS,
+    'Raw': PRICELIST_HEADERS
+};
+
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [refetchCounter, setRefetchCounter] = useState(0);
+  const { isAuthenticated } = useAuth();
+
+  const refetchData = useCallback(() => setRefetchCounter(c => c + 1), []);
 
   const [projects, setProjects] = useState<PipelineProject[] | null>(null);
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -65,36 +110,86 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [contactLogs, setContactLogs] = useState<ContactLog[] | null>(null);
   const [siteSurveys, setSiteSurveys] = useState<SiteSurveyLog[] | null>(null);
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
-  const [users, setUsers] = useState<User[] | null>(null);
   const [quotations, setQuotations] = useState<Quotation[] | null>(null);
   const [saleOrders, setSaleOrders] = useState<SaleOrder[] | null>(null);
   const [pricelist, setPricelist] = useState<PricelistItem[] | null>(null);
 
-  const refetchData = useCallback(() => {
-    setRefetchCounter(c => c + 1);
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data: fetchedProjects, loading: projectsLoading, error: projectsError } = useGoogleSheetData<PipelineProject>('Pipelines', PIPELINE_HEADERS, refetchCounter);
-  const { data: fetchedCompanies, loading: companiesLoading, error: companiesError } = useGoogleSheetData<Company>('Company List', COMPANY_HEADERS, refetchCounter);
-  const { data: fetchedContacts, loading: contactsLoading, error: contactsError } = useGoogleSheetData<Contact>('Contact_List', CONTACT_HEADERS, refetchCounter);
-  const { data: fetchedContactLogs, loading: contactLogsLoading, error: contactLogsError } = useGoogleSheetData<ContactLog>('Contact_Logs', CONTACT_LOG_HEADERS, refetchCounter);
-  const { data: fetchedSiteSurveys, loading: siteSurveysLoading, error: siteSurveysError } = useGoogleSheetData<SiteSurveyLog>('Site_Survey_Logs', SITE_SURVEY_LOG_HEADERS, refetchCounter);
-  const { data: fetchedMeetings, loading: meetingsLoading, error: meetingsError } = useGoogleSheetData<Meeting>('Meeting_Logs', MEETING_HEADERS, refetchCounter);
-  const { data: fetchedUsers, loading: usersLoading, error: usersError } = useGoogleSheetData<User>('Users', USER_HEADERS, refetchCounter);
-  const { data: fetchedQuotations, loading: quotationsLoading, error: quotationsError } = useGoogleSheetData<Quotation>('Quotations', QUOTATION_HEADERS, refetchCounter);
-  const { data: fetchedSaleOrders, loading: saleOrdersLoading, error: saleOrdersError } = useGoogleSheetData<SaleOrder>('Sale Orders', SALE_ORDER_HEADERS, refetchCounter);
-  const { data: fetchedPricelist, loading: pricelistLoading, error: pricelistError } = useGoogleSheetData<PricelistItem>('Raw', PRICELIST_HEADERS, refetchCounter);
+  const stateSetters: Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>> = {
+    projects: setProjects,
+    companies: setCompanies,
+    contacts: setContacts,
+    contactLogs: setContactLogs,
+    siteSurveys: setSiteSurveys,
+    meetings: setMeetings,
+    quotations: setQuotations,
+    saleOrders: setSaleOrders,
+    pricelist: setPricelist
+  };
 
-  useEffect(() => { setProjects(fetchedProjects); }, [fetchedProjects]);
-  useEffect(() => { setCompanies(fetchedCompanies); }, [fetchedCompanies]);
-  useEffect(() => { setContacts(fetchedContacts); }, [fetchedContacts]);
-  useEffect(() => { setContactLogs(fetchedContactLogs); }, [fetchedContactLogs]);
-  useEffect(() => { setSiteSurveys(fetchedSiteSurveys); }, [fetchedSiteSurveys]);
-  useEffect(() => { setMeetings(fetchedMeetings); }, [fetchedMeetings]);
-  useEffect(() => { setUsers(fetchedUsers); }, [fetchedUsers]);
-  useEffect(() => { setQuotations(fetchedQuotations); }, [fetchedQuotations]);
-  useEffect(() => { setSaleOrders(fetchedSaleOrders); }, [fetchedSaleOrders]);
-  useEffect(() => { setPricelist(fetchedPricelist); }, [fetchedPricelist]);
+  useEffect(() => {
+    const clearData = () => {
+        Object.values(stateSetters).forEach(setter => setter(null));
+    };
+
+    if (!isAuthenticated) {
+        setLoading(false);
+        clearData();
+        return;
+    }
+
+    const loadData = async () => {
+        setLoading(true);
+        setError(null);
+        let isDataLoadedFromCache = false;
+
+        try {
+            const cachedData = await db.batchGetStoreData(db.STORE_NAMES);
+            if (Object.values(cachedData).some(arr => arr && arr.length > 0)) {
+                (Object.keys(cachedData) as db.StoreName[]).forEach(storeName => {
+                    stateSetters[storeName](cachedData[storeName]);
+                });
+                isDataLoadedFromCache = true;
+                setLoading(false); // Render UI with cached data immediately
+            }
+        } catch (dbError) {
+            console.error("Failed to load data from IndexedDB:", dbError);
+        }
+
+        try {
+            const sheetNames = db.STORE_NAMES.map(s => storeToSheetMap[s]);
+            const freshData = await batchReadRecords<Record<string, any[]>>(sheetNames);
+            const normalizedData: Partial<Record<db.StoreName, any[]>> = {};
+
+            for (const sheetName of sheetNames) {
+                const storeName = sheetToStoreMap[sheetName] as db.StoreName;
+                const data = freshData[sheetName];
+                const headers = sheetToHeadersMap[sheetName];
+                if (data && headers && storeName && stateSetters[storeName]) {
+                    const normalized = normalize(data, headers);
+                    stateSetters[storeName](normalized);
+                    normalizedData[storeName] = normalized;
+                }
+            }
+            db.batchSetStoreData(normalizedData);
+        } catch (networkError: any) {
+            console.error("Failed to fetch data from network:", networkError);
+            if (!isDataLoadedFromCache) {
+                setError(networkError.message);
+            } else {
+                // If showing cached data, a less intrusive error is better.
+                // A toast notification would be ideal here if context was available.
+                console.warn("Could not fetch fresh data. Displaying stale data from cache.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    loadData();
+  }, [isAuthenticated, refetchCounter]);
 
 
   const { activeCompanyNames, activeContactNames, activePipelineIds } = useMemo(() => {
@@ -113,11 +208,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { activeCompanyNames, activeContactNames, activePipelineIds };
   }, [projects]);
   
-  const loading = projectsLoading || companiesLoading || contactsLoading || contactLogsLoading || siteSurveysLoading || meetingsLoading || usersLoading || quotationsLoading || saleOrdersLoading || pricelistLoading;
-  
-  const error = [projectsError, companiesError, contactsError, contactLogsError, siteSurveysError, meetingsError, usersError, quotationsError, saleOrdersError, pricelistError]
-    .filter(Boolean)
-    .join('; ');
 
   const value = {
     projects, setProjects,
@@ -126,7 +216,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     contactLogs, setContactLogs,
     siteSurveys, setSiteSurveys,
     meetings, setMeetings,
-    users, setUsers,
     quotations, setQuotations,
     saleOrders, setSaleOrders,
     pricelist, setPricelist,

@@ -18,31 +18,34 @@ interface CustomerData {
 interface TopCustomersChartProps {
     data: CustomerData[];
     totalWinValue: number;
+    currency: 'USD' | 'KHR';
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-};
-
-const formatShortCurrency = (val: number | string) => {
-    const num = Number(val);
-    if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `$${Math.round(num/1000)}k`;
-    return `$${num}`;
-}
-
-const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinValue }) => {
+const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinValue, currency }) => {
     const { width } = useWindowSize();
     const isMobile = width ? width < 768 : false;
     const chartRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { filters, setFilter } = useFilter();
     const titleId = useId();
+
+    const formatFullCurrency = (value: number) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency,
+            currencyDisplay: currency === 'KHR' ? 'code' : 'symbol',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(value).replace('KHR', '៛');
+    };
+    
+    const formatShortCurrency = (val: number | string) => {
+        const num = Number(val);
+        const prefix = currency === 'KHR' ? '៛' : '$';
+        if (num >= 1000000) return `${prefix}${(num / 1000000).toFixed(1)}M`;
+        if (num >= 1000) return `${prefix}${Math.round(num/1000)}k`;
+        return `${prefix}${num}`;
+    }
 
     const handleResize = useDebouncedCallback(() => {
         const echartsInstance = chartRef.current?.getEchartsInstance();
@@ -203,7 +206,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
                             <div class="space-y-1 text-sm pl-5">
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-600">Revenue:</span>
-                                    <span class="font-semibold text-slate-800">${formatCurrency(value)}</span>
+                                    <span class="font-semibold text-slate-800">${formatFullCurrency(value)}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-600">Projects Won:</span>

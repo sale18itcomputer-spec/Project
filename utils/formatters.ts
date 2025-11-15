@@ -1,3 +1,5 @@
+import { PipelineProject } from "../types";
+
 /**
  * Safely evaluates simple mathematical formulas from a Google Sheet string (e.g., "=50*0.7").
  * If the input is not a formula, it attempts to parse it as a number.
@@ -46,3 +48,47 @@ export const getInitials = (name: string): string => {
   }
   return `${names[0].charAt(0)}${names[names.length - 1].charAt(0)}`.toUpperCase();
 };
+
+
+export const formatMixedCurrency = (usd: number, khr: number): string => {
+    const usdStr = usd > 0 ? `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(usd)}` : '';
+    const khrStr = khr > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(khr)}` : '';
+    
+    if (usdStr && khrStr) return `${usdStr} | ${khrStr}`;
+    if (usdStr) return usdStr;
+    if (khrStr) return khrStr;
+    return '$0';
+};
+
+export const determineCurrency = (num: number, currency?: 'USD' | 'KHR' | ''): 'USD' | 'KHR' => {
+  const trimmedCurrency = currency?.trim();
+  if (trimmedCurrency === 'USD') return 'USD';
+  if (trimmedCurrency === 'KHR') return 'KHR';
+  
+  // Heuristic for older data without a currency field:
+  // KHR does not use cents. If there are cents, it must be USD.
+  const hasCents = num % 1 !== 0;
+  if (hasCents) {
+    return 'USD';
+  }
+
+  // For ambiguous integers, defaulting to USD is safer based on historical data patterns.
+  // The user can correct old entries by setting the Currency field.
+  return 'USD';
+}
+
+export const formatCurrencySmartly = (value: any, currency?: 'USD' | 'KHR' | ''): string => {
+  const num = parseSheetValue(value);
+  if (num === 0 && String(value || '').trim() === '') {
+    return '-';
+  }
+
+  const determinedCurrency = determineCurrency(num, currency);
+
+  if (determinedCurrency === 'KHR') {
+    return `៛${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  } else { // USD
+    // Manually format to ensure '$' symbol and 2 decimal places, avoiding locale issues.
+    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+}

@@ -96,6 +96,18 @@ export const readRecords = <T extends {}>(sheetName: string): Promise<T[]> => {
 };
 
 /**
+ * Reads all records from multiple specified Google Sheets in a single batch.
+ * @param sheetNames An array of sheet names to read from.
+ * @returns A promise that resolves with an object where keys are sheet names and values are arrays of records.
+ */
+export const batchReadRecords = <T extends {}>(sheetNames: string[]): Promise<T> => {
+    return apiRequest({
+        action: 'batchRead',
+        sheets: sheetNames
+    }) as Promise<T>;
+};
+
+/**
  * Updates an existing record in a specified Google Sheet.
  * @param sheetName The name of the sheet.
  * @param primaryKeyValue The value of the primary key for the row to update.
