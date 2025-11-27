@@ -12,6 +12,8 @@ import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import BrandedLoader from './components/DashboardSkeleton';
 import ContentSkeleton from './components/ContentSkeleton';
 import Footer from './components/Footer';
+import { useWindowSize } from './hooks/useWindowSize';
+import MobileBottomNav from './components/MobileBottomNav';
 
 // Lazy load components for code splitting and faster initial loads
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -28,6 +30,9 @@ const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'))
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
 const AuthenticatedLayout: React.FC = () => {
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
+
   const SIDEBAR_COLLAPSED_WIDTH = 80;
   const SIDEBAR_INITIAL_WIDTH = 240;
   const SIDEBAR_MIN_WIDTH = 200;
@@ -141,32 +146,56 @@ const AuthenticatedLayout: React.FC = () => {
   };
 
   const customLayoutViews = [
-    'projects', 
-    'companies', 
-    'contacts', 
-    'contact-logs', 
-    'site-surveys', 
-    'meetings',
-    'pricelist',
-    'quotations',
-    'sale-orders',
+    'projects', 'companies', 'contacts', 'contact-logs', 
+    'site-surveys', 'meetings', 'pricelist', 'quotations', 'sale-orders',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);
-  const needsConstrainedHeight = customLayoutViews.includes(navigation.view);
+  const needsConstrainedHeight = !isMobile && customLayoutViews.includes(navigation.view);
 
   const effectiveSidebarWidth = isSidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
 
+  if (isMobile) {
+    return (
+      <div className="relative min-h-screen bg-muted/40">
+        <Header
+          onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
+          isSidebarOpen={isSidebarOpen}
+          isMobile={true}
+        />
+        {/* Mobile sidebar drawer */}
+        {isSidebarOpen && (
+          <div
+            onClick={closeSidebar}
+            className="fixed inset-0 bg-black/60 z-20 lg:hidden"
+            aria-hidden="true"
+          ></div>
+        )}
+         <Sidebar
+          isSidebarOpen={isSidebarOpen}
+          width={280} // Fixed width for mobile drawer
+          isResizing={false}
+          isCollapsed={false} // Never collapsed on mobile drawer
+          onToggleCollapse={() => {}} // Not used on mobile
+          onNavigate={handleNavWithSidebar}
+          onResizeMouseDown={() => {}}
+          onResizeDoubleClick={() => {}}
+        />
+        <main className="mobile-content">
+          <Suspense fallback={<ContentSkeleton />}>
+            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload?.['Quote No.'] ?? ''}`}>
+              {renderContent()}
+            </div>
+          </Suspense>
+        </main>
+        <MobileBottomNav />
+      </div>
+    );
+  }
+
+  // Desktop Layout
   return (
     <div className="relative h-screen flex bg-muted/40" style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}>
-      {isSidebarOpen && (
-        <div
-          onClick={closeSidebar}
-          className="fixed inset-0 bg-black/60 z-20 lg:hidden"
-          aria-hidden="true"
-        ></div>
-      )}
-
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         width={effectiveSidebarWidth}
@@ -178,10 +207,11 @@ const AuthenticatedLayout: React.FC = () => {
         onResizeDoubleClick={handleToggleCollapse}
       />
 
-      <div className={`flex-1 flex flex-col transition-[margin] duration-300 ease-in-out lg:ml-[var(--sidebar-width)]`}>
+      <div className={`flex-1 flex flex-col transition-[margin] duration-300 ease-in-out ml-[var(--sidebar-width)]`}>
         <Header
-          onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
-          isSidebarOpen={isSidebarOpen}
+          onMenuClick={() => {}} // Not used on desktop
+          isSidebarOpen={false}
+          isMobile={false}
         />
         <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-auto'} ${useDefaultLayout ? 'p-4 md:p-6 lg:p-8' : ''}`}>
           <Suspense fallback={<ContentSkeleton />}>

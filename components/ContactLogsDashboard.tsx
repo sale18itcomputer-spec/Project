@@ -7,8 +7,7 @@ import KanbanView, { KanbanColumn } from './KanbanView';
 import Avatar from './Avatar';
 import DataTable, { ColumnDef } from './DataTable';
 import { useNavigation } from '../contexts/NavigationContext';
-// FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { ExternalLink, Table, LayoutGrid } from 'lucide-react';
+import { ExternalLink, Table, LayoutGrid, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import ConfirmationModal from './ConfirmationModal';
@@ -16,6 +15,11 @@ import { deleteRecord } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
+import EmptyState from './EmptyState';
+// FIX: Imported the Spinner component to resolve a "Cannot find name 'Spinner'" error.
+import Spinner from './Spinner';
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email', 'Meeting'] as const;
 type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
@@ -33,17 +37,46 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const CONTACT_LOG_COLUMNS_VISIBILITY_KEY = 'limperial-contact-log-columns-visibility';
 
+const ContactLogMobileCard: React.FC<{ log: ContactLog, onView: () => void }> = ({ log, onView }) => (
+    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+        <div className="mobile-card-header">
+            <div>
+                <div className="mobile-card-title">{log['Company Name']}</div>
+                <div className="mobile-card-subtitle">{log['Contact Name']}</div>
+            </div>
+            <span className="mobile-status mobile-status-info">
+                <span className="mobile-status-dot"></span>
+                {log.Type}
+            </span>
+        </div>
+        <div className="mobile-card-body">
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Date</span>
+                <span className="mobile-card-value">{formatDateAsMDY(parseDate(log['Contact Date'])!) || '-'}</span>
+            </div>
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Logged By</span>
+                <span className="mobile-card-value">{log['Responsible By']}</span>
+            </div>
+        </div>
+    </div>
+);
+
+
 const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
   const { contactLogs, setContactLogs, loading, error } = useData();
   const { users } = useAuth();
-  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
+  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: true });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
   const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
   const { handleNavigation } = useNavigation();
   const { addToast } = useToast();
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
   
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewLog = () => setModalConfig({ log: null, isReadOnly: false, isOpen: true });
@@ -241,6 +274,45 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     </>
   );
 
+  if (isMobile) {
+    return (
+       <div className="h-full flex flex-col">
+            <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search logs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                 <div className="mobile-tabs">
+                    {logTypeOptions.map(opt => (
+                       <button key={opt} onClick={() => setLogTypeFilter(opt)} className={`mobile-tab ${logTypeFilter === opt ? 'active' : ''}`}>{opt}</button>
+                    ))}
+                 </div>
+            </div>
+             <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(log => (
+                       <ContactLogMobileCard key={log['Log ID']} log={log} onView={() => handleViewLog(log)} />
+                    ))
+                ) : (
+                    <EmptyState>No logs found.</EmptyState>
+                )}
+            </ScrollArea>
+             <NewContactLogModal
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal}
+                existingData={modalConfig.log}
+                initialReadOnly={modalConfig.isReadOnly}
+            />
+       </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
        <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
@@ -271,11 +343,24 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
 
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
             {viewMode === 'table' && (
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
+              <>
+                <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                        <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                        <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                        <Scissors className="w-4 h-4" />
+                    </button>
+                </div>
+                <DataTableColumnToggle
+                  allColumns={allColumns}
+                  visibleColumns={visibleColumns}
+                  onColumnToggle={handleColumnToggle}
+                />
+              </>
             )}
             <button
               onClick={handleOpenNewLog}
@@ -304,6 +389,8 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             loading={loading}
             onRowClick={handleViewLog}
             initialSort={{ key: 'Contact Date', direction: 'descending' }}
+            mobilePrimaryColumns={['Contact Date', 'Company Name', 'Type']}
+            cellWrapStyle={cellWrapStyle}
           />
         </div>
       )}

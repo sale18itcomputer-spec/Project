@@ -16,6 +16,7 @@ import PendingWorks from './PendingWorks';
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
 import GeminiDashboardInsights from './GeminiDashboardInsights';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 const DashboardContentSkeleton = () => (
     <div className="space-y-6 animate-pulse">
@@ -60,6 +61,8 @@ const DashboardContent: React.FC = () => {
   const [renderStep, setRenderStep] = useState(0);
   const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
+  const { width } = useWindowSize();
+  const isMobile = width < 768;
 
   useEffect(() => {
     if (!loading) {
@@ -420,9 +423,9 @@ const DashboardContent: React.FC = () => {
     `transition-all duration-500 ease-out transform ${renderStep >= step ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-0">
       {renderStep >= 1 && (
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 ${transitionClass(1)}`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 ${transitionClass(1)}`}>
           {metrics.map((metric) => (
             <MetricCard 
               key={metric.title} 
@@ -494,14 +497,14 @@ const DashboardContent: React.FC = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
         {renderStep >= 7 && (
-          <div className={`lg:col-span-2 ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
+          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
             <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
           </div>
         )}
         {renderStep >= 8 && (
-          <div className={`lg:col-span-1 ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
+          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
             <ProjectsByBrandChart data={projectsByBrandData} />
           </div>
         )}

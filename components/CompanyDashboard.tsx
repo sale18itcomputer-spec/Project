@@ -3,8 +3,7 @@ import { Company, PipelineProject, SaleOrder } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import NewCompanyModal from './NewCompanyModal';
-// FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { Info, Briefcase, Users, DollarSign, Table, Columns, ExternalLink } from 'lucide-react';
+import { Info, Briefcase, Users, DollarSign, Table, Columns, ExternalLink, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import Spinner from './Spinner';
 import { parseSheetValue, formatMixedCurrency, determineCurrency } from '../utils/formatters';
 import EmptyState from './EmptyState';
@@ -13,6 +12,8 @@ import ViewToggle from './ViewToggle';
 import DataTable, { ColumnDef } from './DataTable';
 import { formatDateAsMDY, parseDate } from '../utils/time';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
 
 
 interface CompanyDashboardProps {
@@ -34,18 +35,50 @@ type ProcessedCompany = Company & {
   status: 'Active' | 'Inactive';
 };
 
+const CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => void }> = ({ company, onView }) => (
+    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+        <div className="mobile-card-header">
+            <div>
+                <div className="mobile-card-title">{company['Company Name']}</div>
+                <div className="mobile-card-subtitle">{company.Field}</div>
+            </div>
+            <span className={`mobile-status ${company.status === 'Active' ? 'mobile-status-success' : 'mobile-status-default'}`}>
+                <span className="mobile-status-dot"></span>
+                {company.status}
+            </span>
+        </div>
+        <div className="mobile-card-body">
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Total Value</span>
+                <span className="mobile-card-value">{formatMixedCurrency(company.totalValueUSD, company.totalValueKHR)}</span>
+            </div>
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Phone</span>
+                <span className="mobile-card-value">{company['Phone Number'] || 'N/A'}</span>
+            </div>
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Created By</span>
+                <span className="mobile-card-value">{company['Created By'] || 'N/A'}</span>
+            </div>
+        </div>
+    </div>
+);
+
 const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) => {
   const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useData();
   const [modalConfig, setModalConfig] = useState<{ company: ProcessedCompany | null, isReadOnly: boolean, isOpen: boolean }>({ company: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const { handleNavigation } = useNavigation();
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
 
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewCompany = () => setModalConfig({ company: null, isReadOnly: false, isOpen: true });
   const handleViewCompany = (company: ProcessedCompany) => {
-    if (viewMode === 'table') {
+    if (isMobile || viewMode === 'table') {
         setModalConfig({ company, isReadOnly: true, isOpen: true })
     } else {
         setSelectedCompanyId(company['Company ID']);
@@ -373,6 +406,54 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
      </div>
   );
 
+  if (isMobile) {
+    return (
+        <div className="h-full flex flex-col">
+            <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search companies..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <button
+                    onClick={() => handleOpenNewCompany()}
+                    className="w-full flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-sm"
+                >
+                    + New Company
+                </button>
+            </div>
+
+            <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(company => (
+                        <CompanyMobileCard key={company['Company ID']} company={company} onView={() => handleViewCompany(company)} />
+                    ))
+                ) : (
+                    <EmptyState>No companies found.</EmptyState>
+                )}
+            </ScrollArea>
+             <NewCompanyModal
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal}
+                existingData={modalConfig.company}
+                initialReadOnly={modalConfig.isReadOnly}
+                projects={projects || []}
+                contacts={contacts || []}
+                quotations={quotations || []}
+                saleOrders={saleOrders || []}
+                onSaveSuccess={(newCompany) => {
+                  setSelectedCompanyId(newCompany['Company ID']);
+                }}
+            />
+        </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-white">
        <div className="p-4 sm:px-6 bg-white border-b border-slate-200 flex-shrink-0">
@@ -396,11 +477,24 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                 </div>
                 <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                 {viewMode === 'table' && (
+                  <>
+                    <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                        <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                            <ArrowRightToLine className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                            <WrapText className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                            <Scissors className="w-4 h-4" />
+                        </button>
+                    </div>
                     <DataTableColumnToggle
                         allColumns={allColumns}
                         visibleColumns={visibleColumns}
                         onColumnToggle={handleColumnToggle}
                     />
+                  </>
                 )}
                 <button
                     onClick={() => handleOpenNewCompany()}
@@ -423,6 +517,8 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
                     loading={loading && !companyData}
                     onRowClick={handleViewCompany}
                     initialSort={{ key: 'Company ID', direction: 'ascending' }}
+                    mobilePrimaryColumns={['Company Name', 'status']}
+                    cellWrapStyle={cellWrapStyle}
                 />
             </div>
         ) : (

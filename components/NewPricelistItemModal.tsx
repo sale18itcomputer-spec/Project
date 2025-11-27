@@ -10,6 +10,11 @@ import { GoogleGenAI } from '@google/genai';
 import { Check, Pencil, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 
+// --- Environment Variable Note ---
+// The Google Gemini API Key is securely managed as an environment variable (`process.env.API_KEY`).
+// It is NOT hardcoded in the application. You can assume this is configured in the deployment environment.
+// ---
+
 interface NewPricelistItemModalProps {
   isOpen: boolean;
   onClose: () => void;

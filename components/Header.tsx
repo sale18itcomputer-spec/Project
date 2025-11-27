@@ -15,6 +15,7 @@ import { getInitials } from '../utils/formatters';
 interface HeaderProps {
   onMenuClick: () => void;
   isSidebarOpen: boolean;
+  isMobile: boolean;
 }
 
 const OfflineIndicator = () => (
@@ -24,7 +25,7 @@ const OfflineIndicator = () => (
       className="ml-4 flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full"
     >
         <AlertTriangle className="h-4 w-4" />
-        <span>You are currently offline</span>
+        <span className="hidden sm:inline">You are currently offline</span>
     </div>
 );
 
@@ -37,7 +38,7 @@ const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) =>
     }
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile }) => {
   const { navigation, handleNavigation } = useNavigation();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   const { currentUser, logout } = useAuth();
@@ -69,8 +70,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
   const avatarUrl = currentUser ? transformToDirectImageUrl(currentUser.Picture) : '';
   const isDashboard = navigation.view === 'dashboard';
 
+  const headerClasses = isMobile 
+    ? "mobile-nav" 
+    : "sticky top-0 bg-background/95 backdrop-blur-sm h-16 sm:h-20 px-4 sm:px-6 flex justify-between items-center border-b z-30";
+
   return (
-    <header className="sticky top-0 bg-background/95 backdrop-blur-sm h-16 sm:h-20 px-4 sm:px-6 flex justify-between items-center border-b z-30">
+    <header className={headerClasses}>
       <div className="flex items-center gap-3">
         <Button
             onClick={onMenuClick}
@@ -83,11 +88,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
         >
             <Menu />
         </Button>
-        <h1 className="text-xl sm:text-2xl font-semibold text-foreground truncate">{getTitle()}</h1>
+        <h1 className={`${isMobile ? 'mobile-nav-title' : 'text-xl sm:text-2xl font-semibold text-foreground truncate'}`}>{getTitle()}</h1>
         {!isOnline && <OfflineIndicator />}
       </div>
       <div className="flex items-center space-x-3 sm:space-x-5">
-        {isDashboard && (
+        {!isMobile && isDashboard && (
           <div className="relative hidden md:block">
             <label htmlFor="search-global" className="sr-only">Search</label>
             <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 z-10" />
@@ -99,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen }) => {
             />
           </div>
         )}
-        <div className={`flex items-center space-x-2 sm:space-x-4 ${isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
+        <div className={`flex items-center space-x-2 sm:space-x-4 ${!isMobile && isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative text-muted-foreground" aria-label={`View notifications (${unreadCount} unread)`}>

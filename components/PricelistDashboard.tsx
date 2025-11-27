@@ -3,7 +3,7 @@ import { PricelistItem } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
 import { parseSheetValue } from '../utils/formatters';
-import { LayoutGrid, Table, ListTree, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import NewPricelistItemModal from './NewPricelistItemModal';
@@ -75,7 +75,7 @@ const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status
 };
 
 
-const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit: () => void; onDelete: () => void; }> = ({ item, onView, onEdit, onDelete }) => (
+const PricelistCard: React.FC<{ item: ProcessedPricelistItem; onView: () => void; onEdit: () => void; onDelete: () => void; }> = ({ item, onView, onEdit, onDelete }) => (
     <Card
         className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative cursor-pointer border hover:border-primary hover:shadow-xl hover:-translate-y-1.5"
         onClick={onView}
@@ -123,10 +123,10 @@ const PricelistCard: React.FC<{ item: PricelistItem; onView: () => void; onEdit:
 
 const CategorySection: React.FC<{
     category: string;
-    items: PricelistItem[];
-    onViewItem: (item: PricelistItem) => void;
-    onEditItem: (item: PricelistItem) => void;
-    onDeleteItem: (item: PricelistItem) => void;
+    items: ProcessedPricelistItem[];
+    onViewItem: (item: ProcessedPricelistItem) => void;
+    onEditItem: (item: ProcessedPricelistItem) => void;
+    onDeleteItem: (item: ProcessedPricelistItem) => void;
 }> = ({ category, items, onViewItem, onEditItem, onDeleteItem }) => {
     const [isOpen, setIsOpen] = useState(true);
     const contentId = useId();
@@ -190,6 +190,7 @@ const CategorySection: React.FC<{
 
 
 type ViewMode = 'table' | 'grid' | 'category';
+type ProcessedPricelistItem = PricelistItem & { fullDescription: string };
 
 const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility';
 
@@ -201,6 +202,7 @@ const PricelistDashboard: React.FC = () => {
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [renderStep, setRenderStep] = useState(0);
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
 
     useEffect(() => {
         if (!loading) {
@@ -209,11 +211,12 @@ const PricelistDashboard: React.FC = () => {
         }
     }, [loading]);
 
+    // FIX: Update handlers to expect ProcessedPricelistItem to ensure type consistency across the component.
     const handleCloseModal = () => setModalConfig({ item: null, isReadOnly: false, isOpen: false });
-    const handleViewItem = (item: PricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
-    const handleEditItem = (item: PricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
+    const handleViewItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
+    const handleEditItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
     const handleNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
-    const handleDeleteItem = (item: PricelistItem) => {
+    const handleDeleteItem = (item: ProcessedPricelistItem) => {
         // Open the modal in view mode, where the user can then click the delete button to confirm.
         setModalConfig({ item, isReadOnly: true, isOpen: true });
     };
@@ -251,24 +254,43 @@ const PricelistDashboard: React.FC = () => {
         return data;
     }, [pricelist, searchQuery, categoryFilter, brandFilter]);
 
+    const processedFilteredData: ProcessedPricelistItem[] = useMemo(() => {
+        return filteredData.map(item => {
+            const brand = item.Brand || '';
+            const model = item.Model || '';
+            const description = item['Item Description'] || '';
+            const combined = `${brand} ${model} ${description ? `(${description})` : ''}`.trim();
+            return {
+                ...item,
+                fullDescription: combined,
+            };
+        });
+    }, [filteredData]);
+
     const groupedByCategory = useMemo(() => {
-        if (!filteredData) return {};
-        return filteredData.reduce((acc, item) => {
+        if (!processedFilteredData) return {};
+        return processedFilteredData.reduce((acc, item) => {
             const category = item.Category || 'Uncategorized';
             if (!acc[category]) {
                 acc[category] = [];
             }
             acc[category].push(item);
             return acc;
-        }, {} as Record<string, PricelistItem[]>);
-    }, [filteredData]);
+        }, {} as Record<string, ProcessedPricelistItem[]>);
+    }, [processedFilteredData]);
 
-    const allColumns = useMemo<ColumnDef<PricelistItem>[]>(() => [
+    const allColumns = useMemo<ColumnDef<ProcessedPricelistItem>[]>(() => [
         { accessorKey: 'Category', header: 'Category', isSortable: true },
         { accessorKey: 'Item Code', header: 'Item Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
         { accessorKey: 'Brand', header: 'Brand', isSortable: true },
         { accessorKey: 'Model', header: 'Model', isSortable: true },
         { accessorKey: 'Item Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
+        { 
+            accessorKey: 'fullDescription', 
+            header: 'Full Description', 
+            isSortable: true, 
+            cell: (value: string) => <p className="text-sm text-slate-600">{value}</p> 
+        },
         { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
         { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
         { accessorKey: 'Qty', header: 'Stock', isSortable: true, cell: (value: string) => <StockCell value={value} /> },
@@ -346,18 +368,20 @@ const PricelistDashboard: React.FC = () => {
                     <div className="bg-white">
                         <DataTable
                             tableId="pricelist-table"
-                            data={filteredData}
+                            data={processedFilteredData}
                             columns={displayedColumns}
                             loading={loading}
                             onRowClick={handleViewItem}
                             initialSort={{ key: 'Category', direction: 'ascending' }}
+                            mobilePrimaryColumns={['Model', 'Brand', 'SRP', 'Status']}
+                            cellWrapStyle={cellWrapStyle}
                         />
                     </div>
                 );
             case 'grid':
                 return (
                     <div className="px-4 sm:px-6 pb-4 sm:pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                        {filteredData.map(item => (
+                        {processedFilteredData.map(item => (
                             <PricelistCard 
                                 key={item['Item Code']} 
                                 item={item} 
@@ -409,11 +433,51 @@ const PricelistDashboard: React.FC = () => {
                     </div>
                     <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                     {viewMode === 'table' && (
-                        <DataTableColumnToggle
-                            allColumns={allColumns}
-                            visibleColumns={visibleColumns}
-                            onColumnToggle={handleColumnToggle}
-                        />
+                        <>
+                            <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                                <button
+                                    onClick={() => setCellWrapStyle('overflow')}
+                                    title="Overflow"
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                                        cellWrapStyle === 'overflow'
+                                            ? 'bg-white shadow-sm text-brand-700'
+                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                    }`}
+                                    aria-pressed={cellWrapStyle === 'overflow'}
+                                >
+                                    <ArrowRightToLine className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setCellWrapStyle('wrap')}
+                                    title="Wrap"
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                                        cellWrapStyle === 'wrap'
+                                            ? 'bg-white shadow-sm text-brand-700'
+                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                    }`}
+                                    aria-pressed={cellWrapStyle === 'wrap'}
+                                >
+                                    <WrapText className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setCellWrapStyle('clip')}
+                                    title="Clip"
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                                        cellWrapStyle === 'clip'
+                                            ? 'bg-white shadow-sm text-brand-700'
+                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                    }`}
+                                    aria-pressed={cellWrapStyle === 'clip'}
+                                >
+                                    <Scissors className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <DataTableColumnToggle
+                                allColumns={allColumns}
+                                visibleColumns={visibleColumns}
+                                onColumnToggle={handleColumnToggle}
+                            />
+                        </>
                     )}
                     <button
                         onClick={handleNewItem}

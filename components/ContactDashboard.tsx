@@ -4,8 +4,7 @@ import { useData } from '../contexts/DataContext';
 import NewContactModal from './NewContactModal';
 import Spinner from './Spinner';
 import EmptyState from './EmptyState';
-// FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { Users, LayoutGrid, Table } from 'lucide-react';
+import { Users, LayoutGrid, Table, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import DataTable, { ColumnDef } from './DataTable';
 import ItemActionsMenu from './ItemActionsMenu';
@@ -15,6 +14,8 @@ import { formatDateAsMDY, parseDate } from '../utils/time';
 import { parseSheetValue, formatMixedCurrency, determineCurrency } from '../utils/formatters';
 import { useToast } from '../contexts/ToastContext';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -34,6 +35,31 @@ type ProcessedContact = Contact & {
   totalAmountUSD: number;
   totalAmountKHR: number;
 };
+
+const ContactMobileCard: React.FC<{ contact: ProcessedContact, onView: () => void }> = ({ contact, onView }) => (
+    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+        <div className="mobile-card-header">
+            <div>
+                <div className="mobile-card-title">{contact.Name}</div>
+                <div className="mobile-card-subtitle">{contact.Role}</div>
+            </div>
+             <span className={`mobile-status ${contact.status === 'Active' ? 'mobile-status-success' : 'mobile-status-default'}`}>
+                <span className="mobile-status-dot"></span>
+                {contact.status}
+            </span>
+        </div>
+        <div className="mobile-card-body">
+             <div className="mobile-card-row">
+                <span className="mobile-card-label">Company</span>
+                <span className="mobile-card-value">{contact['Company Name']}</span>
+            </div>
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Won Value</span>
+                <span className="mobile-card-value">{formatMixedCurrency(contact.totalAmountUSD, contact.totalAmountKHR)}</span>
+            </div>
+        </div>
+    </div>
+);
 
 
 const ContactCard: React.FC<{ 
@@ -76,7 +102,10 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
 
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewContact = () => setModalConfig({ contact: null, isReadOnly: false, isOpen: true });
@@ -287,6 +316,51 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
     );
   }
 
+  if (isMobile) {
+    return (
+        <div className="h-full flex flex-col">
+             <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search contacts..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <select 
+                    value={companyFilter} 
+                    onChange={(e) => setCompanyFilter(e.target.value)}
+                    className="w-full bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-3 transition"
+                >
+                    {companyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+            </div>
+            <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(contact => (
+                       <ContactMobileCard key={contact['Customer ID']} contact={contact} onView={() => handleViewContact(contact)} />
+                    ))
+                ) : (
+                    <EmptyState>No contacts found.</EmptyState>
+                )}
+            </ScrollArea>
+             <NewContactModal
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal}
+                existingData={modalConfig.contact}
+                initialReadOnly={modalConfig.isReadOnly}
+                projects={projects || []}
+                contactLogs={contactLogs || []}
+                meetings={meetings || []}
+                quotations={quotations || []}
+            />
+        </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header & Filter Section */}
@@ -318,11 +392,24 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   </select>
                 <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                 {viewMode === 'list' && (
-                  <DataTableColumnToggle
-                    allColumns={allColumns}
-                    visibleColumns={visibleColumns}
-                    onColumnToggle={handleColumnToggle}
-                  />
+                  <>
+                    <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                        <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                            <ArrowRightToLine className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                            <WrapText className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                            <Scissors className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <DataTableColumnToggle
+                        allColumns={allColumns}
+                        visibleColumns={visibleColumns}
+                        onColumnToggle={handleColumnToggle}
+                    />
+                  </>
                 )}
                 <button
                     onClick={handleOpenNewContact}
@@ -363,6 +450,8 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   onRowClick={handleViewContact}
                   initialSort={{ key: 'Customer ID', direction: 'ascending' }}
                   highlightedCheck={(contact) => contact.status === 'Active'}
+                  mobilePrimaryColumns={['Name', 'Company Name']}
+                  cellWrapStyle={cellWrapStyle}
                 />
               </div>
             )

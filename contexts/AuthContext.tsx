@@ -8,6 +8,7 @@ interface AuthContextType {
   currentUser: User | null;
   users: User[] | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: (email: string) => Promise<{ success: boolean; message: string; }>;
   logout: () => void;
 }
 
@@ -72,6 +73,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { success: false, message: "Invalid Email or Password." };
   }, [users]);
 
+  const loginWithGoogle = useCallback(async (email: string): Promise<{ success: boolean; message: string }> => {
+    if (!users) {
+        return { success: false, message: "Authentication service is temporarily unavailable. Please try again later." };
+    }
+    
+    const trimmedEmail = email.trim().toLowerCase();
+    const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
+
+    if (!user) {
+        return { success: false, message: "No user found with this Google account. Please sign in with your registered email and password." };
+    }
+    
+    if (user.Status !== 'Active') {
+        return { success: false, message: "This user account is inactive. Please contact an administrator." };
+    }
+
+    setCurrentUser(user);
+    try {
+        localStorage.setItem('limperial_auth_user', user.UserID);
+    } catch (error) {
+        console.error("Failed to save user session to localStorage", error);
+    }
+    return { success: true, message: "Login successful!" };
+  }, [users]);
+
+
   const logout = useCallback(() => {
     setCurrentUser(null);
     try {
@@ -87,6 +114,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     currentUser,
     users,
     login,
+    loginWithGoogle,
     logout,
   };
 

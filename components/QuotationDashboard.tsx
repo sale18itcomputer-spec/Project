@@ -8,7 +8,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { QUOTATION_SHEET_ID } from '../constants';
 import MetricCard from './MetricCard';
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
-import { FileText, DollarSign, CheckCircle, ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil } from 'lucide-react';
+import { FileText, DollarSign, CheckCircle, ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import FileLinkCell from './FileLinkCell';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
 import ViewToggle from './ViewToggle';
@@ -20,6 +20,8 @@ import ItemActionsMenu from './ItemActionsMenu';
 import QuotationListContainer from './QuotationListContainer';
 import Spinner from './Spinner';
 import EmptyState from './EmptyState';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -52,6 +54,39 @@ const QUOTATION_COLUMNS_VISIBILITY_KEY = 'limperial-quotation-columns-visibility
 
 type ViewMode = 'table' | 'board' | 'detail';
 
+const QuotationMobileCard: React.FC<{ quotation: Quotation, onView: () => void }> = ({ quotation, onView }) => {
+    let statusClass = 'mobile-status-default';
+    if (quotation.Status === 'Open') statusClass = 'mobile-status-info';
+    if (quotation.Status === 'Close (Win)') statusClass = 'mobile-status-success';
+    if (quotation.Status === 'Close (Lose)') statusClass = 'mobile-status-danger';
+    if (quotation.Status === 'Cancel') statusClass = 'mobile-status-default';
+
+    return (
+        <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+            <div className="mobile-card-header">
+                <div>
+                    <div className="mobile-card-title">{quotation['Company Name']}</div>
+                    <div className="mobile-card-subtitle">{quotation['Quote No.']}</div>
+                </div>
+                <span className={`mobile-status ${statusClass}`}>
+                    <span className="mobile-status-dot"></span>
+                    {quotation.Status.replace('(Win)', '').replace('(Lose)', '')}
+                </span>
+            </div>
+            <div className="mobile-card-body">
+                <div className="mobile-card-row">
+                    <span className="mobile-card-label">Amount</span>
+                    <span className="mobile-card-value">{formatCurrencySmartly(quotation.Amount, quotation.Currency)}</span>
+                </div>
+                <div className="mobile-card-row">
+                    <span className="mobile-card-label">Date</span>
+                    <span className="mobile-card-value">{formatDateAsMDY(parseDate(quotation['Quote Date'])!)}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const QuotationDashboard: React.FC = () => {
   const { quotations, setQuotations, loading, error } = useData();
   const [isCreating, setIsCreating] = useState(false);
@@ -61,7 +96,10 @@ const QuotationDashboard: React.FC = () => {
   const { handleNavigation } = useNavigation();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
 
   const quotationSheetId = QUOTATION_SHEET_ID;
 
@@ -82,8 +120,12 @@ const QuotationDashboard: React.FC = () => {
   };
   
   const handleViewQuotation = (quotation: Quotation) => {
-    setSelectedQuotationId(quotation['Quote No.']);
-    setViewMode('detail');
+    if (isMobile) {
+        handleEditQuotation(quotation); // On mobile, viewing is editing
+    } else {
+        setSelectedQuotationId(quotation['Quote No.']);
+        setViewMode('detail');
+    }
   };
 
   const handleDeleteRequest = (quotation: Quotation) => {
@@ -511,6 +553,40 @@ const QuotationDashboard: React.FC = () => {
       mainValue = '$0';
   }
 
+  if (isMobile) {
+    return (
+        <div className="h-full flex flex-col">
+            <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search quotations..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                 <button
+                    onClick={handleNewQuotation}
+                    className="w-full flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-sm"
+                >
+                    + New Quotation
+                </button>
+            </div>
+             <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(quotation => (
+                        <QuotationMobileCard key={quotation['Quote No.']} quotation={quotation} onView={() => handleViewQuotation(quotation)} />
+                    ))
+                ) : (
+                    <EmptyState>No quotations found.</EmptyState>
+                )}
+            </ScrollArea>
+        </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-slate-50">
         <div className="p-6 flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50 border-b border-slate-200">
@@ -520,75 +596,90 @@ const QuotationDashboard: React.FC = () => {
         </div>
 
         <div className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-            <div className="flex items-center gap-4">
-                <h2 className="text-xl font-semibold text-gray-900">All Quotations</h2>
-                <button
-                    onClick={handleNewQuotation}
-                    className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-3 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-                >
-                    <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                    <span className="hidden sm:inline">New Quotation</span>
-                </button>
-            </div>
-             <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
-                    <label htmlFor="datatable-search" className="sr-only">Search</label>
-                    <input
-                      id="datatable-search"
-                      type="text"
-                      placeholder="Search quotations..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-white border border-gray-300 text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                    />
-                    <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-semibold text-gray-900">All Quotations</h2>
                 </div>
-                <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                {viewMode === 'table' && (
-                    <DataTableColumnToggle
-                        allColumns={allColumns}
-                        visibleColumns={visibleColumns}
-                        onColumnToggle={handleColumnToggle}
-                    />
-                )}
+                 <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
+                        <label htmlFor="datatable-search" className="sr-only">Search</label>
+                        <input
+                          id="datatable-search"
+                          type="text"
+                          placeholder="Search quotations..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="bg-white border border-gray-300 text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                        />
+                        <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                    {viewMode === 'table' && (
+                       <>
+                        <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                            <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                                <ArrowRightToLine className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                                <WrapText className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                                <Scissors className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <DataTableColumnToggle
+                            allColumns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onColumnToggle={handleColumnToggle}
+                        />
+                       </>
+                    )}
+                     <button
+                        onClick={handleNewQuotation}
+                        className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
+                    >
+                        <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span className="hidden sm:inline">New Quotation</span>
+                    </button>
+                </div>
             </div>
-        </div>
-        <div className="flex-1 min-h-0 overflow-auto">
-             {viewMode === 'table' ? (
-                <div className="bg-white h-full">
-                    <DataTable
+
+            <div className="flex-1 min-h-0 overflow-auto bg-white">
+                 {viewMode === 'table' ? (
+                     <DataTable
                         tableId="quotation-table"
                         data={filteredData}
                         columns={displayedColumns}
                         loading={loading}
                         onRowClick={handleViewQuotation}
                         initialSort={{ key: 'Quote Date', direction: 'descending' }}
+                        mobilePrimaryColumns={['Quote No.', 'Company Name', 'Amount', 'Status']}
+                        cellWrapStyle={cellWrapStyle}
                     />
-                </div>
-            ) : viewMode === 'board' ? (
-                <KanbanView<Quotation>
-                    columns={kanbanColumns}
-                    onCardClick={handleViewQuotation}
-                    renderCardContent={renderKanbanCard}
-                    loading={loading}
-                    onItemMove={handleItemMove}
-                    getItemId={(item) => item['Quote No.']}
-                />
-            ) : (
-                renderDetailView()
-            )}
+                 ) : viewMode === 'board' ? (
+                     <KanbanView<Quotation>
+                        columns={kanbanColumns}
+                        onCardClick={handleViewQuotation}
+                        renderCardContent={renderKanbanCard}
+                        loading={loading}
+                        onItemMove={handleItemMove}
+                        getItemId={(item) => item['Quote No.']}
+                     />
+                 ) : (
+                    renderDetailView()
+                 )}
+            </div>
+
+             <ConfirmationModal
+                isOpen={!!quotationToDelete}
+                onClose={() => setQuotationToDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Quotation"
+                confirmText="Delete"
+            >
+                Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
+            </ConfirmationModal>
         </div>
-        <ConfirmationModal 
-            isOpen={!!quotationToDelete}
-            onClose={() => setQuotationToDelete(null)}
-            onConfirm={handleConfirmDelete}
-            title="Delete Quotation"
-            confirmText="Delete"
-        >
-           Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
-        </ConfirmationModal>
-    </div>
-  );
+      );
 };
 
-export default QuotationDashboard;
+export default React.memo(QuotationDashboard);

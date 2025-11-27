@@ -3,8 +3,7 @@ import { PipelineProject } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
 import { useNavigation } from '../contexts/NavigationContext';
-// FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock, SlidersHorizontal } from 'lucide-react';
+import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock, SlidersHorizontal, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import { formatDateAsMDY, calculateDueDate, parseDate } from '../utils/time';
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
 import NewProjectModal from './NewProjectModal';
@@ -15,6 +14,10 @@ import { updateRecord } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
+import Spinner from './Spinner';
+import EmptyState from './EmptyState';
 
 type ProcessedProject = PipelineProject & {
   calculatedDueDate: Date | null;
@@ -179,13 +182,49 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility';
 
+const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => void }> = ({ project, onView }) => {
+    let statusClass = 'mobile-status-default';
+    if(project.Status === 'Quote Submitted') statusClass = 'mobile-status-info';
+    if(project.Status === 'Close (win)') statusClass = 'mobile-status-success';
+    if(project.Status === 'Close (lose)') statusClass = 'mobile-status-danger';
+
+    return (
+        <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+            <div className="mobile-card-header">
+                <div>
+                    <div className="mobile-card-title">{project['Company Name']}</div>
+                    <div className="mobile-card-subtitle">{project.Require}</div>
+                </div>
+                <span className={`mobile-status ${statusClass}`}>
+                    <span className="mobile-status-dot"></span>
+                    {project.Status.replace('(win)', 'Won').replace('(lose)', 'Lost')}
+                </span>
+            </div>
+            <div className="mobile-card-body">
+                <div className="mobile-card-row">
+                    <span className="mobile-card-label">Bid Value</span>
+                    <span className="mobile-card-value">{formatCurrencySmartly(project['Bid Value'], project.Currency)}</span>
+                </div>
+                <div className="mobile-card-row">
+                    <span className="mobile-card-label">Sales Rep</span>
+                    <span className="mobile-card-value">{project['Responsible By']}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
   const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error } = useData();
   const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const { handleNavigation } = useNavigation();
   const { addToast } = useToast();
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
 
   useEffect(() => {
     if (initialFilter) {
@@ -501,6 +540,42 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         </>
     );
   };
+  
+  if (isMobile) {
+    return (
+         <div className="h-full flex flex-col">
+            <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search opportunities..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+            </div>
+             <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(project => (
+                        <PipelineMobileCard key={project['Pipeline No.']} project={project} onView={() => handleViewProject(project)} />
+                    ))
+                ) : (
+                    <EmptyState>No opportunities found.</EmptyState>
+                )}
+            </ScrollArea>
+             <NewProjectModal
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal}
+                existingData={modalConfig.project}
+                initialReadOnly={modalConfig.isReadOnly}
+                meetings={meetings || []}
+                contactLogs={contactLogs || []}
+            />
+        </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -524,11 +599,51 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             </div>
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
              {viewMode === 'table' && (
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
+              <>
+                <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                    <button
+                        onClick={() => setCellWrapStyle('overflow')}
+                        title="Overflow"
+                        className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                            cellWrapStyle === 'overflow'
+                                ? 'bg-white shadow-sm text-brand-700'
+                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                        }`}
+                        aria-pressed={cellWrapStyle === 'overflow'}
+                    >
+                        <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setCellWrapStyle('wrap')}
+                        title="Wrap"
+                        className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                            cellWrapStyle === 'wrap'
+                                ? 'bg-white shadow-sm text-brand-700'
+                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                        }`}
+                        aria-pressed={cellWrapStyle === 'wrap'}
+                    >
+                        <WrapText className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setCellWrapStyle('clip')}
+                        title="Clip"
+                        className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
+                            cellWrapStyle === 'clip'
+                                ? 'bg-white shadow-sm text-brand-700'
+                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                        }`}
+                        aria-pressed={cellWrapStyle === 'clip'}
+                    >
+                        <Scissors className="w-4 h-4" />
+                    </button>
+                </div>
+                <DataTableColumnToggle
+                  allColumns={allColumns}
+                  visibleColumns={visibleColumns}
+                  onColumnToggle={handleColumnToggle}
+                />
+              </>
             )}
             <button
               onClick={handleOpenNewProject}
@@ -548,6 +663,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               columns={displayedColumns}
               loading={loading}
               onRowClick={handleViewProject}
+              mobilePrimaryColumns={['Pipeline No.', 'Company Name', 'Status']}
+              cellWrapStyle={cellWrapStyle}
           />
         </div>
        ) : (

@@ -5,6 +5,11 @@ import { Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { parseSheetValue } from '../utils/formatters';
 
+// --- Environment Variable Note ---
+// The Google Gemini API Key is securely managed as an environment variable (`process.env.API_KEY`).
+// It is NOT hardcoded in the application. You can assume this is configured in the deployment environment.
+// ---
+
 interface GeminiPricelistInsightsProps {
     items: PricelistItem[];
 }

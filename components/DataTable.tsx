@@ -4,6 +4,7 @@ import EmptyState from './EmptyState';
 import { parseDate } from '../utils/time';
 import { parseSheetValue } from '../utils/formatters';
 import { useResizableColumns } from '../hooks/useResizableColumns';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 export interface ColumnDef<T> {
   accessorKey: keyof T;
@@ -20,6 +21,8 @@ interface DataTableProps<T extends object> {
   onRowClick?: (row: T) => void;
   initialSort?: { key: keyof T; direction: 'ascending' | 'descending' };
   highlightedCheck?: (row: T) => boolean;
+  mobilePrimaryColumns: (keyof T)[];
+  cellWrapStyle?: 'overflow' | 'wrap' | 'clip';
 }
 
 const DOTS = '...';
@@ -82,11 +85,8 @@ const MobileTableSkeleton: React.FC<{ columns: number }> = ({ columns }) => (
   <div className="space-y-4 p-4 sm:p-6">
     {[...Array(5)].map((_, i) => (
       <div key={i} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm animate-pulse">
-        <div className="p-3 bg-gray-100 rounded-lg -m-4 mb-4">
-          <div className="h-6 bg-gray-200 rounded w-3/5"></div>
-        </div>
         <div className="space-y-4 pt-2">
-          {[...Array(Math.min(columns - 1, 3))].map((_, j) => (
+          {[...Array(Math.min(columns, 3))].map((_, j) => (
             <div key={j} className="flex justify-between items-center">
               <div className="h-4 bg-gray-200 rounded w-1/4"></div>
               <div className="h-5 bg-gray-200 rounded w-1/2"></div>
@@ -139,12 +139,50 @@ function DataTable<T extends object>({
   onRowClick,
   initialSort,
   highlightedCheck,
+  mobilePrimaryColumns,
+  cellWrapStyle = 'overflow',
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [sortConfig, setSortConfig] = useState<{ key: keyof T | null; direction: 'ascending' | 'descending' }>(initialSort || { key: null, direction: 'ascending' });
   const { columnWidths, handleMouseDown, tableRef, resizingColumn, autoFitColumn } = useResizableColumns(tableId, columns);
+  const [expandedRows, setExpandedRows] = useState(new Set<number>());
+  const { width } = useWindowSize();
+  const isMobile = width < 768; // Tailwind's `md` breakpoint
   
+  const wrapClass = useMemo(() => {
+    switch (cellWrapStyle) {
+        case 'wrap':
+            return 'whitespace-normal break-words';
+        case 'clip':
+            return 'overflow-clip';
+        case 'overflow':
+        default:
+            return 'truncate';
+    }
+  }, [cellWrapStyle]);
+
+  const toggleRowExpansion = (index: number) => {
+    setExpandedRows(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(index)) {
+            newSet.delete(index);
+        } else {
+            newSet.add(index);
+        }
+        return newSet;
+    });
+  };
+
+  const handleRowClick = (item: T, index: number) => {
+    if (isMobile) {
+        toggleRowExpansion(index);
+    } else if (onRowClick) {
+        onRowClick(item);
+    }
+  };
+
+
   useEffect(() => {
     setCurrentPage(1);
   }, [data.length, itemsPerPage]);
@@ -298,30 +336,39 @@ function DataTable<T extends object>({
                 {paginatedData.length > 0 ? (
                 <>
                   {paginatedData.map((item, index) => {
+                    const globalIndex = startIndex + index;
+                    const isExpanded = expandedRows.has(globalIndex);
                     const isHighlighted = highlightedCheck ? highlightedCheck(item) : false;
                     return (
                       <tr
-                        key={index}
+                        key={globalIndex}
                         className={`${
                             isHighlighted 
                             ? 'is-highlighted' 
-                            : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')
-                        } md:hover:bg-sky-50 transition-colors duration-200 ${onRowClick ? 'cursor-pointer' : ''}`}
-                        onClick={() => onRowClick?.(item)}
-                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onRowClick?.(item)}
-                        tabIndex={onRowClick ? 0 : -1}
+                            : 'md:even:bg-slate-50 bg-white'
+                        } md:hover:bg-sky-50 transition-colors duration-200 ${onRowClick || isMobile ? 'cursor-pointer' : ''} ${isExpanded ? 'is-expanded' : ''}`}
+                        onClick={() => handleRowClick(item, globalIndex)}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(item, globalIndex)}
+                        tabIndex={onRowClick || isMobile ? 0 : -1}
                       >
-                      {columns.map((col, colIndex) => (
+                      {columns.map((col) => {
+                          const isSecondaryOnMobile = isMobile && !mobilePrimaryColumns.includes(col.accessorKey);
+                          const cellClass = `
+                            px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-slate-200 
+                            ${isSecondaryOnMobile ? 'secondary-cell' : ''}
+                            ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}
+                          `;
+                          return (
                           <td 
                               key={String(col.accessorKey)} 
-                              className={`px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-slate-200 ${colIndex === 0 ? 'primary-cell' : ''} ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}`}
+                              className={cellClass}
                               data-label={col.header}
                           >
-                            <div className="font-medium truncate">
+                            <div className={`font-medium ${wrapClass}`}>
                                   {col.cell ? col.cell(item[col.accessorKey], item) : String(item[col.accessorKey] ?? '')}
                             </div>
                           </td>
-                      ))}
+                      )})}
                       </tr>
                     )
                   })}

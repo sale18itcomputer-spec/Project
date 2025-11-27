@@ -8,7 +8,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { SALE_ORDER_SHEET_ID } from '../constants';
 import MetricCard from './MetricCard';
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
-import { ShoppingCart, DollarSign, CheckCircle, Table, Columns, Info, Pencil } from 'lucide-react';
+import { ShoppingCart, DollarSign, CheckCircle, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import FileLinkCell from './FileLinkCell';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
 import ViewToggle from './ViewToggle';
@@ -74,6 +74,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
     const [selectedSaleOrderId, setSelectedSaleOrderId] = useState<string | null>(null);
     const { handleNavigation } = useNavigation();
 
@@ -391,11 +392,24 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
                     </div>
                     <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                     {viewMode === 'table' && (
-                       <DataTableColumnToggle
+                       <>
+                        <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                            <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                                <ArrowRightToLine className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                                <WrapText className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                                <Scissors className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <DataTableColumnToggle
                             allColumns={allColumns}
                             visibleColumns={visibleColumns}
                             onColumnToggle={handleColumnToggle}
                         />
+                       </>
                     )}
                      <button
                         onClick={handleNewSaleOrder}
@@ -417,6 +431,8 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
                           loading={loading}
                           onRowClick={handleViewSaleOrder}
                           initialSort={{ key: 'SO Date', direction: 'descending' }}
+                          mobilePrimaryColumns={['SO No.', 'Company Name', 'Total Amount', 'Status']}
+                          cellWrapStyle={cellWrapStyle}
                         />
                     </div>
                  ) : (

@@ -3,13 +3,16 @@ import { Meeting } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
 import { useNavigation } from '../contexts/NavigationContext';
-// FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { ExternalLink, Table, CalendarDays, Clock, Users } from 'lucide-react';
+import { ExternalLink, Table, CalendarDays, Clock, Users, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import { parseDate, formatDateAsMDY } from '../utils/time';
 import NewMeetingModal from './NewMeetingModal';
 import ViewToggle from './ViewToggle';
 import AgendaView, { AgendaItem } from './AgendaView';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
+import { useWindowSize } from '../hooks/useWindowSize';
+import { ScrollArea } from './ui/scroll-area';
+import Spinner from './Spinner';
+import EmptyState from './EmptyState';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const statusColors: { [key: string]: string } = {
@@ -52,13 +55,53 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const MEETING_COLUMNS_VISIBILITY_KEY = 'limperial-meeting-columns-visibility';
 
+const MeetingMobileCard: React.FC<{ meeting: Meeting, onView: () => void }> = ({ meeting, onView }) => {
+    let statusClass = 'mobile-status-default';
+    if(meeting.Status === 'Open') statusClass = 'mobile-status-info';
+    if(meeting.Status === 'Close') statusClass = 'mobile-status-success';
+    if(meeting.Status === 'Pending') statusClass = 'mobile-status-warning';
+    if(meeting.Status === 'Cancelled') statusClass = 'mobile-status-danger';
+
+    return (
+    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+        <div className="mobile-card-header">
+            <div>
+                <div className="mobile-card-title">{meeting['Company Name']}</div>
+                <div className="mobile-card-subtitle">{meeting.Type} Meeting</div>
+            </div>
+             <span className={`mobile-status ${statusClass}`}>
+                <span className="mobile-status-dot"></span>
+                {meeting.Status}
+            </span>
+        </div>
+        <div className="mobile-card-body">
+            <div className="mobile-card-row">
+                <span className="mobile-card-label">Date</span>
+                <span className="mobile-card-value">{formatDateAsMDY(parseDate(meeting['Meeting Date'])!)}</span>
+            </div>
+             <div className="mobile-card-row">
+                <span className="mobile-card-label">Participants</span>
+                <span className="mobile-card-value">{meeting.Participants}</span>
+            </div>
+             <div className="mobile-card-row">
+                <span className="mobile-card-label">Time</span>
+                <span className="mobile-card-value">{meeting['Start Time']} - {meeting['End Time']}</span>
+            </div>
+        </div>
+    </div>
+    );
+};
+
 
 const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) => {
   const { meetings: meetingData, loading, error } = useData();
   const [modalConfig, setModalConfig] = useState<{ meeting: Meeting | null, isReadOnly: boolean, isOpen: boolean }>({ meeting: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const { handleNavigation } = useNavigation();
+  const { width } = useWindowSize();
+  const isMobile = width < 1024;
 
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewMeeting = () => setModalConfig({ meeting: null, isReadOnly: false, isOpen: true });
@@ -223,6 +266,40 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
     </>
   );
 
+  if (isMobile) {
+    return (
+       <div className="h-full flex flex-col">
+            <div className="p-4 space-y-4">
+                <div className="mobile-search">
+                    <Search className="mobile-search-icon w-5 h-5" />
+                    <input
+                        type="text"
+                        className="mobile-search-input"
+                        placeholder="Search meetings..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+            </div>
+             <ScrollArea className="flex-1 px-4">
+                {loading ? <Spinner /> : filteredData.length > 0 ? (
+                    filteredData.map(meeting => (
+                       <MeetingMobileCard key={meeting['Meeting ID']} meeting={meeting} onView={() => handleViewMeeting(meeting)} />
+                    ))
+                ) : (
+                    <EmptyState>No meetings found.</EmptyState>
+                )}
+            </ScrollArea>
+            <NewMeetingModal 
+                isOpen={modalConfig.isOpen}
+                onClose={handleCloseModal} 
+                existingData={modalConfig.meeting}
+                initialReadOnly={modalConfig.isReadOnly}
+            />
+       </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
        <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
@@ -245,11 +322,24 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
             </div>
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
             {viewMode === 'table' && (
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
+              <>
+                <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
+                        <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
+                        <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
+                        <Scissors className="w-4 h-4" />
+                    </button>
+                </div>
+                <DataTableColumnToggle
+                  allColumns={allColumns}
+                  visibleColumns={visibleColumns}
+                  onColumnToggle={handleColumnToggle}
+                />
+              </>
             )}
             <button
               onClick={handleOpenNewMeeting}
@@ -271,6 +361,8 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
               loading={loading}
               onRowClick={handleViewMeeting}
               initialSort={{ key: 'Meeting Date', direction: 'descending' }}
+              mobilePrimaryColumns={['Meeting Date', 'Company Name', 'Status']}
+              cellWrapStyle={cellWrapStyle}
             />
           </div>
          ) : (

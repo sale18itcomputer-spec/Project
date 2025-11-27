@@ -9,6 +9,7 @@
     <link rel="preload" href="https://rsms.me/inter/inter.css" as="style">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <!-- PWA & Mobile Optimization -->
     <link rel="manifest" href="/manifest.json">
@@ -187,20 +188,24 @@
       @layer base {
         * {
           @apply border-border;
+          -webkit-tap-highlight-color: transparent;
         }
         body {
           @apply bg-background text-foreground;
+           min-height: 100vh;
+           min-height: -webkit-fill-available;
+           overflow-x: hidden;
         }
-      }
-      
-      html { 
-        font-family: 'Inter', sans-serif;
-        font-variant-numeric: tabular-nums;
-      }
-      @supports (font-variation-settings: normal) {
-        html { 
-          font-family: 'Inter var', sans-serif;
+        html {
+          font-family: 'Inter', sans-serif;
           font-variant-numeric: tabular-nums;
+          -webkit-text-size-adjust: 100%;
+        }
+        @supports (font-variation-settings: normal) {
+          html { 
+            font-family: 'Inter var', sans-serif;
+            font-variant-numeric: tabular-nums;
+          }
         }
       }
       
@@ -269,6 +274,129 @@
         white-space: nowrap;
         border-width: 0;
       }
+      
+      /* ============================================
+           STANDARDIZED MOBILE VIEW STYLES
+           ============================================ */
+
+      /* Mobile Navigation Bar */
+      .mobile-nav {
+          position: fixed; top: 0; left: 0; right: 0;
+          height: 56px; background: white;
+          border-bottom: 1px solid #e5e7eb;
+          z-index: 40; display: flex; align-items: center;
+          padding: 0 1rem;
+          padding-top: env(safe-area-inset-top);
+      }
+      .mobile-nav-title {
+          font-size: 1.125rem; font-weight: 600;
+          flex: 1; text-align: center;
+      }
+
+      /* Bottom Navigation (Mobile) */
+      .mobile-bottom-nav {
+          position: fixed; bottom: 0; left: 0; right: 0;
+          height: calc(64px + env(safe-area-inset-bottom));
+          padding-bottom: env(safe-area-inset-bottom);
+          background: white; border-top: 1px solid #e5e7eb;
+          display: flex; justify-content: space-around;
+          align-items: flex-start; /* Align to top of safe area */
+          padding-top: 0.5rem;
+          z-index: 40;
+      }
+      .mobile-nav-item {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 0.25rem;
+          min-width: 64px; color: #6b7280;
+          text-decoration: none; transition: color 0.2s;
+          padding-top: 2px;
+      }
+      .mobile-nav-item.active { color: #004aad; }
+      .mobile-nav-item-label { font-size: 0.75rem; font-weight: 500; }
+
+      /* Mobile Content Area */
+      .mobile-content {
+          padding-top: calc(56px + env(safe-area-inset-top)); /* Top nav height */
+          padding-bottom: calc(64px + env(safe-area-inset-bottom)); /* Bottom nav height */
+          min-height: 100vh;
+      }
+
+      /* Mobile Cards */
+      .mobile-card {
+          background: white; border: 1px solid #e5e7eb;
+          border-radius: 0.75rem; margin-bottom: 1rem;
+          overflow: hidden; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+          transition: all 0.2s;
+      }
+      .mobile-card:active {
+          background: #f9fafb; transform: scale(0.98);
+      }
+      .mobile-card-header {
+          padding: 1rem; background: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+          display: flex; justify-content: space-between; align-items: center;
+      }
+      .mobile-card-title {
+          font-size: 1rem; font-weight: 600; color: #111827;
+      }
+      .mobile-card-subtitle {
+          font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;
+      }
+      .mobile-card-body { padding: 1rem; }
+      .mobile-card-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 0.75rem 0; border-bottom: 1px solid #f3f4f6;
+      }
+      .mobile-card-row:last-child { border-bottom: none; padding-bottom: 0; }
+      .mobile-card-label { font-size: 0.875rem; color: #6b7280; font-weight: 500; }
+      .mobile-card-value { font-size: 0.875rem; color: #111827; font-weight: 600; text-align: right; }
+      
+      /* Mobile Search Bar */
+      .mobile-search { position: relative; }
+      .mobile-search-input {
+          width: 100%; padding: 0.75rem 1rem 0.75rem 2.75rem;
+          font-size: 1rem; border: 1px solid #d1d5db;
+          border-radius: 9999px; background: #f9fafb;
+      }
+      .mobile-search-input:focus {
+          outline: none; border-color: #004aad; background: white;
+      }
+      .mobile-search-icon {
+          position: absolute; left: 1rem; top: 50%;
+          transform: translateY(-50%); color: #9ca3af;
+      }
+
+      /* Mobile Filter Tabs */
+      .mobile-tabs {
+          display: flex; gap: 0.5rem; overflow-x: auto;
+          padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch;
+      }
+      .mobile-tabs::-webkit-scrollbar { display: none; }
+      .mobile-tab {
+          padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600;
+          border-radius: 9999px; white-space: nowrap;
+          background: #f3f4f6; color: #6b7280; border: none;
+          cursor: pointer; transition: all 0.2s;
+      }
+      .mobile-tab.active { background: #004aad; color: white; }
+
+      /* Mobile Status Badges */
+      .mobile-status {
+          display: inline-flex; align-items: center; gap: 0.375rem;
+          padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 600;
+          border-radius: 9999px;
+      }
+      .mobile-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+      .mobile-status-success { background: #d1fae5; color: #065f46; }
+      .mobile-status-success .mobile-status-dot { background: #10b981; }
+      .mobile-status-warning { background: #fef3c7; color: #92400e; }
+      .mobile-status-warning .mobile-status-dot { background: #f59e0b; }
+      .mobile-status-danger { background: #fee2e2; color: #991b1b; }
+      .mobile-status-danger .mobile-status-dot { background: #ef4444; }
+      .mobile-status-info { background: #dbeafe; color: #1e40af; }
+      .mobile-status-info .mobile-status-dot { background: #3b82f6; }
+      .mobile-status-default { background: #e5e7eb; color: #374151; }
+      .mobile-status-default .mobile-status-dot { background: #6b7280; }
 
       @media print {
         html, body {

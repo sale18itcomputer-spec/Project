@@ -83,10 +83,12 @@ export const batchSetStoreData = async (data: Partial<Record<StoreName, any[]>>)
                 if (item && typeof item === 'object' && keyPath in item) {
                     const key = item[keyPath];
                     // We must provide the key separately now (out-of-line).
+                    // Also ensure the key is not null/undefined/empty to avoid errors.
                     if (key !== null && key !== undefined && key !== '') {
                         return store.put(item, key);
                     }
                 }
+                // If item is invalid or has no key, just skip it.
                 return Promise.resolve();
             }));
         }));
