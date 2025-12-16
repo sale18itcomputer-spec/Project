@@ -19,14 +19,14 @@ interface SaleOrderCreatorProps {
 }
 
 interface LineItem {
-  id: string;
-  no: number;
-  itemCode: string;
-  description: string;
-  qty: number;
-  unitPrice: number;
-  commission: number;
-  amount: number;
+    id: string;
+    no: number;
+    itemCode: string;
+    description: string;
+    qty: number;
+    unitPrice: number;
+    commission: number;
+    amount: number;
 }
 
 const getTodayDateString = () => {
@@ -55,7 +55,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
-    
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [successInfo, setSuccessInfo] = useState<{ url: string; soNo: string } | null>(null);
@@ -67,7 +67,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
 
     const isFromQuote = useMemo(() => !!existingSaleOrder?.['Quote No.'], [existingSaleOrder]);
-    
+
     const nextSaleOrderNumber = useMemo(() => {
         if (!saleOrders || saleOrders.length === 0) return 'S00000001';
 
@@ -80,9 +80,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
         return `S${String(maxNum + 1).padStart(8, '0')}`;
     }, [saleOrders]);
-    
+
     const [saleOrder, setSaleOrder] = useState<Partial<SaleOrder & { [key: string]: any }>>({});
-    
+
     const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
 
 
@@ -131,28 +131,36 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 setItemsLoading(false);
             }
         };
-        
+
         if (existingSaleOrder) {
-             const baseData = {
+            const baseData = {
                 ...existingSaleOrder,
                 'SO No.': existingSaleOrder['SO No.'] || nextSaleOrderNumber,
                 'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
                 'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
                 'Currency': (existingSaleOrder.Currency === 'KHR' ? 'KHR' : 'USD') as ('USD' | 'KHR'),
-             };
-             if (isFromQuote) {
-                 baseData.Status = 'Pending';
-                 baseData['Created By'] = currentUser?.Name || '';
-                 baseData['Bill Invoice'] = 'NON-VAT';
-             }
-             setSaleOrder(baseData);
+            };
+
+            if (!baseData['Bill Invoice']) {
+                if (parseFloat(baseData.Tax || '0') > 0) {
+                    baseData['Bill Invoice'] = 'VAT';
+                } else {
+                    baseData['Bill Invoice'] = 'NON-VAT';
+                }
+            }
+            if (isFromQuote) {
+                baseData.Status = 'Pending';
+                baseData['Created By'] = currentUser?.Name || '';
+                baseData['Bill Invoice'] = 'NON-VAT';
+            }
+            setSaleOrder(baseData);
 
 
             if (existingSaleOrder['Quote No.']) {
                 fetchQuoteItems(existingSaleOrder['Quote No.']);
             }
         } else {
-             setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+            setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
             setSaleOrder({
                 'SO No.': nextSaleOrderNumber,
                 'SO Date': getTodayDateString(),
@@ -165,7 +173,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             });
         }
     }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist]);
-    
+
     useEffect(() => {
         if (existingSaleOrder && existingSaleOrder['Install Software']) {
             setSelectedSoftware(existingSaleOrder['Install Software'].split(',').map(s => s.trim()).filter(Boolean));
@@ -193,7 +201,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             const newItems = currentItems.map(item => {
                 if (item.id === id) {
                     const updatedItem = { ...item } as any;
-                    
+
                     if (field === 'qty' || field === 'unitPrice' || field === 'commission') {
                         const numericValue = parseFloat(String(value));
                         updatedItem[field] = isNaN(numericValue) ? 0 : numericValue;
@@ -220,29 +228,30 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             return newItems.map((item, index) => ({ ...item, no: index + 1 }));
         });
     };
-    
+
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
-        const tax = parseFloat(saleOrder.Tax || '0') || 0;
+        const isVat = saleOrder['Bill Invoice'] === 'VAT';
+        const tax = isVat ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + tax;
         return { subTotal, tax, grandTotal };
-    }, [items, saleOrder.Tax]);
+    }, [items, saleOrder['Bill Invoice']]);
 
     const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setSaleOrder(prev => ({...prev, [name]: value}));
+        setSaleOrder(prev => ({ ...prev, [name]: value }));
     }
 
     const handleCompanySelect = (companyName: string) => {
         setSaleOrder(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Phone Number': '', 'Email': '', 'Quote No.': '' }));
     }
-    
+
     const handleContactChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const contactName = e.target.value;
         const contact = contacts?.find(c => c.Name === contactName);
         setSaleOrder(prev => ({ ...prev, 'Contact Name': contactName, 'Phone Number': contact?.['Tel (1)'] || '', 'Email': contact?.Email || '' }));
     };
-    
+
     const handleQuoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const quoteId = e.target.value;
         const quote = quotations?.find(q => q['Quote No.'] === quoteId);
@@ -250,7 +259,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             setSaleOrder(prev => ({ ...prev, 'Quote No.': quoteId, 'Company Name': quote['Company Name'], 'Contact Name': quote['Contact Name'], 'Phone Number': quote['Contact Number'], 'Total Amount': quote.Amount, Status: 'Confirmed' }));
         }
     };
-    
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -287,7 +296,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Contact Name': saleOrder['Contact Name'] || '',
                 'Phone Number': saleOrder['Phone Number'] || '',
                 'Email': saleOrder.Email || '',
-                'Tax': saleOrder.Tax || '0',
+                'Tax': String(totals.tax),
                 'Total Amount': String(totals.grandTotal),
                 'Commission': saleOrder.Commission || '',
                 'Status': saleOrder.Status || 'Pending',
@@ -301,7 +310,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             };
 
             const companyDetails = companies?.find(c => c['Company Name'] === masterSheetData['Company Name']);
-            
+
             // Data for individual sale order sheet template
             const sheetGenerationData = {
                 'SO NO.': masterSheetData['SO No.'],
@@ -347,14 +356,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     throw err; // Re-throw
                 }
             }
-            
+
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred.');
         } finally {
             setIsSubmitting(false);
         }
     };
-    
+
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
     const contactOptions = useMemo(() => contacts?.filter(c => c['Company Name'] === saleOrder['Company Name']).map(c => c.Name) || [], [contacts, saleOrder]);
     const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No.']) || [], [quotations, saleOrder]);
@@ -380,140 +389,140 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     };
 
     return (
-       <>
-         <DocumentEditorContainer
-            title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No.']}` : "Create New Sale Order"}
-            onBack={onBack}
-            onSave={handleSave}
-            onPrint={() => window.print()}
-            isSubmitting={isSubmitting}
-            saveButtonText="Save & Generate File"
-         >
-            <div className="screen-only">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Form Section */}
-                    <div className="space-y-6">
-                        <FormSection title="Customer & Order Info">
-                            <SearchableSelect 
-                                name="Company Name" 
-                                label="Company" 
-                                value={saleOrder['Company Name'] || ''}
-                                onChange={handleCompanySelect}
-                                options={companyOptions}
-                                required
-                                placeholder="Search companies..."
-                            />
-                            <FormSelect name="Contact Name" label="Contact" value={saleOrder['Contact Name']} onChange={handleContactChange} options={contactOptions} disabled={!saleOrder['Company Name']} />
-                            <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
-                            <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
-                        </FormSection>
+        <>
+            <DocumentEditorContainer
+                title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No.']}` : "Create New Sale Order"}
+                onBack={onBack}
+                onSave={handleSave}
+                onPrint={() => window.print()}
+                isSubmitting={isSubmitting}
+                saveButtonText="Save & Generate File"
+            >
+                <div className="screen-only">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Form Section */}
+                        <div className="space-y-6">
+                            <FormSection title="Customer & Order Info">
+                                <SearchableSelect
+                                    name="Company Name"
+                                    label="Company"
+                                    value={saleOrder['Company Name'] || ''}
+                                    onChange={handleCompanySelect}
+                                    options={companyOptions}
+                                    required
+                                    placeholder="Search companies..."
+                                />
+                                <FormSelect name="Contact Name" label="Contact" value={saleOrder['Contact Name']} onChange={handleContactChange} options={contactOptions} disabled={!saleOrder['Company Name']} />
+                                <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
+                                <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
+                            </FormSection>
 
-                        <FormSection title="Financial & Delivery">
-                            <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
-                            <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
-                            <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
-                            <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
-                            <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
-                        </FormSection>
+                            <FormSection title="Financial & Delivery">
+                                <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
+                                <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
+                                <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
+                                <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
+                                <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
+                            </FormSection>
 
-                        <FormSection title="Attachment">
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Attach File</label>
-                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                                {isUploading ? (
-                                    <div className="flex items-center gap-3 text-sm text-slate-600 p-3 rounded-lg bg-slate-100 border border-slate-200">
-                                        <Spinner size="sm" />
-                                        <span>Uploading...</span>
-                                    </div>
-                                ) : saleOrder['Attachment'] ? (
-                                    <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                                        <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 hover:underline truncate max-w-xs sm:max-w-md">
-                                            View Uploaded File
-                                        </a>
-                                        <button type="button" onClick={handleRemoveFile} className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors ml-2 flex-shrink-0">
-                                            <X className="w-4 h-4" />
+                            <FormSection title="Attachment">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Attach File</label>
+                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                                    {isUploading ? (
+                                        <div className="flex items-center gap-3 text-sm text-slate-600 p-3 rounded-lg bg-slate-100 border border-slate-200">
+                                            <Spinner size="sm" />
+                                            <span>Uploading...</span>
+                                        </div>
+                                    ) : saleOrder['Attachment'] ? (
+                                        <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                                            <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 hover:underline truncate max-w-xs sm:max-w-md">
+                                                View Uploaded File
+                                            </a>
+                                            <button type="button" onClick={handleRemoveFile} className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors ml-2 flex-shrink-0">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border-2 border-dashed border-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
+                                            <Upload className="w-4 h-4" />
+                                            Click to Upload File
                                         </button>
+                                    )}
+                                </div>
+                            </FormSection>
+
+                            <FormSection title="Software Installation">
+                                <div className="md:col-span-2">
+                                    <div className="flex gap-2 items-end">
+                                        <FormSelect name="software_select" label="Select Software" value={""} onChange={(e) => handleAddSoftware(e.target.value)} options={SOFTWARE_OPTIONS.filter(s => !selectedSoftware.includes(s))} />
                                     </div>
-                                ) : (
-                                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border-2 border-dashed border-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
-                                        <Upload className="w-4 h-4" />
-                                        Click to Upload File
-                                    </button>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {selectedSoftware.map(software => (
+                                            <span key={software} className="inline-flex items-center py-1.5 pl-3 pr-2 bg-brand-100 text-brand-800 rounded-full text-sm font-medium">
+                                                {software}
+                                                <button type="button" onClick={() => handleRemoveSoftware(software)} className="ml-2 flex-shrink-0 bg-brand-200 hover:bg-brand-300 text-brand-700 rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </FormSection>
+
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                                {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead><tr className="text-left text-xs text-slate-500">
+                                                <th className="p-2 w-12">No.</th><th className="p-2">Item Code</th><th className="p-2">Description</th>
+                                                <th className="p-2 w-20">Qty</th><th className="p-2 w-28">Unit Price</th><th className="p-2 w-28">Commission</th>
+                                                <th className="p-2 w-28">Amount</th><th className="p-2 w-10"></th>
+                                            </tr></thead>
+                                            <tbody>
+                                                {items.map((item) => (
+                                                    <tr key={item.id} className="border-t border-slate-200 group">
+                                                        <td className="p-1"><input type="text" value={item.no} readOnly className="w-full bg-slate-50 text-center text-slate-600 border-slate-200 rounded-md" /></td>
+                                                        <td className="p-1"><input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)} className={lineItemInputClasses} /></td>
+                                                        <td className="p-1"><textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={2} /></td>
+                                                        <td className="p-1"><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className={lineItemInputClasses} /></td>
+                                                        <td className="p-1"><input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className={lineItemInputClasses} /></td>
+                                                        <td className="p-1"><input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className={lineItemInputClasses} /></td>
+                                                        <td className="p-1"><input type="text" value={`${currencySymbol}${item.amount.toFixed(2)}`} readOnly className="w-full bg-slate-50 text-right text-slate-600 border-slate-200 rounded-md" /></td>
+                                                        <td className="p-1 text-center"><button type="button" onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-rose-100 opacity-50 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <button type="button" onClick={addItem} className="mt-4 text-sm font-semibold text-brand-600 hover:underline">+ Add Item</button>
+                                    </div>
                                 )}
                             </div>
-                        </FormSection>
-                        
-                        <FormSection title="Software Installation">
-                            <div className="md:col-span-2">
-                                <div className="flex gap-2 items-end">
-                                    <FormSelect name="software_select" label="Select Software" value={""} onChange={(e) => handleAddSoftware(e.target.value)} options={SOFTWARE_OPTIONS.filter(s => !selectedSoftware.includes(s))}/>
-                                </div>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {selectedSoftware.map(software => (
-                                        <span key={software} className="inline-flex items-center py-1.5 pl-3 pr-2 bg-brand-100 text-brand-800 rounded-full text-sm font-medium">
-                                            {software}
-                                            <button type="button" onClick={() => handleRemoveSoftware(software)} className="ml-2 flex-shrink-0 bg-brand-200 hover:bg-brand-300 text-brand-700 rounded-full p-0.5"><X className="w-3 h-3" /></button>
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        </FormSection>
-                        
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
-                            {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead><tr className="text-left text-xs text-slate-500">
-                                            <th className="p-2 w-12">No.</th><th className="p-2">Item Code</th><th className="p-2">Description</th>
-                                            <th className="p-2 w-20">Qty</th><th className="p-2 w-28">Unit Price</th><th className="p-2 w-28">Commission</th>
-                                            <th className="p-2 w-28">Amount</th><th className="p-2 w-10"></th>
-                                        </tr></thead>
-                                        <tbody>
-                                            {items.map((item) => (
-                                                <tr key={item.id} className="border-t border-slate-200 group">
-                                                    <td className="p-1"><input type="text" value={item.no} readOnly className="w-full bg-slate-50 text-center text-slate-600 border-slate-200 rounded-md"/></td>
-                                                    <td className="p-1"><input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)} className={lineItemInputClasses} /></td>
-                                                    <td className="p-1"><textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={2} /></td>
-                                                    <td className="p-1"><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className={lineItemInputClasses} /></td>
-                                                    <td className="p-1"><input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className={lineItemInputClasses} /></td>
-                                                    <td className="p-1"><input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className={lineItemInputClasses} /></td>
-                                                    <td className="p-1"><input type="text" value={`${currencySymbol}${item.amount.toFixed(2)}`} readOnly className="w-full bg-slate-50 text-right text-slate-600 border-slate-200 rounded-md"/></td>
-                                                    <td className="p-1 text-center"><button type="button" onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-rose-100 opacity-50 group-hover:opacity-100"><Trash2 className="w-4 h-4"/></button></td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                    <button type="button" onClick={addItem} className="mt-4 text-sm font-semibold text-brand-600 hover:underline">+ Add Item</button>
-                                </div>
-                            )}
                         </div>
-                    </div>
 
-                    {/* Preview Section */}
-                    <div className="print-only-container">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Live Preview</h3>
-                        <div className="w-full bg-slate-200 p-4 sm:p-8 overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                             <PrintableSaleOrder {...printableProps} />
+                        {/* Preview Section */}
+                        <div className="print-only-container">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Live Preview</h3>
+                            <div className="w-full bg-slate-200 p-4 sm:p-8 overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                                <PrintableSaleOrder {...printableProps} />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div className="print-only">
-                 <PrintableSaleOrder {...printableProps} />
-            </div>
-         </DocumentEditorContainer>
-         {successInfo && (
-            <SuccessModal
-                isOpen={true}
-                onClose={() => { setSuccessInfo(null); onBack(); }}
-                title="Sale Order Saved!"
-                message={<p>Sale Order <strong>{successInfo.soNo}</strong> has been successfully saved.</p>}
-                actionButtonLink={successInfo.url}
-                actionButtonText="View Sale Order Sheet"
-            />
-         )}
-       </>
+                <div className="print-only">
+                    <PrintableSaleOrder {...printableProps} />
+                </div>
+            </DocumentEditorContainer>
+            {successInfo && (
+                <SuccessModal
+                    isOpen={true}
+                    onClose={() => { setSuccessInfo(null); onBack(); }}
+                    title="Sale Order Saved!"
+                    message={<p>Sale Order <strong>{successInfo.soNo}</strong> has been successfully saved.</p>}
+                    actionButtonLink={successInfo.url}
+                    actionButtonText="View Sale Order Sheet"
+                />
+            )}
+        </>
     );
 };
 

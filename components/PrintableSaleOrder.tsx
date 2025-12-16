@@ -23,20 +23,20 @@ interface PrintableSaleOrderProps {
 }
 
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
-    switch (currency) {
-        case 'USD': return '$';
-        case 'KHR': return '៛';
-        default: return '$';
-    }
+  switch (currency) {
+    case 'USD': return '$';
+    case 'KHR': return '៛';
+    default: return '$';
+  }
 };
 
 
-const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, currency }) => {
+const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, totals, currency }) => {
   const currencySymbol = getCurrencySymbol(currency);
 
   const formatCurrency = (value: number) => {
-      if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
-      return `${currencySymbol}${value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
+    return `${currencySymbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString?: string) => {
@@ -152,112 +152,140 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
 
   return (
     <div style={styles.document} className="printable-area">
-        <div style={styles.header}>
-            <div style={styles.title}>SALE ORDER (B2C)</div>
+      <div style={styles.header}>
+        <div style={styles.title}>SALE ORDER (B2C)</div>
+      </div>
+
+      <div style={styles.infoSection}>
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>Company Name</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.infoValue}>{headerData['Company Name']}</div>
+          <div style={styles.rightLabel}></div>
+          <div style={styles.infoColon}></div>
+          <div style={styles.rightValue}></div>
         </div>
-        
-        <div style={styles.infoSection}>
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}>Company Name</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.infoValue}>{headerData['Company Name']}</div>
-                <div style={styles.rightLabel}></div>
-                <div style={styles.infoColon}></div>
-                <div style={styles.rightValue}></div>
-            </div>
-            
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}>Address</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={{...styles.infoValue, whiteSpace: 'pre-wrap' }}>{headerData['Company Address']}</div>
-                <div style={styles.rightLabel}>SO No.</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={{...styles.rightValue, ...styles.boldValue}}>{headerData['Sale Order ID']}</div>
-            </div>
-            
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}></div>
-                <div style={styles.infoColon}></div>
-                <div style={styles.infoValue}></div>
-                <div style={styles.rightLabel}>SO Date</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.rightValue}>{formatDate(headerData['Order Date'])}</div>
-            </div>
-            
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}>Contact Person</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.infoValue}>{headerData['Contact Person']}</div>
-                <div style={styles.rightLabel}>Delivery Date</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.rightValue}>{formatDate(headerData['Delivery Date'])}</div>
-            </div>
-            
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}>Telephone</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.infoValue}>{headerData['Contact Tel']}</div>
-                <div style={styles.rightLabel}>Payment Terms</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.rightValue}>{headerData['Payment Term']}</div>
-            </div>
-            
-            <div style={styles.infoRow}>
-                <div style={styles.infoLabel}>Email</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={styles.infoValue}>{headerData.Email}</div>
-                <div style={styles.rightLabel}>Bill Invoice</div>
-                <div style={styles.infoColon}>:</div>
-                <div style={{...styles.rightValue, ...styles.boldValue}}>{headerData['Bill Invoice']}</div>
-            </div>
+
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>Address</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={{ ...styles.infoValue, whiteSpace: 'pre-wrap' }}>{headerData['Company Address']}</div>
+          <div style={styles.rightLabel}>SO No.</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={{ ...styles.rightValue, ...styles.boldValue }}>{headerData['Sale Order ID']}</div>
         </div>
-        
-        <table style={styles.table}>
-            <thead>
-                <tr>
-                    <th style={{...styles.th, width: '40px'}}>No.</th>
-                    <th style={{...styles.th, width: '100px'}}>Item Code</th>
-                    <th style={styles.th}>Item Description</th>
-                    <th style={{...styles.th, width: '50px'}}>Qty</th>
-                    <th style={{...styles.th, width: '100px'}}>Unit Price</th>
-                    <th style={{...styles.th, width: '100px'}}>Commission</th>
-                    <th style={{...styles.th, width: '100px'}}>Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {items.map((item) => (
-                    <tr key={item.id}>
-                        <td style={{...styles.td, ...styles.textCenter}}>{item.no}</td>
-                        <td style={{...styles.td, ...styles.textCenter}}>{item.itemCode}</td>
-                        <td style={{...styles.td, ...styles.itemDescription}}>{item.description}</td>
-                        <td style={{...styles.td, ...styles.textCenter}}>{item.qty}</td>
-                        <td style={{...styles.td, ...styles.textRight}}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
-                        <td style={{...styles.td, ...styles.textRight}}>{item.commission ? formatCurrency(item.commission) : ''}</td>
-                        <td style={{...styles.td, ...styles.textRight}}>{item.amount ? formatCurrency(item.amount) : ''}</td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-        
-        {headerData['Install Software'] && (
-            <div style={styles.remarks}>
-                <div style={styles.remarksTitle}>*** Install Software :</div>
-                <div style={{ marginLeft: '20px' }}>{headerData['Install Software']}</div>
-            </div>
-        )}
-        
-        <div style={styles.signatures}>
-            <div style={styles.signatureBlock}>
-                <div style={styles.signatureLine}>
-                    Ordered By
-                </div>
-            </div>
-            <div style={styles.signatureBlock}>
-                <div style={styles.signatureLine}>
-                    Received By
-                </div>
-            </div>
+
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}></div>
+          <div style={styles.infoColon}></div>
+          <div style={styles.infoValue}></div>
+          <div style={styles.rightLabel}>SO Date</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.rightValue}>{formatDate(headerData['Order Date'])}</div>
         </div>
+
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>Contact Person</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.infoValue}>{headerData['Contact Person']}</div>
+          <div style={styles.rightLabel}>Delivery Date</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.rightValue}>{formatDate(headerData['Delivery Date'])}</div>
+        </div>
+
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>Telephone</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.infoValue}>{headerData['Contact Tel']}</div>
+          <div style={styles.rightLabel}>Payment Terms</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.rightValue}>{headerData['Payment Term']}</div>
+        </div>
+
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>Email</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={styles.infoValue}>{headerData.Email}</div>
+          <div style={styles.rightLabel}>Bill Invoice</div>
+          <div style={styles.infoColon}>:</div>
+          <div style={{ ...styles.rightValue, ...styles.boldValue }}>{headerData['Bill Invoice']}</div>
+        </div>
+      </div>
+
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={{ ...styles.th, width: '40px' }}>No.</th>
+            <th style={{ ...styles.th, width: '100px' }}>Item Code</th>
+            <th style={styles.th}>Item Description</th>
+            <th style={{ ...styles.th, width: '50px' }}>Qty</th>
+            <th style={{ ...styles.th, width: '100px' }}>Unit Price</th>
+            <th style={{ ...styles.th, width: '100px' }}>Commission</th>
+            <th style={{ ...styles.th, width: '100px' }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td style={{ ...styles.td, ...styles.textCenter }}>{item.no}</td>
+              <td style={{ ...styles.td, ...styles.textCenter }}>{item.itemCode}</td>
+              <td style={{ ...styles.td, ...styles.itemDescription }}>{item.description}</td>
+              <td style={{ ...styles.td, ...styles.textCenter }}>{item.qty}</td>
+              <td style={{ ...styles.td, ...styles.textRight }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
+              <td style={{ ...styles.td, ...styles.textRight }}>{item.commission ? formatCurrency(item.commission) : ''}</td>
+              <td style={{ ...styles.td, ...styles.textRight }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot style={{ fontSize: '12px' }}>
+          <tr>
+            <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+              Sub Total ({currency})
+            </td>
+            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+              {formatCurrency(totals.subTotal)}
+            </td>
+          </tr>
+          {totals.tax > 0 && (
+            <tr>
+              <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                VAT 10% ({currency})
+              </td>
+              <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                {formatCurrency(totals.tax)}
+              </td>
+            </tr>
+          )}
+          <tr style={{ background: '#f0f0f0' }}>
+            <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
+              Grand Total ({currency})
+            </td>
+            <td style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
+              {formatCurrency(totals.grandTotal)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {headerData['Install Software'] && (
+        <div style={styles.remarks}>
+          <div style={styles.remarksTitle}>*** Install Software :</div>
+          <div style={{ marginLeft: '20px' }}>{headerData['Install Software']}</div>
+        </div>
+      )}
+
+      <div style={styles.signatures}>
+        <div style={styles.signatureBlock}>
+          <div style={styles.signatureLine}>
+            Ordered By
+          </div>
+        </div>
+        <div style={styles.signatureBlock}>
+          <div style={styles.signatureLine}>
+            Received By
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

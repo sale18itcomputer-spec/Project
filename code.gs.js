@@ -44,14 +44,14 @@ const SPREADSHEET_IDS_DEFAULT = {
 // --- MAIN HANDLER ---
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000); 
+  lock.waitLock(30000);
 
   try {
     const requestData = JSON.parse(e.postData.contents);
     const { action, sheetName, quoteId } = requestData;
 
     const SPREADSHEET_IDS = SPREADSHEET_IDS_DEFAULT;
-    
+
     const SHEET_MAP = {
       'Pipelines': SPREADSHEET_IDS.LOG_DATA,
       'Users': SPREADSHEET_IDS.MAIN_DATA,
@@ -68,18 +68,18 @@ function doPost(e) {
     // The 'uploadFile' action doesn't operate on a sheet but still needs a valid spreadsheet ID
     // to pass the initial check. We handle it as a special case.
     if (action === 'uploadFile') {
-        const result = uploadFileToDrive(requestData.payload);
-        return ContentService
-            .createTextOutput(JSON.stringify({ status: 'success', data: result }))
-            .setMimeType(ContentService.MimeType.JSON);
+      const result = uploadFileToDrive(requestData.payload);
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'success', data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
-    
+
     // The 'batchRead' action operates on multiple sheets, so we handle it before the single-sheet check
     if (action === 'batchRead') {
-        const result = batchReadRecords(requestData.sheets);
-        return ContentService
-            .createTextOutput(JSON.stringify({ status: 'success', data: result }))
-            .setMimeType(ContentService.MimeType.JSON);
+      const result = batchReadRecords(requestData.sheets);
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'success', data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     if (!sheetName || !SHEET_MAP[sheetName]) {
@@ -87,7 +87,7 @@ function doPost(e) {
     }
 
     const spreadsheet = SpreadsheetApp.openById(SHEET_MAP[sheetName]);
-    
+
     let sheet;
     if (action !== 'createSheetFromTemplate' && action !== 'readSheetData') {
       sheet = spreadsheet.getSheetByName(sheetName);
@@ -127,7 +127,7 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    Logger.log(error); 
+    Logger.log(error);
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -150,36 +150,36 @@ function uploadFileToDrive(payload) {
   if (!PATENT_FILES_FOLDER_ID || PATENT_FILES_FOLDER_ID.includes('YOUR_PATENT_FILES_FOLDER_ID')) {
     throw new Error("Configuration Error: 'PATENT_FILES_FOLDER_ID' is not set in the Apps Script. Please provide a valid Google Drive Folder ID.");
   }
-  
+
   const { fileName, mimeType, data } = payload;
-  
+
   const decodedData = Utilities.base64Decode(data);
   const blob = Utilities.newBlob(decodedData, mimeType, fileName);
-  
+
   const folder = DriveApp.getFolderById(PATENT_FILES_FOLDER_ID);
-  
+
   const file = folder.createFile(blob);
-  
+
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  
+
   return { url: file.getUrl() };
 }
 
 
 // --- HELPER FUNCTIONS ---
 function sheetDataToJSON(values, formulas) {
-  if (values.length < 2) return []; 
-  const headers = values[0].map(function(h) { return String(h).trim(); });
+  if (values.length < 2) return [];
+  const headers = values[0].map(function (h) { return String(h).trim(); });
   const jsonData = [];
 
   for (let i = 1; i < values.length; i++) {
     const valueRow = values[i];
     const formulaRow = formulas ? formulas[i] : [];
-    if (valueRow.every(function(cell) { return cell === ""})) continue;
+    if (valueRow.every(function (cell) { return cell === "" })) continue;
 
     const obj = {};
     for (let j = 0; j < headers.length; j++) {
-      const header = headers[j]; 
+      const header = headers[j];
       if (header) { // Ensure header is not empty
         const formula = formulaRow && formulaRow[j];
         // Only prioritize formula if it's a HYPERLINK, otherwise use the display value.
@@ -197,7 +197,7 @@ function sheetDataToJSON(values, formulas) {
 
 function rowToJSON(headers, values, formulas) {
   const obj = {};
-  headers.forEach(function(header, index) {
+  headers.forEach(function (header, index) {
     if (header) { // Ensure header is not empty
       const formula = formulas && formulas[index];
       // Only prioritize formula if it's a HYPERLINK, otherwise use the display value.
@@ -214,21 +214,21 @@ function rowToJSON(headers, values, formulas) {
 
 // --- CRUD IMPLEMENTATIONS ---
 function createRecord(sheet, payload) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).trim(); });
-  
-  const newRow = headers.map(function(header) { 
-    return payload[header] !== undefined ? payload[header] : ''; 
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+
+  const newRow = headers.map(function (header) {
+    return payload[header] !== undefined ? payload[header] : '';
   });
 
   sheet.appendRow(newRow);
-  
+
   const lastRowIndex = sheet.getLastRow();
 
   // Read the newly created row back and return it
   const newRowRange = sheet.getRange(lastRowIndex, 1, 1, sheet.getLastColumn());
   const newRowValues = newRowRange.getDisplayValues()[0];
   const newRowFormulas = newRowRange.getFormulas()[0];
-  
+
   const newRecord = rowToJSON(headers, newRowValues, newRowFormulas);
 
   return newRecord; // Return the full record object
@@ -236,7 +236,7 @@ function createRecord(sheet, payload) {
 
 function readRecords(sheet) {
   const dataRange = sheet.getDataRange();
-  const values = dataRange.getDisplayValues(); 
+  const values = dataRange.getDisplayValues();
   const formulas = dataRange.getFormulas();
   return sheetDataToJSON(values, formulas);
 }
@@ -247,7 +247,7 @@ function batchReadRecords(sheetNames) {
   }
 
   const SPREADSHEET_IDS = SPREADSHEET_IDS_DEFAULT;
-  
+
   const SHEET_MAP = {
     'Pipelines': SPREADSHEET_IDS.LOG_DATA,
     'Users': SPREADSHEET_IDS.MAIN_DATA,
@@ -264,13 +264,13 @@ function batchReadRecords(sheetNames) {
   const results = {};
   const openedSpreadsheets = {}; // Cache opened spreadsheets
 
-  sheetNames.forEach(function(sheetName) {
+  sheetNames.forEach(function (sheetName) {
     try {
       const spreadsheetId = SHEET_MAP[sheetName];
       if (!spreadsheetId) {
-        return; 
+        return;
       }
-      
+
       let spreadsheet;
       if (openedSpreadsheets[spreadsheetId]) {
         spreadsheet = openedSpreadsheets[spreadsheetId];
@@ -285,7 +285,7 @@ function batchReadRecords(sheetNames) {
       } else {
         results[sheetName] = []; // Return empty array if sheet not found
       }
-    } catch(e) {
+    } catch (e) {
       Logger.log("Error reading sheet: " + sheetName + ". " + e.toString());
       results[sheetName] = []; // Return empty array on error
     }
@@ -295,7 +295,7 @@ function batchReadRecords(sheetNames) {
 }
 
 function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).trim(); });
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
   const primaryKeyIndex = headers.indexOf(primaryKey.trim());
 
   if (primaryKeyIndex === -1) {
@@ -303,35 +303,35 @@ function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
   }
 
   const primaryKeyColumnValues = sheet.getRange(1, primaryKeyIndex + 1, sheet.getLastRow(), 1).getValues();
-  
+
   for (let i = 1; i < primaryKeyColumnValues.length; i++) {
     if (String(primaryKeyColumnValues[i][0]).trim() == String(primaryKeyValue).trim()) {
-      
-      const rowIndexInSheet = i + 1; 
+
+      const rowIndexInSheet = i + 1;
       const rowRange = sheet.getRange(rowIndexInSheet, 1, 1, sheet.getLastColumn());
-      
+
       const oldRowValues = rowRange.getValues()[0];
       const oldRowFormulas = rowRange.getFormulas()[0];
-      const oldRow = oldRowFormulas.map(function(formula, colIndex) {
+      const oldRow = oldRowFormulas.map(function (formula, colIndex) {
         return formula || oldRowValues[colIndex];
       });
 
       const newRow = [...oldRow]; // Create a copy
 
-      Object.keys(payload).forEach(function(key) {
+      Object.keys(payload).forEach(function (key) {
         const columnIndex = headers.indexOf(key.trim());
         if (columnIndex !== -1) {
           newRow[columnIndex] = payload[key];
         }
       });
-      
+
       rowRange.setValues([newRow]);
-      
+
       // Read the updated row back
       const updatedValues = rowRange.getDisplayValues()[0];
       const updatedFormulas = rowRange.getFormulas()[0];
       const updatedRecord = rowToJSON(headers, updatedValues, updatedFormulas);
-      
+
       return updatedRecord; // Return the full updated record
     }
   }
@@ -341,7 +341,7 @@ function updateRecord(sheet, primaryKey, primaryKeyValue, payload) {
 
 function deleteRecord(sheet, primaryKey, primaryKeyValue) {
   const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(function(h) { return String(h).trim(); });
+  const headers = data[0].map(function (h) { return String(h).trim(); });
   const primaryKeyIndex = headers.indexOf(primaryKey.trim());
 
   if (primaryKeyIndex === -1) {
@@ -365,7 +365,7 @@ function deleteRecord(sheet, primaryKey, primaryKeyValue) {
 function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, data) {
   // Check if sheet already exists
   let sheet = spreadsheet.getSheetByName(newSheetName);
-  
+
   if (sheet) {
     // If sheet exists, clear all content
     sheet.clear();
@@ -373,10 +373,10 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
     // Create a completely new sheet (no template copying)
     sheet = spreadsheet.insertSheet(newSheetName);
   }
-  
+
   // Activate the new sheet
   sheet.activate();
-  
+
   // Handle different template types
   if (templateSheetName === 'Quotation Template') {
     // Define headers for quotation
@@ -402,20 +402,24 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
       'Terms and Conditions',
       'Prepared By Position',
       'Approved By Position',
+      'Tax Type'
     ];
-    
+
     // Parse items to calculate totals
     const items = JSON.parse(data.ItemsJSON || '[]');
     let subTotal = 0;
-    items.forEach(function(item) {
+    items.forEach(function (item) {
       if (item.no && typeof item.no === 'number') {
         subTotal += (item.qty || 0) * (item.unitPrice || 0);
       }
     });
-    const vat = subTotal * 0.1;
+
+    const taxType = data['Tax Type'] || 'VAT';
+    const vat = taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+
     const grandTotal = subTotal + vat;
     const currency = data.Currency || 'USD';
-    
+
     // Create data row matching headers
     const dataRow = [
       data['Quote No.'] || '',
@@ -439,26 +443,27 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
       data['Terms and Conditions'] || '',
       data['Prepared By Position'] || '',
       data['Approved By Position'] || '',
+      taxType
     ];
-    
+
     // Set headers in row 1
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     // Set data in row 2
     sheet.getRange(2, 1, 1, dataRow.length).setValues([dataRow]);
-    
+
     // Format headers (bold, background color)
     sheet.getRange(1, 1, 1, headers.length)
       .setFontWeight('bold')
       .setBackground('#4285f4')
       .setFontColor('#ffffff');
-    
+
     // Format number columns
     const currencyFormat = currency === 'KHR' ? '៛#,##0.00' : '$#,##0.00';
     sheet.getRange(2, 12, 1, 3).setNumberFormat(currencyFormat); // Sub Total, VAT, Grand Total
-    
+
     // Auto-resize columns
     sheet.autoResizeColumns(1, headers.length);
-    
+
   } else if (templateSheetName === 'Sale Order Template') {
     // Define headers for sale order
     const headers = [
@@ -479,17 +484,20 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
       'Grand Total',
       'Currency'
     ];
-    
+
     // Parse items to calculate totals
     const items = JSON.parse(data.ItemsJSON || '[]');
     let subTotal = 0;
-    items.forEach(function(item) {
+    items.forEach(function (item) {
       subTotal += parseFloat(item.amount || 0);
     });
-    const vat = subTotal * 0.1;
+
+    const billInvoice = data['Bill Invoice'] || 'VAT';
+    const vat = billInvoice === 'NON-VAT' ? 0 : subTotal * 0.1;
+
     const grandTotal = subTotal + vat;
     const currency = data.Currency || 'USD';
-    
+
     // Create data row matching headers
     const dataRow = [
       data['SO NO.'] || '',
@@ -509,29 +517,29 @@ function createSheetFromTemplate(spreadsheet, templateSheetName, newSheetName, d
       grandTotal,
       currency
     ];
-    
+
     // Set headers in row 1
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     // Set data in row 2
     sheet.getRange(2, 1, 1, dataRow.length).setValues([dataRow]);
-    
+
     // Format headers
     sheet.getRange(1, 1, 1, headers.length)
       .setFontWeight('bold')
       .setBackground('#34a853')
       .setFontColor('#ffffff');
-    
+
     // Format number columns
     const currencyFormat = currency === 'KHR' ? '៛#,##0.00' : '$#,##0.00';
     sheet.getRange(2, 13, 1, 3).setNumberFormat(currencyFormat); // Sub Total, VAT, Grand Total
-    
+
     // Auto-resize columns
     sheet.autoResizeColumns(1, headers.length);
   }
-  
+
   // Freeze header row
   sheet.setFrozenRows(1);
-  
+
   const sheetUrl = spreadsheet.getUrl() + '#gid=' + sheet.getSheetId();
   return { message: 'Sheet created with headers and data successfully.', url: sheetUrl };
 }
@@ -573,7 +581,7 @@ function readDetailedSheetData(spreadsheet, sheetNameToRead) {
   const headerData = {};
   let items = [];
 
-  headers.forEach(function(header, index) {
+  headers.forEach(function (header, index) {
     const value = dataRow[index];
     if (header === 'ItemsJSON') {
       try {
@@ -588,7 +596,7 @@ function readDetailedSheetData(spreadsheet, sheetNameToRead) {
   });
 
   return {
-      header: headerData,
-      items: items
+    header: headerData,
+    items: items
   };
 }

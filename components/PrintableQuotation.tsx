@@ -166,14 +166,16 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                                 {formatCurrency(totals.subTotal)}
                             </td>
                         </tr>
-                        <tr>
-                            <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                VAT 10% ({currency})
-                            </td>
-                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                {formatCurrency(totals.vat)}
-                            </td>
-                        </tr>
+                        {totals.vat > 0 && (
+                            <tr>
+                                <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                    VAT 10% ({currency})
+                                </td>
+                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                    {formatCurrency(totals.vat)}
+                                </td>
+                            </tr>
+                        )}
                         <tr style={{ background: '#f0f0f0' }}>
                             <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
                                 Grand Total ({currency})

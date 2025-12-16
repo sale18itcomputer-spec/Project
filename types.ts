@@ -175,14 +175,14 @@ export interface Notification {
 }
 
 export interface PendingWorkItem {
-    id: string;
-    type: 'project' | 'meeting';
-    title: string;
-    subtitle: string;
-    date: Date;
-    time?: string;
-    link: { view: string; filter: string };
-    icon: React.ReactNode;
+  id: string;
+  type: 'project' | 'meeting';
+  title: string;
+  subtitle: string;
+  date: Date;
+  time?: string;
+  link: { view: string; filter: string };
+  icon: React.ReactNode;
 }
 
 export interface Quotation {
@@ -209,6 +209,7 @@ export interface Quotation {
   'Terms and Conditions'?: string;
   'Prepared By Position'?: string;
   'Approved By Position'?: string;
+  'Tax Type'?: 'VAT' | 'NON-VAT';
   [key: string]: any;
 }
 
