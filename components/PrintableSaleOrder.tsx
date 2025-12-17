@@ -30,13 +30,13 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
   }
 };
 
-
 const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, totals, currency }) => {
+  const actualItems = items.filter(item => item.no > 0);
   const currencySymbol = getCurrencySymbol(currency);
 
   const formatCurrency = (value: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
-    return `${currencySymbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol} 0.00`;
+    return `${currencySymbol} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString?: string) => {
@@ -44,249 +44,164 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
     // The format in the example is MM/DD/YYYY
     const date = new Date(dateString + 'T00:00:00'); // Ensure it's parsed as local time
     if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-US');
-  };
-
-  // Styles from the provided HTML
-  const styles: { [key: string]: React.CSSProperties } = {
-    document: {
-      maxWidth: '900px',
-      margin: '0 auto',
-      background: 'white',
-      padding: '40px',
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '11px',
-      color: 'black',
-    },
-    header: {
-      textAlign: 'right',
-      marginBottom: '30px',
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      marginBottom: '20px',
-    },
-    infoSection: {
-      fontSize: '12px',
-      lineHeight: 1.8,
-      marginBottom: '20px',
-    },
-    infoRow: {
-      display: 'grid',
-      gridTemplateColumns: '120px 20px 1fr 150px 20px 200px',
-      marginBottom: '8px',
-    },
-    infoLabel: {
-      fontWeight: 'normal',
-    },
-    infoColon: {
-      textAlign: 'center',
-    },
-    infoValue: {
-      fontWeight: 'normal',
-    },
-    rightLabel: {
-      textAlign: 'right',
-      fontWeight: 'normal',
-    },
-    rightValue: {
-      fontWeight: 'normal',
-    },
-    boldValue: {
-      fontWeight: 'bold',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      margin: '20px 0',
-      fontSize: '11px',
-    },
-    th: {
-      background: '#1e4d8b',
-      color: 'white',
-      padding: '10px 8px',
-      textAlign: 'center',
-      fontWeight: 'bold',
-      border: '1px solid #1e4d8b',
-    },
-    td: {
-      padding: '10px 8px',
-      border: '1px solid #000',
-      verticalAlign: 'top',
-    },
-    itemDescription: {
-      lineHeight: 1.5,
-      whiteSpace: 'pre-wrap',
-    },
-    textCenter: {
-      textAlign: 'center',
-    },
-    textRight: {
-      textAlign: 'right',
-    },
-    remarks: {
-      marginTop: '30px',
-      fontSize: '11px',
-      lineHeight: 1.6,
-    },
-    remarksTitle: {
-      fontWeight: 'bold',
-      marginBottom: '10px',
-    },
-    signatures: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      marginTop: '100px',
-    },
-    signatureBlock: {
-      textAlign: 'center',
-      width: '45%',
-    },
-    signatureLine: {
-      borderTop: '1px solid #000',
-      paddingTop: '10px',
-      fontSize: '12px',
-    },
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   return (
-    <div style={styles.document} className="printable-area">
-      <div style={styles.header}>
-        <div style={styles.title}>SALE ORDER (B2C)</div>
-      </div>
+    <>
+      <style>
+        {`
+          @media print {
+            @page {
+              margin: 0;
+              size: auto;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: white;
+            }
+            body * {
+              visibility: hidden;
+            }
+            .printable-area, .printable-area * {
+              visibility: visible;
+            }
+            .printable-area {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 20mm !important;
+              box-sizing: border-box;
+              max-width: none !important;
+              box-shadow: none !important;
+              border: none !important;
+              background: white;
+            }
+          }
+        `}
+      </style>
+      <div className="printable-area bg-white p-8 font-[serif] text-sm text-black shadow-lg border border-gray-200" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
 
-      <div style={styles.infoSection}>
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}>Company Name</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.infoValue}>{headerData['Company Name']}</div>
-          <div style={styles.rightLabel}></div>
-          <div style={styles.infoColon}></div>
-          <div style={styles.rightValue}></div>
+
+
+        {/* Title */}
+        <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER (B2C)</h1>
+
+        {/* Info Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
+          <div style={{ fontWeight: 'normal' }}>Company Name</div>
+          <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
+          <div style={{ fontWeight: 'normal' }}>SO No</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Sale Order ID'] || ''}</div>
+
+          <div style={{ fontWeight: 'normal', alignSelf: 'start' }}>Address</div>
+          <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
+          <div style={{ fontWeight: 'normal' }}>SO Date</div>
+          <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Order Date'])}</div>
+
+          <div style={{ fontWeight: 'normal' }}>Contact Person</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Person'] || ''}</div>
+          <div style={{ fontWeight: 'normal' }}>Delivery Date</div>
+          <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Delivery Date'])}</div>
+
+          <div style={{ fontWeight: 'normal' }}>Tel</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Tel'] || ''}</div>
+          <div style={{ fontWeight: 'normal' }}>Bill Invoice</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Bill Invoice'] || ''}</div>
+
+          <div style={{ fontWeight: 'normal' }}>Email</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Email'] || ''}</div>
+          <div style={{ fontWeight: 'normal' }}>Payment Term</div>
+          <div style={{ fontWeight: 'normal' }}>: {headerData['Payment Term'] || ''}</div>
         </div>
 
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}>Address</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={{ ...styles.infoValue, whiteSpace: 'pre-wrap' }}>{headerData['Company Address']}</div>
-          <div style={styles.rightLabel}>SO No.</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={{ ...styles.rightValue, ...styles.boldValue }}>{headerData['Sale Order ID']}</div>
-        </div>
-
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}></div>
-          <div style={styles.infoColon}></div>
-          <div style={styles.infoValue}></div>
-          <div style={styles.rightLabel}>SO Date</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.rightValue}>{formatDate(headerData['Order Date'])}</div>
-        </div>
-
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}>Contact Person</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.infoValue}>{headerData['Contact Person']}</div>
-          <div style={styles.rightLabel}>Delivery Date</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.rightValue}>{formatDate(headerData['Delivery Date'])}</div>
-        </div>
-
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}>Telephone</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.infoValue}>{headerData['Contact Tel']}</div>
-          <div style={styles.rightLabel}>Payment Terms</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.rightValue}>{headerData['Payment Term']}</div>
-        </div>
-
-        <div style={styles.infoRow}>
-          <div style={styles.infoLabel}>Email</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={styles.infoValue}>{headerData.Email}</div>
-          <div style={styles.rightLabel}>Bill Invoice</div>
-          <div style={styles.infoColon}>:</div>
-          <div style={{ ...styles.rightValue, ...styles.boldValue }}>{headerData['Bill Invoice']}</div>
-        </div>
-      </div>
-
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={{ ...styles.th, width: '40px' }}>No.</th>
-            <th style={{ ...styles.th, width: '100px' }}>Item Code</th>
-            <th style={styles.th}>Item Description</th>
-            <th style={{ ...styles.th, width: '50px' }}>Qty</th>
-            <th style={{ ...styles.th, width: '100px' }}>Unit Price</th>
-            <th style={{ ...styles.th, width: '100px' }}>Commission</th>
-            <th style={{ ...styles.th, width: '100px' }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td style={{ ...styles.td, ...styles.textCenter }}>{item.no}</td>
-              <td style={{ ...styles.td, ...styles.textCenter }}>{item.itemCode}</td>
-              <td style={{ ...styles.td, ...styles.itemDescription }}>{item.description}</td>
-              <td style={{ ...styles.td, ...styles.textCenter }}>{item.qty}</td>
-              <td style={{ ...styles.td, ...styles.textRight }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
-              <td style={{ ...styles.td, ...styles.textRight }}>{item.commission ? formatCurrency(item.commission) : ''}</td>
-              <td style={{ ...styles.td, ...styles.textRight }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot style={{ fontSize: '12px' }}>
-          <tr>
-            <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-              Sub Total ({currency})
-            </td>
-            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-              {formatCurrency(totals.subTotal)}
-            </td>
-          </tr>
-          {totals.tax > 0 && (
+        {/* Items Table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0', fontSize: '11px' }}>
+          <thead>
             <tr>
-              <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                VAT 10% ({currency})
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '40px' }}>No.</th>
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '120px' }}>Item Code</th>
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad' }}>Item Description</th>
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '50px' }}>Qty</th>
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '90px' }}>Unit Price</th>
+              <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '100px' }}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {actualItems.map((item, index) => (
+              <tr key={item.id || `fill-${index}`}>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
+                  {item.description}
+                </td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot style={{ fontSize: '12px' }}>
+            <tr>
+              <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                Sub Total ({currency})
               </td>
               <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                {formatCurrency(totals.tax)}
+                {formatCurrency(totals.subTotal)}
               </td>
             </tr>
-          )}
-          <tr style={{ background: '#f0f0f0' }}>
-            <td colSpan={6} style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
-              Grand Total ({currency})
-            </td>
-            <td style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
-              {formatCurrency(totals.grandTotal)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            {totals.tax > 0 && (
+              <tr>
+                <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                  VAT 10% ({currency})
+                </td>
+                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                  {formatCurrency(totals.tax)}
+                </td>
+              </tr>
+            )}
+            <tr style={{ background: '#f0f0f0' }}>
+              <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
+                Grand Total ({currency})
+              </td>
+              <td style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
+                {formatCurrency(totals.grandTotal)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
 
-      {headerData['Install Software'] && (
-        <div style={styles.remarks}>
-          <div style={styles.remarksTitle}>*** Install Software :</div>
-          <div style={{ marginLeft: '20px' }}>{headerData['Install Software']}</div>
-        </div>
-      )}
+        {/* Remarks */}
+        {headerData['Install Software'] && (
+          <div style={{ clear: 'both', marginTop: '20px', fontSize: '11px', lineHeight: 1.6 }}>
+            <h4 style={{ fontWeight: 'bold', marginBottom: '5px' }}>*** Install Software :</h4>
+            <div style={{ marginLeft: '20px' }}>
+              {headerData['Install Software']}
+            </div>
+          </div>
+        )}
 
-      <div style={styles.signatures}>
-        <div style={styles.signatureBlock}>
-          <div style={styles.signatureLine}>
-            Ordered By
+        {/* Signatures */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px' }}>
+          <div style={{ textAlign: 'center', width: '35%' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>ORDERED BY</div>
+            <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
+              Signature and Name
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', width: '35%' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>RECEIVED BY</div>
+            <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
+              Signature and Stamp
+            </div>
           </div>
         </div>
-        <div style={styles.signatureBlock}>
-          <div style={styles.signatureLine}>
-            Received By
-          </div>
-        </div>
+
       </div>
-    </div>
+    </>
   );
 };
 
