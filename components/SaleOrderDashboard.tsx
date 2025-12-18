@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { SaleOrder, Quotation } from '../types';
 import { useData } from '../contexts/DataContext';
@@ -8,16 +9,19 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { SALE_ORDER_SHEET_ID } from '../constants';
 import MetricCard from './MetricCard';
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
-import { ShoppingCart, DollarSign, CheckCircle, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
-import FileLinkCell from './FileLinkCell';
+import { ShoppingCart, DollarSign, CheckCircle, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText } from 'lucide-react';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
 import ViewToggle from './ViewToggle';
+import KanbanView, { KanbanColumn } from './KanbanView';
 import SaleOrderListContainer from './SaleOrderListContainer';
 import Spinner from './Spinner';
 import EmptyState from './EmptyState';
+import { useToast } from '../contexts/ToastContext';
+import { deleteRecord } from '../services/api';
+import ConfirmationModal from './ConfirmationModal';
 
 interface SaleOrderDashboardProps {
-    quotationForSO?: Quotation;
+    initialPayload?: any; // Can be Quotation or a pipeline data object
 }
 
 const StatusBadge: React.FC<{ status: SaleOrder['Status'] }> = ({ status }) => {
@@ -49,31 +53,51 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 
 const SALE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-sale-order-columns-visibility';
 
-type ViewMode = 'table' | 'detail';
+type ViewMode = 'table' | 'board' | 'detail';
 
-const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO }) => {
-    const { saleOrders, loading, error } = useData();
-    const [isCreating, setIsCreating] = useState(!!quotationForSO);
-    // FIX: Replaced the incorrect direct type assertion with a lazy state initializer that correctly maps properties from the `Quotation` prop to a new `SaleOrder` object. This resolves the TypeScript error and makes the component's logic more robust.
-    const [selectedSaleOrderToEdit, setSelectedSaleOrderToEdit] = useState<SaleOrder | null>(() => {
-        if (!quotationForSO) return null;
+const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload }) => {
+    const { saleOrders, setSaleOrders, loading, error } = useData();
+    const { addToast } = useToast();
+    const [isCreating, setIsCreating] = useState(!!initialPayload);
+    const [selectedSaleOrderToEdit, setSelectedSaleOrderToEdit] = useState<SaleOrder | null>(null);
+    const [saleOrderToDelete, setSaleOrderToDelete] = useState<SaleOrder | null>(null);
+    const [initialData, setInitialData] = useState<Partial<SaleOrder> | undefined>(() => {
+        if (!initialPayload) return undefined;
 
-        const saleOrderFromQuote: Partial<SaleOrder> = {
-            'Quote No.': quotationForSO['Quote No.'],
-            'Company Name': quotationForSO['Company Name'],
-            'Contact Name': quotationForSO['Contact Name'],
-            'Phone Number': quotationForSO['Contact Number'],
-            'Email': quotationForSO['Contact Email'],
-            'Total Amount': quotationForSO.Amount,
-            'Payment Term': quotationForSO['Payment Term'],
-            'Status': 'Pending',
-            'Currency': quotationForSO.Currency,
-            'Bill Invoice': quotationForSO['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
-        };
-        // This cast is intentional, as SaleOrderCreator handles this partial data for new SOs from quotes.
-        return saleOrderFromQuote as unknown as SaleOrder;
+        // Case 1: From Quotation
+        if (initialPayload['Quote No.'] && !initialPayload.isPipeline) {
+            const quotation = initialPayload as Quotation;
+            return {
+                'Quote No.': quotation['Quote No.'],
+                'Company Name': quotation['Company Name'],
+                'Contact Name': quotation['Contact Name'],
+                'Phone Number': quotation['Contact Number'],
+                'Email': quotation['Contact Email'],
+                'Total Amount': quotation.Amount,
+                'Payment Term': quotation['Payment Term'],
+                'Status': 'Pending',
+                'Currency': quotation.Currency,
+                'Bill Invoice': quotation['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
+                'ItemsJSON': quotation.ItemsJSON,
+            };
+        }
+
+        // Case 2: From Pipeline
+        if (initialPayload.isPipeline) {
+            return {
+                'Quote No.': initialPayload['Quote No.'] || '',
+                'Company Name': initialPayload['Company Name'] || '',
+                'Contact Name': initialPayload['Contact Name'] || '',
+                'Status': 'Pending',
+                'Currency': 'USD',
+                'Bill Invoice': 'VAT',
+            };
+        }
+
+        return undefined;
     });
     const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
     const [selectedSaleOrderId, setSelectedSaleOrderId] = useState<string | null>(null);
@@ -94,12 +118,42 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
         setSelectedSaleOrderId(saleOrder['SO No.']);
     };
 
+    const handleDeleteRequest = (saleOrder: SaleOrder) => {
+        setSaleOrderToDelete(saleOrder);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!saleOrderToDelete) return;
+        const originalOrders = saleOrders ? [...saleOrders] : [];
+        const orderId = saleOrderToDelete['SO No.'];
+        setSaleOrderToDelete(null);
+        setSaleOrders(prev => prev ? prev.filter(so => so['SO No.'] !== orderId) : null);
+        try {
+            await deleteRecord('Sale Orders', orderId);
+            addToast('Sale Order deleted!', 'success');
+        } catch (err: any) {
+            addToast('Failed to delete sale order.', 'error');
+            setSaleOrders(originalOrders);
+        }
+    };
+
     const handleBackToDashboard = () => {
         setIsCreating(false);
         setSelectedSaleOrderToEdit(null);
-        if (quotationForSO) {
-            handleNavigation({ view: 'quotations' });
+        setInitialData(undefined);
+        if (initialPayload) {
+            handleNavigation({ view: 'sale-orders' }); // Clear the payload
         }
+    };
+
+    const handleConvertToInvoice = (so: SaleOrder) => {
+        handleNavigation({
+            view: 'invoice-do',
+            payload: {
+                action: 'create',
+                soData: so
+            }
+        });
     };
 
     const metrics = useMemo(() => {
@@ -129,7 +183,16 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
     }, [saleOrders]);
 
     const filteredData = useMemo(() => {
-        const dataToFilter = saleOrders || [];
+        let dataToFilter = saleOrders || [];
+
+        if (statusFilter) {
+            dataToFilter = dataToFilter.filter(item => {
+                if (statusFilter === 'Pending') return item.Status === 'Pending';
+                if (statusFilter === 'Completed') return item.Status === 'Completed';
+                return true;
+            });
+        }
+
         if (!searchQuery) return dataToFilter;
 
         return dataToFilter.filter(item =>
@@ -137,7 +200,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
                 String(item[key as keyof SaleOrder] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
             )
         );
-    }, [saleOrders, searchQuery]);
+    }, [saleOrders, searchQuery, statusFilter]);
 
     const selectedSaleOrder = useMemo(() => {
         if (!selectedSaleOrderId) return null;
@@ -157,11 +220,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
             isSortable: true,
             cell: (value: string, row) => (
                 <div className="font-semibold text-slate-800">
-                    <FileLinkCell
-                        fileFormula={row.File}
-                        sheetId={SALE_ORDER_SHEET_ID}
-                        label={value}
-                    />
+                    {value}
                 </div>
             )
         },
@@ -172,18 +231,18 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
             cell: (value: string) => formatDateAsMDY(parseDate(value)),
         },
         {
-            accessorKey: 'Quote No.',
-            header: 'Quote Ref.',
-            isSortable: true,
-        },
-        {
             accessorKey: 'Company Name',
             header: 'Company Name',
             isSortable: true,
         },
         {
+            accessorKey: 'Contact Name',
+            header: 'Contact Name',
+            isSortable: true,
+        },
+        {
             accessorKey: 'Total Amount',
-            header: 'Total Amount',
+            header: 'Amount',
             isSortable: true,
             cell: (value: string, row: SaleOrder) => {
                 const formattedValue = formatCurrencySmartly(value, row.Currency);
@@ -199,28 +258,20 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
         },
         {
             accessorKey: 'Bill Invoice',
-            header: 'Bill Invoice',
+            header: 'Taxable',
             isSortable: true,
-            cell: (value: 'VAT' | 'NON-VAT' | undefined) => {
-                if (!value) return null;
-                const config = {
-                    'VAT': { bg: 'bg-sky-100', text: 'text-slate-800' },
-                    'NON-VAT': { bg: 'bg-slate-100', text: 'text-slate-800' },
-                };
-                const badgeConfig = config[value] || { bg: 'bg-slate-100', text: 'text-slate-800' };
-                return (
-                    <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${badgeConfig.bg} ${badgeConfig.text}`}>
-                        {value}
-                    </span>
-                );
+            cell: (value: string | undefined) => {
+                if (!value) return <span className="text-slate-400">-</span>;
+                const display = value === 'Yes' ? 'VAT' : value === 'No' ? 'NON-VAT' : value;
+                return <span className="font-medium text-slate-600">{display}</span>;
             }
         },
-        { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: SaleOrder['Status']) => <StatusBadge status={value} /> },
         {
             accessorKey: 'Created By',
             header: 'Created By',
             isSortable: true,
         },
+        { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: SaleOrder['Status']) => <StatusBadge status={value} /> },
     ], [SALE_ORDER_SHEET_ID]);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
@@ -270,12 +321,47 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
 
     const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
+        { id: 'board', label: 'Board', icon: <LayoutGrid /> },
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
+    const kanbanColumns = useMemo<KanbanColumn<SaleOrder>[]>(() => {
+        const statuses: SaleOrder['Status'][] = ['Pending', 'Completed', 'Cancel'];
+        const statusColors: { [key in SaleOrder['Status']]: 'amber' | 'emerald' | 'rose' } = {
+            'Pending': 'amber',
+            'Completed': 'emerald',
+            'Cancel': 'rose',
+        };
+
+        return statuses.map(status => ({
+            id: status,
+            title: status,
+            color: statusColors[status],
+            items: filteredData.filter(so => so.Status === status),
+        }));
+    }, [filteredData]);
+
+    const renderKanbanCard = (item: SaleOrder) => {
+        const formattedValue = formatCurrencySmartly(item['Total Amount'], item.Currency);
+        return (
+            <>
+                <h4 className="font-bold text-slate-900 text-base">{item['Company Name']}</h4>
+                <p className="text-sm text-slate-500 font-mono">{item['SO No.']}</p>
+                <p className="text-lg font-semibold text-brand-800 mt-2">{formattedValue}</p>
+                <p className="text-sm text-slate-600 mt-2">By {item['Created By']}</p>
+            </>
+        );
+    };
+
 
     if (isCreating) {
-        return <SaleOrderCreator onBack={handleBackToDashboard} existingSaleOrder={selectedSaleOrderToEdit} />;
+        return (
+            <SaleOrderCreator
+                onBack={handleBackToDashboard}
+                existingSaleOrder={selectedSaleOrderToEdit}
+                initialData={initialData}
+            />
+        );
     }
 
     if (error) {
@@ -325,12 +411,29 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
                                     <h1 className="text-2xl font-bold text-slate-900">{selectedSaleOrder['Company Name']}</h1>
                                     <p className="text-slate-600 font-mono mt-1">{selectedSaleOrder['SO No.']}</p>
                                 </div>
-                                <button
-                                    onClick={() => handleEditSaleOrder(selectedSaleOrder)}
-                                    className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
-                                >
-                                    <Pencil className="w-4 h-4" /> Edit
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    {selectedSaleOrder.Status === 'Completed' && (
+                                        <button
+                                            onClick={() => handleConvertToInvoice(selectedSaleOrder)}
+                                            className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            Create Invoice & DO
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => handleEditSaleOrder(selectedSaleOrder)}
+                                        className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
+                                    >
+                                        <Pencil className="w-4 h-4" /> Edit
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteRequest(selectedSaleOrder)}
+                                        className="text-sm font-semibold text-rose-600 hover:underline flex items-center gap-1.5"
+                                    >
+                                        <Trash2 className="w-4 h-4" /> Delete
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -351,7 +454,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
                                 <DetailItem label="Payment Term" value={selectedSaleOrder['Payment Term']} />
                                 <DetailItem label="Contact Person" value={selectedSaleOrder['Contact Name']} />
                                 <DetailItem label="Phone Number" value={selectedSaleOrder['Phone Number']} />
-                                <DetailItem label="Bill Invoice" value={selectedSaleOrder['Bill Invoice']} />
+                                <DetailItem label="Bill Invoice" value={selectedSaleOrder['Bill Invoice'] === 'Yes' ? 'VAT' : selectedSaleOrder['Bill Invoice'] === 'No' ? 'NON-VAT' : selectedSaleOrder['Bill Invoice']} />
                             </dl>
                         </div>
                     </div>
@@ -369,78 +472,164 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ quotationForSO 
 
     return (
         <div className="h-full flex flex-col bg-slate-50">
-            <div className="p-6 flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50 border-b border-slate-200">
-                <MetricCard title="Total Sale Orders" value={metrics.total.toString()} change="" changeType="increase" icon={<ShoppingCart />} isCompact />
-                <MetricCard title="Total Order Value" value={mainValue} subValue={subValue} change="" changeType="increase" icon={<DollarSign />} isCompact />
-                <MetricCard title="Completion Rate" value={`${metrics.completionRate.toFixed(0)}%`} change="" changeType="increase" icon={<CheckCircle />} isCompact />
-            </div>
-            <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
+            <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-semibold text-gray-900">All Sale Orders</h2>
+                    <h1 className="text-xl font-bold text-slate-900">Sale Order Record</h1>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
-                        <label htmlFor="datatable-search" className="sr-only">Search</label>
+
+                <div className="flex items-center gap-2">
+                    {/* Search Box */}
+                    <div className="relative w-64">
                         <input
-                            id="datatable-search"
                             type="text"
                             placeholder="Search sale orders..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-gray-300 text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                            className="w-full bg-white border border-slate-300 text-slate-700 placeholder-slate-400 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
                         />
-                        <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <Search className="w-5 h-5 text-slate-400 absolute top-1/2 left-3 -translate-y-1/2" />
                     </div>
-                    <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                    {viewMode === 'table' && (
-                        <>
-                            <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                                <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                                    <ArrowRightToLine className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                                    <WrapText className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                                    <Scissors className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <DataTableColumnToggle
-                                allColumns={allColumns}
-                                visibleColumns={visibleColumns}
-                                onColumnToggle={handleColumnToggle}
-                            />
-                        </>
-                    )}
+
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                        {VIEW_OPTIONS.map(view => (
+                            <button
+                                key={view.id}
+                                onClick={() => setViewMode(view.id)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                {view.icon}
+                                <span className="hidden lg:inline">{view.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Alignment/Wrap Icons */}
+                    <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm">
+                        <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-slate-50 transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+                            <ArrowRightToLine className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-slate-50 transition border-x border-slate-200 ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+                            <WrapText className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-slate-50 transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+                            <Scissors className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {/* Column Toggle / View Options */}
+                    <DataTableColumnToggle
+                        allColumns={allColumns}
+                        visibleColumns={visibleColumns}
+                        onColumnToggle={handleColumnToggle}
+                        trigger={
+                            <button className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-md hover:bg-slate-50 transition shadow-sm text-sm">
+                                <LayoutGrid className="w-4 h-4" />
+                                View
+                            </button>
+                        }
+                    />
+
+                    {/* New Sale Order Button */}
                     <button
                         onClick={handleNewSaleOrder}
-                        className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
+                        className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm"
                     >
-                        <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span className="hidden sm:inline">New</span>
+                        <span className="text-xl leading-none">+</span> New SO
                     </button>
                 </div>
-            </div>
+            </header>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">
                 {viewMode === 'table' ? (
-                    <div className="h-full overflow-auto bg-white">
-                        <DataTable
-                            tableId="saleorder-table"
-                            data={filteredData}
-                            columns={displayedColumns}
-                            loading={loading}
-                            onRowClick={handleViewSaleOrder}
-                            initialSort={{ key: 'SO Date', direction: 'descending' }}
-                            mobilePrimaryColumns={['SO No.', 'Company Name', 'Total Amount', 'Status']}
-                            cellWrapStyle={cellWrapStyle}
-                        />
-                    </div>
+                    <DataTable
+                        tableId="saleorder-table"
+                        data={filteredData}
+                        columns={displayedColumns}
+                        loading={loading}
+                        onRowClick={handleViewSaleOrder}
+                        initialSort={{ key: 'SO Date', direction: 'descending' }}
+                        mobilePrimaryColumns={['SO No.', 'Company Name', 'Total Amount', 'Status']}
+                        cellWrapStyle={cellWrapStyle}
+                        renderRowActions={(row) => (
+                            <div className="flex items-center justify-center gap-3">
+                                {row.Status === 'Completed' && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleConvertToInvoice(row);
+                                        }}
+                                        className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                                        title="Create Invoice & DO"
+                                    >
+                                        <FileText size={16} />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditSaleOrder(row);
+                                    }}
+                                    className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                                    title="Edit"
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteRequest(row);
+                                    }}
+                                    className="p-2.5 text-slate-400 hover:text-rose-600 transition hover:bg-rose-50 rounded-full"
+                                    title="Delete"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        )}
+                    />
+                ) : viewMode === 'board' ? (
+                    <KanbanView<SaleOrder>
+                        columns={kanbanColumns}
+                        onCardClick={handleViewSaleOrder}
+                        renderCardContent={renderKanbanCard}
+                        loading={loading}
+                        getItemId={(item) => item['SO No.']}
+                    />
                 ) : (
                     renderDetailView()
                 )}
             </div>
-        </div>
+
+            <footer className="flex-shrink-0 bg-white border-t border-slate-200 p-3 flex items-center gap-3">
+
+
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Pending' ? null : 'Pending')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                    >
+                        Pending
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                    >
+                        Completed
+                    </button>
+                </div>
+            </footer>
+            <ConfirmationModal
+                isOpen={!!saleOrderToDelete}
+                onClose={() => setSaleOrderToDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Sale Order"
+                confirmText="Delete"
+                variant="danger"
+            >
+                Are you sure you want to delete sale order {saleOrderToDelete?.['SO No.']}? This action cannot be undone.
+            </ConfirmationModal>
+        </div >
     );
 }
 

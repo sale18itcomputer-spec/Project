@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Quotation } from '../types';
 import { useData } from '../contexts/DataContext';
@@ -8,8 +9,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { QUOTATION_SHEET_ID } from '../constants';
 import MetricCard from './MetricCard';
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from '../utils/formatters';
-import { FileText, DollarSign, CheckCircle, ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
-import FileLinkCell from './FileLinkCell';
+import { FileText, DollarSign, CheckCircle, ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2 } from 'lucide-react';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
 import ViewToggle from './ViewToggle';
 import KanbanView, { KanbanColumn } from './KanbanView';
@@ -41,13 +41,13 @@ const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
 };
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
-    if (!value || (typeof value === 'string' && !value.trim())) return null;
-    return (
-        <div>
-            <dt className="text-sm font-medium text-gray-500">{label}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{value}</dd>
-        </div>
-    );
+  if (!value || (typeof value === 'string' && !value.trim())) return null;
+  return (
+    <div>
+      <dt className="text-sm font-medium text-gray-500">{label}</dt>
+      <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+    </div>
+  );
 };
 
 const QUOTATION_COLUMNS_VISIBILITY_KEY = 'limperial-quotation-columns-visibility';
@@ -55,44 +55,52 @@ const QUOTATION_COLUMNS_VISIBILITY_KEY = 'limperial-quotation-columns-visibility
 type ViewMode = 'table' | 'board' | 'detail';
 
 const QuotationMobileCard: React.FC<{ quotation: Quotation, onView: () => void }> = ({ quotation, onView }) => {
-    let statusClass = 'mobile-status-default';
-    if (quotation.Status === 'Open') statusClass = 'mobile-status-info';
-    if (quotation.Status === 'Close (Win)') statusClass = 'mobile-status-success';
-    if (quotation.Status === 'Close (Lose)') statusClass = 'mobile-status-danger';
-    if (quotation.Status === 'Cancel') statusClass = 'mobile-status-default';
+  let statusClass = 'mobile-status-default';
+  if (quotation.Status === 'Open') statusClass = 'mobile-status-info';
+  if (quotation.Status === 'Close (Win)') statusClass = 'mobile-status-success';
+  if (quotation.Status === 'Close (Lose)') statusClass = 'mobile-status-danger';
+  if (quotation.Status === 'Cancel') statusClass = 'mobile-status-default';
 
-    return (
-        <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-            <div className="mobile-card-header">
-                <div>
-                    <div className="mobile-card-title">{quotation['Company Name']}</div>
-                    <div className="mobile-card-subtitle">{quotation['Quote No.']}</div>
-                </div>
-                <span className={`mobile-status ${statusClass}`}>
-                    <span className="mobile-status-dot"></span>
-                    {quotation.Status.replace('(Win)', '').replace('(Lose)', '')}
-                </span>
-            </div>
-            <div className="mobile-card-body">
-                <div className="mobile-card-row">
-                    <span className="mobile-card-label">Amount</span>
-                    <span className="mobile-card-value">{formatCurrencySmartly(quotation.Amount, quotation.Currency)}</span>
-                </div>
-                <div className="mobile-card-row">
-                    <span className="mobile-card-label">Date</span>
-                    <span className="mobile-card-value">{formatDateAsMDY(parseDate(quotation['Quote Date'])!)}</span>
-                </div>
-            </div>
+  return (
+    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+      <div className="mobile-card-header">
+        <div>
+          <div className="mobile-card-title">{quotation['Company Name']}</div>
+          <div className="mobile-card-subtitle">{quotation['Quote No.']}</div>
         </div>
-    );
+        <span className={`mobile-status ${statusClass}`}>
+          <span className="mobile-status-dot"></span>
+          {quotation.Status.replace('(Win)', '').replace('(Lose)', '')}
+        </span>
+      </div>
+      <div className="mobile-card-body">
+        <div className="mobile-card-row">
+          <span className="mobile-card-label">Amount</span>
+          <span className="mobile-card-value">{formatCurrencySmartly(quotation.Amount, quotation.Currency)}</span>
+        </div>
+        <div className="mobile-card-row">
+          <span className="mobile-card-label">Date</span>
+          <span className="mobile-card-value">{formatDateAsMDY(parseDate(quotation['Quote Date'])!)}</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const QuotationDashboard: React.FC = () => {
+interface QuotationDashboardProps {
+  initialPayload?: {
+    action: 'create';
+    initialData: Partial<Quotation>;
+  };
+}
+
+const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload }) => {
   const { quotations, setQuotations, loading, error } = useData();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedQuotationToEdit, setSelectedQuotationToEdit] = useState<Quotation | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const { handleNavigation } = useNavigation();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -101,12 +109,19 @@ const QuotationDashboard: React.FC = () => {
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
 
+  useEffect(() => {
+    if (initialPayload?.action === 'create') {
+      setIsCreating(true);
+      setSelectedQuotationToEdit(null);
+    }
+  }, [initialPayload]);
+
   const quotationSheetId = QUOTATION_SHEET_ID;
 
   const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-      { id: 'table', label: 'Table', icon: <Table /> },
-      { id: 'board', label: 'Board', icon: <LayoutGrid /> },
-      { id: 'detail', label: 'Detail', icon: <Columns /> },
+    { id: 'table', label: 'Table', icon: <Table /> },
+    { id: 'board', label: 'Board', icon: <LayoutGrid /> },
+    { id: 'detail', label: 'Detail', icon: <Columns /> },
   ];
 
   const handleNewQuotation = () => {
@@ -118,13 +133,13 @@ const QuotationDashboard: React.FC = () => {
     setSelectedQuotationToEdit(quotation);
     setIsCreating(true);
   };
-  
+
   const handleViewQuotation = (quotation: Quotation) => {
     if (isMobile) {
-        handleEditQuotation(quotation); // On mobile, viewing is editing
+      handleEditQuotation(quotation); // On mobile, viewing is editing
     } else {
-        setSelectedQuotationId(quotation['Quote No.']);
-        setViewMode('detail');
+      setSelectedQuotationId(quotation['Quote No.']);
+      setViewMode('detail');
     }
   };
 
@@ -134,20 +149,20 @@ const QuotationDashboard: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!quotationToDelete) return;
-    
+
     const originalQuotations = quotations ? [...quotations] : [];
     const quoteToDeleteId = quotationToDelete['Quote No.'];
-    
+
     setQuotationToDelete(null);
 
     setQuotations(current => current ? current.filter(q => q['Quote No.'] !== quoteToDeleteId) : null);
-    
+
     try {
-        await deleteRecord('Quotations', quoteToDeleteId);
-        addToast('Quotation deleted!', 'success');
+      await deleteRecord('Quotations', quoteToDeleteId);
+      addToast('Quotation deleted!', 'success');
     } catch (err: any) {
-        addToast('Failed to delete quotation.', 'error');
-        setQuotations(originalQuotations);
+      addToast('Failed to delete quotation.', 'error');
+      setQuotations(originalQuotations);
     }
   };
 
@@ -159,19 +174,19 @@ const QuotationDashboard: React.FC = () => {
 
     // Optimistic UI Update
     setQuotations(current => {
-        if (!current) return null;
-        return current.map(q =>
-            q['Quote No.'] === quoteNo ? { ...q, Status: newStatus as Quotation['Status'] } : q
-        );
+      if (!current) return null;
+      return current.map(q =>
+        q['Quote No.'] === quoteNo ? { ...q, Status: newStatus as Quotation['Status'] } : q
+      );
     });
 
     try {
-        await updateRecord('Quotations', quoteNo, { 'Status': newStatus });
-        addToast('Quotation moved successfully!', 'success');
+      await updateRecord('Quotations', quoteNo, { 'Status': newStatus });
+      addToast('Quotation moved successfully!', 'success');
     } catch (err) {
-        console.error("Failed to update status:", err);
-        addToast('Failed to move quotation. Reverting change.', 'error');
-        setQuotations(originalQuotations); // Revert UI on error
+      console.error("Failed to update status:", err);
+      addToast('Failed to move quotation. Reverting change.', 'error');
+      setQuotations(originalQuotations); // Revert UI on error
     }
   };
 
@@ -182,54 +197,68 @@ const QuotationDashboard: React.FC = () => {
   const handleBackToDashboard = () => {
     setIsCreating(false);
     setSelectedQuotationToEdit(null);
+    if (initialPayload) {
+      handleNavigation({ view: 'quotations' });
+    }
   };
 
   const metrics = useMemo(() => {
     if (!quotations) return { total: 0, totalValueUSD: 0, totalValueKHR: 0, approvalRate: 0 };
 
     const { totalValueUSD, totalValueKHR } = quotations.reduce((acc, q) => {
-        const value = parseSheetValue(q.Amount);
-        const determinedCurrency = determineCurrency(value, q.Currency);
-        if (determinedCurrency === 'KHR') {
-            acc.totalValueKHR += value;
-        } else {
-            acc.totalValueUSD += value;
-        }
-        return acc;
+      const value = parseSheetValue(q.Amount);
+      const determinedCurrency = determineCurrency(value, q.Currency);
+      if (determinedCurrency === 'KHR') {
+        acc.totalValueKHR += value;
+      } else {
+        acc.totalValueUSD += value;
+      }
+      return acc;
     }, { totalValueUSD: 0, totalValueKHR: 0 });
 
     const approvedCount = quotations.filter(q => q.Status === 'Close (Win)').length;
     const consideredQuotes = quotations.filter(q => ['Close (Win)', 'Close (Lose)', 'Cancel'].includes(q.Status)).length;
     const approvalRate = consideredQuotes > 0 ? (approvedCount / consideredQuotes) * 100 : 0;
-    
+
     return {
-        total: quotations.length,
-        totalValueUSD,
-        totalValueKHR,
-        approvalRate,
+      total: quotations.length,
+      totalValueUSD,
+      totalValueKHR,
+      approvalRate,
     };
   }, [quotations]);
 
   const filteredData = useMemo(() => {
-    const dataToFilter = quotations || [];
+    let dataToFilter = quotations || [];
+
+    if (statusFilter) {
+      dataToFilter = dataToFilter.filter(item => {
+        if (statusFilter === 'Quote Pending') return item.Status === 'Open';
+        if (statusFilter === 'Quote (Win)') return item.Status === 'Close (Win)';
+        if (statusFilter === 'Quote (Lose)') return item.Status === 'Close (Lose)';
+        if (statusFilter === 'Cancel') return item.Status === 'Cancel';
+        return true;
+      });
+    }
+
     if (!searchQuery) return dataToFilter;
 
     return dataToFilter.filter(item =>
-        ['Quote No.', 'Company Name', 'Contact Name', 'Status', 'Reason'].some(key =>
-            String(item[key as keyof Quotation] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-        )
+      ['Quote No.', 'Company Name', 'Contact Name', 'Status', 'Reason'].some(key =>
+        String(item[key as keyof Quotation] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+      )
     );
-  }, [quotations, searchQuery]);
+  }, [quotations, searchQuery, statusFilter]);
 
   const selectedQuotationForDetail = useMemo(() => {
-      if (!selectedQuotationId) return null;
-      return filteredData.find(q => q['Quote No.'] === selectedQuotationId) || null;
+    if (!selectedQuotationId) return null;
+    return filteredData.find(q => q['Quote No.'] === selectedQuotationId) || null;
   }, [selectedQuotationId, filteredData]);
-  
+
   useEffect(() => {
-      if (viewMode === 'detail' && !selectedQuotationId && filteredData.length > 0) {
-          setSelectedQuotationId(filteredData[0]['Quote No.']);
-      }
+    if (viewMode === 'detail' && !selectedQuotationId && filteredData.length > 0) {
+      setSelectedQuotationId(filteredData[0]['Quote No.']);
+    }
   }, [viewMode, selectedQuotationId, filteredData]);
 
   const allColumns = useMemo<ColumnDef<Quotation>[]>(() => [
@@ -239,11 +268,7 @@ const QuotationDashboard: React.FC = () => {
       isSortable: true,
       cell: (value: string, row) => (
         <div className="font-semibold text-slate-800">
-           <FileLinkCell
-              fileFormula={row.File}
-              sheetId={quotationSheetId}
-              label={value}
-            />
+          {value}
         </div>
       )
     },
@@ -261,10 +286,10 @@ const QuotationDashboard: React.FC = () => {
       header: 'Company Name',
       isSortable: true,
       cell: (value: string) => (
-         <button
+        <button
           onClick={(e) => {
             e.stopPropagation();
-            if(value) handleNavigation({ view: 'companies', filter: value });
+            if (value) handleNavigation({ view: 'companies', filter: value });
           }}
           className="group font-semibold text-base text-slate-800 hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
           aria-label={`View company: ${value}`}
@@ -273,15 +298,15 @@ const QuotationDashboard: React.FC = () => {
         </button>
       )
     },
-     {
+    {
       accessorKey: 'Contact Name',
       header: 'Contact Name',
       isSortable: true,
       cell: (value: string) => (
-         <button
+        <button
           onClick={(e) => {
             e.stopPropagation();
-            if(value) handleNavigation({ view: 'contacts', filter: value });
+            if (value) handleNavigation({ view: 'contacts', filter: value });
           }}
           className="group font-medium text-slate-800 hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
           aria-label={`View contact: ${value}`}
@@ -290,19 +315,19 @@ const QuotationDashboard: React.FC = () => {
         </button>
       )
     },
-    { 
-      accessorKey: 'Amount', 
-      header: 'Amount', 
-      isSortable: true, 
+    {
+      accessorKey: 'Amount',
+      header: 'Amount',
+      isSortable: true,
       cell: (value: string, row: Quotation) => {
         const formattedValue = formatCurrencySmartly(value, row.Currency);
         if (formattedValue === '-') {
-            return <span className="text-slate-400 text-right block w-full">-</span>;
+          return <span className="text-slate-400 text-right block w-full">-</span>;
         }
         return (
-            <span className="text-sm font-medium text-slate-800 text-right block w-full">
-                {formattedValue}
-            </span>
+          <span className="text-sm font-medium text-slate-800 text-right block w-full">
+            {formattedValue}
+          </span>
         );
       }
     },
@@ -314,18 +339,18 @@ const QuotationDashboard: React.FC = () => {
       cell: (value: string) => <span className="font-medium text-slate-800">{value}</span>
     },
   ], [handleNavigation, quotationSheetId]);
-  
+
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-        const saved = localStorage.getItem(QUOTATION_COLUMNS_VISIBILITY_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                return new Set(parsed);
-            }
+      const saved = localStorage.getItem(QUOTATION_COLUMNS_VISIBILITY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+          return new Set(parsed);
         }
+      }
     } catch (e) {
-        console.error("Failed to load visible columns from storage", e);
+      console.error("Failed to load visible columns from storage", e);
     }
     return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
   });
@@ -363,50 +388,50 @@ const QuotationDashboard: React.FC = () => {
   const kanbanColumns = useMemo<KanbanColumn<Quotation>[]>(() => {
     const statuses: Quotation['Status'][] = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
     const statusColors: { [key in Quotation['Status']]: 'sky' | 'emerald' | 'rose' | 'violet' } = {
-        'Open': 'sky',
-        'Close (Win)': 'emerald',
-        'Close (Lose)': 'rose',
-        'Cancel': 'violet',
+      'Open': 'sky',
+      'Close (Win)': 'emerald',
+      'Close (Lose)': 'rose',
+      'Cancel': 'violet',
     };
 
     return statuses.map(status => ({
-        id: status,
-        title: status,
-        color: statusColors[status],
-        items: filteredData.filter(q => q.Status === status),
-        renderHeader: (items: Quotation[]) => {
-             const { totalUSD, totalKHR } = items.reduce((acc, item) => {
-                const value = parseSheetValue(item.Amount);
-                const determinedCurrency = determineCurrency(value, item.Currency);
-                if (determinedCurrency === 'KHR') {
-                    acc.totalKHR += value;
-                } else {
-                    acc.totalUSD += value;
-                }
-                return acc;
-            }, { totalUSD: 0, totalKHR: 0 });
+      id: status,
+      title: status,
+      color: statusColors[status],
+      items: filteredData.filter(q => q.Status === status),
+      renderHeader: (items: Quotation[]) => {
+        const { totalUSD, totalKHR } = items.reduce((acc, item) => {
+          const value = parseSheetValue(item.Amount);
+          const determinedCurrency = determineCurrency(value, item.Currency);
+          if (determinedCurrency === 'KHR') {
+            acc.totalKHR += value;
+          } else {
+            acc.totalUSD += value;
+          }
+          return acc;
+        }, { totalUSD: 0, totalKHR: 0 });
 
-            const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
-            const usdStr = totalUSD > 0 ? totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', ...formatOptions }) : '';
-            const khrStr = totalKHR > 0 ? `៛${totalKHR.toLocaleString('en-US', formatOptions)}` : '';
+        const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+        const usdStr = totalUSD > 0 ? totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', ...formatOptions }) : '';
+        const khrStr = totalKHR > 0 ? `៛${totalKHR.toLocaleString('en-US', formatOptions)}` : '';
 
-            if (usdStr && khrStr) {
-                return (
-                    <div>
-                        <span className="text-lg font-bold text-slate-800 block">{usdStr}</span>
-                        <span className="text-base font-bold text-slate-600 block">{khrStr}</span>
-                    </div>
-                );
-            }
-            
-            const singleValue = usdStr || khrStr || '$0';
-
-            return (
-                <span className="text-xl font-bold text-slate-800">
-                    {singleValue}
-                </span>
-            );
+        if (usdStr && khrStr) {
+          return (
+            <div>
+              <span className="text-lg font-bold text-slate-800 block">{usdStr}</span>
+              <span className="text-base font-bold text-slate-600 block">{khrStr}</span>
+            </div>
+          );
         }
+
+        const singleValue = usdStr || khrStr || '$0';
+
+        return (
+          <span className="text-xl font-bold text-slate-800">
+            {singleValue}
+          </span>
+        );
+      }
     }));
   }, [filteredData]);
 
@@ -414,115 +439,129 @@ const QuotationDashboard: React.FC = () => {
     const quoteDate = parseDate(item['Quote Date']);
     let ageText = '';
     if (quoteDate) {
-        const diffTime = new Date().getTime() - quoteDate.getTime();
-        const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-        ageText = `${diffDays}d ago`;
+      const diffTime = new Date().getTime() - quoteDate.getTime();
+      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      ageText = `${diffDays}d ago`;
     }
-    
+
     const formattedValue = formatCurrencySmartly(item.Amount, item.Currency);
 
     return (
-        <>
-            <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ItemActionsMenu
-                    onView={() => handleViewQuotation(item)}
-                    onEdit={() => handleEditQuotation(item)}
-                    onDelete={() => handleDeleteRequest(item)}
-                />
-            </div>
-            <h4 className="font-bold text-slate-900 pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
-            <p className="text-sm text-slate-500 font-mono">{item['Quote No.']}</p>
-            
-            <p className="text-lg font-semibold text-brand-800 mt-2">
-                {formattedValue}
-            </p>
+      <>
+        <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ItemActionsMenu
+            onView={() => handleViewQuotation(item)}
+            onEdit={() => handleEditQuotation(item)}
+            onDelete={() => handleDeleteRequest(item)}
+          />
+        </div>
+        <h4 className="font-bold text-slate-900 pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
+        <p className="text-sm text-slate-500 font-mono">{item['Quote No.']}</p>
 
-            <p className="text-sm text-slate-600 mt-2.5 line-clamp-1">Contact: {item['Contact Name']}</p>
-            
-            <div className="flex justify-between items-end mt-4 pt-3 border-t border-slate-100">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created by ${item['Created By']}`}>
-                    <span>By {item['Created By']}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created on ${quoteDate?.toLocaleDateString()}`}>
-                    <span>{ageText}</span>
-                </div>
-            </div>
-        </>
+        <p className="text-lg font-semibold text-brand-800 mt-2">
+          {formattedValue}
+        </p>
+
+        <p className="text-sm text-slate-600 mt-2.5 line-clamp-1">Contact: {item['Contact Name']}</p>
+
+        <div className="flex justify-between items-end mt-4 pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created by ${item['Created By']}`}>
+            <span>By {item['Created By']}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created on ${quoteDate?.toLocaleDateString()}`}>
+            <span>{ageText}</span>
+          </div>
+        </div>
+      </>
     );
   };
-  
+
   const renderDetailView = () => (
     <div className="flex flex-col md:flex-row h-full bg-white">
-        <aside className="w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col">
-            <QuotationListContainer
-                quotations={filteredData}
-                selectedQuotationId={selectedQuotationId}
-                onSelectQuotation={setSelectedQuotationId}
-                loading={loading && !quotations}
-            />
-        </aside>
-        <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-slate-50">
-            {loading && !selectedQuotationForDetail ? <Spinner /> : selectedQuotationForDetail ? (
-            <div className="max-w-4xl mx-auto space-y-8">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{selectedQuotationForDetail['Company Name']}</h1>
-                        <p className="text-slate-600 font-mono mt-1">{selectedQuotationForDetail['Quote No.']}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <button 
-                            onClick={() => handleEditQuotation(selectedQuotationForDetail)}
-                            className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
-                        >
-                           <Pencil className="w-4 h-4" /> Edit
-                        </button>
-                        {selectedQuotationForDetail.Status === 'Close (Win)' && (
-                            <button onClick={() => handleCreateSaleOrder(selectedQuotationForDetail)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm">
-                                <ShoppingCart className="w-4 h-4" />
-                                Create SO
-                            </button>
-                        )}
-                    </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                            <dt className="text-sm font-medium text-gray-500">Total Amount</dt>
-                            <dd className="mt-1 text-xl font-semibold text-gray-900">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                            <dt className="text-sm font-medium text-gray-500">Status</dt>
-                            <dd className="mt-1"><StatusBadge status={selectedQuotationForDetail.Status}/></dd>
-                        </div>
-                    </div>
-
-                    <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                        <DetailItem label="Quote Date" value={formatDisplayDate(selectedQuotationForDetail['Quote Date'])} />
-                        <DetailItem label="Validity Date" value={formatDisplayDate(selectedQuotationForDetail['Validity Date'])} />
-                        <DetailItem label="Contact Person" value={selectedQuotationForDetail['Contact Name']} />
-                        <DetailItem label="Contact Number" value={selectedQuotationForDetail['Contact Number']} />
-                        <DetailItem label="Payment Term" value={selectedQuotationForDetail['Payment Term']} />
-                        <DetailItem label="Stock Status" value={selectedQuotationForDetail['Stock Status']} />
-                        <DetailItem label="Created By" value={selectedQuotationForDetail['Created By']} />
-                        <DetailItem label="Reason" value={selectedQuotationForDetail.Reason} />
-                    </dl>
+      <aside className="w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col">
+        <QuotationListContainer
+          quotations={filteredData}
+          selectedQuotationId={selectedQuotationId}
+          onSelectQuotation={setSelectedQuotationId}
+          loading={loading && !quotations}
+        />
+      </aside>
+      <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-slate-50">
+        {loading && !selectedQuotationForDetail ? <Spinner /> : selectedQuotationForDetail ? (
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">{selectedQuotationForDetail['Company Name']}</h1>
+                  <p className="text-slate-600 font-mono mt-1">{selectedQuotationForDetail['Quote No.']}</p>
                 </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleEditQuotation(selectedQuotationForDetail)}
+                      className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRequest(selectedQuotationForDetail)}
+                      className="text-sm font-semibold text-rose-600 hover:underline flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                  </div>
+                  {selectedQuotationForDetail.Status === 'Close (Win)' && (
+                    <button onClick={() => handleCreateSaleOrder(selectedQuotationForDetail)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm">
+                      <ShoppingCart className="w-4 h-4" />
+                      Create SO
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-500">Total Amount</dt>
+                  <dd className="mt-1 text-xl font-semibold text-gray-900">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                  <dd className="mt-1"><StatusBadge status={selectedQuotationForDetail.Status} /></dd>
+                </div>
+              </div>
+
+              <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailItem label="Quote Date" value={formatDisplayDate(selectedQuotationForDetail['Quote Date'])} />
+                <DetailItem label="Validity Date" value={formatDisplayDate(selectedQuotationForDetail['Validity Date'])} />
+                <DetailItem label="Contact Person" value={selectedQuotationForDetail['Contact Name']} />
+                <DetailItem label="Contact Number" value={selectedQuotationForDetail['Contact Number']} />
+                <DetailItem label="Payment Term" value={selectedQuotationForDetail['Payment Term']} />
+                <DetailItem label="Stock Status" value={selectedQuotationForDetail['Stock Status']} />
+                <DetailItem label="Created By" value={selectedQuotationForDetail['Created By']} />
+                <DetailItem label="Reason" value={selectedQuotationForDetail.Reason} />
+              </dl>
             </div>
-            ) : (
-            <div className="h-full flex items-center justify-center">
-                <EmptyState illustration={<Info className="w-16 h-16 text-slate-300" />}>
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900">Select a Quotation</h3>
-                    <p className="mt-1 text-sm text-gray-500">Choose a quotation from the list to see its details.</p>
-                </EmptyState>
-            </div>
-            )}
-        </main>
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <EmptyState illustration={<Info className="w-16 h-16 text-slate-300" />}>
+              <h3 className="mt-2 text-sm font-semibold text-gray-900">Select a Quotation</h3>
+              <p className="mt-1 text-sm text-gray-500">Choose a quotation from the list to see its details.</p>
+            </EmptyState>
+          </div>
+        )}
+      </main>
     </div>
   );
 
   if (isCreating) {
-    return <QuotationCreator onBack={handleBackToDashboard} existingQuotation={selectedQuotationToEdit} />;
+    return (
+      <QuotationCreator
+        onBack={handleBackToDashboard}
+        existingQuotation={selectedQuotationToEdit}
+        initialData={initialPayload?.action === 'create' ? initialPayload.initialData : undefined}
+      />
+    );
   }
 
   if (error) {
@@ -535,7 +574,7 @@ const QuotationDashboard: React.FC = () => {
       </div>
     );
   }
-  
+
   const usdStr = metrics.totalValueUSD > 0 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueUSD) : '';
   const khrStr = metrics.totalValueKHR > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueKHR)}` : '';
 
@@ -543,143 +582,223 @@ const QuotationDashboard: React.FC = () => {
   let subValue: string | undefined;
 
   if (usdStr && khrStr) {
-      mainValue = usdStr;
-      subValue = khrStr;
+    mainValue = usdStr;
+    subValue = khrStr;
   } else if (usdStr) {
-      mainValue = usdStr;
+    mainValue = usdStr;
   } else if (khrStr) {
-      mainValue = khrStr;
+    mainValue = khrStr;
   } else {
-      mainValue = '$0';
+    mainValue = '$0';
   }
 
   if (isMobile) {
     return (
-        <div className="h-full flex flex-col">
-            <div className="p-4 space-y-4">
-                <div className="mobile-search">
-                    <Search className="mobile-search-icon w-5 h-5" />
-                    <input
-                        type="text"
-                        className="mobile-search-input"
-                        placeholder="Search quotations..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                 <button
-                    onClick={handleNewQuotation}
-                    className="w-full flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-sm"
-                >
-                    + New Quotation
-                </button>
-            </div>
-             <ScrollArea className="flex-1 px-4">
-                {loading ? <Spinner /> : filteredData.length > 0 ? (
-                    filteredData.map(quotation => (
-                        <QuotationMobileCard key={quotation['Quote No.']} quotation={quotation} onView={() => handleViewQuotation(quotation)} />
-                    ))
-                ) : (
-                    <EmptyState>No quotations found.</EmptyState>
-                )}
-            </ScrollArea>
+      <div className="h-full flex flex-col">
+        <div className="p-4 space-y-4">
+          <div className="mobile-search">
+            <Search className="mobile-search-icon w-5 h-5" />
+            <input
+              type="text"
+              className="mobile-search-input"
+              placeholder="Search quotations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={handleNewQuotation}
+            className="w-full flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-sm"
+          >
+            + New Quotation
+          </button>
         </div>
+        <ScrollArea className="flex-1 px-4">
+          {loading ? <Spinner /> : filteredData.length > 0 ? (
+            filteredData.map(quotation => (
+              <QuotationMobileCard key={quotation['Quote No.']} quotation={quotation} onView={() => handleViewQuotation(quotation)} />
+            ))
+          ) : (
+            <EmptyState>No quotations found.</EmptyState>
+          )}
+        </ScrollArea>
+      </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
-        <div className="p-6 flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50 border-b border-slate-200">
-            <MetricCard title="Total Quotations" value={metrics.total.toString()} change="" changeType="increase" icon={<FileText />} isCompact/>
-            <MetricCard title="Total Quoted Value" value={mainValue} subValue={subValue} change="" changeType="increase" icon={<DollarSign />} isCompact/>
-            <MetricCard title="Approval Rate" value={`${metrics.approvalRate.toFixed(0)}%`} change="" changeType="increase" icon={<CheckCircle />} isCompact/>
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-slate-900">Quote Record</h1>
         </div>
 
-        <div className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-semibold text-gray-900">All Quotations</h2>
-                </div>
-                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
-                        <label htmlFor="datatable-search" className="sr-only">Search</label>
-                        <input
-                          id="datatable-search"
-                          type="text"
-                          placeholder="Search quotations..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="bg-white border border-gray-300 text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                        />
-                        <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </div>
-                    <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                    {viewMode === 'table' && (
-                       <>
-                        <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                            <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
-                                <ArrowRightToLine className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
-                                <WrapText className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
-                                <Scissors className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <DataTableColumnToggle
-                            allColumns={allColumns}
-                            visibleColumns={visibleColumns}
-                            onColumnToggle={handleColumnToggle}
-                        />
-                       </>
-                    )}
-                     <button
-                        onClick={handleNewQuotation}
-                        className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-                    >
-                        <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span className="hidden sm:inline">New Quotation</span>
-                    </button>
-                </div>
-            </div>
+        <div className="flex items-center gap-2">
+          {/* Search Box */}
+          <div className="relative w-64">
+            <input
+              type="text"
+              placeholder="Search quotations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-slate-300 text-slate-700 placeholder-slate-400 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
+            />
+            <Search className="w-5 h-5 text-slate-400 absolute top-1/2 left-3 -translate-y-1/2" />
+          </div>
 
-            <div className="flex-1 min-h-0 overflow-auto bg-white">
-                 {viewMode === 'table' ? (
-                     <DataTable
-                        tableId="quotation-table"
-                        data={filteredData}
-                        columns={displayedColumns}
-                        loading={loading}
-                        onRowClick={handleViewQuotation}
-                        initialSort={{ key: 'Quote Date', direction: 'descending' }}
-                        mobilePrimaryColumns={['Quote No.', 'Company Name', 'Amount', 'Status']}
-                        cellWrapStyle={cellWrapStyle}
-                    />
-                 ) : viewMode === 'board' ? (
-                     <KanbanView<Quotation>
-                        columns={kanbanColumns}
-                        onCardClick={handleViewQuotation}
-                        renderCardContent={renderKanbanCard}
-                        loading={loading}
-                        onItemMove={handleItemMove}
-                        getItemId={(item) => item['Quote No.']}
-                     />
-                 ) : (
-                    renderDetailView()
-                 )}
-            </div>
-
-             <ConfirmationModal
-                isOpen={!!quotationToDelete}
-                onClose={() => setQuotationToDelete(null)}
-                onConfirm={handleConfirmDelete}
-                title="Delete Quotation"
-                confirmText="Delete"
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
-                Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
-            </ConfirmationModal>
+              <Table className="w-4 h-4" />
+              <span className="hidden lg:inline">Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode('board')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden lg:inline">Board</span>
+            </button>
+            <button
+              onClick={() => setViewMode('detail')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Columns className="w-4 h-4" />
+              <span className="hidden lg:inline">Detail</span>
+            </button>
+          </div>
+
+          {/* Alignment/Wrap Icons */}
+          <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm">
+            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-slate-50 transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+              <ArrowRightToLine className="w-4 h-4" />
+            </button>
+            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-slate-50 transition border-x border-slate-200 ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+              <WrapText className="w-4 h-4" />
+            </button>
+            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-slate-50 transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+              <Scissors className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Column Toggle / View Options */}
+          <DataTableColumnToggle
+            allColumns={allColumns}
+            visibleColumns={visibleColumns}
+            onColumnToggle={handleColumnToggle}
+            trigger={
+              <button className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-md hover:bg-slate-50 transition shadow-sm text-sm">
+                <LayoutGrid className="w-4 h-4" />
+                View
+              </button>
+            }
+          />
+
+          {/* New Quotation Button */}
+          <button
+            onClick={handleNewQuotation}
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm"
+          >
+            <span className="text-xl leading-none">+</span> New Quotation
+          </button>
         </div>
-      );
+      </header>
+
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">
+        {viewMode === 'table' ? (
+          <DataTable
+            tableId="quotation-table"
+            data={filteredData}
+            columns={displayedColumns}
+            loading={loading}
+            onRowClick={handleViewQuotation}
+            initialSort={{ key: 'Quote Date', direction: 'descending' }}
+            mobilePrimaryColumns={['Quote No.', 'Company Name', 'Amount', 'Status']}
+            cellWrapStyle={cellWrapStyle}
+            renderRowActions={(row) => (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditQuotation(row);
+                  }}
+                  className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                  title="Edit"
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteRequest(row);
+                  }}
+                  className="p-2.5 text-slate-400 hover:text-rose-600 transition hover:bg-rose-50 rounded-full"
+                  title="Delete"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
+          />
+        ) : viewMode === 'board' ? (
+          <KanbanView<Quotation>
+            columns={kanbanColumns}
+            onCardClick={handleViewQuotation}
+            renderCardContent={renderKanbanCard}
+            loading={loading}
+            onItemMove={handleItemMove}
+            getItemId={(item) => item['Quote No.']}
+          />
+        ) : (
+          renderDetailView()
+        )}
+      </div>
+
+      <footer className="flex-shrink-0 bg-white border-t border-slate-200 p-3 flex items-center gap-3">
+
+
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Quote Pending' ? null : 'Quote Pending')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+          >
+            Quote Pending
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Quote (Win)' ? null : 'Quote (Win)')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+          >
+            Quote (Win)
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Quote (Lose)' ? null : 'Quote (Lose)')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+          >
+            Quote (Lose)
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </footer>
+
+      <ConfirmationModal
+        isOpen={!!quotationToDelete}
+        onClose={() => setQuotationToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Quotation"
+        confirmText="Delete"
+      >
+        Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
+      </ConfirmationModal>
+    </div>
+  );
 };
 
 export default React.memo(QuotationDashboard);

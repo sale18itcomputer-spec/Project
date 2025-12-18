@@ -7,11 +7,13 @@ interface SuccessModalProps {
   onClose: () => void;
   title: string;
   message: React.ReactNode;
-  actionButtonLink: string;
-  actionButtonText: string;
+  actionButtonLink?: string | null;
+  actionButtonText?: string;
+  onAction?: () => void;
+  extraActions?: React.ReactNode;
 }
 
-const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, title, message, actionButtonLink, actionButtonText }) => {
+const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, title, message, actionButtonLink, actionButtonText = "View", onAction, extraActions }) => {
   const [isShowing, setIsShowing] = useState(false);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, title, mes
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 transition-opacity duration-300 screen-only ${isShowing ? 'opacity-100' : 'opacity-0'}`}
       onClick={onClose}
       aria-modal="true"
       role="dialog"
@@ -50,17 +52,32 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, title, mes
           </div>
         </div>
         <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3">
-          <a
-            href={actionButtonLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose} // Also close the modal when clicking the link
-            className="w-full sm:w-auto flex-1 justify-center rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors flex items-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            {actionButtonText}
-          </a>
-           <button
+          {actionButtonLink ? (
+            <a
+              href={actionButtonLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="w-full sm:w-auto flex-1 justify-center rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors flex items-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {actionButtonText}
+            </a>
+          ) : onAction ? (
+            <button
+              type="button"
+              onClick={onAction}
+              className="w-full sm:w-auto flex-1 justify-center rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors flex items-center gap-2"
+            >
+              {actionButtonText}
+            </button>
+          ) : null}
+          {extraActions && (
+            <div className="w-full sm:w-auto flex-1">
+              {extraActions}
+            </div>
+          )}
+          <button
             type="button"
             onClick={onClose}
             className="w-full sm:w-auto flex-1 justify-center rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"

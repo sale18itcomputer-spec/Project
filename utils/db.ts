@@ -17,6 +17,7 @@ const STORE_CONFIG = {
     quotations: { keyPath: 'Quote No.' },
     saleOrders: { keyPath: 'SO No.' },
     pricelist: { keyPath: 'Item Code' },
+    invoices: { keyPath: 'Inv No.' },
 } as const;
 
 export const STORE_NAMES = Object.keys(STORE_CONFIG) as (keyof typeof STORE_CONFIG)[];
@@ -77,7 +78,7 @@ export const batchSetStoreData = async (data: Partial<Record<StoreName, any[]>>)
         await Promise.all(storeNames.map(async (name) => {
             const store = tx.objectStore(name);
             await store.clear();
-            
+
             const keyPath = STORE_CONFIG[name].keyPath;
             await Promise.all((data[name] || []).map(item => {
                 if (item && typeof item === 'object' && keyPath in item) {

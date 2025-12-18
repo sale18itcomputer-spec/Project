@@ -1,441 +1,617 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Limperial Project Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23004aad'/><text x='50%25' y='50%25' dy='.1em' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='white'>LPT</text></svg>">
-    <link rel="preconnect" href="https://rsms.me/" crossorigin>
-    <link rel="preload" href="https://rsms.me/inter/inter.css" as="style">
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
-    <!-- PWA & Mobile Optimization -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#004aad">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Limperial">
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    
-    <script>
-      tailwind.config = {
-        darkMode: ["class"],
-        theme: {
-          container: {
-            center: true,
-            padding: "2rem",
-            screens: {
-              "2xl": "1400px",
-            },
-          },
-          extend: {
-            colors: {
-              border: "hsl(var(--border))",
-              input: "hsl(var(--input))",
-              ring: "hsl(var(--ring))",
-              background: "hsl(var(--background))",
-              foreground: "hsl(var(--foreground))",
-              primary: {
-                DEFAULT: "hsl(var(--primary))",
-                foreground: "hsl(var(--primary-foreground))",
-              },
-              secondary: {
-                DEFAULT: "hsl(var(--secondary))",
-                foreground: "hsl(var(--secondary-foreground))",
-              },
-              destructive: {
-                DEFAULT: "hsl(var(--destructive))",
-                foreground: "hsl(var(--destructive-foreground))",
-              },
-              muted: {
-                DEFAULT: "hsl(var(--muted))",
-                foreground: "hsl(var(--muted-foreground))",
-              },
-              accent: {
-                DEFAULT: "hsl(var(--accent))",
-                foreground: "hsl(var(--accent-foreground))",
-              },
-              popover: {
-                DEFAULT: "hsl(var(--popover))",
-                foreground: "hsl(var(--popover-foreground))",
-              },
-              card: {
-                DEFAULT: "hsl(var(--card))",
-                foreground: "hsl(var(--card-foreground))",
-              },
-              brand: { // Keep brand colors for specific use cases
-                50: '#dbeafe',
-                100: '#bfdbfe',
-                200: '#93c5fd',
-                300: '#60a5fa',
-                400: '#488ee6',
-                500: '#3077d3',
-                600: '#004aad',
-                700: '#003f99',
-                800: '#003580',
-                900: '#002a66',
-              },
-            },
-            borderRadius: {
-              lg: "var(--radius)",
-              md: "calc(var(--radius) - 2px)",
-              sm: "calc(var(--radius) - 4px)",
-            },
-            keyframes: {
-              "accordion-down": {
-                from: { height: 0 },
-                to: { height: "var(--radix-accordion-content-height)" },
-              },
-              "accordion-up": {
-                from: { height: "var(--radix-accordion-content-height)" },
-                to: { height: 0 },
-              },
-               "collapsible-down": {
-                from: { height: 0 },
-                to: { height: "var(--radix-collapsible-content-height)" },
-              },
-              "collapsible-up": {
-                from: { height: "var(--radix-collapsible-content-height)" },
-                to: { height: 0 },
-              },
-              "content-show": {
-                from: { opacity: 0, transform: "scale(0.96)" },
-                to: { opacity: 1, transform: "scale(1)" },
-              },
-              "content-hide": {
-                from: { opacity: 1, transform: "scale(1)" },
-                to: { opacity: 0, transform: "scale(0.96)" },
-              },
-              "slide-in-from-right": {
-                from: { transform: "translateX(100%)" },
-                to: { transform: "translateX(0)" },
-              },
-               "slide-out-to-right": {
-                from: { transform: "translateX(0)" },
-                to: { transform: "translateX(100%)" },
-              },
-              "fadeIn": {
-                from: { opacity: 0, transform: "translateY(10px)" },
-                to: { opacity: 1, transform: "translateY(0)" },
-              },
-            },
-            animation: {
-              "accordion-down": "accordion-down 0.2s ease-out",
-              "accordion-up": "accordion-up 0.2s ease-out",
-              "collapsible-down": "collapsible-down 0.2s ease-out",
-              "collapsible-up": "collapsible-up 0.2s ease-out",
-              "content-show": "content-show 0.2s ease-out",
-              "content-hide": "content-hide 0.2s ease-out",
-              "slide-in-from-right": "slide-in-from-right 0.3s ease-out",
-              "slide-out-to-right": "slide-out-to-right 0.3s ease-out",
-              "fadeIn": "fadeIn 0.5s ease-out forwards",
-            },
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Limperial Project Dashboard</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23004aad'/><text x='50%25' y='50%25' dy='.1em' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='white'>LPT</text></svg>">
+  <link rel="preconnect" href="https://rsms.me/" crossorigin>
+  <link rel="preload" href="https://rsms.me/inter/inter.css" as="style">
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- PWA & Mobile Optimization -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#004aad">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Limperial">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+  <script>
+    tailwind.config = {
+      darkMode: ["class"],
+      theme: {
+        container: {
+          center: true,
+          padding: "2rem",
+          screens: {
+            "2xl": "1400px",
           },
         },
+        extend: {
+          colors: {
+            border: "hsl(var(--border))",
+            input: "hsl(var(--input))",
+            ring: "hsl(var(--ring))",
+            background: "hsl(var(--background))",
+            foreground: "hsl(var(--foreground))",
+            primary: {
+              DEFAULT: "hsl(var(--primary))",
+              foreground: "hsl(var(--primary-foreground))",
+            },
+            secondary: {
+              DEFAULT: "hsl(var(--secondary))",
+              foreground: "hsl(var(--secondary-foreground))",
+            },
+            destructive: {
+              DEFAULT: "hsl(var(--destructive))",
+              foreground: "hsl(var(--destructive-foreground))",
+            },
+            muted: {
+              DEFAULT: "hsl(var(--muted))",
+              foreground: "hsl(var(--muted-foreground))",
+            },
+            accent: {
+              DEFAULT: "hsl(var(--accent))",
+              foreground: "hsl(var(--accent-foreground))",
+            },
+            popover: {
+              DEFAULT: "hsl(var(--popover))",
+              foreground: "hsl(var(--popover-foreground))",
+            },
+            card: {
+              DEFAULT: "hsl(var(--card))",
+              foreground: "hsl(var(--card-foreground))",
+            },
+            brand: { // Keep brand colors for specific use cases
+              50: '#dbeafe',
+              100: '#bfdbfe',
+              200: '#93c5fd',
+              300: '#60a5fa',
+              400: '#488ee6',
+              500: '#3077d3',
+              600: '#004aad',
+              700: '#003f99',
+              800: '#003580',
+              900: '#002a66',
+            },
+          },
+          borderRadius: {
+            lg: "var(--radius)",
+            md: "calc(var(--radius) - 2px)",
+            sm: "calc(var(--radius) - 4px)",
+          },
+          keyframes: {
+            "accordion-down": {
+              from: { height: 0 },
+              to: { height: "var(--radix-accordion-content-height)" },
+            },
+            "accordion-up": {
+              from: { height: "var(--radix-accordion-content-height)" },
+              to: { height: 0 },
+            },
+            "collapsible-down": {
+              from: { height: 0 },
+              to: { height: "var(--radix-collapsible-content-height)" },
+            },
+            "collapsible-up": {
+              from: { height: "var(--radix-collapsible-content-height)" },
+              to: { height: 0 },
+            },
+            "content-show": {
+              from: { opacity: 0, transform: "scale(0.96)" },
+              to: { opacity: 1, transform: "scale(1)" },
+            },
+            "content-hide": {
+              from: { opacity: 1, transform: "scale(1)" },
+              to: { opacity: 0, transform: "scale(0.96)" },
+            },
+            "slide-in-from-right": {
+              from: { transform: "translateX(100%)" },
+              to: { transform: "translateX(0)" },
+            },
+            "slide-out-to-right": {
+              from: { transform: "translateX(0)" },
+              to: { transform: "translateX(100%)" },
+            },
+            "fadeIn": {
+              from: { opacity: 0, transform: "translateY(10px)" },
+              to: { opacity: 1, transform: "translateY(0)" },
+            },
+          },
+          animation: {
+            "accordion-down": "accordion-down 0.2s ease-out",
+            "accordion-up": "accordion-up 0.2s ease-out",
+            "collapsible-down": "collapsible-down 0.2s ease-out",
+            "collapsible-up": "collapsible-up 0.2s ease-out",
+            "content-show": "content-show 0.2s ease-out",
+            "content-hide": "content-hide 0.2s ease-out",
+            "slide-in-from-right": "slide-in-from-right 0.3s ease-out",
+            "slide-out-to-right": "slide-out-to-right 0.3s ease-out",
+            "fadeIn": "fadeIn 0.5s ease-out forwards",
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    @layer base {
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 222.2 84% 4.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222.2 84% 4.9%;
+        --primary: 215 100% 34%;
+        /* Mapped from brand-600 */
+        --primary-foreground: 210 40% 98%;
+        --secondary: 210 40% 96.1%;
+        --secondary-foreground: 222.2 47.4% 11.2%;
+        --muted: 210 40% 96.1%;
+        --muted-foreground: 215.4 16.3% 40%;
+        --accent: 210 40% 96.1%;
+        --accent-foreground: 222.2 47.4% 11.2%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 214.3 31.8% 91.4%;
+        --input: 214.3 31.8% 91.4%;
+        --ring: 215 100% 34%;
+        --radius: 0.5rem;
       }
-    </script>
 
-    <style>
-      @layer base {
-        :root {
-          --background: 0 0% 100%;
-          --foreground: 222.2 84% 4.9%;
-          --card: 0 0% 100%;
-          --card-foreground: 222.2 84% 4.9%;
-          --popover: 0 0% 100%;
-          --popover-foreground: 222.2 84% 4.9%;
-          --primary: 215 100% 34%; /* Mapped from brand-600 */
-          --primary-foreground: 210 40% 98%;
-          --secondary: 210 40% 96.1%;
-          --secondary-foreground: 222.2 47.4% 11.2%;
-          --muted: 210 40% 96.1%;
-          --muted-foreground: 215.4 16.3% 40%;
-          --accent: 210 40% 96.1%;
-          --accent-foreground: 222.2 47.4% 11.2%;
-          --destructive: 0 84.2% 60.2%;
-          --destructive-foreground: 210 40% 98%;
-          --border: 214.3 31.8% 91.4%;
-          --input: 214.3 31.8% 91.4%;
-          --ring: 215 100% 34%;
-          --radius: 0.5rem;
-        }
+      .dark {
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+        --card: 222.2 84% 4.9%;
+        --card-foreground: 210 40% 98%;
+        --popover: 222.2 84% 4.9%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 210 40% 98%;
+        --primary-foreground: 222.2 47.4% 11.2%;
+        --secondary: 217.2 32.6% 17.5%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 217.2 32.6% 17.5%;
+        --muted-foreground: 215 20.2% 65.1%;
+        --accent: 217.2 32.6% 17.5%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 217.2 32.6% 17.5%;
+        --input: 217.2 32.6% 17.5%;
+        --ring: 212.7 26.8% 83.9%;
+      }
+    }
 
-        .dark {
-          --background: 222.2 84% 4.9%;
-          --foreground: 210 40% 98%;
-          --card: 222.2 84% 4.9%;
-          --card-foreground: 210 40% 98%;
-          --popover: 222.2 84% 4.9%;
-          --popover-foreground: 210 40% 98%;
-          --primary: 210 40% 98%;
-          --primary-foreground: 222.2 47.4% 11.2%;
-          --secondary: 217.2 32.6% 17.5%;
-          --secondary-foreground: 210 40% 98%;
-          --muted: 217.2 32.6% 17.5%;
-          --muted-foreground: 215 20.2% 65.1%;
-          --accent: 217.2 32.6% 17.5%;
-          --accent-foreground: 210 40% 98%;
-          --destructive: 0 62.8% 30.6%;
-          --destructive-foreground: 210 40% 98%;
-          --border: 217.2 32.6% 17.5%;
-          --input: 217.2 32.6% 17.5%;
-          --ring: 212.7 26.8% 83.9%;
-        }
+    @layer base {
+      * {
+        @apply border-border;
+        -webkit-tap-highlight-color: transparent;
       }
 
-      @layer base {
-        * {
-          @apply border-border;
-          -webkit-tap-highlight-color: transparent;
-        }
-        body {
-          @apply bg-background text-foreground;
-           min-height: 100vh;
-           min-height: -webkit-fill-available;
-           overflow-x: hidden;
-        }
+      html {
+        font-family: 'Inter', sans-serif;
+        font-variant-numeric: tabular-nums;
+        -webkit-text-size-adjust: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      body {
+        @apply bg-background text-foreground;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      @supports (font-variation-settings: normal) {
         html {
-          font-family: 'Inter', sans-serif;
+          font-family: 'Inter var', sans-serif;
           font-variant-numeric: tabular-nums;
-          -webkit-text-size-adjust: 100%;
-        }
-        @supports (font-variation-settings: normal) {
-          html { 
-            font-family: 'Inter var', sans-serif;
-            font-variant-numeric: tabular-nums;
-          }
         }
       }
-      
-      /* Custom Scrollbar for Kanban and other horizontal scroll areas */
-      .horizontal-scroll::-webkit-scrollbar {
-        height: 10px;
-      }
-      .horizontal-scroll::-webkit-scrollbar-track {
-        background: transparent;
-        border-radius: 5px;
-      }
-      .horizontal-scroll::-webkit-scrollbar-thumb {
-        background-color: hsl(var(--border));
-        border-radius: 5px;
-        border: 2px solid transparent;
-        background-clip: content-box;
-      }
-      .horizontal-scroll::-webkit-scrollbar-thumb:hover {
-        background-color: hsl(var(--muted-foreground));
-      }
-      .kanban-board-grid {
-        grid-template-columns: repeat(var(--kanban-column-count), minmax(320px, 1fr));
-      }
-      
-      /* Drag and Drop styles for Kanban */
-      [data-dragging="true"] {
-        opacity: 0.5;
-        transform: rotate(3deg) scale(1.05);
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-      }
-      .kanban-column-dragover > div:first-child {
-        border-style: dashed;
-        border-color: hsl(var(--primary));
-        background-color: hsl(var(--accent));
-      }
+    }
 
-      /* For Company/Contact list scrolling */
-       .vertical-scroll::-webkit-scrollbar {
-        width: 6px;
-      }
-      .vertical-scroll::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .vertical-scroll::-webkit-scrollbar-thumb {
-        background-color: hsl(var(--border)); 
-        border-radius: 3px;
-      }
-      .vertical-scroll::-webkit-scrollbar-thumb:hover {
-        background-color: hsl(var(--muted-foreground));
-      }
+    /* Custom Scrollbar for Kanban and other horizontal scroll areas */
+    .horizontal-scroll::-webkit-scrollbar {
+      height: 10px;
+    }
 
-      /* Print-specific styles for Quotation Creator */
-      .print-only {
-          display: none;
-      }
+    .horizontal-scroll::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 5px;
+    }
 
-      /* Screen-reader only utility */
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border-width: 0;
-      }
-      
-      /* ============================================
+    .horizontal-scroll::-webkit-scrollbar-thumb {
+      background-color: hsl(var(--border));
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+      background-color: hsl(var(--muted-foreground));
+    }
+
+    .kanban-board-grid {
+      grid-template-columns: repeat(var(--kanban-column-count), minmax(320px, 1fr));
+    }
+
+    .responsive-table {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Drag and Drop styles for Kanban */
+    [data-dragging="true"] {
+      opacity: 0.5;
+      transform: rotate(3deg) scale(1.05);
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+    }
+
+    .kanban-column-dragover>div:first-child {
+      border-style: dashed;
+      border-color: hsl(var(--primary));
+      background-color: hsl(var(--accent));
+    }
+
+    /* For Company/Contact list scrolling */
+    .vertical-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .vertical-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .vertical-scroll::-webkit-scrollbar-thumb {
+      background-color: hsl(var(--border));
+      border-radius: 3px;
+    }
+
+    .vertical-scroll::-webkit-scrollbar-thumb:hover {
+      background-color: hsl(var(--muted-foreground));
+    }
+
+    /* Print-specific styles for Quotation Creator */
+    .print-only {
+      display: none;
+    }
+
+    /* Screen-reader only utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* ============================================
            STANDARDIZED MOBILE VIEW STYLES
            ============================================ */
 
-      /* Mobile Navigation Bar */
-      .mobile-nav {
-          position: fixed; top: 0; left: 0; right: 0;
-          height: 56px; background: white;
-          border-bottom: 1px solid #e5e7eb;
-          z-index: 40; display: flex; align-items: center;
-          padding: 0 1rem;
-          padding-top: env(safe-area-inset-top);
-      }
-      .mobile-nav-title {
-          font-size: 1.125rem; font-weight: 600;
-          flex: 1; text-align: center;
+    /* Mobile Navigation Bar */
+    .mobile-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .mobile-nav-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      flex: 1;
+      text-align: center;
+    }
+
+    /* Bottom Navigation (Mobile) */
+    .mobile-bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(64px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      /* Align to top of safe area */
+      padding-top: 0.5rem;
+      z-index: 40;
+    }
+
+    .mobile-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      min-width: 64px;
+      color: #6b7280;
+      text-decoration: none;
+      transition: color 0.2s;
+      padding-top: 2px;
+    }
+
+    .mobile-nav-item.active {
+      color: #004aad;
+    }
+
+    .mobile-nav-item-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    /* Mobile Content Area */
+    .mobile-content {
+      padding-top: calc(56px + env(safe-area-inset-top));
+      /* Top nav height */
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
+      /* Bottom nav height */
+      min-height: 100vh;
+    }
+
+    /* Mobile Cards */
+    .mobile-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+      overflow: hidden;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+      transition: all 0.2s;
+    }
+
+    .mobile-card:active {
+      background: #f9fafb;
+      transform: scale(0.98);
+    }
+
+    .mobile-card-header {
+      padding: 1rem;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mobile-card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .mobile-card-subtitle {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+
+    .mobile-card-body {
+      padding: 1rem;
+    }
+
+    .mobile-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .mobile-card-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .mobile-card-label {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .mobile-card-value {
+      font-size: 0.875rem;
+      color: #111827;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* Mobile Search Bar */
+    .mobile-search {
+      position: relative;
+    }
+
+    .mobile-search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.75rem;
+      font-size: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 9999px;
+      background: #f9fafb;
+    }
+
+    .mobile-search-input:focus {
+      outline: none;
+      border-color: #004aad;
+      background: white;
+    }
+
+    .mobile-search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+    }
+
+    /* Mobile Filter Tabs */
+    .mobile-tabs {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .mobile-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mobile-tab {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      white-space: nowrap;
+      background: #f3f4f6;
+      color: #6b7280;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mobile-tab.active {
+      background: #004aad;
+      color: white;
+    }
+
+    /* Mobile Status Badges */
+    .mobile-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+    }
+
+    .mobile-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .mobile-status-success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .mobile-status-success .mobile-status-dot {
+      background: #10b981;
+    }
+
+    .mobile-status-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .mobile-status-warning .mobile-status-dot {
+      background: #f59e0b;
+    }
+
+    .mobile-status-danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .mobile-status-danger .mobile-status-dot {
+      background: #ef4444;
+    }
+
+    .mobile-status-info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .mobile-status-info .mobile-status-dot {
+      background: #3b82f6;
+    }
+
+    .mobile-status-default {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .mobile-status-default .mobile-status-dot {
+      background: #6b7280;
+    }
+
+    @media print {
+
+      html,
+      body {
+        height: auto !important;
+        overflow: visible !important;
+        background-color: #fff !important;
       }
 
-      /* Bottom Navigation (Mobile) */
-      .mobile-bottom-nav {
-          position: fixed; bottom: 0; left: 0; right: 0;
-          height: calc(64px + env(safe-area-inset-bottom));
-          padding-bottom: env(safe-area-inset-bottom);
-          background: white; border-top: 1px solid #e5e7eb;
-          display: flex; justify-content: space-around;
-          align-items: flex-start; /* Align to top of safe area */
-          padding-top: 0.5rem;
-          z-index: 40;
-      }
-      .mobile-nav-item {
-          display: flex; flex-direction: column; align-items: center;
-          justify-content: center; gap: 0.25rem;
-          min-width: 64px; color: #6b7280;
-          text-decoration: none; transition: color 0.2s;
-          padding-top: 2px;
-      }
-      .mobile-nav-item.active { color: #004aad; }
-      .mobile-nav-item-label { font-size: 0.75rem; font-weight: 500; }
-
-      /* Mobile Content Area */
-      .mobile-content {
-          padding-top: calc(56px + env(safe-area-inset-top)); /* Top nav height */
-          padding-bottom: calc(64px + env(safe-area-inset-bottom)); /* Bottom nav height */
-          min-height: 100vh;
+      header,
+      footer,
+      aside,
+      .screen-only {
+        display: none !important;
       }
 
-      /* Mobile Cards */
-      .mobile-card {
-          background: white; border: 1px solid #e5e7eb;
-          border-radius: 0.75rem; margin-bottom: 1rem;
-          overflow: hidden; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
-          transition: all 0.2s;
-      }
-      .mobile-card:active {
-          background: #f9fafb; transform: scale(0.98);
-      }
-      .mobile-card-header {
-          padding: 1rem; background: #f9fafb;
-          border-bottom: 1px solid #e5e7eb;
-          display: flex; justify-content: space-between; align-items: center;
-      }
-      .mobile-card-title {
-          font-size: 1rem; font-weight: 600; color: #111827;
-      }
-      .mobile-card-subtitle {
-          font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;
-      }
-      .mobile-card-body { padding: 1rem; }
-      .mobile-card-row {
-          display: flex; justify-content: space-between; align-items: center;
-          padding: 0.75rem 0; border-bottom: 1px solid #f3f4f6;
-      }
-      .mobile-card-row:last-child { border-bottom: none; padding-bottom: 0; }
-      .mobile-card-label { font-size: 0.875rem; color: #6b7280; font-weight: 500; }
-      .mobile-card-value { font-size: 0.875rem; color: #111827; font-weight: 600; text-align: right; }
-      
-      /* Mobile Search Bar */
-      .mobile-search { position: relative; }
-      .mobile-search-input {
-          width: 100%; padding: 0.75rem 1rem 0.75rem 2.75rem;
-          font-size: 1rem; border: 1px solid #d1d5db;
-          border-radius: 9999px; background: #f9fafb;
-      }
-      .mobile-search-input:focus {
-          outline: none; border-color: #004aad; background: white;
-      }
-      .mobile-search-icon {
-          position: absolute; left: 1rem; top: 50%;
-          transform: translateY(-50%); color: #9ca3af;
+      .print-only {
+        display: block !important;
       }
 
-      /* Mobile Filter Tabs */
-      .mobile-tabs {
-          display: flex; gap: 0.5rem; overflow-x: auto;
-          padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch;
+      #root,
+      #root>div,
+      main {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
       }
-      .mobile-tabs::-webkit-scrollbar { display: none; }
-      .mobile-tab {
-          padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600;
-          border-radius: 9999px; white-space: nowrap;
-          background: #f3f4f6; color: #6b7280; border: none;
-          cursor: pointer; transition: all 0.2s;
-      }
-      .mobile-tab.active { background: #004aad; color: white; }
 
-      /* Mobile Status Badges */
-      .mobile-status {
-          display: inline-flex; align-items: center; gap: 0.375rem;
-          padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 600;
-          border-radius: 9999px;
+      .printable-area {
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        page-break-inside: avoid;
       }
-      .mobile-status-dot { width: 6px; height: 6px; border-radius: 50%; }
-      .mobile-status-success { background: #d1fae5; color: #065f46; }
-      .mobile-status-success .mobile-status-dot { background: #10b981; }
-      .mobile-status-warning { background: #fef3c7; color: #92400e; }
-      .mobile-status-warning .mobile-status-dot { background: #f59e0b; }
-      .mobile-status-danger { background: #fee2e2; color: #991b1b; }
-      .mobile-status-danger .mobile-status-dot { background: #ef4444; }
-      .mobile-status-info { background: #dbeafe; color: #1e40af; }
-      .mobile-status-info .mobile-status-dot { background: #3b82f6; }
-      .mobile-status-default { background: #e5e7eb; color: #374151; }
-      .mobile-status-default .mobile-status-dot { background: #6b7280; }
 
-      @media print {
-        html, body {
-          height: auto !important;
-          overflow: visible !important;
-          background-color: #fff !important;
-        }
-        header, footer, aside, .screen-only {
-          display: none !important;
-        }
-        .print-only {
-          display: block !important;
-        }
-        #root, #root > div, main {
-          height: auto !important;
-          overflow: visible !important;
-          position: static !important;
-          display: block !important;
-          padding: 0 !important;
-          margin: 0 !important;
-          box-shadow: none !important;
-          border: none !important;
-        }
-        .printable-area {
-          box-shadow: none !important;
-          border: none !important;
-          width: 100% !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          page-break-inside: avoid;
-        }
-        .printable-area * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
+      .printable-area * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
-    </style>
-    <script type="importmap">
+    }
+  </style>
+  <script type="importmap">
 {
   "imports": {
     "react-dom/": "https://aistudiocdn.com/react-dom@^18.3.1/",
@@ -471,19 +647,21 @@
 }
 </script>
 </head>
-  <body class="bg-background text-foreground antialiased">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js').then(registration => {
-            console.log('SW registered: ', registration);
-          }).catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
-          });
+
+<body class="bg-background text-foreground antialiased">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+          console.log('SW registered: ', registration);
+        }).catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
         });
-      }
-    </script>
-  </body>
+      });
+    }
+  </script>
+</body>
+
 </html>

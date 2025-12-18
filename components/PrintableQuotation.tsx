@@ -6,8 +6,8 @@ interface LineItem {
     itemCode: string;
     modelName: string;
     description: string;
-    qty: number;
-    unitPrice: number;
+    qty: number | string;
+    unitPrice: number | string;
     amount: number;
 }
 
@@ -34,10 +34,11 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
     const actualItems = items.filter(item => item.no > 0);
 
     const currencySymbol = getCurrencySymbol(currency);
-    const formatCurrency = (value: number) => {
-        if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol} 0.00`;
+    const formatCurrency = (value: number | string) => {
+        const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+        if (typeof numValue !== 'number' || isNaN(numValue)) return `${currencySymbol} 0.00`;
         // The image has space between symbol and number
-        return `${currencySymbol} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return `${currencySymbol} ${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
     return (
@@ -144,12 +145,14 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                                 <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
-                                    {item.modelName ? (
-                                        <>
-                                            <strong>{item.modelName}</strong>
-                                            {item.description ? '\n' + item.description.split('\n').filter(line => line.trim() !== '').map(line => `  - ${line}`).join('\n') : ''}
-                                        </>
-                                    ) : ''}
+                                    {item.modelName && <div><strong>{item.modelName}</strong></div>}
+                                    {item.description && (
+                                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                                            {item.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                                                <div key={i}>{line.startsWith('-') ? line : `- ${line}`}</div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </td>
                                 <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>

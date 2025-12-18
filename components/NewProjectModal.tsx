@@ -10,8 +10,9 @@ import NewCompanyModal from './NewCompanyModal';
 import NewContactModal from './NewContactModal';
 import { useToast } from '../contexts/ToastContext';
 import ResizableModal from './ResizableModal';
-import { Check, Pencil, Trash2, Calendar, MessageSquare } from 'lucide-react';
+import { Check, Pencil, Trash2, Calendar, MessageSquare, Plus } from 'lucide-react';
 import SearchableSelect from './SearchableSelect';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const ensureHyperlink = (url?: string): string => {
     if (!url || typeof url !== 'string' || url.trim() === '') return '';
@@ -31,12 +32,12 @@ const extractUrlFromFormula = (value?: string): string => {
 };
 
 interface NewProjectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  existingData?: PipelineProject | null;
-  initialReadOnly?: boolean;
-  meetings: Meeting[];
-  contactLogs: ContactLog[];
+    isOpen: boolean;
+    onClose: () => void;
+    existingData?: PipelineProject | null;
+    initialReadOnly?: boolean;
+    meetings: Meeting[];
+    contactLogs: ContactLog[];
 }
 
 const getTodayDateString = () => {
@@ -49,19 +50,44 @@ const getTodayDateString = () => {
 
 const STATUS_OPTIONS: PipelineProject['Status'][] = ['Quote Submitted', 'Close (win)', 'Close (lose)'];
 const TYPE_OPTIONS = ['Project', 'Maintenance', 'Consultant'];
-const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['Yes', 'No'];
+const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
 const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, meetings, contactLogs }) => {
-    const { projects, setProjects, companies, contacts } = useData();
+    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders } = useData();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PipelineProject>>({});
+
+    const quotationOptions = useMemo(() => {
+        if (!quotations || !formData['Company Name']) return [];
+        const selectedCompany = formData['Company Name'].trim().toLowerCase();
+        return quotations
+            .filter(q => q['Company Name']?.trim().toLowerCase() === selectedCompany)
+            .map(q => q['Quote No.']);
+    }, [quotations, formData['Company Name']]);
+
+    const invoiceOptions = useMemo(() => {
+        if (!invoices || !formData['Company Name']) return [];
+        const selectedCompany = formData['Company Name'].trim().toLowerCase();
+        return invoices
+            .filter(i => i['Company Name']?.trim().toLowerCase() === selectedCompany)
+            .map(i => i['Inv No.']);
+    }, [invoices, formData['Company Name']]);
+
+    const soOptions = useMemo(() => {
+        if (!saleOrders || !formData['Company Name']) return [];
+        const selectedCompany = formData['Company Name'].trim().toLowerCase();
+        return saleOrders
+            .filter(s => s['Company Name']?.trim().toLowerCase() === selectedCompany)
+            .map(s => s['SO No.']);
+    }, [saleOrders, formData['Company Name']]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isNewCompanyModalOpen, setIsNewCompanyModalOpen] = useState(false);
     const [isNewContactModalOpen, setIsNewContactModalOpen] = useState(false);
-    
+    const { handleNavigation } = useNavigation();
+
     const isEditMode = !!existingData;
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
@@ -78,7 +104,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         }
         const initialState: Partial<PipelineProject> = {
             'Pipeline No.': nextPipelineNo, 'Created Date': getTodayDateString(), 'Status': 'Quote Submitted',
-            'Taxable': 'Yes', 'Type': 'Project', 'Currency': 'USD',
+            'Taxable': 'VAT', 'Type': 'Project', 'Currency': 'USD',
         };
         return initialState;
     }, [projects]);
@@ -112,7 +138,39 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     }, []);
 
     const handleCompanySelect = (companyName: string) => {
-        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '' }));
+        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '', 'Quote': '', 'Quote No.': '', 'Invoice No.': '', 'SO No.': '', 'Inv Date': '' }));
+    };
+
+    const handleQuoteSelect = (quoteNo: string) => {
+        const quote = quotations?.find(q => q['Quote No.'] === quoteNo);
+        setFormData(prev => ({
+            ...prev,
+            'Quote No.': quoteNo,
+            'Quote': extractUrlFromFormula(quote?.File) || prev.Quote,
+            'Bid Value': quote?.Amount || prev['Bid Value'],
+            'Currency': (quote?.Currency as any) || prev.Currency
+        }));
+    };
+
+    const handleInvoiceSelect = (invNo: string) => {
+        const inv = invoices?.find(i => i['Inv No.'] === invNo);
+        setFormData(prev => ({
+            ...prev,
+            'Invoice No.': invNo,
+            'Inv Date': inv?.['Inv Date'] ? formatToInputDate(inv['Inv Date']) : prev['Inv Date'],
+            'Bid Value': inv?.Amount || prev['Bid Value'],
+            'Currency': (inv?.Currency as any) || prev.Currency
+        }));
+    };
+
+    const handleSOSelect = (soNo: string) => {
+        const so = saleOrders?.find(s => s['SO No.'] === soNo);
+        setFormData(prev => ({
+            ...prev,
+            'SO No.': soNo,
+            'Bid Value': so?.['Total Amount'] || prev['Bid Value'],
+            'Currency': (so?.Currency as any) || prev.Currency
+        }));
     };
 
     const handleContactChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -125,14 +183,16 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         e.preventDefault();
         onClose(); // Close modal immediately for optimistic UI
 
+        // Exclude UI-only fields and dropped columns from database submission
+        const { calculatedDueDate, 'Attach Invoice': _ai, 'Attach D.O': _ado, ...dataToSubmit } = formData as any;
+
         const submissionData = {
-            ...formData,
-            'Created Date': formatToSheetDate(formData['Created Date']),
-            'Due Date': formatToSheetDate(formData['Due Date']),
-            'Inv Date': formatToSheetDate(formData['Inv Date']),
-            'Quote': ensureHyperlink(formData.Quote),
-            'Attach Invoice': ensureHyperlink(formData['Attach Invoice']),
-            'Attach D.O': ensureHyperlink(formData['Attach D.O']),
+            ...dataToSubmit,
+            'Created Date': dataToSubmit['Created Date'] || null,
+            'Due Date': dataToSubmit['Due Date'] || null,
+            'Inv Date': dataToSubmit['Inv Date'] || null,
+            'Quote': ensureHyperlink(dataToSubmit.Quote),
+            'Bid Value': dataToSubmit['Bid Value'] && dataToSubmit['Bid Value'] !== '' ? parseFloat(dataToSubmit['Bid Value']) : null,
         };
 
         if (isEditMode) {
@@ -140,7 +200,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             const updatedId = existingData['Pipeline No.'];
             // Optimistic update
             setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
-            
+
             try {
                 const updatedRecord: PipelineProject = await updateRecord('Pipelines', updatedId, submissionData);
                 addToast('Pipeline updated!', 'success');
@@ -174,10 +234,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
 
     const handleDelete = async () => {
         if (!existingData) return;
-        
+
         const originalProjects = projects ? [...projects] : [];
         const projectToDeleteId = existingData['Pipeline No.'];
-        
+
         setDeleteConfirmOpen(false);
         onClose();
 
@@ -195,7 +255,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             setProjects(originalProjects); // Revert on failure
         }
     };
-    
+
     const relatedActivities = useMemo<UnifiedActivity[]>(() => {
         if (!existingData) return [];
         const companyName = existingData['Company Name'];
@@ -215,7 +275,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                 if (date) { allActivities.push({ type: 'meeting', date, isoDate: date.toISOString(), responsible: meeting['Responsible By'], summary: `Meeting: ${meeting.Type} with ${meeting.Participants}`, details: meeting.Remarks, original: meeting }); }
             }
         });
-        
+
         return allActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
     }, [existingData, meetings, contactLogs]);
 
@@ -232,31 +292,31 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             onClose();
         }
     }
-    
+
     const modalFooter = (
-      <div className="flex justify-between items-center w-full">
-          {isReadOnly ? (
-              <>
-                  <button type="button" onClick={() => setDeleteConfirmOpen(true)} disabled={isSubmitting} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="w-5 h-5" /> Delete
-                  </button>
-                  <div className="flex items-center gap-3">
-                      <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                      <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
-                          <Pencil className="w-5 h-5" /> Edit
-                      </button>
-                  </div>
-              </>
-          ) : (
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                  <button type="submit" onClick={handleSubmit} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                      <Check className="w-5 h-5 -ml-1 mr-2" />
-                      {submitText}
-                  </button>
-              </div>
-          )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+            {isReadOnly ? (
+                <>
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} disabled={isSubmitting} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="w-5 h-5" /> Delete
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                            <Pencil className="w-5 h-5" /> Edit
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="submit" onClick={handleSubmit} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                        {submitText}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
     return (
@@ -276,26 +336,26 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? <FormDisplay label="Requirement" value={formData.Require} multiline /> : <FormTextarea name="Require" label="Requirement" value={formData.Require} onChange={handleChange} />}
                     </FormSection>
                     <FormSection title="Company & Contact">
-                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <SearchableSelect 
-                                name="Company Name" 
-                                label="Company Name" 
-                                value={formData['Company Name'] || ''} 
+                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
+                            <SearchableSelect
+                                name="Company Name"
+                                label="Company Name"
+                                value={formData['Company Name'] || ''}
                                 onChange={handleCompanySelect}
                                 options={companyOptions}
                                 required
                                 placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
-                        {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> : 
-                            <FormSelect 
-                                name="Contact Name" 
-                                label="Contact Name" 
-                                value={formData['Contact Name']} 
-                                onChange={handleContactChange} 
-                                options={contactOptions} 
-                                disabled={isContactDisabled || contactOptions.length === 0} 
-                                disabledPlaceholder={contactPlaceholder} 
+                        {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> :
+                            <FormSelect
+                                name="Contact Name"
+                                label="Contact Name"
+                                value={formData['Contact Name']}
+                                onChange={handleContactChange}
+                                options={contactOptions}
+                                disabled={isContactDisabled || contactOptions.length === 0}
+                                disabledPlaceholder={contactPlaceholder}
                                 actionButton={!isReadOnly && !!formData['Company Name'] && <button type="button" onClick={() => setIsNewContactModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
                         {isReadOnly ? <FormDisplay label="Contact Number" value={formData['Contact Number']} /> : <FormInput name="Contact Number" label="Contact Number" value={formData['Contact Number']} onChange={handleChange} type="tel" readOnly />}
@@ -314,11 +374,112 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                     <FormSection title="Financials & Documents">
                         {isReadOnly ? <FormDisplay label="Bid Value" value={formData['Bid Value']} /> : <FormInput name="Bid Value" label="Bid Value" value={formData['Bid Value']} onChange={handleChange} type="text" placeholder="e.g., 5000 or =5000*0.7" />}
                         {isReadOnly ? <FormDisplay label="Currency" value={formData.Currency} /> : <FormSelect name="Currency" label="Currency" value={formData.Currency} onChange={handleChange} options={CURRENCY_OPTIONS} />}
-                        {isReadOnly ? <FormDisplay label="Quote Link">{formData.Quote && <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{formData.Quote}</a>}</FormDisplay> : <FormInput name="Quote" label="Quote Link" value={formData.Quote} onChange={handleChange} type="url" placeholder="Paste a shareable link here" />}
-                        {isReadOnly ? <FormDisplay label="Invoice No." value={formData['Invoice No.']} /> : <FormInput name="Invoice No." label="Invoice No." value={formData['Invoice No.']} onChange={handleChange} />}
+                        {isReadOnly ? (
+                            <FormDisplay label="Quote Link">
+                                <div className="flex items-center justify-between">
+                                    {formData.Quote ? <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline truncate max-w-[200px]">{formData.Quote}</a> : <span className="text-gray-400 italic">N/A</span>}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleNavigation({
+                                            view: 'quotations',
+                                            payload: {
+                                                action: 'create',
+                                                initialData: {
+                                                    'Company Name': formData['Company Name'],
+                                                    'Contact Name': formData['Contact Name'],
+                                                    'Pipeline No.': formData['Pipeline No.']
+                                                }
+                                            }
+                                        })}
+                                        className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
+                                    >
+                                        <Plus className="w-3 h-3" /> Create
+                                    </button>
+                                </div>
+                            </FormDisplay>
+                        ) : (
+                            <SearchableSelect
+                                name="Quote"
+                                label="Quote No. (from System)"
+                                value={formData['Quote No.'] || ''}
+                                onChange={handleQuoteSelect}
+                                options={quotationOptions}
+                                placeholder="Select Quotation..."
+                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'quotations', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No.': formData['Pipeline No.'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                            />
+                        )}
+
+                        {isReadOnly ? (
+                            <FormDisplay label="SO No.">
+                                <div className="flex items-center justify-between">
+                                    <span>{formData['SO No.'] || <span className="text-gray-400 italic">N/A</span>}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleNavigation({
+                                            view: 'sale-orders',
+                                            payload: {
+                                                action: 'create',
+                                                initialData: {
+                                                    'Company Name': formData['Company Name'],
+                                                    'Quote No.': quotations?.find(q => q.File === formData.Quote)?.['Quote No.'] || '',
+                                                    'Pipeline No.': formData['Pipeline No.']
+                                                }
+                                            }
+                                        })}
+                                        className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
+                                    >
+                                        <Plus className="w-3 h-3" /> Create
+                                    </button>
+                                </div>
+                            </FormDisplay>
+                        ) : (
+                            <SearchableSelect
+                                name="SO No."
+                                label="Sale Order No. (Select from System)"
+                                value={formData['SO No.'] || ''}
+                                onChange={handleSOSelect}
+                                options={soOptions}
+                                placeholder="Select Sale Order..."
+                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No.': formData['Pipeline No.'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                            />
+                        )}
+
+                        {isReadOnly ? (
+                            <FormDisplay label="Invoice No.">
+                                <div className="flex items-center justify-between">
+                                    <span>{formData['Invoice No.'] || <span className="text-gray-400 italic">N/A</span>}</span>
+                                    {!formData['Invoice No.'] && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleNavigation({
+                                                view: 'sale-orders',
+                                                payload: {
+                                                    isPipeline: true,
+                                                    'Company Name': formData['Company Name'],
+                                                    'Contact Name': formData['Contact Name'],
+                                                    'Quote No.': quotations?.find(q => q.File === formData.Quote)?.['Quote No.'] || '',
+                                                    'Pipeline No.': formData['Pipeline No.']
+                                                }
+                                            })}
+                                            className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
+                                        >
+                                            <Plus className="w-3 h-3" /> Create SO
+                                        </button>
+                                    )}
+                                </div>
+                            </FormDisplay>
+                        ) : (
+                            <SearchableSelect
+                                name="Invoice No."
+                                label="Invoice No. (Select from System)"
+                                value={formData['Invoice No.'] || ''}
+                                onChange={handleInvoiceSelect}
+                                options={invoiceOptions}
+                                placeholder="Select Invoice..."
+                            />
+                        )}
+
                         {isReadOnly ? <FormDisplay label="Invoice Date" value={formatToInputDate(formData['Inv Date'])} /> : <FormInput name="Inv Date" label="Invoice Date" value={formData['Inv Date']} onChange={handleChange} type="date" />}
-                        {isReadOnly ? <FormDisplay label="Invoice Link">{formData['Attach Invoice'] && <a href={formData['Attach Invoice']} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{formData['Attach Invoice']}</a>}</FormDisplay> : <FormInput name="Attach Invoice" label="Invoice Link" value={formData['Attach Invoice']} onChange={handleChange} type="url" placeholder="Paste a shareable link here" />}
-                        {isReadOnly ? <FormDisplay label="D.O Link">{formData['Attach D.O'] && <a href={formData['Attach D.O']} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{formData['Attach D.O']}</a>}</FormDisplay> : <FormInput name="Attach D.O" label="D.O Link" value={formData['Attach D.O']} onChange={handleChange} type="url" placeholder="Paste a shareable link here" />}
                     </FormSection>
                     {isEditMode && (
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -345,7 +506,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                     )}
                 </div>
             </ResizableModal>
-            
+
             <NewCompanyModal
                 isOpen={isNewCompanyModalOpen}
                 onClose={() => setIsNewCompanyModalOpen(false)}

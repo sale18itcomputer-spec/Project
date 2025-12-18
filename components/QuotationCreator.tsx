@@ -1,12 +1,14 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Quotation, Company, Contact, PricelistItem } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '../contexts/NavigationContext';
 import { createRecord, updateRecord, createQuotationSheet, readQuotationSheetData } from '../services/api';
 import { formatToSheetDate, formatToInputDate } from '../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from './FormControls';
 import PrintableQuotation from './PrintableQuotation';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, Printer } from 'lucide-react';
 import Spinner from './Spinner';
 import SuccessModal from './SuccessModal';
 import DocumentEditorContainer from './DocumentEditorContainer';
@@ -18,6 +20,7 @@ import SearchableSelect from './SearchableSelect';
 interface QuotationCreatorProps {
     onBack: () => void;
     existingQuotation: Quotation | null;
+    initialData?: Partial<Quotation>;
 }
 
 interface LineItem {
@@ -26,9 +29,10 @@ interface LineItem {
     itemCode: string;
     modelName: string;
     description: string;
-    qty: number;
-    unitPrice: number;
+    qty: number | string;
+    unitPrice: number | string;
     amount: number;
+    commission: number | string;
 }
 
 
@@ -57,25 +61,130 @@ Seal broken, misuse, or modification by anyone other than LIMPERIAL TECHNOLOGY.
 * Good sold are not returnable and received in good condition.
 * We look forward to hearing from you.`;
 
+const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
 
-const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation }) => {
+const PricelistCombobox: React.FC<{
+    item: LineItem;
+    onItemChange: (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => void;
+    onPricelistItemSelect: (item: LineItem, pricelistItem: PricelistItem) => void;
+    disabled?: boolean;
+}> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
+    const { pricelist } = useData();
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [wrapperRef]);
+
+    const filteredPricelist = useMemo(() => {
+        if (!pricelist || !isOpen) return [];
+        const query = item.itemCode?.toLowerCase() || '';
+        if (query === '') return pricelist.slice(0, 50);
+        return pricelist.filter(p =>
+            p['Item Code']?.toLowerCase().includes(query) ||
+            p.Model?.toLowerCase().includes(query) ||
+            p.Brand?.toLowerCase().includes(query)
+        ).slice(0, 50);
+    }, [pricelist, item.itemCode, isOpen]);
+
+    const handleBlur = () => {
+        setTimeout(() => {
+            if (!document.body.contains(wrapperRef.current)) return;
+            setIsOpen(false);
+            const exactMatch = pricelist?.find(p => p['Item Code']?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
+            if (exactMatch && !item.modelName) {
+                onPricelistItemSelect(item, exactMatch);
+            }
+        }, 200);
+    };
+
+    return (
+        <div ref={wrapperRef} className="relative">
+            <input
+                type="text"
+                value={item.itemCode}
+                onChange={e => {
+                    onItemChange(item.id, 'itemCode', e.target.value);
+                    if (!isOpen) setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                onBlur={handleBlur}
+                className={`${lineItemInputClasses} ${disabled ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                placeholder="Type to search..."
+                autoComplete="off"
+                disabled={disabled}
+            />
+            {isOpen && !disabled && filteredPricelist.length > 0 && (
+                <div className="absolute z-50 w-[450px] mt-1 bg-white rounded-md shadow-lg border border-slate-200">
+                    <ScrollArea className="max-h-72">
+                        <ul>
+                            {filteredPricelist.map(pItem => (
+                                <li key={pItem['Item Code']}>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            onPricelistItemSelect(item, pItem);
+                                            setIsOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                                    >
+                                        <div className="flex justify-between w-full items-center">
+                                            <div className="truncate pr-4">
+                                                <p className="font-semibold text-slate-800">{pItem.Model}</p>
+                                                <p className="text-xs text-slate-500">{pItem.Brand} - {pItem['Item Code']}</p>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <p className="font-semibold text-slate-700">{parseSheetValue(pItem.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                                                <p className="text-xs text-slate-500">Stock: {pItem.Qty}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </ScrollArea>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+
+
+
+
+const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation, initialData }) => {
     const { quotations, setQuotations, companies, contacts, pricelist } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    const { handleNavigation } = useNavigation();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [itemsLoading, setItemsLoading] = useState(false);
-    const [successInfo, setSuccessInfo] = useState<{ url: string; quoteNo: string } | null>(null);
+    const [successInfo, setSuccessInfo] = useState<{ quoteNo: string; isWin?: boolean } | null>(null);
 
-    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
 
+    // Calculate the next ID based on the MAX number in the list.
     const nextQuotationNumber = useMemo(() => {
         if (existingQuotation) return existingQuotation['Quote No.'];
         if (!quotations || quotations.length === 0) return 'Q-0000001';
 
         const maxNum = quotations.reduce((max, q) => {
-            const numPart = parseInt(q['Quote No.'].replace('Q-', ''), 10);
+            // Robust parsing to handle potential non-standard IDs like 'Q-000001' or 'Q-1'
+            const match = q['Quote No.'].match(/Q-(\d+)/);
+            if (!match) return max;
+            const numPart = parseInt(match[1], 10);
             return isNaN(numPart) ? max : Math.max(max, numPart);
         }, 0);
 
@@ -110,8 +219,38 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             'Remark': '',
             'Terms and Conditions': DEFAULT_TERMS,
             'Tax Type': 'VAT',
+            ...initialData // Spread initial data to override defaults
         };
     });
+
+    // Update local state when the calculated ID changes (only for new quotes)
+    useEffect(() => {
+        if (!existingQuotation) {
+            setQuote(prev => ({ ...prev, 'Quote No.': nextQuotationNumber }));
+        }
+    }, [nextQuotationNumber, existingQuotation]);
+
+    // Auto-fill customer details from companies/contacts when coming from initialData (+Create)
+    useEffect(() => {
+        if (!existingQuotation && initialData && companies && contacts) {
+            const companyName = initialData['Company Name'];
+            const contactName = initialData['Contact Name'];
+
+            if (companyName || contactName) {
+                const company = companies.find(c => c['Company Name'] === companyName);
+                const contact = contacts.find(c => c.Name === contactName && (!companyName || c['Company Name'] === companyName));
+
+                setQuote(prev => ({
+                    ...prev,
+                    'Company Address': company?.['Address (English)'] || prev['Company Address'] || '',
+                    'Payment Term': company?.['Payment Term'] || prev['Payment Term'] || '',
+                    'Contact Number': contact?.['Tel (1)'] || prev['Contact Number'] || '',
+                    'Contact Email': contact?.Email || prev['Contact Email'] || '',
+                }));
+            }
+        }
+    }, [initialData, companies, contacts, existingQuotation]);
+
 
     useEffect(() => {
         if (!existingQuotation || !existingQuotation['Quote No.'] || !companies || !contacts) {
@@ -134,6 +273,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
                 let updatedQuoteData = {
                     ...existingQuotation,
+                    // If header has data, use it, otherwise fallback. 
+                    // Note: Supabase readQuotationSheetData returns the full record in 'header'.
                     ...header,
                     'Quote Date': header['Quote Date'] ? formatToInputDate(header['Quote Date']) : formatToInputDate(existingQuotation['Quote Date']),
                     'Validity Date': header['Validity Date'] ? formatToInputDate(header['Validity Date']) : formatToInputDate(existingQuotation['Validity Date']),
@@ -164,10 +305,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     const formattedItems = fetchedItems.map((item: any) => ({
                         ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
+                        commission: item.commission || 0,
                     }));
                     setItems(formattedItems);
                 } else {
-                    setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+                    setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
                 }
             } catch (err: any) {
                 setError(`Failed to load quotation details: ${err.message}`);
@@ -213,8 +355,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 if (item.id === id) {
                     const isDescriptionRow = item.no === 0;
                     const updatedItem = { ...item, [field]: value };
+
                     if (!isDescriptionRow) {
-                        updatedItem.amount = updatedItem.qty * updatedItem.unitPrice;
+                        const q = parseFloat(String(updatedItem.qty)) || 0;
+                        const p = parseFloat(String(updatedItem.unitPrice)) || 0;
+                        updatedItem.amount = q * p;
                     }
                     return updatedItem;
                 }
@@ -241,7 +386,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                         modelName: pricelistItem.Model,
                         description: pricelistItem['Detail Spec'],
                         unitPrice: unitPrice,
-                        amount: item.qty * unitPrice,
+                        amount: (typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * unitPrice,
+                        commission: item.commission, // preserve commission
                     };
                 }
                 return item;
@@ -252,7 +398,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
     const addItem = () => {
         setItems(prev => {
-            const newItem = { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 };
+            const newItem = { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 };
             const newItems = [...prev, newItem];
 
             let currentNo = 1;
@@ -267,7 +413,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
     const addDescriptionRow = () => {
         setItems(prev => {
-            const newItem = { id: `desc-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0 };
+            const newItem = { id: `desc-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, commission: 0 };
             return [...prev, newItem];
         });
     };
@@ -288,9 +434,10 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
+        const commission = items.reduce((sum, item) => sum + (parseFloat(String(item.commission)) || 0), 0);
         const vat = quote['Tax Type'] === 'NON-VAT' ? 0 : subTotal * 0.1;
         const grandTotal = subTotal + vat;
-        return { subTotal, vat, grandTotal };
+        return { subTotal, vat, grandTotal, commission };
     }, [items, quote['Tax Type']]);
 
     const handleSave = async () => {
@@ -299,16 +446,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         try {
             const masterSheetData: Quotation = {
                 'Quote No.': quote['Quote No.'] || nextQuotationNumber,
-                'File': quote.File || '',
-                'Quote Date': formatToSheetDate(quote['Quote Date']),
-                'Validity Date': formatToSheetDate(quote['Validity Date']),
+                'File': '', // No external file link anymore
+                'Quote Date': quote['Quote Date'] || null,
+                'Validity Date': quote['Validity Date'] || null,
                 'Company Name': quote['Company Name'] || '',
                 'Company Address': quote['Company Address'] || '',
                 'Contact Name': quote['Contact Name'] || '',
                 'Contact Number': quote['Contact Number'] || '',
                 'Contact Email': quote['Contact Email'] || '',
                 'Amount': String(totals.grandTotal),
-                'CM': quote.CM || '',
+                'CM': String(totals.commission),
                 'Status': quote.Status || 'Open',
                 'Reason': quote.Reason || '',
                 'Payment Term': quote['Payment Term'] || '',
@@ -331,42 +478,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'ItemsJSON': JSON.stringify(items),
             };
 
-            const { url } = await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData);
-            masterSheetData.File = `=HYPERLINK("${url}", "${masterSheetData['Quote No.']}")`;
+            // This now saves to Supabase directly
+            await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData);
 
-            if (existingQuotation) {
-                const originalQuotations = quotations ? [...quotations] : [];
-                setQuotations(current => current ? current.map(q => q['Quote No.'] === masterSheetData['Quote No.'] ? masterSheetData : q) : [masterSheetData]);
-                try {
-                    const updatedRecord = await updateRecord('Quotations', existingQuotation['Quote No.'], masterSheetData);
-                    setQuotations(current => current ? current.map(q => q['Quote No.'] === updatedRecord['Quote No.'] ? updatedRecord : q) : [updatedRecord]);
-                    setSuccessInfo({ url: url || '#', quoteNo: masterSheetData['Quote No.'] });
-                } catch (err) {
-                    addToast('Failed to update quotation.', 'error');
-                    setQuotations(originalQuotations);
-                    throw err;
-                }
+            // Handle "Close (Win)" auto-conversion logic
+            if (masterSheetData.Status === 'Close (Win)') {
+                // Open Success Modal with option to create Sale Order
+                setSuccessInfo({ quoteNo: masterSheetData['Quote No.'], isWin: true });
             } else {
-                const originalQuotations = quotations ? [...(quotations || [])] : null;
-                setQuotations(current => current ? [masterSheetData, ...current] : [masterSheetData]);
-                try {
-                    const createdRecord = await createRecord('Quotations', masterSheetData);
-                    setQuotations(current => {
-                        if (!current) return [createdRecord];
-                        const index = current.findIndex(q => q['Quote No.'] === createdRecord['Quote No.']);
-                        if (index !== -1) {
-                            const newQuotations = [...current];
-                            newQuotations[index] = createdRecord;
-                            return newQuotations;
-                        }
-                        return [createdRecord, ...current];
-                    });
-                    setSuccessInfo({ url: url || '#', quoteNo: masterSheetData['Quote No.'] });
-                } catch (err) {
-                    addToast('Failed to create quotation.', 'error');
-                    setQuotations(originalQuotations);
-                    throw err;
-                }
+                setSuccessInfo({ quoteNo: masterSheetData['Quote No.'], isWin: false });
             }
 
         } catch (err: any) {
@@ -376,7 +496,23 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         }
     };
 
-    const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
+    const handleRequestApprove = async () => {
+        setIsSubmitting(true);
+        try {
+            // Simply save the document when requesting approval.
+            // Custom logic like notification can be added here.
+            await handleSave();
+            addToast('Approval request has been saved.', 'info');
+        } catch (err: any) {
+            setError(err.message || 'Failed to request approval.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+
+
+
 
     const currencySymbol = getCurrencySymbol(quote.Currency);
 
@@ -385,102 +521,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
         return `${currencySymbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
-
-
-    const PricelistCombobox: React.FC<{
-        item: LineItem;
-        onItemChange: (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => void;
-        onPricelistItemSelect: (item: LineItem, pricelistItem: PricelistItem) => void;
-        disabled?: boolean;
-    }> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
-        const { pricelist } = useData();
-        const [isOpen, setIsOpen] = useState(false);
-        const wrapperRef = useRef<HTMLDivElement>(null);
-
-        useEffect(() => {
-            function handleClickOutside(event: MouseEvent) {
-                if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-                    setIsOpen(false);
-                }
-            }
-            document.addEventListener("mousedown", handleClickOutside);
-            return () => document.removeEventListener("mousedown", handleClickOutside);
-        }, [wrapperRef]);
-
-        const filteredPricelist = useMemo(() => {
-            if (!pricelist || !isOpen) return [];
-            const query = item.itemCode?.toLowerCase() || '';
-            if (query === '') return pricelist.slice(0, 50);
-            return pricelist.filter(p =>
-                p['Item Code']?.toLowerCase().includes(query) ||
-                p.Model?.toLowerCase().includes(query) ||
-                p.Brand?.toLowerCase().includes(query)
-            ).slice(0, 50);
-        }, [pricelist, item.itemCode, isOpen]);
-
-        const handleBlur = () => {
-            setTimeout(() => {
-                if (!document.body.contains(wrapperRef.current)) return;
-                setIsOpen(false);
-                const exactMatch = pricelist?.find(p => p['Item Code']?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
-                if (exactMatch && !item.modelName) {
-                    onPricelistItemSelect(item, exactMatch);
-                }
-            }, 200);
-        };
-
-        return (
-            <div ref={wrapperRef} className="relative">
-                <input
-                    type="text"
-                    value={item.itemCode}
-                    onChange={e => {
-                        onItemChange(item.id, 'itemCode', e.target.value);
-                        if (!isOpen) setIsOpen(true);
-                    }}
-                    onFocus={() => setIsOpen(true)}
-                    onBlur={handleBlur}
-                    className={`${lineItemInputClasses} ${disabled ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                    placeholder="Type to search..."
-                    autoComplete="off"
-                    disabled={disabled}
-                />
-                {isOpen && !disabled && filteredPricelist.length > 0 && (
-                    <div className="absolute z-50 w-[450px] mt-1 bg-white rounded-md shadow-lg border border-slate-200">
-                        <ScrollArea className="max-h-72">
-                            <ul>
-                                {filteredPricelist.map(pItem => (
-                                    <li key={pItem['Item Code']}>
-                                        <button
-                                            type="button"
-                                            onMouseDown={(e) => {
-                                                e.preventDefault();
-                                                onPricelistItemSelect(item, pItem);
-                                                setIsOpen(false);
-                                            }}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                                        >
-                                            <div className="flex justify-between w-full items-center">
-                                                <div className="truncate pr-4">
-                                                    <p className="font-semibold text-slate-800">{pItem.Model}</p>
-                                                    <p className="text-xs text-slate-500">{pItem.Brand} - {pItem['Item Code']}</p>
-                                                </div>
-                                                <div className="text-right flex-shrink-0">
-                                                    <p className="font-semibold text-slate-700">{parseSheetValue(pItem.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                                                    <p className="text-xs text-slate-500">Stock: {pItem.Qty}</p>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </ScrollArea>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
 
     const printableProps = {
         headerData: {
@@ -495,11 +535,51 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     };
 
 
+    const headerLeft = (
+        <div className="flex items-center ml-4">
+            <div className="relative inline-block">
+                <select
+                    value={quote.Status}
+                    onChange={handleHeaderChange}
+                    name="Status"
+                    className="appearance-none bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-8 rounded-md transition cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 pr-10 text-sm"
+                >
+                    {STATUS_OPTIONS.map(opt => (
+                        <option key={opt} value={opt} className="text-slate-900 bg-white">{opt === 'Open' ? 'Quote Status' : opt}</option>
+                    ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                </div>
+            </div>
+        </div>
+    );
+
+    const headerRight = (
+        <div className="flex items-center gap-3">
+            <button onClick={() => window.print()} className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md border border-slate-300 transition flex items-center gap-2 shadow-sm text-sm">
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Print</span>
+            </button>
+            <button onClick={handleRequestApprove} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm whitespace-nowrap text-sm">
+                Request Approve
+            </button>
+            <button onClick={handleSave} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-md transition shadow-sm min-w-[100px] flex items-center justify-center text-sm">
+                {isSubmitting ? <Spinner className="w-4 h-4" /> : "Save"}
+            </button>
+        </div>
+    );
+
     return (
         <>
             <DocumentEditorContainer
                 title={existingQuotation ? `Edit Quotation ${existingQuotation['Quote No.']}` : "Create New Quotation"}
-                onBack={onBack} onSave={handleSave} onPrint={() => window.print()} isSubmitting={isSubmitting}
+                onBack={onBack}
+                onSave={handleSave}
+                onPrint={() => window.print()}
+                isSubmitting={isSubmitting}
+                leftActions={headerLeft}
+                rightActions={headerRight}
             >
                 {error && (
                     <div className="mb-6 bg-rose-50 border-l-4 border-rose-400 text-rose-800 p-4 rounded-md text-sm flex items-start gap-3" role="alert">
@@ -511,7 +591,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     </div>
                 )}
                 <div className="screen-only">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-8">
                         <div className="space-y-6">
                             <FormSection title="Customer Info">
                                 <SearchableSelect
@@ -537,8 +617,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                 <FormInput name="Validity Date" label="Validity" value={quote['Validity Date']} onChange={handleHeaderChange} type="date" required />
                                 <FormInput name="Payment Term" label="Payment Term" value={quote['Payment Term']} onChange={handleHeaderChange} />
                                 <FormInput name="Stock Status" label="Stock Status" value={quote['Stock Status']} onChange={handleHeaderChange} />
-                                <FormSelect name="Status" label="Status" value={quote.Status} onChange={handleHeaderChange} options={STATUS_OPTIONS} required />
-                                <FormTextarea name="Reason" label="Reason (if not Open)" value={quote.Reason} onChange={handleHeaderChange} rows={2} />
+                                {quote.Status !== 'Open' && <FormTextarea name="Reason" label="Reason" value={quote.Reason} onChange={handleHeaderChange} rows={2} />}
                             </FormSection>
 
                             <FormSection title="Signatures & Remarks">
@@ -554,16 +633,17 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
                                 {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-sm min-w-[700px]">
+                                        <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="text-left text-xs text-slate-500">
-                                                    <th className="p-2 w-16">No.</th>
+                                                    <th className="p-2 w-10">No.</th>
                                                     <th className="p-2 w-40">Item Code</th>
                                                     <th className="p-2">Item Description</th>
                                                     <th className="p-2 w-20">Qty</th>
                                                     <th className="p-2 w-28">Unit Price</th>
-                                                    <th className="p-2 w-28">Amount</th>
-                                                    <th className="p-2 w-10"></th>
+                                                    <th className="p-2 w-20">CM</th>
+                                                    <th className="p-2 w-32">Amount</th>
+                                                    <th className="p-2 w-8"></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -574,7 +654,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                             {isDescriptionRow ? (
                                                                 <>
                                                                     <td className="p-1"></td>
-                                                                    <td colSpan={5} className="p-1">
+                                                                    <td colSpan={6} className="p-1">
                                                                         <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={1} placeholder="Add a note or description..." />
                                                                     </td>
                                                                 </>
@@ -585,6 +665,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                     <td className="p-1"><textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} className={lineItemInputClasses} rows={2} /></td>
                                                                     <td className="p-1"><input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className={lineItemInputClasses} /></td>
                                                                     <td className="p-1"><input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className={lineItemInputClasses} /></td>
+                                                                    <td className="p-1"><input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className={lineItemInputClasses} /></td>
                                                                     <td className="p-1"><input type="text" value={`${currencySymbol}${item.amount.toFixed(2)}`} readOnly className="w-full bg-slate-50 text-right text-slate-600 border-slate-200 rounded-md" /></td>
                                                                 </>
                                                             )}
@@ -603,6 +684,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         <div className="flex justify-end mt-6">
                                             <div className="w-full max-w-sm space-y-2 text-right">
                                                 <div className="flex justify-between items-center"><span className="text-slate-600 font-medium">Sub Total:</span><span className="text-slate-800 font-semibold">{formatCurrency(totals.subTotal)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-slate-600 font-medium">Commission:</span><span className="text-slate-800 font-semibold">{formatCurrency(totals.commission)}</span></div>
                                                 <div className="flex justify-between items-center"><span className="text-slate-600 font-medium">VAT (10%):</span><span className="text-slate-800 font-semibold">{formatCurrency(totals.vat)}</span></div>
                                                 <div className="flex justify-between items-center border-t border-slate-300 pt-2 mt-2"><span className="text-lg text-slate-800 font-bold">Grand Total:</span><span className="text-lg text-slate-900 font-bold">{formatCurrency(totals.grandTotal)}</span></div>
                                             </div>
@@ -628,10 +710,21 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 <SuccessModal
                     isOpen={true}
                     onClose={() => { setSuccessInfo(null); onBack(); }}
-                    title="Quotation Saved!"
-                    message={<p>Quotation <strong>{successInfo.quoteNo}</strong> has been successfully saved.</p>}
-                    actionButtonLink={successInfo.url}
-                    actionButtonText="View Quotation Sheet"
+                    title={successInfo.isWin ? "Quotation Won!" : "Quotation Saved!"}
+                    message={<p>{successInfo.isWin ? "Quotation marked as Won. Create Sale Order now?" : `Quotation ${successInfo.quoteNo} has been successfully saved.`}</p>}
+                    actionButtonLink={null}
+                    actionButtonText={successInfo.isWin ? "Create Sale Order" : "Back to List"}
+                    onAction={() => {
+                        if (successInfo.isWin) {
+                            const wonQuote = quotations?.find(q => q['Quote No.'] === successInfo.quoteNo);
+                            handleNavigation({ view: 'sale-orders', payload: wonQuote });
+                        } else {
+                            setSuccessInfo(null);
+                            onBack();
+                        }
+                    }}
+                    secondaryActionText={successInfo.isWin ? "Later" : undefined}
+                    onSecondaryAction={() => { setSuccessInfo(null); onBack(); }}
                 />
             )}
         </>

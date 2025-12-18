@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Company, PipelineProject, Contact, Quotation, SaleOrder } from '../types';
+import { COMPANY_HEADERS } from '../schemas';
 import { createRecord, updateRecord, deleteRecord, uploadFile } from '../services/api';
 import { FormSection, FormInput, FormTextarea, FormDisplay } from './FormControls';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,23 +17,23 @@ import ResizableModal from './ResizableModal';
 import Spinner from './Spinner';
 
 interface NewCompanyModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  existingData?: Company | null;
-  initialReadOnly?: boolean;
-  projects?: PipelineProject[];
-  contacts?: Contact[];
-  quotations?: Quotation[];
-  saleOrders?: SaleOrder[];
-  onSaveSuccess?: (newCompany: Company) => void;
+    isOpen: boolean;
+    onClose: () => void;
+    existingData?: Company | null;
+    initialReadOnly?: boolean;
+    projects?: PipelineProject[];
+    contacts?: Contact[];
+    quotations?: Quotation[];
+    saleOrders?: SaleOrder[];
+    onSaveSuccess?: (newCompany: Company) => void;
 }
 
 const PAYMENT_TERM_PRESETS = [
-  'COD',
-  'Credit 7days',
-  'Credit 14days',
-  'Credit 21days',
-  'Credit 30days',
+    'COD',
+    'Credit 7days',
+    'Credit 14days',
+    'Credit 21days',
+    'Credit 30days',
 ];
 
 const getTodayDateString = () => {
@@ -54,7 +55,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     const isEditMode = !!existingData;
 
     const relatedProjects = useMemo(() => (isEditMode && existingData) ? projects.filter(p => p['Company Name'] === existingData['Company Name']) : [], [projects, existingData, isEditMode]);
@@ -91,8 +92,8 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
     useEffect(() => {
         if (isOpen) {
-             setIsReadOnly(initialReadOnly);
-             if (isEditMode) {
+            setIsReadOnly(initialReadOnly);
+            if (isEditMode) {
                 const initialData = getFormDataForEdit(existingData);
                 setFormData(initialData);
             } else {
@@ -106,7 +107,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
-    
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -121,7 +122,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         } finally {
             setIsUploading(false);
         }
-        if(fileInputRef.current) {
+        if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
     };
@@ -134,17 +135,25 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         e.preventDefault();
         onClose(); // Close modal immediately
 
-        const submissionData = {
+        const rawSubmissionData = {
             ...formData,
             'Created Date': formatToSheetDate(formData['Created Date']),
         };
+
+        const submissionData: Partial<Company> = {};
+        COMPANY_HEADERS.forEach(header => {
+            if (header in rawSubmissionData) {
+                // @ts-ignore
+                submissionData[header] = rawSubmissionData[header];
+            }
+        });
 
         if (isEditMode) {
             const originalCompanies = companies ? [...companies] : [];
             const updatedId = existingData['Company ID'];
             // Optimistic update
             setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? { ...c, ...submissionData } as Company : c) : null);
-            
+
             try {
                 const updatedRecord: Company = await updateRecord('Company List', updatedId, submissionData);
                 addToast('Company updated!', 'success');
@@ -178,10 +187,10 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
     const handleDelete = async () => {
         if (!existingData) return;
-        
+
         const originalCompanies = companies ? [...companies] : [];
         const companyToDeleteId = existingData['Company ID'];
-        
+
         setDeleteConfirmOpen(false);
         onClose();
 
@@ -199,7 +208,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             setCompanies(originalCompanies); // Revert on failure
         }
     };
-    
+
     const navigateTo = (view: string, filter: string) => {
         onClose();
         handleNavigation({ view, filter });
@@ -207,7 +216,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
     const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Company Name']}` : `Editing: ${existingData['Company Name']}`) : 'Create New Company';
     const submitText = isEditMode ? 'Save Changes' : 'Save Company';
-    
+
     const handleCancelClick = () => {
         if (isEditMode) {
             setFormData(getFormDataForEdit(existingData));
@@ -216,33 +225,33 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             onClose();
         }
     }
-    
+
     const formId = `company-form-${existingData?.['Company ID'] || 'new'}`;
 
     const modalFooter = (
-      <div className="flex justify-between items-center w-full">
-          {isReadOnly ? (
-              <>
-                  <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="w-5 h-5" /> Delete
-                  </button>
-                  <div className="flex items-center gap-3">
-                      <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                      <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
-                          <Pencil className="w-5 h-5" /> Edit
-                      </button>
-                  </div>
-              </>
-          ) : (
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                  <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                      <Check className="w-5 h-5 -ml-1 mr-2" />
-                      {submitText}
-                  </button>
-              </div>
-          )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+            {isReadOnly ? (
+                <>
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="w-5 h-5" /> Delete
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                            <Pencil className="w-5 h-5" /> Edit
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                        {submitText}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
     return (
@@ -254,24 +263,24 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                 footer={modalFooter}
             >
                 <form id={formId} onSubmit={handleSubmit} className="space-y-6">
-                     <FormSection title="Company Information">
+                    <FormSection title="Company Information">
                         {isReadOnly ? <FormDisplay label="Company ID" value={formData['Company ID']} /> : <FormInput name="Company ID" label="Company ID" value={formData['Company ID']} onChange={handleChange} required readOnly />}
                         {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : <FormInput name="Company Name" label="Company Name" value={formData['Company Name']} onChange={handleChange} required />}
                         {isReadOnly ? <FormDisplay label="Company Name (Khmer)" value={formData['Company Name (Khmer)']} /> : <FormInput name="Company Name (Khmer)" label="Company Name (Khmer)" value={formData['Company Name (Khmer)']} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Field" value={formData.Field} /> : <FormInput name="Field" label="Field" value={formData.Field} onChange={handleChange} />}
                     </FormSection>
                     <FormSection title="Contact Details">
-                        {isReadOnly ? <FormDisplay label="Phone Number" value={formData['Phone Number']} /> : <FormInput name="Phone Number" label="Phone Number" value={formData['Phone Number']} onChange={handleChange} type="tel"/>}
-                        {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} type="email"/>}
-                        {isReadOnly ? <FormDisplay label="Website" value={formData.Website} /> : <FormInput name="Website" label="Website" value={formData.Website} onChange={handleChange} type="url"/>}
+                        {isReadOnly ? <FormDisplay label="Phone Number" value={formData['Phone Number']} /> : <FormInput name="Phone Number" label="Phone Number" value={formData['Phone Number']} onChange={handleChange} type="tel" />}
+                        {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} type="email" />}
+                        {isReadOnly ? <FormDisplay label="Website" value={formData.Website} /> : <FormInput name="Website" label="Website" value={formData.Website} onChange={handleChange} type="url" />}
                     </FormSection>
                     <FormSection title="Address">
                         {isReadOnly ? <FormDisplay label="Address (English)" value={formData['Address (English)']} multiline /> : <FormTextarea name="Address (English)" label="Address (English)" value={formData['Address (English)']} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Address (Khmer)" value={formData['Address (Khmer)']} multiline /> : <FormTextarea name="Address (Khmer)" label="Address (Khmer)" value={formData['Address (Khmer)']} onChange={handleChange} />}
                     </FormSection>
-                     <FormSection title="Legal & Financial">
+                    <FormSection title="Legal & Financial">
                         {isReadOnly ? <FormDisplay label="Patent Number" value={formData.Patent} /> : <FormInput name="Patent" label="Patent Number" value={formData.Patent} onChange={handleChange} />}
-                        
+
                         {isReadOnly ? (
                             <FormDisplay label="Payment Term" value={formData['Payment Term']} />
                         ) : (
@@ -292,7 +301,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                 </datalist>
                             </div>
                         )}
-                        
+
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-slate-600 mb-1.5">Patent File</label>
                             {isReadOnly ? (
@@ -306,7 +315,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                 ) : <div className="block w-full px-3.5 py-2.5 bg-slate-50 border-transparent rounded-lg sm:text-sm text-slate-400 italic min-h-[42px] flex items-center">N/A</div>
                             ) : (
                                 <>
-                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"/>
+                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
                                     {isUploading ? (
                                         <div className="flex items-center gap-3 text-sm text-slate-600 p-3 rounded-lg bg-slate-100 border border-slate-200">
                                             <Spinner size="sm" />

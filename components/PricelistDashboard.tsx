@@ -3,7 +3,7 @@ import { PricelistItem } from '../types';
 import { useData } from '../contexts/DataContext';
 import DataTable, { ColumnDef } from './DataTable';
 import { parseSheetValue } from '../utils/formatters';
-import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
+import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import NewPricelistItemModal from './NewPricelistItemModal';
@@ -35,14 +35,14 @@ const StockCell: React.FC<{ value: string }> = ({ value }) => {
     if (isNaN(num)) {
         return <span className="text-slate-400">{value}</span>;
     }
-    
+
     let colorClass = 'text-slate-800';
     if (num === 0) {
         colorClass = 'text-rose-600 font-bold';
     } else if (num > 0 && num <= 5) {
         colorClass = 'text-amber-600 font-semibold';
     }
-    
+
     return <span className={`text-center block w-full ${colorClass}`}>{num}</span>;
 };
 
@@ -151,7 +151,7 @@ const CategorySection: React.FC<{
                         <ul className="divide-y divide-slate-100">
                             {items.map(item => (
                                 <li key={item['Item Code']} className="group relative" >
-                                    <div 
+                                    <div
                                         className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-slate-50 cursor-pointer"
                                         onClick={() => onViewItem(item)}
                                         role="button"
@@ -285,11 +285,11 @@ const PricelistDashboard: React.FC = () => {
         { accessorKey: 'Brand', header: 'Brand', isSortable: true },
         { accessorKey: 'Model', header: 'Model', isSortable: true },
         { accessorKey: 'Item Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
-        { 
-            accessorKey: 'fullDescription', 
-            header: 'Full Description', 
-            isSortable: true, 
-            cell: (value: string) => <p className="text-sm text-slate-600">{value}</p> 
+        {
+            accessorKey: 'fullDescription',
+            header: 'Full Description',
+            isSortable: true,
+            cell: (value: string) => <p className="text-sm text-slate-600">{value}</p>
         },
         { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
         { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
@@ -316,26 +316,26 @@ const PricelistDashboard: React.FC = () => {
     useEffect(() => {
         const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
         if (!saved && allColumns.length > 0) {
-          setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+            setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
         }
     }, [allColumns]);
-    
+
     const handleColumnToggle = (columnKey: string) => {
         setVisibleColumns(prev => {
-          const newSet = new Set(prev);
-          if (newSet.has(columnKey)) {
-            if (newSet.size > 1) { // Prevent hiding the last column
-              newSet.delete(columnKey);
+            const newSet = new Set(prev);
+            if (newSet.has(columnKey)) {
+                if (newSet.size > 1) { // Prevent hiding the last column
+                    newSet.delete(columnKey);
+                }
+            } else {
+                newSet.add(columnKey);
             }
-          } else {
-            newSet.add(columnKey);
-          }
-          try {
-            localStorage.setItem(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
-          } catch (e) {
-            console.error("Failed to save visible columns to storage", e);
-          }
-          return newSet;
+            try {
+                localStorage.setItem(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+            } catch (e) {
+                console.error("Failed to save visible columns to storage", e);
+            }
+            return newSet;
         });
     };
 
@@ -343,7 +343,7 @@ const PricelistDashboard: React.FC = () => {
         return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
     }, [allColumns, visibleColumns]);
 
-    
+
     const VIEW_OPTIONS: { id: ViewMode, label: string, icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
         { id: 'grid', label: 'Grid', icon: <LayoutGrid /> },
@@ -360,7 +360,7 @@ const PricelistDashboard: React.FC = () => {
             </div>
         );
     }
-    
+
     const renderContent = () => {
         switch (viewMode) {
             case 'table':
@@ -375,6 +375,17 @@ const PricelistDashboard: React.FC = () => {
                             initialSort={{ key: 'Category', direction: 'ascending' }}
                             mobilePrimaryColumns={['Model', 'Brand', 'SRP', 'Status']}
                             cellWrapStyle={cellWrapStyle}
+                            renderRowActions={(row) => (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditItem(row);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-brand-600 transition"
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                            )}
                         />
                     </div>
                 );
@@ -382,36 +393,36 @@ const PricelistDashboard: React.FC = () => {
                 return (
                     <div className="px-4 sm:px-6 pb-4 sm:pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                         {processedFilteredData.map(item => (
-                            <PricelistCard 
-                                key={item['Item Code']} 
-                                item={item} 
-                                onView={() => handleViewItem(item)} 
-                                onEdit={() => handleEditItem(item)} 
+                            <PricelistCard
+                                key={item['Item Code']}
+                                item={item}
+                                onView={() => handleViewItem(item)}
+                                onEdit={() => handleEditItem(item)}
                                 onDelete={() => handleDeleteItem(item)}
                             />
                         ))}
                     </div>
                 );
             case 'category':
-                 return (
+                return (
                     <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
                         {Object.entries(groupedByCategory)
                             .sort(([catA], [catB]) => catA.localeCompare(catB))
                             .map(([category, items]) => (
-                            <CategorySection
-                                key={category}
-                                category={category}
-                                items={items}
-                                onViewItem={handleViewItem}
-                                onEditItem={handleEditItem}
-                                onDeleteItem={handleDeleteItem}
-                            />
-                        ))}
+                                <CategorySection
+                                    key={category}
+                                    category={category}
+                                    items={items}
+                                    onViewItem={handleViewItem}
+                                    onEditItem={handleEditItem}
+                                    onDeleteItem={handleDeleteItem}
+                                />
+                            ))}
                     </div>
                 );
         }
     }
-    
+
     return (
         <div className="h-full flex flex-col">
             <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
@@ -438,11 +449,10 @@ const PricelistDashboard: React.FC = () => {
                                 <button
                                     onClick={() => setCellWrapStyle('overflow')}
                                     title="Overflow"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
-                                        cellWrapStyle === 'overflow'
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
                                             ? 'bg-white shadow-sm text-brand-700'
                                             : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
-                                    }`}
+                                        }`}
                                     aria-pressed={cellWrapStyle === 'overflow'}
                                 >
                                     <ArrowRightToLine className="w-4 h-4" />
@@ -450,11 +460,10 @@ const PricelistDashboard: React.FC = () => {
                                 <button
                                     onClick={() => setCellWrapStyle('wrap')}
                                     title="Wrap"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
-                                        cellWrapStyle === 'wrap'
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
                                             ? 'bg-white shadow-sm text-brand-700'
                                             : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
-                                    }`}
+                                        }`}
                                     aria-pressed={cellWrapStyle === 'wrap'}
                                 >
                                     <WrapText className="w-4 h-4" />
@@ -462,11 +471,10 @@ const PricelistDashboard: React.FC = () => {
                                 <button
                                     onClick={() => setCellWrapStyle('clip')}
                                     title="Clip"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${
-                                        cellWrapStyle === 'clip'
+                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
                                             ? 'bg-white shadow-sm text-brand-700'
                                             : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
-                                    }`}
+                                        }`}
                                     aria-pressed={cellWrapStyle === 'clip'}
                                 >
                                     <Scissors className="w-4 h-4" />
@@ -505,7 +513,7 @@ const PricelistDashboard: React.FC = () => {
                 </div>
                 {renderContent()}
             </div>
-            
+
             <NewPricelistItemModal
                 isOpen={modalConfig.isOpen}
                 onClose={handleCloseModal}

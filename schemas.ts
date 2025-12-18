@@ -16,12 +16,12 @@ export const PIPELINE_HEADERS = [
   'Due Date',
   'Inv Date',
   'Quote',
+  'Quote No.',
   'Bid Value',
   'Invoice No.',
+  'SO No.',
   'Remarks',
   'Conditional',
-  'Attach Invoice',
-  'Attach D.O',
   'Currency'
 ] as const;
 
@@ -37,55 +37,55 @@ export const COMPACT_PIPELINE_HEADERS = [
 
 // Headers for Companies Sheet
 export const COMPANY_HEADERS = [
-    'Company ID',
-    'Created Date',
-    'Created By',
-    'Company Name',
-    'Company Name (Khmer)',
-    'Phone Number',
-    'Patent',
-    'Payment Term',
-    'Field',
-    'Address (English)',
-    'Address (Khmer)',
-    'Email',
-    'Website',
-    'Patent File'
+  'Company ID',
+  'Created Date',
+  'Created By',
+  'Company Name',
+  'Company Name (Khmer)',
+  'Phone Number',
+  'Patent',
+  'Payment Term',
+  'Field',
+  'Address (English)',
+  'Address (Khmer)',
+  'Email',
+  'Website',
+  'Patent File'
 ] as const;
 
 export const COMPACT_COMPANY_HEADERS = [
-    'Company ID',
-    'Company Name',
-    'Phone Number',
-    'Field',
-    'Created Date'
+  'Company ID',
+  'Company Name',
+  'Phone Number',
+  'Field',
+  'Created Date'
 ] as const;
 
 // Headers for Contact List Sheet
 export const CONTACT_HEADERS = [
-    'Customer ID',
-    'Created Date',
-    'Company Name',
-    'Name',
-    'Name (Khmer)',
-    'Role',
-    'Department',
-    'Tel (1)',
-    'Tel (2)',
-    'Email',
-    'Address (English)',
-    'Address (Khmer)',
-    'Created By',
-    'Remarks'
+  'Customer ID',
+  'Created Date',
+  'Company Name',
+  'Name',
+  'Name (Khmer)',
+  'Role',
+  'Department',
+  'Tel (1)',
+  'Tel (2)',
+  'Email',
+  'Address (English)',
+  'Address (Khmer)',
+  'Created By',
+  'Remarks'
 ] as const;
 
 export const COMPACT_CONTACT_HEADERS = [
-    'Customer ID',
-    'Name',
-    'Company Name',
-    'Role',
-    'Tel (1)',
-    'Email',
+  'Customer ID',
+  'Name',
+  'Company Name',
+  'Role',
+  'Tel (1)',
+  'Email',
 ] as const;
 
 // Headers for Contact Logs Sheet
@@ -185,7 +185,8 @@ export const QUOTATION_HEADERS = [
   'Remark',
   'Terms and Conditions',
   'Prepared By Position',
-  'Approved By Position'
+  'Approved By Position',
+  'ItemsJSON'
 ] as const;
 
 // Headers for Sale Orders Sheet
@@ -208,7 +209,8 @@ export const SALE_ORDER_HEADERS = [
   'Install Software',
   'Created By',
   'Currency',
-  'Attachment'
+  'Attachment',
+  'ItemsJSON'
 ] as const;
 
 // Headers for Pricelist Sheet
@@ -225,4 +227,25 @@ export const PRICELIST_HEADERS = [
   'Detail Spec',
   'Status',
   'Currency'
+] as const;
+
+export const INVOICE_HEADERS = [
+  'Inv No.',
+  'Inv Date',
+  'File',
+  'SO No.',
+  'Company Name',
+  'Contact Name',
+  'Phone Number',
+  'Email',
+  'Amount',
+  'Taxable',
+  'Status',
+  'Created By',
+  'Currency',
+  'Attachment',
+  'Company Address',
+  'Payment Term',
+  'Tin No.',
+  'ItemsJSON'
 ] as const;

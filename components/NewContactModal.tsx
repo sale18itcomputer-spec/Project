@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Contact, PipelineProject, ContactLog, Meeting, UnifiedActivity, Quotation, Company } from '../types';
+import { CONTACT_HEADERS } from '../schemas';
 import { createRecord, updateRecord, deleteRecord } from '../services/api';
 import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from './FormControls';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,16 +15,16 @@ import { useToast } from '../contexts/ToastContext';
 import ResizableModal from './ResizableModal';
 
 interface NewContactModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  existingData?: Contact | null;
-  initialReadOnly?: boolean;
-  projects?: PipelineProject[];
-  contactLogs?: ContactLog[];
-  meetings?: Meeting[];
-  quotations?: Quotation[];
-  initialCompany?: string;
-  onSaveSuccess?: (newContact: Contact) => void;
+    isOpen: boolean;
+    onClose: () => void;
+    existingData?: Contact | null;
+    initialReadOnly?: boolean;
+    projects?: PipelineProject[];
+    contactLogs?: ContactLog[];
+    meetings?: Meeting[];
+    quotations?: Quotation[];
+    initialCompany?: string;
+    onSaveSuccess?: (newContact: Contact) => void;
 }
 
 const getTodayDateString = () => {
@@ -35,13 +36,13 @@ const getTodayDateString = () => {
 };
 
 const DEPARTMENT_PRESETS = [
-  "Information Technology",
-  "Purchasing",
-  "Management",
-  "Human Resource",
-  "Accounting",
-  "Marketing",
-  "Sales"
+    "Information Technology",
+    "Purchasing",
+    "Management",
+    "Human Resource",
+    "Accounting",
+    "Marketing",
+    "Sales"
 ];
 
 const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, projects = [], contactLogs = [], meetings = [], quotations = [], initialCompany, onSaveSuccess }) => {
@@ -49,7 +50,7 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
     const { companies, contacts, setContacts } = useData();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
-    
+
     const [formData, setFormData] = useState<Partial<Contact>>({});
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -130,10 +131,18 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
         e.preventDefault();
         onClose();
 
-        const submissionData = {
+        const rawSubmissionData = {
             ...formData,
             'Created Date': formatToSheetDate(formData['Created Date']),
         };
+
+        const submissionData: Partial<Contact> = {};
+        CONTACT_HEADERS.forEach(header => {
+            if (header in rawSubmissionData) {
+                // @ts-ignore
+                submissionData[header] = rawSubmissionData[header];
+            }
+        });
 
         if (isEditMode) {
             const originalContacts = contacts ? [...contacts] : [];
@@ -144,7 +153,7 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
             try {
                 const updatedRecord: Contact = await updateRecord('Contact_List', updatedId, submissionData);
                 addToast('Contact updated!', 'success');
-                 // Replace optimistic with server record
+                // Replace optimistic with server record
                 setContacts(current => current ? current.map(c => c['Customer ID'] === updatedId ? updatedRecord : c) : [updatedRecord]);
             } catch (err: any) {
                 addToast(`Failed to update contact: ${err.message}`, 'error');
@@ -174,10 +183,10 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
 
     const handleDelete = async () => {
         if (!existingData) return;
-        
+
         const originalContacts = contacts ? [...contacts] : [];
         const contactToDeleteId = existingData['Customer ID'];
-        
+
         setDeleteConfirmOpen(false);
         onClose();
 
@@ -195,7 +204,7 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
             setContacts(originalContacts); // Revert
         }
     };
-    
+
     const navigateTo = (view: string, filter: string) => {
         onClose();
         handleNavigation({ view, filter });
@@ -203,7 +212,7 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
 
     const title = isEditMode ? (isReadOnly ? `Details: ${existingData.Name}` : `Editing: ${existingData.Name}`) : 'Create New Contact';
     const submitText = isEditMode ? 'Save Changes' : 'Save Contact';
-    
+
     const handleCancelClick = () => {
         if (isEditMode) {
             setFormData(getFormDataForEdit(existingData));
@@ -216,29 +225,29 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
     const formId = `contact-form-${existingData?.['Customer ID'] || 'new'}`;
 
     const modalFooter = (
-      <div className="flex justify-between items-center w-full">
-          {isReadOnly ? (
-              <>
-                  <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="w-5 h-5" /> Delete
-                  </button>
-                  <div className="flex items-center gap-3">
-                      <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                      <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
-                          <Pencil className="w-5 h-5" /> Edit
-                      </button>
-                  </div>
-              </>
-          ) : (
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                  <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                      <Check className="w-5 h-5 -ml-1 mr-2" />
-                      {submitText}
-                  </button>
-              </div>
-          )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+            {isReadOnly ? (
+                <>
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="w-5 h-5" /> Delete
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                            <Pencil className="w-5 h-5" /> Edit
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                        {submitText}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
     return (

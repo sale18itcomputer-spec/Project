@@ -56,7 +56,7 @@ export interface PipelineProject {
   'Require': string;
   'Type': string;
   'Brand 1': string;
-  'Taxable': 'Yes' | 'No';
+  'Taxable': 'VAT' | 'NON-VAT';
   'Responsible By': string;
   'Status': 'Quote Submitted' | 'Close (win)' | 'Close (lose)';
   'Created Date': string;
@@ -64,12 +64,12 @@ export interface PipelineProject {
   'Due Date': string;
   'Inv Date': string;
   'Quote': string;
+  'Quote No.'?: string;
   'Bid Value': string;
   'Invoice No.': string;
+  'SO No.'?: string;
   'Remarks': string;
   'Conditional': string;
-  'Attach Invoice': string;
-  'Attach D.O': string;
   'Currency'?: 'USD' | 'KHR';
 }
 
@@ -209,6 +209,7 @@ export interface Quotation {
   'Terms and Conditions'?: string;
   'Prepared By Position'?: string;
   'Approved By Position'?: string;
+  'ItemsJSON'?: any;
   'Tax Type'?: 'VAT' | 'NON-VAT';
   [key: string]: any;
 }
@@ -249,5 +250,27 @@ export interface PricelistItem {
   'Detail Spec': string;
   'Status': string;
   'Currency'?: 'USD' | 'KHR';
+  [key: string]: any;
+}
+
+export interface Invoice {
+  'Inv No.': string;
+  'Inv Date': string;
+  'File': string;
+  'SO No.': string;
+  'Company Name': string;
+  'Contact Name': string;
+  'Phone Number': string;
+  'Email': string;
+  'Amount': string;
+  'Taxable': string;
+  'Status': 'Draft' | 'Processing' | 'Completed' | 'Cancel';
+  'Created By'?: string;
+  'Currency'?: 'USD' | 'KHR';
+  'Attachment'?: string;
+  'Company Address'?: string;
+  'Payment Term'?: string;
+  'Tin No.'?: string;
+  'ItemsJSON'?: any;
   [key: string]: any;
 }

@@ -1,230 +1,258 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbyFUU9tQT3VlQY-Pe_a2fVpHVKB77PtlMJ4U3PXtQiwl4h95odUpHbqMxqHKp7CleGxnA/exec';
 
-// Central configuration for sheets
-const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
-  'Pipelines': { primaryKey: 'Pipeline No.' },
-  'Company List': { primaryKey: 'Company ID' },
-  'Contact_List': { primaryKey: 'Customer ID' },
-  'Users': { primaryKey: 'UserID' },
-  'Meeting_Logs': { primaryKey: 'Meeting ID' },
-  'Contact_Logs': { primaryKey: 'Log ID' }, 
-  'Site_Survey_Logs': { primaryKey: 'Site ID' },
-  'Quotations': { primaryKey: 'Quote No.' },
-  'Sale Orders': { primaryKey: 'SO No.' },
-  'Raw': { primaryKey: 'Item Code' },
+import { supabase } from '../lib/supabase';
+
+// Map Google Sheet names to Supabase tables
+const TABLE_MAP: { [key: string]: string } = {
+    'Pipelines': 'pipelines',
+    'Company List': 'companies',
+    'Contact_List': 'contacts',
+    'Users': 'users',
+    'Meeting_Logs': 'meeting_logs',
+    'Contact_Logs': 'contact_logs',
+    'Site_Survey_Logs': 'site_survey_logs',
+    'Quotations': 'quotations',
+    'Sale Orders': 'sale_orders',
+    'Raw': 'pricelist',
+    'Invoices': 'invoices',
 };
 
-// Helper function to handle API requests and errors
-const apiRequest = async (body: object) => {
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-            },
-            body: JSON.stringify(body),
-            redirect: 'follow',
-            mode: 'cors',
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API Error Response:', errorText);
-            throw new Error(`Request failed: Server responded with an error (Status: ${response.status}).`);
-        }
-        
-        const responseText = await response.text();
-        if (!responseText) {
-            throw new Error("Received an empty response from the server. This can happen during a script error.");
-        }
-
-        const result = JSON.parse(responseText);
-
-        if (result.status === 'error') {
-            throw new Error(result.message || 'An unknown error occurred in the backend script.');
-        }
-
-        if (result.status === 'success') {
-            return result.data;
-        }
-
-        // Fallback for old response format, can be removed later
-        return result;
-
-    } catch (error) {
-        console.error('Network or API call error:', error);
-        if (error instanceof Error) {
-            // Provide a more helpful error message for the most common failure case.
-            if (error.message.includes('Failed to fetch')) {
-                throw new Error(
-                    'A network error occurred. This is often due to an incorrect Google Apps Script deployment. ' +
-                    'Please ensure the script is deployed as a "Web app" with "Execute as: Me" and "Who has access: Anyone". ' +
-                    'Also, verify the API_URL in the code matches your current deployment URL.'
-                );
-            }
-            // Re-throw other specific error messages
-            throw new Error(error.message);
-        }
-        // Fallback for non-Error exceptions
-        throw new Error('An unknown network error occurred. Please check your connection.');
-    }
+// Configuration for primary keys (matching the old config for compatibility)
+// Updated to wrap keys with spaces in double quotes for PostgREST compatibility
+const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
+    'Pipelines': { primaryKey: '"Pipeline No."' },
+    'Company List': { primaryKey: '"Company ID"' },
+    'Contact_List': { primaryKey: '"Customer ID"' },
+    'Users': { primaryKey: 'UserID' },
+    'Meeting_Logs': { primaryKey: '"Meeting ID"' },
+    'Contact_Logs': { primaryKey: '"Log ID"' },
+    'Site_Survey_Logs': { primaryKey: '"Site ID"' },
+    'Quotations': { primaryKey: '"Quote No."' },
+    'Sale Orders': { primaryKey: '"SO No."' },
+    'Raw': { primaryKey: '"Item Code"' },
+    'Invoices': { primaryKey: '"Inv No."' },
 };
 
 /**
- * Creates a new record in a specified Google Sheet.
- * @param sheetName The name of the sheet to add the record to (e.g., "Pipelines").
+ * Creates a new record in the database.
+ * @param sheetName The name of the logical sheet/table.
  * @param payload An object where keys are column headers and values are the cell contents.
  */
-export const createRecord = (sheetName: string, payload: object) => {
-    return apiRequest({
-        action: 'create',
-        sheetName,
-        payload
-    });
+export const createRecord = async (sheetName: string, payload: any) => {
+    const table = TABLE_MAP[sheetName];
+    if (!table) throw new Error(`Table mapping not found for ${sheetName}`);
+
+    // Clean payload for Pipelines to remove deprecated columns
+    let cleanedPayload = { ...payload };
+    if (sheetName === 'Pipelines') {
+        const { 'Attach Invoice': _ai, 'Attach D.O': _ado, ...rest } = cleanedPayload;
+        cleanedPayload = rest;
+    }
+
+    const { data, error } = await supabase
+        .from(table)
+        .insert(cleanedPayload)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Supabase Create Error:", error);
+        throw new Error(error.message);
+    }
+    return data;
 };
 
 /**
- * Reads all records from a specified Google Sheet.
- * @param sheetName The name of the sheet to read from.
+ * Reads all records from a specified table.
+ * @param sheetName The name of the sheet/table to read from.
  * @returns A promise that resolves with an array of records.
  */
-export const readRecords = <T extends {}>(sheetName: string): Promise<T[]> => {
-    return apiRequest({
-        action: 'read',
-        sheetName
-    }) as Promise<T[]>;
+export const readRecords = async <T extends {}>(sheetName: string): Promise<T[]> => {
+    const table = TABLE_MAP[sheetName];
+    if (!table) throw new Error(`Table mapping not found for ${sheetName}`);
+
+    const { data, error } = await supabase
+        .from(table)
+        .select('*');
+
+    if (error) {
+        console.error("Supabase Read Error:", error);
+        throw new Error(error.message);
+    }
+    return data as T[];
 };
 
 /**
- * Reads all records from multiple specified Google Sheets in a single batch.
- * @param sheetNames An array of sheet names to read from.
+ * Reads all records from multiple specified tables in a single batch (parallel requests).
+ * @param sheetNames An array of sheet/table names to read from.
  * @returns A promise that resolves with an object where keys are sheet names and values are arrays of records.
  */
-export const batchReadRecords = <T extends {}>(sheetNames: string[]): Promise<T> => {
-    return apiRequest({
-        action: 'batchRead',
-        sheets: sheetNames
-    }) as Promise<T>;
+export const batchReadRecords = async <T extends {}>(sheetNames: string[]): Promise<any> => {
+    const results: { [key: string]: any[] } = {};
+
+    await Promise.all(sheetNames.map(async (name) => {
+        try {
+            results[name] = await readRecords(name);
+        } catch (e) {
+            console.error(`Failed to load ${name}`, e);
+            results[name] = [];
+        }
+    }));
+
+    return results;
 };
 
 /**
- * Updates an existing record in a specified Google Sheet.
- * @param sheetName The name of the sheet.
+ * Updates an existing record.
+ * @param sheetName The name of the sheet/table.
  * @param primaryKeyValue The value of the primary key for the row to update.
  * @param payload An object containing the key-value pairs to update.
  */
-export const updateRecord = (sheetName: string, primaryKeyValue: string, payload: object) => {
+export const updateRecord = async (sheetName: string, primaryKeyValue: string, payload: any) => {
+    const table = TABLE_MAP[sheetName];
     const primaryKey = SHEET_CONFIG[sheetName]?.primaryKey;
-    if (!primaryKey) {
-        return Promise.reject(new Error(`No primary key configured for sheet: ${sheetName}`));
+    if (!table || !primaryKey) throw new Error(`Configuration missing for ${sheetName}`);
+
+    // Clean payload for Pipelines to remove deprecated columns
+    let cleanedPayload = { ...payload };
+    if (sheetName === 'Pipelines') {
+        const { 'Attach Invoice': _ai, 'Attach D.O': _ado, ...rest } = cleanedPayload;
+        cleanedPayload = rest;
     }
-    return apiRequest({
-        action: 'update',
-        sheetName,
-        primaryKey,
-        primaryKeyValue,
-        payload
-    });
+
+    const { data, error } = await supabase
+        .from(table)
+        .update(cleanedPayload)
+        .eq(primaryKey, primaryKeyValue)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Supabase Update Error:", error);
+        throw new Error(error.message);
+    }
+    return data;
 };
 
 /**
- * Deletes a record from a specified Google Sheet.
- * @param sheetName The name of the sheet.
+ * Deletes a record.
+ * @param sheetName The name of the sheet/table.
  * @param primaryKeyValue The value of the primary key for the row to delete.
  */
-export const deleteRecord = (sheetName: string, primaryKeyValue: string) => {
+export const deleteRecord = async (sheetName: string, primaryKeyValue: string) => {
+    const table = TABLE_MAP[sheetName];
     const primaryKey = SHEET_CONFIG[sheetName]?.primaryKey;
-    if (!primaryKey) {
-        return Promise.reject(new Error(`No primary key configured for sheet: ${sheetName}`));
+    if (!table || !primaryKey) throw new Error(`Configuration missing for ${sheetName}`);
+
+    const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq(primaryKey, primaryKeyValue);
+
+    if (error) {
+        console.error("Supabase Delete Error:", error);
+        throw new Error(error.message);
     }
-    return apiRequest({
-        action: 'delete',
-        sheetName,
-        primaryKey,
-        primaryKeyValue
-    });
+    return { deletedId: primaryKeyValue };
 };
 
 /**
- * Converts a File object to a base64 encoded string.
- * @param file The file to convert.
- * @returns A promise that resolves with the base64 string (without the data URI prefix).
- */
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64String = result.split(',')[1];
-      resolve(base64String);
-    };
-    reader.onerror = error => reject(error);
-  });
-};
-
-
-/**
- * Uploads a file to Google Drive via the Apps Script backend.
+ * Uploads a file to Supabase Storage.
  * @param file The file to upload.
  * @returns A promise that resolves with the URL of the uploaded file.
  */
 export const uploadFile = async (file: File): Promise<{ url: string }> => {
-  const fileData = await fileToBase64(file);
-  const payload = {
-    fileName: file.name,
-    mimeType: file.type,
-    data: fileData,
-  };
-  return apiRequest({
-    action: 'uploadFile',
-    sheetName: 'Company List', 
-    payload,
-  }) as Promise<{ url: string }>;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Make sure to create a bucket named 'attachments' in your Supabase project
+    const { data, error } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, file);
+
+    if (error) {
+        console.error("Supabase Upload Error:", error);
+        throw new Error(error.message);
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from('attachments')
+        .getPublicUrl(filePath);
+
+    return { url: publicUrl };
 };
 
-
 /**
- * Reads the detailed data (headers and line items) from a specific quotation sheet.
- * @param quoteId The ID of the quotation sheet to read (e.g., "Q-0000062").
+ * Reads detailed data for a specific quotation.
+ * @param quoteId The ID of the quotation.
  */
-export const readQuotationSheetData = (quoteId: string): Promise<{
+export const readQuotationSheetData = async (quoteId: string): Promise<{
     header: { [key: string]: any };
     items: any[];
 }> => {
-  return apiRequest({
-    action: 'readSheetData',
-    sheetName: 'Quotations', // This determines which spreadsheet file to use
-    quoteId: quoteId
-  }) as Promise<{ header: { [key: string]: any }; items: any[] }>;
+    const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .eq('"Quote No."', quoteId) // Use quotes for columns with spaces
+        .single();
+
+    if (error) throw new Error(error.message);
+
+    // In the old system, ItemsJSON was a string field. In Supabase, if we use JSONB, it returns an object.
+    // If we used text, it returns a string.
+    let items = [];
+    try {
+        if (typeof data['ItemsJSON'] === 'string') {
+            items = JSON.parse(data['ItemsJSON']);
+        } else {
+            items = data['ItemsJSON'] || [];
+        }
+    } catch (e) {
+        items = [];
+    }
+
+    return {
+        header: data,
+        items: items
+    };
 };
 
 /**
- * Creates a new sheet from a template for a quotation.
- * @param newSheetName The name for the new sheet (e.g., the Quotation ID).
- * @param data The full quotation data object.
+ * "Creates a sheet" -> functionality mapped to creating a record.
+ * @param newSheetName The ID (e.g. Quote No.)
+ * @param data The full data object.
  */
-export const createQuotationSheet = (newSheetName: string, data: object): Promise<{message: string, url?: string}> => {
-    return apiRequest({
-        action: 'createSheetFromTemplate',
-        sheetName: 'Quotations', // This determines which spreadsheet file to use via SHEET_MAP
-        templateSheetName: 'Quotation Template',
-        newSheetName: newSheetName,
-        data: data
-    }) as Promise<{message: string, url?: string}>;
+export const createQuotationSheet = async (newSheetName: string, data: any): Promise<{ message: string, url?: string }> => {
+    // In Supabase, we already have the record created via 'createRecord' usually, 
+    // or this function is called to finalize it. 
+    // Since the previous implementation implied creating a NEW sheet tab, but here we just ensure the record exists.
+    // If this is a duplicate of createRecord, we might just update or upsert.
+
+    // Check if exists
+    const existing = await supabase.from('quotations').select('"Quote No."').eq('"Quote No."', newSheetName).maybeSingle();
+
+    if (existing.data) {
+        await updateRecord('Quotations', newSheetName, data);
+    } else {
+        await createRecord('Quotations', data);
+    }
+
+    return { message: 'Quotation saved successfully', url: '#' };
 };
 
 /**
- * Creates a new sheet from a template for a sale order.
- * @param newSheetName The name for the new sheet (e.g., the Sale Order ID).
- * @param data The full sale order data object.
+ * "Creates a sheet" -> functionality mapped to creating a record.
+ * @param newSheetName The ID (e.g. SO No.)
+ * @param data The full data object.
  */
-export const createSaleOrderSheet = (newSheetName: string, data: object): Promise<{message: string, url?: string}> => {
-    return apiRequest({
-        action: 'createSheetFromTemplate',
-        sheetName: 'Sale Orders',
-        templateSheetName: 'Sale Order Template',
-        newSheetName: newSheetName,
-        data: data
-    }) as Promise<{message: string, url?: string}>;
+export const createSaleOrderSheet = async (newSheetName: string, data: any): Promise<{ message: string, url?: string }> => {
+    const { error } = await supabase
+        .from('sale_orders')
+        .upsert(data, { onConflict: '"SO No."' });
+
+    if (error) {
+        throw new Error(`Failed to save Sale Order: ${error.message}`);
+    }
+
+    return { message: 'Sale Order saved successfully', url: '#' };
 };

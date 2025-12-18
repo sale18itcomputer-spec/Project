@@ -27,21 +27,21 @@ interface ProjectDetailModalProps {
 }
 
 const extractUrlFromFormula = (value?: string): string => {
-    if (!value || typeof value !== 'string') return '';
-    const match = value.match(/^=HYPERLINK\("([^"]+)"/i);
-    return match ? match[1] : value;
+  if (!value || typeof value !== 'string') return '';
+  const match = value.match(/^=HYPERLINK\("([^"]+)"/i);
+  return match ? match[1] : value;
 };
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
-    if (!value || (typeof value === 'string' && !value.trim())) return null;
-    return (
-        <div className="flex items-center bg-slate-100 border border-slate-200/90 rounded-md text-sm leading-none">
-            <span className="px-2.5 py-1.5 text-slate-500 font-semibold">{label}</span>
-            <span className="px-2.5 py-1.5 text-slate-800 font-medium bg-white rounded-r-md border-l border-slate-200/90">
-                {value}
-            </span>
-        </div>
-    );
+  if (!value || (typeof value === 'string' && !value.trim())) return null;
+  return (
+    <div className="flex items-center bg-slate-100 border border-slate-200/90 rounded-md text-sm leading-none">
+      <span className="px-2.5 py-1.5 text-slate-500 font-semibold">{label}</span>
+      <span className="px-2.5 py-1.5 text-slate-800 font-medium bg-white rounded-r-md border-l border-slate-200/90">
+        {value}
+      </span>
+    </div>
+  );
 };
 
 const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }) => {
@@ -64,7 +64,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
   const { addToast } = useToast();
   const [isShowing, setIsShowing] = useState(false);
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  
+
   useEffect(() => {
     if (project) {
       setDeleteConfirmOpen(false);
@@ -115,7 +115,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
           });
         }
       });
-    
+
     return allActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [project, meetings, contactLogs]);
 
@@ -123,24 +123,24 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
     onClose();
     handleNavigation({ view, filter });
   };
-  
+
   const handleDelete = async () => {
     if (!project) return;
-    
+
     const originalProjects = projects ? [...projects] : [];
     const projectToDeleteId = project['Pipeline No.'];
-    
+
     setDeleteConfirmOpen(false);
     onClose();
 
     setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
 
     try {
-        await deleteRecord('Pipelines', projectToDeleteId);
-        addToast('Pipeline deleted!', 'success');
+      await deleteRecord('Pipelines', projectToDeleteId);
+      addToast('Pipeline deleted!', 'success');
     } catch (err: any) {
-        addToast('Failed to delete pipeline.', 'error');
-        setProjects(originalProjects);
+      addToast('Failed to delete pipeline.', 'error');
+      setProjects(originalProjects);
     }
   };
 
@@ -155,96 +155,94 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
   }, [project]);
 
   if (!project) return null;
-  
+
   const displayDueDate = project.calculatedDueDate ? formatDateAsMDY(project.calculatedDueDate) : formatDisplayDate(project['Due Date']);
   const title = project['Company Name'];
-  
+
   const renderDetailView = () => (
-     <div className="space-y-8">
-        {/* Key Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><Tag className="w-5 h-5" /></div>
-                <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</p>
-                    <div className="text-lg font-bold text-slate-800 mt-1"><StatusBadge status={project.Status} /></div>
-                </div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><DollarSign className="w-5 h-5" /></div>
-                <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bid Value</p>
-                    <div className="text-lg font-bold text-slate-800 mt-1">
-                        {(() => {
-                            const formattedValue = formatCurrencySmartly(project['Bid Value'], project.Currency);
-                            return formattedValue === '-'
-                                ? <span className="text-gray-400 italic text-base">N/A</span>
-                                : formattedValue;
-                        })()}
-                    </div>
-                </div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><Calendar className="w-5 h-5" /></div>
-                <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Date</p>
-                    <div className="text-lg font-bold text-slate-800 mt-1">{displayDueDate || <span className="text-gray-400 italic text-base">N/A</span>}</div>
-                </div>
-            </div>
+    <div className="space-y-8">
+      {/* Key Info Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><Tag className="w-5 h-5" /></div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</p>
+            <div className="text-lg font-bold text-slate-800 mt-1"><StatusBadge status={project.Status} /></div>
+          </div>
         </div>
-        {/* Main Details Grid */}
-        <div className="space-y-6">
-            <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Contact & Responsibility</h3>
-                <div className="flex flex-wrap items-center gap-3">
-                    <DetailItem label="Company Name" value={<button onClick={() => navigateTo('companies', project['Company Name'])} className="font-medium text-brand-600 hover:underline text-left">{project['Company Name']}</button>} />
-                    <DetailItem label="Contact Name" value={<button onClick={() => navigateTo('contacts', project['Contact Name'])} className="font-medium text-brand-600 hover:underline text-left">{project['Contact Name']}</button>} />
-                    <DetailItem label="Contact Number" value={project['Contact Number']} />
-                    <DetailItem label="Email" value={project['Email']} />
-                    <DetailItem label="Responsible By" value={project['Responsible By']} />
-                </div>
+        <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><DollarSign className="w-5 h-5" /></div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bid Value</p>
+            <div className="text-lg font-bold text-slate-800 mt-1">
+              {(() => {
+                const formattedValue = formatCurrencySmartly(project['Bid Value'], project.Currency);
+                return formattedValue === '-'
+                  ? <span className="text-gray-400 italic text-base">N/A</span>
+                  : formattedValue;
+              })()}
             </div>
-            <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Project Details</h3>
-                <div className="flex flex-wrap items-center gap-3">
-                    <DetailItem label="Require" value={project['Require']} />
-                    <DetailItem label="Type" value={project['Type']} />
-                    <DetailItem label="Brand" value={project['Brand 1']} />
-                    <DetailItem label="Taxable" value={project['Taxable']} />
-                    <DetailItem label="Currency" value={project.Currency} />
-                </div>
-            </div>
-             <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Dates & Timeline</h3>
-                <div className="flex flex-wrap items-center gap-3">
-                    <DetailItem label="Created Date" value={formatDisplayDate(project['Created Date'])} />
-                    <DetailItem label="Time Frame" value={project['Time Frame']} />
-                    <DetailItem label="Invoice Date" value={formatDisplayDate(project['Inv Date'])} />
-                </div>
-            </div>
-            {(project.Remarks || project.Conditional) && (
-                <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                    <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Notes</h3>
-                    <div className="space-y-4 text-sm">
-                        {project.Remarks && <div><p className="font-semibold text-slate-600">Remarks:</p><p className="whitespace-pre-wrap text-slate-800 pl-2">{project.Remarks}</p></div>}
-                        {project.Conditional && <div><p className="font-semibold text-slate-600">Conditional:</p><p className="whitespace-pre-wrap text-slate-800 pl-2">{project.Conditional}</p></div>}
-                    </div>
-                </div>
-            )}
-             {(project.Quote || project['Attach Invoice'] || project['Attach D.O']) && (
-                <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                    <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Documents</h3>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <DetailItem label="Quote" value={project.Quote && <a href={extractUrlFromFormula(project.Quote)} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:text-brand-800 hover:underline">View File</a>} />
-                        <DetailItem label="Invoice" value={project['Attach Invoice'] && <a href={extractUrlFromFormula(project['Attach Invoice'])} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:text-brand-800 hover:underline">View File</a>} />
-                        <DetailItem label="D.O" value={project['Attach D.O'] && <a href={extractUrlFromFormula(project['Attach D.O'])} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:text-brand-800 hover:underline">View File</a>} />
-                    </div>
-                </div>
-            )}
+          </div>
         </div>
+        <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-4 flex items-center gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><Calendar className="w-5 h-5" /></div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Date</p>
+            <div className="text-lg font-bold text-slate-800 mt-1">{displayDueDate || <span className="text-gray-400 italic text-base">N/A</span>}</div>
+          </div>
+        </div>
+      </div>
+      {/* Main Details Grid */}
+      <div className="space-y-6">
+        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Contact & Responsibility</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <DetailItem label="Company Name" value={<button onClick={() => navigateTo('companies', project['Company Name'])} className="font-medium text-brand-600 hover:underline text-left">{project['Company Name']}</button>} />
+            <DetailItem label="Contact Name" value={<button onClick={() => navigateTo('contacts', project['Contact Name'])} className="font-medium text-brand-600 hover:underline text-left">{project['Contact Name']}</button>} />
+            <DetailItem label="Contact Number" value={project['Contact Number']} />
+            <DetailItem label="Email" value={project['Email']} />
+            <DetailItem label="Responsible By" value={project['Responsible By']} />
+          </div>
+        </div>
+        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Project Details</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <DetailItem label="Require" value={project['Require']} />
+            <DetailItem label="Type" value={project['Type']} />
+            <DetailItem label="Brand" value={project['Brand 1']} />
+            <DetailItem label="Taxable" value={project['Taxable']} />
+            <DetailItem label="Currency" value={project.Currency} />
+          </div>
+        </div>
+        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Dates & Timeline</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <DetailItem label="Created Date" value={formatDisplayDate(project['Created Date'])} />
+            <DetailItem label="Time Frame" value={project['Time Frame']} />
+            <DetailItem label="Invoice Date" value={formatDisplayDate(project['Inv Date'])} />
+          </div>
+        </div>
+        {(project.Remarks || project.Conditional) && (
+          <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+            <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Notes</h3>
+            <div className="space-y-4 text-sm">
+              {project.Remarks && <div><p className="font-semibold text-slate-600">Remarks:</p><p className="whitespace-pre-wrap text-slate-800 pl-2">{project.Remarks}</p></div>}
+              {project.Conditional && <div><p className="font-semibold text-slate-600">Conditional:</p><p className="whitespace-pre-wrap text-slate-800 pl-2">{project.Conditional}</p></div>}
+            </div>
+          </div>
+        )}
+        {project.Quote && (
+          <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+            <h3 className="text-base font-semibold text-gray-800 mb-4 border-b pb-2">Documents</h3>
+            <div className="flex flex-wrap items-center gap-3">
+              <DetailItem label="Quote" value={project.Quote && <a href={extractUrlFromFormula(project.Quote)} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:text-brand-800 hover:underline">View File</a>} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
-  
+
   const renderActivitiesView = () => (
     <div className="flow-root">
       {relatedActivities.length > 0 ? (
@@ -288,10 +286,10 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
           </div>
           <div className="flex items-center gap-2">
             {calendarLink && (
-              <a 
-                href={calendarLink} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href={calendarLink}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 title="Add to Google Calendar"
                 className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors"

@@ -16,20 +16,24 @@ interface DataTableColumnToggleProps<TData> {
   allColumns: ColumnDef<TData>[];
   visibleColumns: Set<string>;
   onColumnToggle: (columnKey: string) => void;
+  trigger?: React.ReactNode;
 }
 
 export function DataTableColumnToggle<TData>({
   allColumns,
   visibleColumns,
   onColumnToggle,
+  trigger,
 }: DataTableColumnToggleProps<TData>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 flex gap-1.5 px-3">
-          <SlidersHorizontal className="h-4 w-4" />
-          <span className="hidden sm:inline">View</span>
-        </Button>
+        {trigger ? trigger : (
+          <Button variant="outline" size="sm" className="h-9 flex gap-1.5 px-3">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">View</span>
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[180px]">
         <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>

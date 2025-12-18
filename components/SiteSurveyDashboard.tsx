@@ -5,7 +5,7 @@ import DataTable, { ColumnDef } from './DataTable';
 import { parseDate, formatDateAsMDY } from '../utils/time';
 import NewSiteSurveyModal from './NewSiteSurveyModal';
 import { useNavigation } from '../contexts/NavigationContext';
-import { ExternalLink, Table, CalendarDays, MapPin, Clock, Search, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
+import { ExternalLink, Table, CalendarDays, MapPin, Clock, Search, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import AgendaView, { AgendaItem } from './AgendaView';
 import { DataTableColumnToggle } from './DataTableColumnToggle';
@@ -21,31 +21,31 @@ interface SiteSurveyDashboardProps {
 type ViewMode = 'table' | 'agenda';
 
 const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'table', label: 'Table', icon: <Table /> },
-    { id: 'agenda', label: 'Agenda', icon: <CalendarDays /> },
+  { id: 'table', label: 'Table', icon: <Table /> },
+  { id: 'agenda', label: 'Agenda', icon: <CalendarDays /> },
 ];
 
 const SITE_SURVEY_COLUMNS_VISIBILITY_KEY = 'limperial-site-survey-columns-visibility';
 
 const SiteSurveyMobileCard: React.FC<{ survey: SiteSurveyLog, onView: () => void }> = ({ survey, onView }) => (
-    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-        <div className="mobile-card-header">
-            <div>
-                <div className="mobile-card-title">{survey.Location}</div>
-                <div className="mobile-card-subtitle">{formatDateAsMDY(parseDate(survey.Date)!)}</div>
-            </div>
-        </div>
-        <div className="mobile-card-body">
-            <div className="mobile-card-row">
-                <span className="mobile-card-label">Time</span>
-                <span className="mobile-card-value">{survey['Start Time']} - {survey['End Time']}</span>
-            </div>
-             <div className="mobile-card-row">
-                <span className="mobile-card-label">Responsible By</span>
-                <span className="mobile-card-value">{survey['Responsible By']}</span>
-            </div>
-        </div>
+  <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+    <div className="mobile-card-header">
+      <div>
+        <div className="mobile-card-title">{survey.Location}</div>
+        <div className="mobile-card-subtitle">{formatDateAsMDY(parseDate(survey.Date)!)}</div>
+      </div>
     </div>
+    <div className="mobile-card-body">
+      <div className="mobile-card-row">
+        <span className="mobile-card-label">Time</span>
+        <span className="mobile-card-value">{survey['Start Time']} - {survey['End Time']}</span>
+      </div>
+      <div className="mobile-card-row">
+        <span className="mobile-card-label">Responsible By</span>
+        <span className="mobile-card-value">{survey['Responsible By']}</span>
+      </div>
+    </div>
+  </div>
 );
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
@@ -67,9 +67,9 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
     if (!searchQuery) return dataToFilter;
 
     return dataToFilter.filter(item =>
-        ['Location', 'Responsible By', 'Remark', 'Site ID'].some(key =>
-            String(item[key as keyof SiteSurveyLog] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-        )
+      ['Location', 'Responsible By', 'Remark', 'Site ID'].some(key =>
+        String(item[key as keyof SiteSurveyLog] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+      )
     );
   }, [surveyData, searchQuery]);
 
@@ -84,52 +84,52 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
 
   const allColumns = useMemo<ColumnDef<SiteSurveyLog>[]>(() => [
-    { 
-      accessorKey: 'Site ID', 
-      header: 'Site ID', 
+    {
+      accessorKey: 'Site ID',
+      header: 'Site ID',
       isSortable: true,
       cell: (value: string) => <div className="text-slate-600">{value}</div>
     },
-    { 
-      accessorKey: 'Location', 
-      header: 'Location', 
+    {
+      accessorKey: 'Location',
+      header: 'Location',
       isSortable: true,
       cell: (value: string) => <span className="font-semibold text-sm text-slate-800">{value}</span>
     },
-    { 
-      accessorKey: 'Responsible By', 
-      header: 'Responsible By', 
-      isSortable: true, 
+    {
+      accessorKey: 'Responsible By',
+      header: 'Responsible By',
+      isSortable: true,
       cell: (value: string) => <span className="font-medium text-slate-800">{value}</span>
     },
-    { 
-      accessorKey: 'Date', 
-      header: 'Date', 
+    {
+      accessorKey: 'Date',
+      header: 'Date',
       isSortable: true,
       cell: (value: string) => {
         const date = parseDate(value);
         return date ? formatDateAsMDY(date) : <span className="text-gray-400 italic">N/A</span>;
       }
     },
-    { 
-      accessorKey: 'Start Time', 
-      header: 'Start Time', 
+    {
+      accessorKey: 'Start Time',
+      header: 'Start Time',
       isSortable: true,
       cell: (value: string) => <span className="text-sm text-slate-800">{value}</span>
     },
-    { 
-      accessorKey: 'End Time', 
-      header: 'End Time', 
+    {
+      accessorKey: 'End Time',
+      header: 'End Time',
       isSortable: true,
       cell: (value: string) => <span className="text-sm text-slate-800">{value}</span>
     },
-    { 
-      accessorKey: 'Remark', 
-      header: 'Remark', 
-      isSortable: false, 
+    {
+      accessorKey: 'Remark',
+      header: 'Remark',
+      isSortable: false,
       cell: (value: string) => (
         <p className="line-clamp-2 max-w-md text-sm text-slate-800">
-            {value}
+          {value}
         </p>
       )
     },
@@ -137,19 +137,19 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-        const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                return new Set(parsed);
-            }
+      const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+          return new Set(parsed);
         }
+      }
     } catch (e) {
-        console.error("Failed to load visible columns from storage", e);
+      console.error("Failed to load visible columns from storage", e);
     }
     return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
   });
-  
+
   useEffect(() => {
     const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
@@ -191,109 +191,109 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
       </div>
     );
   }
-  
+
   const renderAgendaCard = (survey: SiteSurveyLog) => (
     <>
       <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-2 text-sm text-slate-600">
-          <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-slate-400"/>
-              <span className="font-medium">{survey.Location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-400"/>
-              <span>{survey['Start Time']} - {survey['End Time']}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-slate-400" />
+          <span className="font-medium">{survey.Location}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-slate-400" />
+          <span>{survey['Start Time']} - {survey['End Time']}</span>
+        </div>
       </div>
     </>
   );
 
-   if (isMobile) {
+  if (isMobile) {
     return (
-        <div className="h-full flex flex-col">
-             <div className="p-4 space-y-4">
-                <div className="mobile-search">
-                    <Search className="mobile-search-icon w-5 h-5" />
-                    <input
-                        type="text"
-                        className="mobile-search-input"
-                        placeholder="Search surveys..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-            </div>
-             <ScrollArea className="flex-1 px-4">
-                {loading ? <Spinner /> : filteredData.length > 0 ? (
-                    filteredData.map(survey => (
-                       <SiteSurveyMobileCard key={survey['Site ID']} survey={survey} onView={() => handleViewSurvey(survey)} />
-                    ))
-                ) : (
-                    <EmptyState>No surveys found.</EmptyState>
-                )}
-            </ScrollArea>
-             <NewSiteSurveyModal
-                isOpen={modalConfig.isOpen}
-                onClose={handleCloseModal}
-                existingData={modalConfig.survey}
-                initialReadOnly={modalConfig.isReadOnly}
+      <div className="h-full flex flex-col">
+        <div className="p-4 space-y-4">
+          <div className="mobile-search">
+            <Search className="mobile-search-icon w-5 h-5" />
+            <input
+              type="text"
+              className="mobile-search-input"
+              placeholder="Search surveys..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-       </div>
+          </div>
+        </div>
+        <ScrollArea className="flex-1 px-4">
+          {loading ? <Spinner /> : filteredData.length > 0 ? (
+            filteredData.map(survey => (
+              <SiteSurveyMobileCard key={survey['Site ID']} survey={survey} onView={() => handleViewSurvey(survey)} />
+            ))
+          ) : (
+            <EmptyState>No surveys found.</EmptyState>
+          )}
+        </ScrollArea>
+        <NewSiteSurveyModal
+          isOpen={modalConfig.isOpen}
+          onClose={handleCloseModal}
+          existingData={modalConfig.survey}
+          initialReadOnly={modalConfig.isReadOnly}
+        />
+      </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-       <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
+      <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
         <div className="flex items-center">
           <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
           <span className="ml-2 text-sm text-gray-500">surveys</span>
         </div>
         <div className="flex items-center gap-4 w-full sm:w-auto">
-            <div className="relative flex-grow">
-              <label htmlFor="survey-search" className="sr-only">Search</label>
-              <input
-                id="survey-search"
-                type="text"
-                placeholder="Search surveys..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+          <div className="relative flex-grow">
+            <label htmlFor="survey-search" className="sr-only">Search</label>
+            <input
+              id="survey-search"
+              type="text"
+              placeholder="Search surveys..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+            />
+            <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+          {viewMode === 'table' && (
+            <>
+              <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                  <ArrowRightToLine className="w-4 h-4" />
+                </button>
+                <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                  <WrapText className="w-4 h-4" />
+                </button>
+                <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                  <Scissors className="w-4 h-4" />
+                </button>
+              </div>
+              <DataTableColumnToggle
+                allColumns={allColumns}
+                visibleColumns={visibleColumns}
+                onColumnToggle={handleColumnToggle}
               />
-              <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
-            <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-            {viewMode === 'table' && (
-              <>
-                <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'overflow'} >
-                        <ArrowRightToLine className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'wrap'} >
-                        <WrapText className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${ cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700' }`} aria-pressed={cellWrapStyle === 'clip'} >
-                        <Scissors className="w-4 h-4" />
-                    </button>
-                </div>
-                <DataTableColumnToggle
-                  allColumns={allColumns}
-                  visibleColumns={visibleColumns}
-                  onColumnToggle={handleColumnToggle}
-                />
-              </>
-            )}
-            <button
-              onClick={handleOpenNewSurvey}
-              className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-            >
-              <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-              <span className="hidden sm:inline">New</span>
-            </button>
+            </>
+          )}
+          <button
+            onClick={handleOpenNewSurvey}
+            className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
+          >
+            <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+            <span className="hidden sm:inline">New</span>
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto bg-white">
-         {viewMode === 'table' ? (
+        {viewMode === 'table' ? (
           <div className="bg-white h-full">
             <DataTable
               tableId="site-survey-table"
@@ -304,18 +304,29 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
               initialSort={{ key: 'Date', direction: 'descending' }}
               mobilePrimaryColumns={['Date', 'Location', 'Responsible By']}
               cellWrapStyle={cellWrapStyle}
+              renderRowActions={(row) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModalConfig({ survey: row, isReadOnly: false, isOpen: true });
+                  }}
+                  className="p-2 text-slate-400 hover:text-brand-600 transition"
+                >
+                  <Pencil size={16} />
+                </button>
+              )}
             />
           </div>
-         ) : (
-           <AgendaView<SiteSurveyLog>
-              items={agendaItems}
-              onItemClick={handleViewSurvey}
-              renderCardContent={renderAgendaCard}
-              loading={loading}
-           />
-         )}
+        ) : (
+          <AgendaView<SiteSurveyLog>
+            items={agendaItems}
+            onItemClick={handleViewSurvey}
+            renderCardContent={renderAgendaCard}
+            loading={loading}
+          />
+        )}
       </div>
-      
+
       <NewSiteSurveyModal
         isOpen={modalConfig.isOpen}
         onClose={handleCloseModal}

@@ -23,6 +23,7 @@ interface DataTableProps<T extends object> {
   highlightedCheck?: (row: T) => boolean;
   mobilePrimaryColumns: (keyof T)[];
   cellWrapStyle?: 'overflow' | 'wrap' | 'clip';
+  renderRowActions?: (row: T) => React.ReactNode;
 }
 
 const DOTS = '...';
@@ -141,6 +142,7 @@ function DataTable<T extends object>({
   highlightedCheck,
   mobilePrimaryColumns,
   cellWrapStyle = 'overflow',
+  renderRowActions,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
@@ -149,36 +151,36 @@ function DataTable<T extends object>({
   const [expandedRows, setExpandedRows] = useState(new Set<number>());
   const { width } = useWindowSize();
   const isMobile = width < 768; // Tailwind's `md` breakpoint
-  
+
   const wrapClass = useMemo(() => {
     switch (cellWrapStyle) {
-        case 'wrap':
-            return 'whitespace-normal break-words';
-        case 'clip':
-            return 'overflow-clip';
-        case 'overflow':
-        default:
-            return 'truncate';
+      case 'wrap':
+        return 'whitespace-normal break-words';
+      case 'clip':
+        return 'overflow-clip';
+      case 'overflow':
+      default:
+        return 'truncate';
     }
   }, [cellWrapStyle]);
 
   const toggleRowExpansion = (index: number) => {
     setExpandedRows(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(index)) {
-            newSet.delete(index);
-        } else {
-            newSet.add(index);
-        }
-        return newSet;
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
     });
   };
 
   const handleRowClick = (item: T, index: number) => {
     if (isMobile) {
-        toggleRowExpansion(index);
+      toggleRowExpansion(index);
     } else if (onRowClick) {
-        onRowClick(item);
+      onRowClick(item);
     }
   };
 
@@ -241,9 +243,9 @@ function DataTable<T extends object>({
     }
     return sortableItems;
   }, [data, sortConfig]);
-  
+
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-  
+
   const paginationRange = usePagination({
     currentPage,
     totalCount: sortedData.length,
@@ -264,76 +266,82 @@ function DataTable<T extends object>({
     setSortConfig({ key, direction });
     setCurrentPage(1);
   };
-  
+
   const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setItemsPerPage(Number(e.target.value));
   };
-  
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, sortedData.length);
-  
+
   const emptyRowsToRender = itemsPerPage - paginatedData.length;
-  
+
   return (
     <>
       <div className="responsive-table">
         {loading ? (
-            <TableSkeleton columns={columns.length} rows={itemsPerPage} />
+          <TableSkeleton columns={columns.length + (renderRowActions ? 1 : 0)} rows={itemsPerPage} />
         ) : (
-            <table ref={tableRef} className="w-full text-sm text-left text-gray-500 min-w-[640px] table-fixed md:border-l md:border-t md:border-slate-200" aria-busy={loading}>
+          <table ref={tableRef} className="w-full text-sm text-left text-gray-500 min-w-[640px] table-fixed md:border-l md:border-t md:border-slate-200" aria-busy={loading}>
             <colgroup>
-                {columns.map(col => (
-                    <col
-                    key={String(col.accessorKey)}
-                    data-col-key={String(col.accessorKey)}
-                    style={{ width: columnWidths[String(col.accessorKey)] ? `${columnWidths[String(col.accessorKey)]}px` : undefined }}
-                    />
-                ))}
+              {columns.map(col => (
+                <col
+                  key={String(col.accessorKey)}
+                  data-col-key={String(col.accessorKey)}
+                  style={{ width: columnWidths[String(col.accessorKey)] ? `${columnWidths[String(col.accessorKey)]}px` : undefined }}
+                />
+              ))}
+              {renderRowActions && (
+                <col style={{ width: '120px' }} />
+              )}
             </colgroup>
             <thead className="bg-brand-600 sticky top-0 z-10">
-                <tr>
+              <tr>
                 {columns.map(col => (
-                    <th 
-                        key={String(col.accessorKey)} 
-                        scope="col" 
-                        className={`pl-6 pr-4 py-3 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:[&:not(:last-child)]:border-brand-700/50 transition-colors ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''}`}
-                        aria-sort={sortConfig.key === col.accessorKey ? sortConfig.direction : 'none'}
+                  <th
+                    key={String(col.accessorKey)}
+                    scope="col"
+                    className={`pl-6 pr-4 py-3 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:[&:not(:last-child)]:border-brand-700/50 transition-colors ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''}`}
+                    aria-sort={sortConfig.key === col.accessorKey ? sortConfig.direction : 'none'}
+                  >
+                    <div className="truncate">
+                      {col.isSortable ? (
+                        <button onClick={() => handleSort(col.accessorKey)} className={`group flex items-center transition-colors ${sortConfig.key === col.accessorKey ? 'text-white font-semibold' : 'hover:text-white'}`}>
+                          {col.header}
+                          <ArrowUpDown
+                            className={`w-4 h-4 ml-1.5 transition-colors ${sortConfig.key === col.accessorKey ? 'text-white' : 'text-white/50 group-hover:text-white'}`}
+                          />
+                        </button>
+                      ) : (
+                        col.header
+                      )}
+                    </div>
+                    <div
+                      onMouseDown={(e) => handleMouseDown(e, String(col.accessorKey))}
+                      onDoubleClick={() => autoFitColumn(String(col.accessorKey))}
+                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize z-20"
+                      title="Resize column (double-click to auto-fit)"
                     >
-                        <div className="truncate">
-                            {col.isSortable ? (
-                                <button onClick={() => handleSort(col.accessorKey)} className={`group flex items-center transition-colors ${sortConfig.key === col.accessorKey ? 'text-white font-semibold' : 'hover:text-white'}`}>
-                                {col.header}
-                                <ArrowUpDown
-                                  className={`w-4 h-4 ml-1.5 transition-colors ${sortConfig.key === col.accessorKey ? 'text-white' : 'text-white/50 group-hover:text-white'}`}
-                                />
-                                </button>
-                            ) : (
-                                col.header
-                            )}
-                        </div>
-                        <div 
-                            onMouseDown={(e) => handleMouseDown(e, String(col.accessorKey))}
-                            onDoubleClick={() => autoFitColumn(String(col.accessorKey))}
-                            className="absolute top-0 right-0 h-full w-2 cursor-col-resize z-20"
-                            title="Resize column (double-click to auto-fit)"
-                        >
-                            <div className={`w-0.5 h-full mx-auto transition-colors duration-200 
+                      <div className={`w-0.5 h-full mx-auto transition-colors duration-200 
                                 ${resizingColumn === String(col.accessorKey)
-                                ? 'bg-brand-300' 
-                                : 'bg-transparent group-hover:bg-brand-400'
-                                }`}
-                            ></div>
-                        </div>
-                    </th>
+                          ? 'bg-brand-300'
+                          : 'bg-transparent group-hover:bg-brand-400'
+                        }`}
+                      ></div>
+                    </div>
+                  </th>
                 ))}
-                </tr>
+                {renderRowActions && (
+                  <th scope="col" className="sticky right-0 top-0 z-20 bg-brand-600 border-none w-[120px]"></th>
+                )}
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 md:divide-y-0">
-                {paginatedData.length > 0 ? (
+              {paginatedData.length > 0 ? (
                 <>
                   {paginatedData.map((item, index) => {
                     const globalIndex = startIndex + index;
@@ -342,16 +350,15 @@ function DataTable<T extends object>({
                     return (
                       <tr
                         key={globalIndex}
-                        className={`${
-                            isHighlighted 
-                            ? 'is-highlighted' 
-                            : 'md:even:bg-slate-50 bg-white'
-                        } md:hover:bg-sky-50 transition-colors duration-200 ${onRowClick || isMobile ? 'cursor-pointer' : ''} ${isExpanded ? 'is-expanded' : ''}`}
+                        className={`${isHighlighted
+                          ? 'is-highlighted'
+                          : 'md:even:bg-slate-50 bg-white'
+                          } md:hover:bg-sky-50 group transition-colors duration-200 ${onRowClick || isMobile ? 'cursor-pointer' : ''} ${isExpanded ? 'is-expanded' : ''}`}
                         onClick={() => handleRowClick(item, globalIndex)}
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(item, globalIndex)}
                         tabIndex={onRowClick || isMobile ? 0 : -1}
                       >
-                      {columns.map((col) => {
+                        {columns.map((col) => {
                           const isSecondaryOnMobile = isMobile && !mobilePrimaryColumns.includes(col.accessorKey);
                           const cellClass = `
                             px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-slate-200 
@@ -359,89 +366,108 @@ function DataTable<T extends object>({
                             ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}
                           `;
                           return (
-                          <td 
-                              key={String(col.accessorKey)} 
+                            <td
+                              key={String(col.accessorKey)}
                               className={cellClass}
                               data-label={col.header}
+                            >
+                              <div className={`font-medium ${wrapClass}`}>
+                                {col.cell ? col.cell(item[col.accessorKey], item) : String(item[col.accessorKey] ?? '')}
+                              </div>
+                            </td>
+                          )
+                        })}
+                        {renderRowActions && (
+                          <td
+                            className={`
+                              sticky right-0 z-10 w-[120px] px-2 py-4 border-none transition-colors duration-200
+                              ${isHighlighted ? 'bg-amber-50' : 'bg-slate-50 md:bg-slate-50'}
+                              md:group-hover:bg-slate-100 group-hover:bg-slate-100
+                            `}
                           >
-                            <div className={`font-medium ${wrapClass}`}>
-                                  {col.cell ? col.cell(item[col.accessorKey], item) : String(item[col.accessorKey] ?? '')}
+                            <div className="flex items-center justify-center">
+                              {renderRowActions(item)}
                             </div>
                           </td>
-                      )})}
+                        )}
                       </tr>
                     )
                   })}
                   {emptyRowsToRender > 0 && Array.from({ length: emptyRowsToRender }).map((_, index) => (
                     <tr key={`empty-${index}`} className="hidden md:table-row">
-                        {columns.map(col => (
-                            <td key={`empty-${index}-${String(col.accessorKey)}`} className="px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-slate-200">
-                                &nbsp;
-                            </td>
-                        ))}
+                      {columns.map(col => (
+                        <td key={`empty-${index}-${String(col.accessorKey)}`} className="px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-slate-200">
+                          &nbsp;
+                        </td>
+                      ))}
+                      {renderRowActions && (
+                        <td className="sticky right-0 z-10 w-[120px] px-2 py-4 border-none bg-slate-50 md:bg-slate-50">
+                          &nbsp;
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </>
-                ) : (
+              ) : (
                 <tr>
-                    <td colSpan={columns.length}>
-                       <EmptyState illustration={<ClipboardList className="w-16 h-16 text-slate-300" />} />
-                    </td>
+                  <td colSpan={columns.length}>
+                    <EmptyState illustration={<ClipboardList className="w-16 h-16 text-slate-300" />} />
+                  </td>
                 </tr>
-                )}
+              )}
             </tbody>
-            </table>
+          </table>
         )}
       </div>
 
       {!loading && sortedData.length > 0 && (
         <div className="p-4 sm:px-6 sm:py-3 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 border-t border-slate-200/70">
-            <div className="flex items-center gap-4 text-sm text-gray-700">
-                <div className="flex items-center gap-2">
-                    <label htmlFor="rows-per-page" className="whitespace-nowrap font-medium">Rows per page:</label>
-                    <select
-                        id="rows-per-page"
-                        value={itemsPerPage}
-                        onChange={handleItemsPerPageChange}
-                        className="bg-slate-50 border border-slate-200 rounded-md p-1.5 text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
-                    >
-                        {[10, 20, 50, 100].map(size => (
-                            <option key={size} value={size}>{size}</option>
-                        ))}
-                    </select>
-                </div>
-                <span className="hidden lg:block font-medium">
-                    Showing <span className="font-bold">{startIndex + 1}</span>-<span className="font-bold">{endIndex}</span> of <span className="font-bold">{sortedData.length}</span>
-                </span>
+          <div className="flex items-center gap-4 text-sm text-gray-700">
+            <div className="flex items-center gap-2">
+              <label htmlFor="rows-per-page" className="whitespace-nowrap font-medium">Rows per page:</label>
+              <select
+                id="rows-per-page"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="bg-slate-50 border border-slate-200 rounded-md p-1.5 text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
+              >
+                {[10, 20, 50, 100].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
             </div>
-            
-            <nav className="flex items-center gap-1" aria-label="Table navigation">
-                <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-slate-600" /></button>
-                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-                
-                <div className="flex items-center gap-1 px-2">
-                {paginationRange.map((page, index) => {
-                    if (page === DOTS) {
-                        return <span key={index} className="px-2 py-1 text-sm text-slate-500" aria-hidden="true">...</span>
-                    }
-                    const pageNumber = page as number;
-                    const isActive = pageNumber === currentPage;
-                    return (
-                        <button
-                            key={index}
-                            onClick={() => handlePageChange(pageNumber)}
-                            className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-brand-100 text-brand-700' : 'hover:bg-slate-100 text-slate-600'}`}
-                            aria-current={isActive ? 'page' : undefined}
-                        >
-                            {pageNumber}
-                        </button>
-                    )
-                })}
-                </div>
+            <span className="hidden lg:block font-medium">
+              Showing <span className="font-bold">{startIndex + 1}</span>-<span className="font-bold">{endIndex}</span> of <span className="font-bold">{sortedData.length}</span>
+            </span>
+          </div>
 
-                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
-                <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-slate-600" /></button>
-            </nav>
+          <nav className="flex items-center gap-1" aria-label="Table navigation">
+            <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-slate-600" /></button>
+            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
+
+            <div className="flex items-center gap-1 px-2">
+              {paginationRange.map((page, index) => {
+                if (page === DOTS) {
+                  return <span key={index} className="px-2 py-1 text-sm text-slate-500" aria-hidden="true">...</span>
+                }
+                const pageNumber = page as number;
+                const isActive = pageNumber === currentPage;
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handlePageChange(pageNumber)}
+                    className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-brand-100 text-brand-700' : 'hover:bg-slate-100 text-slate-600'}`}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    {pageNumber}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
+            <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-slate-600" /></button>
+          </nav>
         </div>
       )}
     </>

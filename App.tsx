@@ -26,6 +26,7 @@ const MeetingDashboard = lazy(() => import('./components/MeetingDashboard'));
 const QuotationDashboard = lazy(() => import('./components/QuotationDashboard'));
 const SaleOrderDashboard = lazy(() => import('./components/SaleOrderDashboard'));
 const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'));
+const InvoiceDODashboard = lazy(() => import('./components/InvoiceDODashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
@@ -42,13 +43,13 @@ const AuthenticatedLayout: React.FC = () => {
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false); // For desktop collapse
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
-        const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
-        if (savedWidth) {
-            const parsedWidth = parseInt(savedWidth, 10);
-            return Math.max(SIDEBAR_MIN_WIDTH, Math.min(parsedWidth, SIDEBAR_MAX_WIDTH));
-        }
+      const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+      if (savedWidth) {
+        const parsedWidth = parseInt(savedWidth, 10);
+        return Math.max(SIDEBAR_MIN_WIDTH, Math.min(parsedWidth, SIDEBAR_MAX_WIDTH));
+      }
     } catch (error) {
-        console.error('Failed to parse sidebar width from localStorage', error);
+      console.error('Failed to parse sidebar width from localStorage', error);
     }
     return SIDEBAR_INITIAL_WIDTH;
   });
@@ -78,9 +79,9 @@ const AuthenticatedLayout: React.FC = () => {
   const handleMouseUp = useCallback(() => {
     setIsResizing(false);
     try {
-        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidthRef.current));
+      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidthRef.current));
     } catch (error) {
-        console.error('Failed to save sidebar width to localStorage', error);
+      console.error('Failed to save sidebar width to localStorage', error);
     }
   }, []);
 
@@ -94,7 +95,7 @@ const AuthenticatedLayout: React.FC = () => {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
-  
+
   useEffect(() => {
     if (isResizing) {
       document.body.style.cursor = 'col-resize';
@@ -111,7 +112,7 @@ const AuthenticatedLayout: React.FC = () => {
 
 
   const closeSidebar = () => setSidebarOpen(false);
-  
+
   const handleToggleCollapse = () => setSidebarCollapsed(prev => !prev);
 
   const handleNavWithSidebar = (nav: NavigationState) => {
@@ -134,11 +135,13 @@ const AuthenticatedLayout: React.FC = () => {
       case 'meetings':
         return <MeetingDashboard initialFilter={navigation.filter} />;
       case 'quotations':
-        return <QuotationDashboard />;
+        return <QuotationDashboard initialPayload={navigation.payload} />;
       case 'sale-orders':
-        return <SaleOrderDashboard quotationForSO={navigation.payload as Quotation | undefined} />;
+        return <SaleOrderDashboard initialPayload={navigation.payload} />;
       case 'pricelist':
         return <PricelistDashboard />;
+      case 'invoice-do':
+        return <InvoiceDODashboard initialPayload={navigation.payload} />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -146,8 +149,8 @@ const AuthenticatedLayout: React.FC = () => {
   };
 
   const customLayoutViews = [
-    'projects', 'companies', 'contacts', 'contact-logs', 
-    'site-surveys', 'meetings', 'pricelist', 'quotations', 'sale-orders',
+    'projects', 'companies', 'contacts', 'contact-logs',
+    'site-surveys', 'meetings', 'pricelist', 'quotations', 'sale-orders', 'invoice-do',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);
@@ -171,19 +174,19 @@ const AuthenticatedLayout: React.FC = () => {
             aria-hidden="true"
           ></div>
         )}
-         <Sidebar
+        <Sidebar
           isSidebarOpen={isSidebarOpen}
           width={280} // Fixed width for mobile drawer
           isResizing={false}
           isCollapsed={false} // Never collapsed on mobile drawer
-          onToggleCollapse={() => {}} // Not used on mobile
+          onToggleCollapse={() => { }} // Not used on mobile
           onNavigate={handleNavWithSidebar}
-          onResizeMouseDown={() => {}}
-          onResizeDoubleClick={() => {}}
+          onResizeMouseDown={() => { }}
+          onResizeDoubleClick={() => { }}
         />
         <main className="mobile-content">
           <Suspense fallback={<ContentSkeleton />}>
-            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload?.['Quote No.'] ?? ''}`}>
+            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload ? JSON.stringify(navigation.payload).slice(0, 50) : ''}`}>
               {renderContent()}
             </div>
           </Suspense>
@@ -209,13 +212,13 @@ const AuthenticatedLayout: React.FC = () => {
 
       <div className={`flex-1 flex flex-col transition-[margin] duration-300 ease-in-out ml-[var(--sidebar-width)]`}>
         <Header
-          onMenuClick={() => {}} // Not used on desktop
+          onMenuClick={() => { }} // Not used on desktop
           isSidebarOpen={false}
           isMobile={false}
         />
-        <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-auto'} ${useDefaultLayout ? 'p-4 md:p-6 lg:p-8' : ''}`}>
+        <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultLayout ? 'p-4 md:p-6 lg:p-8' : ''}`}>
           <Suspense fallback={<ContentSkeleton />}>
-            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload?.['Quote No.'] ?? ''}`} className={`${needsConstrainedHeight ? 'h-full' : ''}`}>
+            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload ? JSON.stringify(navigation.payload).slice(0, 50) : ''}`} className={`${needsConstrainedHeight ? 'h-full' : ''}`}>
               {renderContent()}
             </div>
           </Suspense>

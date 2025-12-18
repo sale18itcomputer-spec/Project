@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useId, useMemo } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, Check } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 
 interface SearchableSelectProps {
@@ -43,11 +43,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     }, []);
 
     const filteredOptions = useMemo(() => {
-        if (!searchTerm) {
-            return options;
-        }
+        const search = searchTerm.toLowerCase();
+        if (!search) return options;
         return options.filter(option =>
-            option.toLowerCase().includes(searchTerm.toLowerCase())
+            option.toLowerCase().includes(search)
         );
     }, [options, searchTerm]);
 
@@ -59,33 +58,27 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
-        if (!isOpen) {
-            setIsOpen(true);
-        }
-        // If user clears input, clear selection
+        if (!isOpen) setIsOpen(true);
         if (e.target.value === '') {
             onChange('');
         }
     };
-    
-    const handleInputClick = () => {
-        setIsOpen(true);
-    }
-    
+
     // Display the selected value in the input when the dropdown is closed
     const displayValue = isOpen ? searchTerm : value;
 
     return (
-        <div className="flex flex-col" ref={wrapperRef}>
-            <div className="flex justify-between items-baseline mb-1.5">
-                <label htmlFor={name} className="block text-sm font-medium text-slate-600">
+        <div className="flex flex-col relative" ref={wrapperRef}>
+            <div className="flex justify-between items-center mb-2 px-0.5">
+                <label htmlFor={name} className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">
                     {label}{required && <span className="text-rose-500 ml-1">*</span>}
                 </label>
                 {actionButton}
             </div>
-            <div className="relative">
+
+            <div className={`relative group transition-all duration-300 ${isOpen ? 'z-30' : 'z-10'}`}>
                 <div className="relative">
-                    <Search className="h-4 w-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Search className={`h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${isOpen ? 'text-brand-500' : 'text-slate-400'}`} />
                     <input
                         ref={inputRef}
                         type="text"
@@ -93,44 +86,62 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         id={name}
                         value={displayValue}
                         onChange={handleInputChange}
-                        onClick={handleInputClick}
-                        required={required && !value} // make it required only if no value is selected
+                        onClick={() => setIsOpen(true)}
+                        onFocus={() => setIsOpen(true)}
+                        required={required && !value}
                         placeholder={placeholder}
                         disabled={disabled}
                         autoComplete="off"
-                        className={`block w-full px-3.5 pl-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg placeholder-slate-400 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 ${disabled ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'hover:border-slate-300'}`}
+                        className={`
+                            block w-full px-10 py-3 bg-white border rounded-xl sm:text-sm
+                            transition-all duration-200 shadow-sm
+                            ${isOpen
+                                ? 'border-brand-500 ring-4 ring-brand-500/10 bg-white'
+                                : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'}
+                            ${disabled ? 'bg-slate-100 text-slate-500 cursor-not-allowed opacity-60' : 'cursor-text'}
+                        `}
                         role="combobox"
                         aria-expanded={isOpen}
                         aria-controls={listId}
                     />
-                     <ChevronDown className={`h-4 w-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-4 w-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-300 ${isOpen ? 'rotate-180 text-brand-500' : ''}`} />
                 </div>
+
                 {isOpen && !disabled && (
                     <div
                         id={listId}
                         role="listbox"
-                        className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 max-h-60 overflow-hidden"
+                        className="absolute w-full mt-2 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
                     >
-                        <ScrollArea className="h-full">
-                            <ul>
+                        <ScrollArea className="max-h-[280px]">
+                            <div className="p-2 space-y-1">
                                 {filteredOptions.length > 0 ? (
                                     filteredOptions.map(option => (
-                                        <li
+                                        <button
                                             key={option}
+                                            type="button"
                                             onClick={() => handleSelect(option)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSelect(option)}
-                                            role="option"
-                                            aria-selected={value === option}
-                                            tabIndex={0}
-                                            className="px-4 py-2 text-sm text-slate-800 cursor-pointer hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+                                            className={`
+                                                w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150
+                                                ${value === option
+                                                    ? 'bg-brand-50 text-brand-700 font-semibold'
+                                                    : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'}
+                                            `}
                                         >
-                                            {option}
-                                        </li>
+                                            <span className="truncate">{option}</span>
+                                            {value === option && (
+                                                <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />
+                                            )}
+                                        </button>
                                     ))
                                 ) : (
-                                    <li className="px-4 py-2 text-sm text-slate-500 italic">No options found.</li>
+                                    <div className="px-4 py-8 text-center">
+                                        <Search className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                                        <p className="text-sm text-slate-500 font-medium">No results for "{searchTerm}"</p>
+                                        <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+                                    </div>
                                 )}
-                            </ul>
+                            </div>
                         </ScrollArea>
                     </div>
                 )}
