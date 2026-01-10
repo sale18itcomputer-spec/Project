@@ -176,6 +176,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const [showPdfConfig, setShowPdfConfig] = useState(false);
     const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
+    const [showPdfPreview, setShowPdfPreview] = useState(false);
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
     const [hoveredPath, setHoveredPath] = useState<string | null>(null);
@@ -957,6 +958,16 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 border-r border-slate-200 pr-3 mr-1">
                 <button
+                    onClick={() => setShowPdfPreview(!showPdfPreview)}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${showPdfPreview ? 'bg-slate-100 text-slate-900 shadow-inner' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 shadow-sm'}`}
+                    title="Toggle PDF Preview"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="hidden lg:inline">{showPdfPreview ? 'Hide PDF' : 'PDF'}</span>
+                </button>
+                <button
                     onClick={() => setShowLayoutControls(!showLayoutControls)}
                     className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${showLayoutControls ? 'bg-slate-100 text-slate-900 shadow-inner' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 shadow-sm'}`}
                     title="Toggle Layout Controls"
@@ -1219,40 +1230,97 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                             </ScrollArea>
                         </div>
 
-                        {/* Center: PDF Preview */}
-                        <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-                            <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-gray-800">PDF Layout Preview</h3>
-                                        <p className="text-[10px] text-gray-500">{saleOrder['SO No.'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
+                        {/* Center: PDF Preview OR Pricelist */}
+                        {showPdfPreview ? (
+                            <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-800">PDF Layout Preview</h3>
+                                            <p className="text-[10px] text-gray-500">{saleOrder['SO No.'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-xs text-slate-500 font-medium px-2">Real-time Preview</div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="text-xs text-slate-500 font-medium px-2">Real-time Preview</div>
-                                </div>
-                            </div>
 
-                            <div className="flex-1 flex flex-col items-center justify-center bg-slate-100/50 relative overflow-hidden p-6">
-                                {pdfPreviewUrl ? (
-                                    <iframe
-                                        src={pdfPreviewUrl}
-                                        className="w-full h-full border-none shadow-lg rounded-lg bg-white"
-                                        title="PDF Preview"
-                                    />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                                        <Spinner size="sm" />
-                                        <span>Generating Preview...</span>
-                                    </div>
-                                )}
+                                <div className="flex-1 flex flex-col items-center justify-center bg-slate-100/50 relative overflow-hidden p-6">
+                                    {pdfPreviewUrl ? (
+                                        <iframe
+                                            src={pdfPreviewUrl}
+                                            className="w-full h-full border-none shadow-lg rounded-lg bg-white"
+                                            title="PDF Preview"
+                                        />
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-3 text-slate-400">
+                                            <Spinner size="sm" />
+                                            <span>Generating Preview...</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col bg-white relative overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"></div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-800">Pricelist Reference</h3>
+                                            <p className="text-[10px] text-gray-500">{pricelist?.length || 0} items available</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 sticky top-0 z-10">
+                                            <tr className="border-b border-slate-200">
+                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Code</th>
+                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Brand</th>
+                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Model</th>
+                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Description</th>
+                                                <th className="px-4 py-2 text-right font-semibold text-slate-700">Unit Price</th>
+                                                <th className="px-4 py-2 text-center font-semibold text-slate-700">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {pricelist && pricelist.length > 0 ? (
+                                                pricelist.map((item, index) => (
+                                                    <tr key={item.Code || index} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                                        <td className="px-4 py-2 text-slate-600 font-mono text-xs">{item.Code}</td>
+                                                        <td className="px-4 py-2 text-slate-700">{item.Brand}</td>
+                                                        <td className="px-4 py-2 text-slate-800 font-medium">{item.Model}</td>
+                                                        <td className="px-4 py-2 text-slate-600 text-xs max-w-md truncate">{item.Description}</td>
+                                                        <td className="px-4 py-2 text-right text-slate-800 font-semibold">{item['End User Price']}</td>
+                                                        <td className="px-4 py-2 text-center">
+                                                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${item.Status === 'Available' ? 'bg-green-100 text-green-700' :
+                                                                    item.Status === 'Out of Stock' ? 'bg-red-100 text-red-700' :
+                                                                        'bg-yellow-100 text-yellow-700'
+                                                                }`}>
+                                                                {item.Status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                                                        No pricelist items available
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                    <div className={`bg-white transition-all duration-300 ease-in-out flex flex-col ${showFormPanel ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'
+                        } ${showPdfPreview ? 'border-l border-gray-200 flex-shrink-0 w-[500px]' : 'flex-1 max-w-4xl mx-auto'
+                        }`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-white">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 bg-blue-500 rounded-full"></div>

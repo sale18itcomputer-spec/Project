@@ -327,10 +327,21 @@ const DashboardContent: React.FC = () => {
     const getQuarter = (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`;
 
     const aggregation = relevantSaleOrders.reduce((acc, so) => {
-      const value = parseSheetValue(so['Total Amount']);
+      const totalAmount = parseSheetValue(so['Total Amount']);
+      const taxAmount = parseSheetValue(so['Tax']);
       const dateStr = so['SO Date'];
 
-      if (value > 0 && dateStr) {
+      // Calculate subtotal by subtracting VAT from total
+      // If Tax field is available, use it; otherwise calculate 10% VAT if Bill Invoice is VAT
+      let subtotal = totalAmount;
+      if (taxAmount > 0) {
+        subtotal = totalAmount - taxAmount;
+      } else if (so['Bill Invoice'] === 'VAT' && totalAmount > 0) {
+        // If no tax field but it's a VAT invoice, calculate subtotal by dividing by 1.1
+        subtotal = totalAmount / 1.1;
+      }
+
+      if (subtotal > 0 && dateStr) {
         const date = parseDate(dateStr);
         if (date) {
           let key = '';
@@ -352,7 +363,8 @@ const DashboardContent: React.FC = () => {
             if (!acc[key]) {
               acc[key] = { winValue: 0, projectCount: 0 };
             }
-            acc[key].winValue += value;
+            // Keep exact decimal precision - don't round
+            acc[key].winValue += subtotal;
             acc[key].projectCount += 1;
           }
         }
