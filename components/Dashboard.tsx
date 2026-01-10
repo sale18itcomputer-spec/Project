@@ -59,7 +59,7 @@ const DashboardContent: React.FC = () => {
   const { currentUser } = useAuth();
   const { filters } = useFilter();
   const [renderStep, setRenderStep] = useState(0);
-  const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
   const { width } = useWindowSize();
   const isMobile = width < 768;

@@ -97,7 +97,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         return undefined;
     });
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
     const [selectedSaleOrderId, setSelectedSaleOrderId] = useState<string | null>(null);

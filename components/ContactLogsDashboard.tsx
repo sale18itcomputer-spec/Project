@@ -66,7 +66,7 @@ const ContactLogMobileCard: React.FC<{ log: ContactLog, onView: () => void }> = 
 const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
   const { contactLogs, setContactLogs, loading, error } = useData();
   const { users } = useAuth();
-  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: true });
+  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');

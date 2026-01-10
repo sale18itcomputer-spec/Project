@@ -50,7 +50,7 @@ const SiteSurveyMobileCard: React.FC<{ survey: SiteSurveyLog, onView: () => void
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
   const { siteSurveys: surveyData, loading, error } = useData();
-  const [modalConfig, setModalConfig] = useState<{ survey: SiteSurveyLog | null, isReadOnly: boolean, isOpen: boolean }>({ survey: null, isReadOnly: false, isOpen: true });
+  const [modalConfig, setModalConfig] = useState<{ survey: SiteSurveyLog | null, isReadOnly: boolean, isOpen: boolean }>({ survey: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
