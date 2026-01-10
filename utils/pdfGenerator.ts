@@ -362,15 +362,33 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
             const unitPriceStr = `${symbol}   ${displayUnitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             const amountStr = `${symbol}   ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
-            tableData.push([
-                item.no,
-                item.itemCode,
-                item.modelName || "",
-                item.qty,
-                unitPriceStr,
-                amountStr
-            ]);
-            if (item.description) tableData.push(["", "", item.description, "", "", ""]);
+            // For Sale Order: combine model name and description in the same row
+            // For Quotation: keep model name and description on separate rows
+            if (type === 'Sale Order') {
+                const combinedDescription = item.modelName
+                    ? (item.description ? `${item.modelName} - ${item.description}` : item.modelName)
+                    : (item.description || "");
+
+                tableData.push([
+                    item.no,
+                    item.itemCode,
+                    combinedDescription,
+                    item.qty,
+                    unitPriceStr,
+                    amountStr
+                ]);
+            } else {
+                // Quotation: separate rows for model and description
+                tableData.push([
+                    item.no,
+                    item.itemCode,
+                    item.modelName || "",
+                    item.qty,
+                    unitPriceStr,
+                    amountStr
+                ]);
+                if (item.description) tableData.push(["", "", item.description, "", "", ""]);
+            }
         }
     });
 
@@ -395,7 +413,7 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
             lineWidth: 0.1,
             lineColor: [0, 0, 0],
             minCellHeight: 7,
-            valign: 'top'
+            valign: 'middle'
         },
         columnStyles: isDO ? {
             0: { halign: 'center', cellWidth: layout.table.columnWidths.no },
