@@ -11,11 +11,11 @@ import { limperialTheme } from './charts/echartsTheme';
 echarts.registerTheme('limperial', limperialTheme);
 
 const getStatusColor = (status: string) => {
-    const s = status.toLowerCase();
-    if (s.includes('win')) return '#10b981'; // emerald-500
-    if (s.includes('quote submitted')) return '#0ea5e9'; // sky-500
-    if (s.includes('lose')) return '#f43f5e'; // rose-500
-    return '#94a3b8'; // slate-400
+  const s = status.toLowerCase();
+  if (s.includes('win')) return '#10b981'; // emerald-500
+  if (s.includes('quote submitted')) return '#0ea5e9'; // sky-500
+  if (s.includes('lose')) return '#f43f5e'; // rose-500
+  return '#94a3b8'; // slate-400
 };
 
 interface ProjectOutcomeChartProps {
@@ -48,17 +48,17 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
 
   const onEvents = {
     'click': (params: any) => {
-        if (params.name) {
-            const clickedStatus = params.name;
-            const currentStatusFilter = (filters.status || []) as string[];
-            
-            // If the clicked status is the only one in the filter, clear the filter. Otherwise, set it.
-            if (currentStatusFilter.length === 1 && currentStatusFilter[0] === clickedStatus) {
-                setFilter('status', []); // Clear filter
-            } else {
-                setFilter('status', [clickedStatus]); // Set filter
-            }
+      if (params.name) {
+        const clickedStatus = params.name;
+        const currentStatusFilter = (filters.status || []) as string[];
+
+        // If the clicked status is the only one in the filter, clear the filter. Otherwise, set it.
+        if (currentStatusFilter.length === 1 && currentStatusFilter[0] === clickedStatus) {
+          setFilter('status', []); // Clear filter
+        } else {
+          setFilter('status', [clickedStatus]); // Set filter
         }
+      }
     }
   };
 
@@ -87,16 +87,16 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
       }
     },
     toolbox: {
-        show: true,
-        orient: 'vertical',
-        left: 'right',
-        top: 'center',
-        feature: {
-          mark: { show: true },
-          dataView: { show: true, readOnly: false, title: "Data View" },
-          restore: { show: true, title: "Restore" },
-          saveAsImage: { show: true, title: "Save Image" }
-        }
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        dataView: { show: true, readOnly: false, title: "Data View" },
+        restore: { show: true, title: "Restore" },
+        saveAsImage: { show: true, title: "Save Image" }
+      }
     },
     title: {
       text: totalProjects.toString(),
@@ -104,7 +104,7 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
       left: 'center',
       top: isMobile ? '35%' : 'center',
       textStyle: { fontSize: isMobile ? 24 : 32, fontWeight: 'bold' },
-      subtextStyle: { fontSize: isMobile ? 12: 14, color: '#6b7280' }
+      subtextStyle: { fontSize: isMobile ? 12 : 14, color: '#6b7280' }
     },
     color: data.map(d => getStatusColor(d.name)),
     series: [
@@ -116,25 +116,25 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
         center: [isMobile ? '50%' : '50%', isMobile ? '40%' : '50%'],
         roseType: 'radius',
         itemStyle: {
-            borderRadius: 5
+          borderRadius: 5
         },
         label: {
-            show: !isMobile,
-            formatter: '{b}\n{c}',
-            minMargin: 5,
-            edgeDistance: 10,
-            lineHeight: 16
+          show: !isMobile,
+          formatter: '{b}\n{c}',
+          minMargin: 5,
+          edgeDistance: 10,
+          lineHeight: 16
         },
         labelLine: {
-            show: !isMobile,
-            length: 15,
-            length2: 0,
-            maxSurfaceAngle: 80,
+          show: !isMobile,
+          length: 15,
+          length2: 0,
+          maxSurfaceAngle: 80,
         },
         emphasis: {
           scaleSize: 8,
         },
-        data: data.sort((a,b) => b.value - a.value).map(d => ({ value: d.value, name: d.name })),
+        data: data.sort((a, b) => b.value - a.value).map(d => ({ value: d.value, name: d.name })),
       }
     ],
   };
@@ -145,16 +145,16 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
       <p className="text-sm text-slate-600 mb-4 flex-shrink-0">A summary of all pipelines by their current status.</p>
       {data && data.length > 0 ? (
         <div className="w-full h-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-            <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial"/>
+          <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
-            <PieChart className="w-12 h-12 text-gray-300" />
-            <p className="mt-4 text-sm font-medium">No project outcome data to display.</p>
+          <PieChart className="w-12 h-12 text-gray-300" />
+          <p className="mt-4 text-sm font-medium">No project outcome data to display.</p>
         </div>
       )}
     </div>
   );
 };
 
-export default ProjectOutcomeChart;
+export default React.memo(ProjectOutcomeChart);

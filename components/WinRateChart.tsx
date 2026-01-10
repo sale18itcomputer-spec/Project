@@ -111,13 +111,13 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
       }
     ],
     tooltip: {
-        formatter: (params: any) => {
-            if (!params || params.value === undefined) return '';
-            return `Win Rate: <strong>${params.value.toFixed(1)}%</strong><br/>(${won} won out of ${total} closed deals)`;
-        }
+      formatter: (params: any) => {
+        if (!params || params.value === undefined) return '';
+        return `Win Rate: <strong>${params.value.toFixed(1)}%</strong><br/>(${won} won out of ${total} closed deals)`;
+      }
     }
   };
-  
+
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
       <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Win Rate</h2>
@@ -136,4 +136,4 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
   );
 };
 
-export default WinRateChart;
+export default React.memo(WinRateChart);

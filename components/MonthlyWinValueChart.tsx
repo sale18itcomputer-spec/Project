@@ -294,4 +294,4 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
   );
 };
 
-export default MonthlyWinValueChart;
+export default React.memo(MonthlyWinValueChart);
