@@ -85,7 +85,7 @@ const PricelistCombobox: React.FC<{
         const query = item.itemCode?.toLowerCase() || '';
         if (query === '') return pricelist.slice(0, 50);
         return pricelist.filter(p =>
-            p['Item Code']?.toLowerCase().includes(query) ||
+            p.Code?.toLowerCase().includes(query) ||
             p.Model?.toLowerCase().includes(query) ||
             p.Brand?.toLowerCase().includes(query)
         ).slice(0, 50);
@@ -95,7 +95,7 @@ const PricelistCombobox: React.FC<{
         setTimeout(() => {
             if (!document.body.contains(wrapperRef.current)) return;
             setIsOpen(false);
-            const exactMatch = pricelist?.find(p => p['Item Code']?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
+            const exactMatch = pricelist?.find(p => p.Code?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
             if (exactMatch && !item.modelName) {
                 onPricelistItemSelect(item, exactMatch);
             }
@@ -123,7 +123,7 @@ const PricelistCombobox: React.FC<{
                     <ScrollArea className="max-h-72">
                         <ul>
                             {filteredPricelist.map(pItem => (
-                                <li key={pItem['Item Code']}>
+                                <li key={pItem.Code}>
                                     <button
                                         type="button"
                                         onMouseDown={(e) => {
@@ -136,11 +136,11 @@ const PricelistCombobox: React.FC<{
                                         <div className="flex justify-between w-full items-center">
                                             <div className="truncate pr-4">
                                                 <p className="font-semibold text-slate-800">{pItem.Model}</p>
-                                                <p className="text-xs text-slate-500">{pItem.Brand} - {pItem['Item Code']}</p>
+                                                <p className="text-xs text-slate-500">{pItem.Brand} - {pItem.Code}</p>
                                             </div>
                                             <div className="text-right flex-shrink-0">
-                                                <p className="font-semibold text-slate-700">{pItem.SRP}</p>
-                                                <p className="text-xs text-slate-500">Stock: {pItem.Qty}</p>
+                                                <p className="font-semibold text-slate-700">{pItem['End User Price']}</p>
+                                                <p className="text-xs text-slate-500">{pItem.Status}</p>
                                             </div>
                                         </div>
                                     </button>
@@ -285,11 +285,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 const newItems: LineItem[] = fetchedItems.map((item: any, index: number) => {
                     let description = '';
                     // Find the corresponding item in the main pricelist using the itemCode.
-                    const pricelistEntry = pricelist?.find(p => p['Item Code'] === item.itemCode);
+                    const pricelistEntry = pricelist?.find(p => p.Code === item.itemCode);
 
                     if (pricelistEntry) {
-                        // If found, construct the description from the Model and Item Description.
-                        description = `${pricelistEntry.Model} ${pricelistEntry['Item Description']}`.trim();
+                        // If found, use the Description from the pricelist.
+                        description = pricelistEntry.Description || '';
                     } else {
                         // Fallback to the original logic if not found in the pricelist.
                         const modelName = (item.modelName || '').trim();
@@ -467,12 +467,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         setItems(currentItems => {
             const newItems = currentItems.map(item => {
                 if (item.id === lineItem.id) {
-                    const unitPrice = typeof pricelistItem.SRP === 'number' ? pricelistItem.SRP : parseFloat(String(pricelistItem.SRP).replace(/[^0-9.]/g, '')) || 0;
+                    const unitPrice = typeof pricelistItem['End User Price'] === 'number' ? pricelistItem['End User Price'] : parseFloat(String(pricelistItem['End User Price']).replace(/[^0-9.]/g, '')) || 0;
                     return {
                         ...item,
-                        itemCode: pricelistItem['Item Code'],
+                        itemCode: pricelistItem.Code,
                         modelName: pricelistItem.Model,
-                        description: `${pricelistItem['Item Description'] || ''}\n${pricelistItem['Detail Spec'] || ''}`.trim(),
+                        description: pricelistItem.Description || '',
                         unitPrice: unitPrice,
                         amount: ((typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * unitPrice) + (parseFloat(String(item.commission)) || 0),
                         commission: item.commission, // preserve commission
@@ -1295,8 +1295,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                         <td className="px-4 py-2 text-right text-slate-800 font-semibold">{item['End User Price']}</td>
                                                         <td className="px-4 py-2 text-center">
                                                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${item.Status === 'Available' ? 'bg-green-100 text-green-700' :
-                                                                    item.Status === 'Out of Stock' ? 'bg-red-100 text-red-700' :
-                                                                        'bg-yellow-100 text-yellow-700'
+                                                                item.Status === 'Out of Stock' ? 'bg-red-100 text-red-700' :
+                                                                    'bg-yellow-100 text-yellow-700'
                                                                 }`}>
                                                                 {item.Status}
                                                             </span>
