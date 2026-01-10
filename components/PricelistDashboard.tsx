@@ -7,7 +7,7 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import NewPricelistItemModal from './NewPricelistItemModal';
-import GeminiPricelistInsights from './GeminiPricelistInsights';
+
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import PricelistFilterBar from './PricelistFilterBar';
@@ -469,9 +469,7 @@ const PricelistDashboard: React.FC = () => {
 
             <div className={`flex-1 overflow-auto bg-slate-50 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'}`}>
                 <div className="p-4 sm:p-6 space-y-4">
-                    {!loading && pricelist && (
-                        <GeminiPricelistInsights items={filteredData} />
-                    )}
+
                     <PricelistFilterBar
                         categories={filterOptions.categories}
                         brands={filterOptions.brands}

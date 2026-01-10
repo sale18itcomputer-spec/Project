@@ -15,7 +15,7 @@ import { parseSheetValue } from '../utils/formatters';
 import PendingWorks from './PendingWorks';
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
-import GeminiDashboardInsights from './GeminiDashboardInsights';
+
 import { useWindowSize } from '../hooks/useWindowSize';
 
 const DashboardContentSkeleton = () => (
@@ -500,18 +500,7 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      {renderStep >= 2 && !loading && (
-        <div className={transitionClass(2)}>
-          <GeminiDashboardInsights
-            projectOutcomeData={projectOutcomeData}
-            revenueByPeriodData={revenueByPeriodData}
-            topCustomersData={topCustomersData}
-            winRateData={winRateData}
-            filteredProjectsCount={filteredProjects.length}
-            revenuePeriod={revenuePeriod}
-          />
-        </div>
-      )}
+
 
       {renderStep >= 3 && (
         <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
