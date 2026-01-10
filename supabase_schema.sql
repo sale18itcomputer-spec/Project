@@ -156,21 +156,27 @@ create table public.sale_orders (
   "Created By" text,
   "Currency" text,
   "Attachment" text,
+  "Company Address" text,
+  "Prepared By" text,
+  "Approved By" text,
+  "Prepared By Position" text,
+  "Approved By Position" text,
+  "Remark" text,
+  "Terms and Conditions" text,
   "ItemsJSON" jsonb
 );
 
 -- Table: pricelist (Raw)
 create table public.pricelist (
-  "Item Code" text primary key,
+  "Code" text primary key,
   "Brand" text,
   "Model" text,
-  "Item Description" text,
-  "SRP" numeric,
-  "SRP (B)" numeric,
-  "Qty" numeric,
-  "OTW" numeric,
+  "Description" text,
+  "End User Price" numeric,
+  "Dealer Price" numeric,
+  "Sheet Name" text,
+  "Promotion" text,
   "Category" text,
-  "Detail Spec" text,
   "Status" text,
   "Currency" text
 );

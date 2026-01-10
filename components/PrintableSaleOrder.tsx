@@ -4,6 +4,7 @@ interface LineItem {
     id: string;
     no: number;
     itemCode: string;
+    modelName: string;
     description: string;
     qty: number | string;
     unitPrice: number | string;
@@ -85,51 +86,36 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
             </style>
             <div className="printable-area bg-white p-8 font-[serif] text-sm text-black shadow-lg border border-gray-200" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
 
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
-                    <img
-                        src="https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png"
-                        alt="Limperial Company Logo"
-                        style={{
-                            height: '40px',
-                            width: 'auto'
-                        }}
-                    />
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: 1.5 }}>
-                        <div style={{ fontWeight: 'bold', color: '#004aad', fontSize: '13px', marginBottom: '3px' }}>LIMPERIAL TECHNOLOGY CO., LTD.</div>
-                        <div>Tel : (+855) 92 218 333 | Email : info@limperialtech.com | Website : www.limperialtech.com</div>
-                        <div>Address : Building #15, Street Ayeaksamrjean Bo (139), Sangkat Srah Chak, Khan Daun Penh, Phnom Penh, Cambodia.</div>
-                    </div>
-                </div>
+                {/* Header removed for Sale Order as per request */}
 
                 {/* Title */}
-                <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER (B2C)</h1>
+                <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 0 30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER (B2C)</h1>
 
                 {/* Info Section */}
                 <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
-                    <div style={{ fontWeight: 'normal' }}>Company Name</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
                     <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
-                    <div style={{ fontWeight: 'normal' }}>SO No</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO No</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Sale Order ID'] || ''}</div>
 
-                    <div style={{ fontWeight: 'normal', alignSelf: 'start' }}>Address</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>SO Date</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Date</div>
                     <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Order Date'])}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Contact Person</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Person'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Delivery Date</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
+                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Name'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Delivery Date</div>
                     <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Delivery Date'])}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Tel</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Tel'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Bill Invoice</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Bill Invoice</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Bill Invoice'] || ''}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Email</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Email'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Payment Term</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Payment Term</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Payment Term'] || ''}</div>
                 </div>
 
@@ -147,16 +133,40 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                     </thead>
                     <tbody>
                         {actualItems.map((item, index) => (
-                            <tr key={item.id || `fill-${index}`}>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
-                                    {item.description}
-                                </td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
-                            </tr>
+                            <React.Fragment key={item.id || `item-${index}`}>
+                                <tr>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.no || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
+                                        {item.itemCode || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
+                                        {item.modelName || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.qty || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                        {item.unitPrice ? formatCurrency(item.unitPrice) : ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                        {item.amount ? formatCurrency(item.amount) : ''}
+                                    </td>
+                                </tr>
+                                {item.description && (
+                                    <tr>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
+                                            {item.description}
+                                        </td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                         ))}
                     </tbody>
                     <tfoot style={{ fontSize: '12px' }}>
@@ -188,6 +198,40 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                         </tr>
                     </tfoot>
                 </table>
+
+                {/* Software Setup & Remarks */}
+                <div style={{ marginTop: '20px', marginBottom: '30px' }}>
+                    {(headerData['Install Software'] || '').length > 0 && (
+                        <>
+                            <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '8px' }}>Set up software:</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+                                {(headerData['Install Software'] || '').split(',').map((s: string) => s.trim()).filter((s: string) => s).map((opt: string) => (
+                                    <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{
+                                            width: '12px',
+                                            height: '12px',
+                                            border: '1px solid #000',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            position: 'relative'
+                                        }}>
+                                            <div style={{ position: 'absolute', top: '2px', left: '2px', right: '2px', bottom: '2px', background: '#000' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '11px' }}>{opt}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {headerData['Remark'] && (
+                        <div style={{ marginTop: '15px', fontSize: '11px' }}>
+                            <div style={{ fontWeight: 'bold' }}>Remark:</div>
+                            <div style={{ whiteSpace: 'pre-wrap' }}>{headerData['Remark']}</div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Signatures */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px' }}>

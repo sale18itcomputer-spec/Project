@@ -173,6 +173,7 @@ export const QUOTATION_HEADERS = [
   'Contact Number',
   'Contact Email',
   'Amount',
+  'Tax Type',
   'CM',
   'Status',
   'Reason',
@@ -215,16 +216,15 @@ export const SALE_ORDER_HEADERS = [
 
 // Headers for Pricelist Sheet
 export const PRICELIST_HEADERS = [
-  'Item Code',
+  'Sheet Name',
   'Brand',
-  'Model',
-  'Item Description',
-  'SRP',
-  'SRP (B)',
-  'Qty',
-  'OTW',
   'Category',
-  'Detail Spec',
+  'Code',
+  'Model',
+  'Description',
+  'Dealer Price',
+  'End User Price',
+  'Promotion',
   'Status',
   'Currency'
 ] as const;

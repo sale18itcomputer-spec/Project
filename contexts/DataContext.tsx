@@ -159,7 +159,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'site_survey_logs': { setter: setSiteSurveys, headers: SITE_SURVEY_LOG_HEADERS, primaryKey: 'Site ID' },
       'quotations': { setter: setQuotations, headers: QUOTATION_HEADERS, primaryKey: 'Quote No.' },
       'sale_orders': { setter: setSaleOrders, headers: SALE_ORDER_HEADERS, primaryKey: 'SO No.' },
-      'pricelist': { setter: setPricelist, headers: PRICELIST_HEADERS, primaryKey: 'Item Code' },
+      'pricelist': { setter: setPricelist, headers: PRICELIST_HEADERS, primaryKey: 'Code' },
       'invoices': { setter: setInvoices, headers: INVOICE_HEADERS, primaryKey: 'Inv No.' },
     };
 

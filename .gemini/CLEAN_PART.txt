@@ -1,0 +1,1054 @@
+﻿
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { SaleOrder, Company, Contact, Quotation } from '../types';
+import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '../contexts/NavigationContext';
+import { createRecord, updateRecord, createSaleOrderSheet, readQuotationSheetData, uploadFile } from '../services/api';
+import { formatToSheetDate, formatToInputDate } from '../utils/time';
+import { FormSection, FormInput, FormSelect, FormTextarea } from './FormControls';
+import PrintableSaleOrder from './PrintableSaleOrder';
+import SuccessModal from './SuccessModal';
+import Spinner from './Spinner';
+import DocumentEditorContainer from './DocumentEditorContainer';
+import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, AlertTriangle } from 'lucide-react';
+import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from '../utils/pdfGenerator';
+import PDFConfigModal from './PDFConfigModal';
+import PDFControlField from './PDFControlField';
+import { useToast } from '../contexts/ToastContext';
+import SearchableSelect from './SearchableSelect';
+import { ScrollArea } from './ui/scroll-area';
+
+interface SaleOrderCreatorProps {
+    onBack: () => void;
+    existingSaleOrder: SaleOrder | null;
+    initialData?: Partial<SaleOrder>;
+}
+
+interface LineItem {
+    id: string;
+    no: number;
+    itemCode: string;
+    modelName: string;
+    description: string;
+    qty: number | string;
+    unitPrice: number | string;
+    commission: number | string;
+    amount: number;
+}
+
+const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const STATUS_OPTIONS: SaleOrder['Status'][] = ['Pending', 'Completed', 'Cancel'];
+const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT'];
+const SOFTWARE_OPTIONS = ["Assembly", "Office User", "Design User", "Window 11", "Window 10", "Window 8", "Window 7"];
+const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
+
+const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
+    switch (currency) {
+        case 'USD': return '$';
+        case 'KHR': return 'áŸ›';
+        default: return '$';
+    }
+};
+
+const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
+
+const PricelistCombobox: React.FC<{
+    item: LineItem;
+    onItemChange: (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => void;
+    onPricelistItemSelect: (item: LineItem, pricelistItem: any) => void;
+    disabled?: boolean;
+}> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
+    const { pricelist } = useData();
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [wrapperRef]);
+
+    const filteredPricelist = useMemo(() => {
+        if (!pricelist || !isOpen) return [];
+        const query = item.itemCode?.toLowerCase() || '';
+        if (query === '') return pricelist.slice(0, 50);
+        return pricelist.filter(p =>
+            p['Item Code']?.toLowerCase().includes(query) ||
+            p.Model?.toLowerCase().includes(query) ||
+            p.Brand?.toLowerCase().includes(query)
+        ).slice(0, 50);
+    }, [pricelist, item.itemCode, isOpen]);
+
+    const handleBlur = () => {
+        setTimeout(() => {
+            if (!document.body.contains(wrapperRef.current)) return;
+            setIsOpen(false);
+            const exactMatch = pricelist?.find(p => p['Item Code']?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
+            if (exactMatch && !item.modelName) {
+                onPricelistItemSelect(item, exactMatch);
+            }
+        }, 200);
+    };
+
+    return (
+        <div ref={wrapperRef} className="relative">
+            <input
+                type="text"
+                value={item.itemCode}
+                onChange={e => {
+                    onItemChange(item.id, 'itemCode', e.target.value);
+                    if (!isOpen) setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                onBlur={handleBlur}
+                className={`${lineItemInputClasses} ${disabled ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                placeholder="Type to search..."
+                autoComplete="off"
+                disabled={disabled}
+            />
+            {isOpen && !disabled && filteredPricelist.length > 0 && (
+                <div className="absolute z-50 w-[450px] mt-1 bg-white rounded-md shadow-lg border border-slate-200">
+                    <ScrollArea className="max-h-72">
+                        <ul>
+                            {filteredPricelist.map(pItem => (
+                                <li key={pItem['Item Code']}>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            onPricelistItemSelect(item, pItem);
+                                            setIsOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                                    >
+                                        <div className="flex justify-between w-full items-center">
+                                            <div className="truncate pr-4">
+                                                <p className="font-semibold text-slate-800">{pItem.Model}</p>
+                                                <p className="text-xs text-slate-500">{pItem.Brand} - {pItem['Item Code']}</p>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <p className="font-semibold text-slate-700">{pItem.SRP}</p>
+                                                <p className="text-xs text-slate-500">Stock: {pItem.Qty}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </ScrollArea>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder, initialData }) => {
+    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist } = useData();
+    const { currentUser } = useAuth();
+    const { addToast } = useToast();
+    const { handleNavigation } = useNavigation();
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [successInfo, setSuccessInfo] = useState<{ soNo: string } | null>(null);
+    const [itemsLoading, setItemsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+    const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
+
+    // PDF Configuration State
+    const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
+    const [showPdfConfig, setShowPdfConfig] = useState(false);
+    const [showPdfControls, setShowPdfControls] = useState(false);
+    const [showRightPanel, setShowRightPanel] = useState(true);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
+    const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+
+    const isFromQuote = useMemo(() => !!existingSaleOrder?.['Quote No.'], [existingSaleOrder]);
+
+    const nextSaleOrderNumber = useMemo(() => {
+        if (!saleOrders || saleOrders.length === 0) return 'S00000001';
+
+        const maxNum = saleOrders.reduce((max, so) => {
+            const numPartMatch = so['SO No.'].match(/\d+$/);
+            if (!numPartMatch) return max;
+            const numPart = parseInt(numPartMatch[0], 10);
+            return isNaN(numPart) ? max : Math.max(max, numPart);
+        }, 0);
+
+        return `S${String(maxNum + 1).padStart(8, '0')}`;
+    }, [saleOrders]);
+
+    const [saleOrder, setSaleOrder] = useState<Partial<SaleOrder & { [key: string]: any }>>({});
+
+
+
+    const fetchQuoteItems = React.useCallback(async (quoteId: string) => {
+        setItemsLoading(true);
+        setError('');
+        try {
+            const { items: fetchedItems } = await readQuotationSheetData(quoteId);
+            if (fetchedItems && fetchedItems.length > 0) {
+                const newItems: LineItem[] = fetchedItems.map((item: any, index: number) => {
+                    let description = '';
+                    // Find the corresponding item in the main pricelist using the itemCode.
+                    const pricelistEntry = pricelist?.find(p => p['Item Code'] === item.itemCode);
+
+                    if (pricelistEntry) {
+                        // If found, construct the description from the Model and Item Description.
+                        description = `${pricelistEntry.Model} ${pricelistEntry['Item Description']}`.trim();
+                    } else {
+                        // Fallback to the original logic if not found in the pricelist.
+                        const modelName = (item.modelName || '').trim();
+                        const itemDescription = (item.description || '').trim();
+                        const descriptionParts = [];
+                        if (modelName) descriptionParts.push(modelName);
+                        if (itemDescription) descriptionParts.push(itemDescription);
+                        description = descriptionParts.join('\n');
+                    }
+
+                    return {
+                        id: `item-${Date.now()}-${index}`,
+                        no: item.no || index + 1,
+                        itemCode: item.itemCode || '',
+                        modelName: item.modelName || '',
+                        description: item.description || '',
+                        qty: item.qty || 1,
+                        unitPrice: item.unitPrice || 0,
+                        commission: 0, // Default commission to 0
+                        amount: (item.qty || 1) * (item.unitPrice || 0),
+                    };
+                });
+                setItems(newItems);
+            }
+        } catch (err: any) {
+            setError(`Failed to fetch items from quote: ${err.message}`);
+            addToast(`Failed to fetch items from quote: ${err.message}`, 'error');
+            setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+        } finally {
+            setItemsLoading(false);
+        }
+    }, [pricelist, addToast]);
+
+    useEffect(() => {
+        if (existingSaleOrder) {
+            const baseData = {
+                ...existingSaleOrder,
+                'SO No.': existingSaleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
+                'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
+                'Currency': (existingSaleOrder.Currency === 'KHR' ? 'KHR' : 'USD') as ('USD' | 'KHR'),
+            };
+
+            if (!baseData['Bill Invoice']) {
+                if (parseFloat(baseData.Tax || '0') > 0) {
+                    baseData['Bill Invoice'] = 'VAT';
+                } else {
+                    baseData['Bill Invoice'] = 'NON-VAT';
+                }
+            }
+            setSaleOrder(baseData);
+
+
+            if (existingSaleOrder.ItemsJSON) {
+                try {
+                    const parsedItems = typeof existingSaleOrder.ItemsJSON === 'string'
+                        ? JSON.parse(existingSaleOrder.ItemsJSON)
+                        : existingSaleOrder.ItemsJSON;
+
+                    if (Array.isArray(parsedItems)) {
+                        setItems(parsedItems.map((item: any) => ({
+                            ...item,
+                            id: item.id || `item-${Date.now()}-${Math.random()}`
+                        })));
+                    }
+                } catch (e) {
+                    console.error("Failed to parse ItemsJSON", e);
+                }
+            } else if (existingSaleOrder['Quote No.']) {
+                fetchQuoteItems(existingSaleOrder['Quote No.']);
+            }
+        } else {
+            // Check for ItemsJSON in initialData
+            if (initialData?.ItemsJSON) {
+                try {
+                    const parsedItems = typeof initialData.ItemsJSON === 'string'
+                        ? JSON.parse(initialData.ItemsJSON)
+                        : initialData.ItemsJSON;
+
+                    if (Array.isArray(parsedItems)) {
+                        setItems(parsedItems.map((item: any) => ({
+                            ...item,
+                            id: item.id || `item-${Date.now()}-${Math.random()}`
+                        })));
+                    } else {
+                        setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse initial ItemsJSON", e);
+                    setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+                }
+            } else if (initialData?.['Quote No.']) {
+                fetchQuoteItems(initialData['Quote No.']);
+            } else {
+                setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+            }
+
+            setSaleOrder({
+                'SO No.': nextSaleOrderNumber,
+                'SO Date': getTodayDateString(),
+                'Delivery Date': getTodayDateString(),
+                'Status': 'Pending',
+                'Tax': '0',
+                'Bill Invoice': 'NON-VAT',
+                'Created By': currentUser?.Name || '',
+                'Currency': 'USD',
+                ...initialData
+            });
+        }
+    }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist, initialData]);
+
+    useEffect(() => {
+        if (existingSaleOrder && existingSaleOrder['Install Software']) {
+            setSelectedSoftware(existingSaleOrder['Install Software'].split(',').map(s => s.trim()).filter(Boolean));
+        } else if (!existingSaleOrder) {
+            setSelectedSoftware([]);
+        }
+    }, [existingSaleOrder]);
+
+    useEffect(() => {
+        setSaleOrder(prev => ({ ...prev, 'Install Software': selectedSoftware.join(', ') }));
+    }, [selectedSoftware]);
+
+    // Auto-fill customer details from companies/contacts when coming from initialData (+Create SO)
+    useEffect(() => {
+        if (!existingSaleOrder && initialData && companies && contacts) {
+            const companyName = initialData['Company Name'];
+            const contactName = initialData['Contact Name'];
+
+            if (companyName || contactName) {
+                const company = companies.find(c => c['Company Name'] === companyName);
+                const contact = contacts.find(c => c.Name === contactName && (!companyName || c['Company Name'] === companyName));
+
+                setSaleOrder(prev => ({
+                    ...prev,
+                    'Phone Number': contact?.['Tel (1)'] || prev['Phone Number'] || '',
+                    'Email': contact?.Email || prev['Email'] || '',
+                    'Payment Term': company?.['Payment Term'] || prev['Payment Term'] || '',
+                }));
+            }
+        }
+    }, [initialData, companies, contacts, existingSaleOrder]);
+
+    const handleAddSoftware = (software: string) => {
+        if (software && !selectedSoftware.includes(software)) {
+            setSelectedSoftware(prev => [...prev, software].sort());
+        }
+    };
+
+    const handleRemoveSoftware = (softwareToRemove: string) => {
+        setSelectedSoftware(prev => prev.filter(s => s !== softwareToRemove));
+    };
+
+    const handlePricelistItemSelect = (lineItem: LineItem, pricelistItem: any) => {
+        setItems(currentItems => {
+            const newItems = currentItems.map(item => {
+                if (item.id === lineItem.id) {
+                    const unitPrice = typeof pricelistItem.SRP === 'number' ? pricelistItem.SRP : parseFloat(String(pricelistItem.SRP).replace(/[^0-9.]/g, '')) || 0;
+                    return {
+                        ...item,
+                        itemCode: pricelistItem['Item Code'],
+                        modelName: pricelistItem.Model,
+                        description: `${pricelistItem['Item Description'] || ''}\n${pricelistItem['Detail Spec'] || ''}`.trim(),
+                        unitPrice: unitPrice,
+                        amount: ((typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * unitPrice) + (parseFloat(String(item.commission)) || 0),
+                        commission: item.commission, // preserve commission
+                    };
+                }
+                return item;
+            });
+            return newItems;
+        });
+    };
+
+    const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount'>, value: string | number) => {
+        setItems(currentItems => {
+            const newItems = currentItems.map(item => {
+                if (item.id === id) {
+                    const updatedItem = { ...item, [field]: value } as any;
+
+                    const q = parseFloat(String(updatedItem.qty)) || 0;
+                    const p = parseFloat(String(updatedItem.unitPrice)) || 0;
+                    const c = parseFloat(String(updatedItem.commission)) || 0;
+                    updatedItem.amount = (q * p) + c;
+                    return updatedItem;
+                }
+                return item;
+            });
+            return newItems.map((item, index) => ({ ...item, no: index + 1 }));
+        });
+    };
+
+    const addItem = () => {
+        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: prev.length + 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+    };
+
+    const removeItem = (id: string) => {
+        setItems(prev => {
+            const newItems = prev.filter(item => item.id !== id);
+            return newItems.map((item, index) => ({ ...item, no: index + 1 }));
+        });
+    };
+
+    const totals = useMemo(() => {
+        const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
+        const commission = items.reduce((sum, item) => sum + (parseFloat(String(item.commission)) || 0), 0);
+        const isVat = saleOrder['Bill Invoice'] === 'VAT';
+        const tax = isVat ? subTotal * 0.1 : 0;
+        const grandTotal = subTotal + tax;
+        return { subTotal, tax, grandTotal, commission };
+    }, [items, saleOrder['Bill Invoice']]);
+
+    const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setSaleOrder(prev => ({ ...prev, [name]: value }));
+    }
+
+    const handleCompanySelect = (companyName: string) => {
+        const company = companies?.find(c => c['Company Name'] === companyName);
+        setSaleOrder(prev => ({
+            ...prev,
+            'Company Name': companyName,
+            'Contact Name': '',
+            'Phone Number': '',
+            'Email': '',
+            'Quote No.': '',
+            'Payment Term': company?.['Payment Term'] || ''
+        }));
+    }
+
+    const handleContactChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const contactName = e.target.value;
+        const contact = contacts?.find(c => c.Name === contactName);
+        setSaleOrder(prev => ({ ...prev, 'Contact Name': contactName, 'Phone Number': contact?.['Tel (1)'] || '', 'Email': contact?.Email || '' }));
+    };
+
+    const handleQuoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const quoteId = e.target.value;
+        const quote = quotations?.find(q => q['Quote No.'] === quoteId);
+        if (quote) {
+            setSaleOrder(prev => ({
+                ...prev,
+                'Quote No.': quoteId,
+                'Company Name': quote['Company Name'],
+                'Contact Name': quote['Contact Name'],
+                'Phone Number': quote['Contact Number'],
+                'Total Amount': quote.Amount,
+                'Bill Invoice': quote['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
+                Status: 'Confirmed'
+            }));
+            fetchQuoteItems(quoteId);
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const response = await uploadFile(file);
+            setSaleOrder(prev => ({ ...prev, 'Attachment': response.url }));
+            addToast('File uploaded successfully!', 'success');
+        } catch (err: any) {
+            addToast(err.message || 'File upload failed.', 'error');
+        } finally {
+            setIsUploading(false);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setSaleOrder(prev => ({ ...prev, 'Attachment': '' }));
+    };
+
+    const handleSave = async () => {
+        setIsSubmitting(true);
+        setError('');
+        try {
+            const masterSheetData: SaleOrder = {
+                'SO No.': saleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO Date': saleOrder['SO Date'] || null,
+                'File': '',
+                'Quote No.': saleOrder['Quote No.'] || '',
+                'Company Name': saleOrder['Company Name'] || '',
+                'Contact Name': saleOrder['Contact Name'] || '',
+                'Phone Number': saleOrder['Phone Number'] || '',
+                'Email': saleOrder.Email || '',
+                'Tax': String(totals.tax),
+                'Total Amount': String(totals.grandTotal),
+                // FIX: Ensure Commission is '0' if empty string, to prevent Supabase invalid input syntax for type numeric
+                'Commission': saleOrder.Commission ? String(saleOrder.Commission) : '0',
+                'Status': saleOrder.Status || 'Pending',
+                'Delivery Date': saleOrder['Delivery Date'],
+                'Payment Term': saleOrder['Payment Term'],
+                'Bill Invoice': saleOrder['Bill Invoice'],
+                'Install Software': saleOrder['Install Software'],
+                'Currency': saleOrder.Currency || 'USD',
+                'Created By': saleOrder['Created By'] || currentUser?.Name || '',
+                'Attachment': saleOrder['Attachment'] || '',
+            };
+
+            const companyDetails = companies?.find(c => c['Company Name'] === masterSheetData['Company Name']);
+
+            // Combine master data with line items for Supabase storage
+            const payload = {
+                ...masterSheetData,
+                'ItemsJSON': items
+            };
+
+            // Database write handled by createSaleOrderSheet (upsert)
+            await createSaleOrderSheet(masterSheetData['SO No.'], payload);
+
+            if (existingSaleOrder && existingSaleOrder['SO No.']) {
+                const originalSaleOrders = saleOrders ? [...saleOrders] : [];
+                // Optimistic update
+                setSaleOrders(current => current ? current.map(so => so['SO No.'] === masterSheetData['SO No.'] ? masterSheetData : so) : [masterSheetData]);
+                setSuccessInfo({ soNo: masterSheetData['SO No.'] });
+            } else { // Create
+                // Optimistic update
+                setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
+                setSuccessInfo({ soNo: masterSheetData['SO No.'] });
+            }
+
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleViewQuote = () => {
+        if (saleOrder['Quote No.']) {
+            const quote = quotations?.find(q => q['Quote No.'] === saleOrder['Quote No.']);
+            if (quote) {
+                handleNavigation({ view: 'quotations', payload: quote });
+            } else {
+                handleNavigation({ view: 'quotations', filter: saleOrder['Quote No.'] });
+            }
+        } else {
+            addToast('No linked quotation found for this order.', 'info');
+        }
+    };
+
+    const handleConvertToInvoice = async () => {
+        setIsSubmitting(true);
+        setError('');
+        try {
+            // Update status to Completed for the Sale Order
+            const updatedSO = {
+                ...saleOrder,
+                Status: 'Completed' as const
+            };
+
+            setSaleOrder(updatedSO);
+
+            const masterSheetData: SaleOrder = {
+                'SO No.': saleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO Date': saleOrder['SO Date'] || null,
+                'File': '',
+                'Quote No.': saleOrder['Quote No.'] || '',
+                'Company Name': saleOrder['Company Name'] || '',
+                'Contact Name': saleOrder['Contact Name'] || '',
+                'Phone Number': saleOrder['Phone Number'] || '',
+                'Email': saleOrder.Email || '',
+                'Tax': String(totals.tax),
+                'Total Amount': String(totals.grandTotal),
+                'Commission': saleOrder.Commission ? String(saleOrder.Commission) : '0',
+                'Status': 'Completed',
+                'Delivery Date': saleOrder['Delivery Date'],
+                'Payment Term': saleOrder['Payment Term'],
+                'Bill Invoice': saleOrder['Bill Invoice'],
+                'Install Software': saleOrder['Install Software'],
+                'Currency': saleOrder.Currency || 'USD',
+                'Created By': saleOrder['Created By'] || currentUser?.Name || '',
+                'Attachment': saleOrder['Attachment'] || '',
+            };
+
+            const payload = {
+                ...masterSheetData,
+                'ItemsJSON': items
+            };
+
+            // Save the sale order with updated status
+            await createSaleOrderSheet(masterSheetData['SO No.'], payload);
+
+            if (setSaleOrders) {
+                setSaleOrders(prev => {
+                    const base = prev ? prev.filter(so => so['SO No.'] !== masterSheetData['SO No.']) : [];
+                    return [masterSheetData as any, ...base];
+                });
+            }
+
+            // Navigate directly to invoice creator
+            handleNavigation({
+                view: 'invoice-do',
+                payload: {
+                    action: 'create',
+                    soData: {
+                        ...masterSheetData,
+                        'ItemsJSON': items
+                    }
+                }
+            });
+
+            addToast('Sale Order marked as Completed and converted to Invoice.', 'success');
+        } catch (err: any) {
+            setError(err.message || 'Failed to convert to invoice');
+            addToast('Error during conversion: ' + err.message, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleRequestApprove = async () => {
+        setIsSubmitting(true);
+        try {
+            await handleSave();
+            addToast('Approval request for Sale Order has been saved.', 'info');
+        } catch (err: any) {
+            setError(err.message || 'Failed to request approval.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
+    const contactOptions = useMemo(() => contacts?.filter(c => c['Company Name'] === saleOrder['Company Name']).map(c => c.Name) || [], [contacts, saleOrder]);
+    const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No.']) || [], [quotations, saleOrder]);
+    const currencySymbol = getCurrencySymbol(saleOrder.Currency);
+
+    // FIX: Define formatCurrency function to correctly format numeric values as currency strings.
+    const formatCurrency = (value: number) => {
+        if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
+        return `${currencySymbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    // PDF Layout Functions
+    const updateLayout = (path: string, value: number) => {
+        const keys = path.split('.');
+        setPdfLayout(prev => {
+            const newLayout = JSON.parse(JSON.stringify(prev));
+            let current: any = newLayout;
+            for (let i = 0; i < keys.length - 1; i++) {
+                current = current[keys[i]];
+            }
+            current[keys[keys.length - 1]] = value;
+            return newLayout;
+        });
+    };
+
+    const resetLayout = () => {
+        setPdfLayout(defaultLayoutConfig);
+    };
+
+    // PDF Generation Effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!saleOrder['Company Name']) return;
+
+            try {
+                const selectedCompany = companies?.find(c => c['Company Name'] === saleOrder['Company Name']);
+
+                const url = await generatePDF({
+                    type: 'Sale Order',
+                    title: 'Sale Order (B2C)',
+                    headerData: {
+                        ...saleOrder,
+                        'Sale Order ID': saleOrder['SO No.'],
+                        'Order Date': saleOrder['SO Date'],
+                        'Delivery Date': saleOrder['Delivery Date'],
+                        'Company Name': saleOrder['Company Name'],
+                        'Company Address': selectedCompany?.['Address (English)'] || '',
+                        'Contact Person': saleOrder['Contact Name'],
+                        'Contact Tel': saleOrder['Phone Number'],
+                        'Email': saleOrder.Email,
+                        'Payment Term': saleOrder['Payment Term'],
+                        'Bill Invoice': saleOrder['Bill Invoice'],
+                    },
+                    items: items.filter(item => item.no > 0).map(item => ({
+                        no: item.no,
+                        itemCode: item.itemCode,
+                        modelName: item.modelName,
+                        description: item.description,
+                        qty: item.qty,
+                        unitPrice: item.unitPrice,
+                        amount: item.amount,
+                        commission: item.commission
+                    })),
+                    totals: {
+                        subTotal: totals.subTotal,
+                        tax: totals.tax,
+                        grandTotal: totals.grandTotal
+                    },
+                    currency: saleOrder.Currency || 'USD',
+                    layout: pdfLayout,
+                    previewMode: true,
+                    filename: `SaleOrder_${saleOrder['SO No.'] || 'preview'}.pdf`
+                });
+
+                if (typeof url === 'string') {
+                    setPdfPreviewUrl(url);
+                }
+            } catch (error) {
+                console.error('PDF generation error:', error);
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [saleOrder, items, totals, pdfLayout, companies]);
+
+    const handleDownloadPDF = () => {
+        generatePDF({
+            type: 'Sale Order',
+            title: 'Sale Order (B2C)',
+            headerData: {
+                ...saleOrder,
+                'Sale Order ID': saleOrder['SO No.'],
+                'Order Date': saleOrder['SO Date'],
+                'Delivery Date': saleOrder['Delivery Date'],
+                'Company Name': saleOrder['Company Name'],
+                'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+                'Contact Person': saleOrder['Contact Name'],
+                'Contact Tel': saleOrder['Phone Number'],
+                'Email': saleOrder.Email,
+                'Payment Term': saleOrder['Payment Term'],
+                'Bill Invoice': saleOrder['Bill Invoice'],
+            },
+            items: items.filter(item => item.no > 0).map(item => ({
+                no: item.no,
+                itemCode: item.itemCode,
+                modelName: item.modelName,
+                description: item.description,
+                qty: item.qty,
+                unitPrice: item.unitPrice,
+                amount: item.amount,
+                commission: item.commission
+            })),
+            totals: {
+                subTotal: totals.subTotal,
+                tax: totals.tax,
+                grandTotal: totals.grandTotal
+            },
+            currency: saleOrder.Currency || 'USD',
+            layout: pdfLayout,
+            previewMode: false,
+            filename: `SaleOrder_${saleOrder['SO No.']}.pdf`
+        });
+    };
+
+    const printableProps = {
+        headerData: {
+            'Sale Order ID': saleOrder['SO No.'],
+            'Order Date': saleOrder['SO Date'],
+            'Delivery Date': saleOrder['Delivery Date'],
+            'Company Name': saleOrder['Company Name'],
+            'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+            'Contact Person': saleOrder['Contact Name'],
+            'Contact Tel': saleOrder['Phone Number'],
+            'Email': saleOrder.Email,
+            'Payment Term': saleOrder['Payment Term'],
+            'Bill Invoice': saleOrder['Bill Invoice'],
+            'Install Software': saleOrder['Install Software'],
+        },
+        items: items,
+        totals: totals,
+        currency: saleOrder.Currency || 'USD',
+    };
+
+    const headerLeft = (
+        <div className="flex items-center ml-4">
+            <button
+                onClick={handleConvertToInvoice}
+                disabled={isSubmitting}
+                className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-md transition shadow-sm text-sm min-w-[140px] flex items-center justify-center"
+            >
+                {isSubmitting ? <Spinner className="w-4 h-4" /> : "Convert to Invoice"}
+            </button>
+        </div>
+    );
+
+    const headerRight = (
+        <div className="flex items-center gap-3">
+            <button
+                onClick={() => setShowPdfControls(!showPdfControls)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md shadow-sm transition-all ${showPdfControls
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                title={showPdfControls ? 'Hide Controls' : 'Show Controls'}
+            >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">{showPdfControls ? 'Hide Controls' : 'Layout'}</span>
+            </button>
+            <button
+                onClick={() => setShowRightPanel(!showRightPanel)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md shadow-sm transition-all ${showRightPanel
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                title={showRightPanel ? 'Hide Form' : 'Show Form'}
+            >
+                <PanelRight className="w-4 h-4" />
+                <span className="hidden sm:inline">{showRightPanel ? 'Hide Form' : 'Show Form'}</span>
+            </button>
+            <button onClick={() => window.print()} className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md border border-slate-300 transition flex items-center gap-2 shadow-sm text-sm">
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Print</span>
+            </button>
+            <button onClick={handleDownloadPDF} className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md border border-slate-300 transition flex items-center gap-2 shadow-sm text-sm">
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">PDF</span>
+            </button>
+            <button
+                onClick={handleViewQuote}
+                className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm whitespace-nowrap text-sm"
+            >
+                View Quote No.
+            </button>
+            <button onClick={handleSave} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-md transition shadow-sm min-w-[100px] flex items-center justify-center text-sm">
+                {isSubmitting ? <Spinner className="w-4 h-4" /> : "Save"}
+            </button>
+        </div>
+    );
+
+    return (
+        <>
+            <DocumentEditorContainer
+                title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No.']}` : "Create New Sale Order"}
+                onBack={onBack}
+                onSave={handleSave}
+                onPrint={() => window.print()}
+                isSubmitting={isSubmitting}
+                leftActions={headerLeft}
+                rightActions={headerRight}
+            >
+                {/* Three-Panel Layout - Matching QuotationCreator */}
+                <div className="screen-only h-full flex relative overflow-hidden">
+                    {/* Center: PDF Layout Configuration Container */}
+                    <div className="flex-1 flex flex-col relative overflow-hidden">
+                        {/* Top: Collapsible Layout Controls with Horizontal Tabs */}
+                        <div className={`w-full border-b border-gray-200 flex flex-col bg-white transition-all duration-300 ease-in-out flex-shrink-0 ${showPdfControls ? 'h-[320px] opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
+                            <div className="flex justify-center border-b border-gray-200 bg-gray-50">
+                                <button
+                                    onClick={() => setActiveTab('header')}
+                                    className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'header' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    Header
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('table')}
+                                    className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'table' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    Table
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('footer')}
+                                    className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'footer' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    Footer
+                                </button>
+                            </div>
+
+                            <ScrollArea className="flex-1 p-4">
+                                {activeTab === 'header' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Logo</h3>
+                                                <button onClick={() => {
+                                                    updateLayout('header.logo.x', defaultLayoutConfig.header.logo.x);
+                                                    updateLayout('header.logo.y', defaultLayoutConfig.header.logo.y);
+                                                    updateLayout('header.logo.width', defaultLayoutConfig.header.logo.width);
+                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
+                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
+                                                </button>
+                                            </div>
+                                            <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100 shadow-sm space-y-1">
+                                                <PDFControlField label="X (mm)" path="header.logo.x" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
+                                                <PDFControlField label="Y (mm)" path="header.logo.y" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
+                                                <PDFControlField label="Width" path="header.logo.width" min={10} max={120} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> Company</h3>
+                                                <button onClick={() => {
+                                                    updateLayout('header.companyName.fontSize', defaultLayoutConfig.header.companyName.fontSize);
+                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
+                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
+                                                </button>
+                                            </div>
+                                            <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100 shadow-sm">
+                                                <PDFControlField label="Font Size" path="header.companyName.fontSize" min={8} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'table' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <h3 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Table</h3>
+                                                <button onClick={() => {
+                                                    updateLayout('table.fontSize', defaultLayoutConfig.table.fontSize);
+                                                    updateLayout('table.rowHeight', defaultLayoutConfig.table.rowHeight);
+                                                }} className="text-[9px] font-bold text-gray-400 hover:text-emerald-600 flex items-center gap-1 group">
+                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
+                                                </button>
+                                            </div>
+                                            <div className="bg-emerald-50/50 p-2 rounded-xl border border-emerald-100 shadow-sm space-y-1">
+                                                <PDFControlField label="Font Size" path="table.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
+                                                <PDFControlField label="Row Height" path="table.rowHeight" min={4} max={12} step={0.5} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'footer' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in-from-top-4 duration-300">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <h3 className="text-xs font-bold text-purple-700 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Footer</h3>
+                                            </div>
+                                            <div className="bg-purple-50/50 p-2 rounded-xl border border-purple-100 shadow-sm">
+                                                <p className="text-xs text-gray-500">Footer controls coming soon</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </div>
+
+                        {/* Center: PDF Preview */}
+                        <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-800">PDF Layout Preview</h3>
+                                        <p className="text-[10px] text-gray-500">{saleOrder['SO No.']} â€¢ {saleOrder['Company Name'] || 'No Company'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-xs text-slate-500 font-medium px-2">Real-time Preview</div>
+                                </div>
+                            </div>
+                            <div className="flex-1 flex flex-col items-center justify-center bg-slate-100/50 relative overflow-hidden p-6">
+                                {pdfPreviewUrl ? (
+                                    <iframe
+                                        src={pdfPreviewUrl}
+                                        className="w-full h-full border-none shadow-lg rounded-lg bg-white"
+                                        title="PDF Preview"
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-3 text-slate-400">
+                                        <Spinner className="w-8 h-8 text-blue-500" />
+                                        <span>Generating Preview...</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Sale Order Form Panel */}
+                    <div
+                        className={`relative h-full bg-white border-l-2 border-gray-200 shadow-xl transition-all duration-300 ease-in-out z-20 flex-shrink-0 ${showRightPanel ? 'translate-x-0 opacity-100' : 'translate-x-[20px] opacity-0 overflow-hidden'
+                            }`}
+                        style={{ width: showRightPanel ? '500px' : '0px' }}
+                    >
+                        <div className="h-full flex flex-col w-[500px]">
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-white">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
+                                    <h3 className="text-sm font-bold text-gray-800">Sale Order Details</h3>
+                                </div>
+                                <button
+                                    onClick={() => setShowRightPanel(false)}
+                                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded-md transition-all"
+                                    aria-label="Close panel"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <ScrollArea className="flex-1 p-5">
+                                <div className="space-y-6">
+                                    <FormSection title="Customer & Order Info">
+                                        <SearchableSelect
+                                            name="Company Name"
+                                            label="Company"
+                                            value={saleOrder['Company Name'] || ''}
+                                            onChange={handleCompanySelect}
+                                            options={companyOptions}
+                                            required
+                                            placeholder="Search companies..."
+                                        />
+                                        <FormSelect name="Contact Name" label="Contact" value={saleOrder['Contact Name']} onChange={handleContactChange} options={contactOptions} disabled={!saleOrder['Company Name']} />
+                                        <FormInput name="Pipeline No." label="Pipeline No." value={saleOrder['Pipeline No.']} onChange={handleHeaderChange} readOnly />
+                                    </FormSection>
+
+                                    <FormSection title="Order Details">
+                                        <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
+                                        <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
+                                        <FormSelect name="Status" label="Status" value={saleOrder.Status} onChange={handleHeaderChange} options={STATUS_OPTIONS} required />
+                                        <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
+                                        <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
+                                        <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
+                                    </FormSection>
+
+                                    <FormSection title="Financial & Delivery">
+                                        <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
+                                        <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
+                                    </FormSection>
+
+                                    <FormSection title="Line Items Summary">
+                                        <div className="md:col-span-2 text-sm text-gray-600 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <p className="font-semibold mb-2">ðŸ“ {items.length} item(s)</p>
+                                            <div className="space-y-1">
+                                                <p className="text-xs">Subtotal: {formatCurrency(totals.subTotal)}</p>
+                                                <p className="text-xs">Tax: {formatCurrency(totals.tax)}</p>
+                                                <p className="text-xs font-bold border-t border-blue-300 pt-1 mt-1">Total: {formatCurrency(totals.grandTotal)}</p>
+                                            </div>
+                                        </div>
+                                    </FormSection>
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Print-only content */}
+                <div className="print-only">
+                    <PrintableSaleOrder {...printableProps} />
+                </div>
+
+            </DocumentEditorContainer>

@@ -101,29 +101,29 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
 
                 {/* Info Section */}
                 <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
-                    <div style={{ fontWeight: 'normal' }}>Company Name</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
                     <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
-                    <div style={{ fontWeight: 'normal' }}>Quotation No</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Quotation No</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Quotation ID'] || ''}</div>
 
-                    <div style={{ fontWeight: 'normal', alignSelf: 'start' }}>Address</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Quote Date</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Quote Date</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Contact Person</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Person'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Validity</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Validity</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Validity Date'] ? new Date(headerData['Validity Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Tel</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Tel'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Status</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Status</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Stock Status'] || ''}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Email</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Email'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Payment Term</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Payment Term</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Payment Term'] || ''}</div>
                 </div>
 
@@ -141,23 +141,40 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                     </thead>
                     <tbody>
                         {actualItems.map((item, index) => (
-                            <tr key={item.id || `fill-${index}`}>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
-                                    {item.modelName && <div><strong>{item.modelName}</strong></div>}
-                                    {item.description && (
-                                        <div style={{ whiteSpace: 'pre-wrap' }}>
-                                            {item.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
-                                                <div key={i}>{line.startsWith('-') ? line : `- ${line}`}</div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
-                            </tr>
+                            <React.Fragment key={item.id || `item-${index}`}>
+                                <tr>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.no || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
+                                        {item.itemCode || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
+                                        {item.modelName || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.qty || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                        {item.unitPrice ? formatCurrency(item.unitPrice) : ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                        {item.amount ? formatCurrency(item.amount) : ''}
+                                    </td>
+                                </tr>
+                                {item.description && (
+                                    <tr>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
+                                            {item.description}
+                                        </td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                         ))}
                     </tbody>
                     <tfoot style={{ fontSize: '12px' }}>

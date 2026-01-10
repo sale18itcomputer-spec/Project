@@ -256,3 +256,33 @@ export const createSaleOrderSheet = async (newSheetName: string, data: any): Pro
 
     return { message: 'Sale Order saved successfully', url: '#' };
 };
+
+/**
+ * Retrieves a global application setting.
+ */
+export const getSetting = async (key: string): Promise<any> => {
+    const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle();
+
+    if (error) {
+        console.error(`Error fetching setting ${key}:`, error);
+        return null;
+    }
+    return data?.value || null;
+};
+
+/**
+ * Saves or updates a global application setting.
+ */
+export const saveSetting = async (key: string, value: any): Promise<void> => {
+    const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key, value, updated_at: new Date().toISOString() });
+
+    if (error) {
+        throw new Error(`Failed to save setting ${key}: ${error.message}`);
+    }
+};

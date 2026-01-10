@@ -30,30 +30,6 @@ const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] 
     );
 };
 
-const StockCell: React.FC<{ value: string }> = ({ value }) => {
-    const num = parseInt(value, 10);
-    if (isNaN(num)) {
-        return <span className="text-slate-400">{value}</span>;
-    }
-
-    let colorClass = 'text-slate-800';
-    if (num === 0) {
-        colorClass = 'text-rose-600 font-bold';
-    } else if (num > 0 && num <= 5) {
-        colorClass = 'text-amber-600 font-semibold';
-    }
-
-    return <span className={`text-center block w-full ${colorClass}`}>{num}</span>;
-};
-
-const OnOrderCell: React.FC<{ value: string }> = ({ value }) => {
-    const num = parseInt(value, 10);
-    if (isNaN(num) || num === 0) {
-        return <span className="text-slate-400 text-center block w-full">-</span>;
-    }
-    return <span className="text-sky-600 font-semibold text-center block w-full">{num}</span>;
-}
-
 const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status, className }) => {
     if (!status) return null;
     const lowerStatus = status.toLowerCase();
@@ -99,24 +75,23 @@ const PricelistCard: React.FC<{ item: ProcessedPricelistItem; onView: () => void
         </CardHeader>
 
         <CardContent className="flex-grow text-xs text-slate-600">
-            <p>{item['Item Description']}</p>
+            <p>{item.Description}</p>
         </CardContent>
 
         <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-slate-50/70 border-t">
             <div>
                 <p className="text-2xl font-bold text-slate-900">
                     {item.Currency === 'KHR'
-                        ? `៛${parseSheetValue(item.SRP).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                        : parseSheetValue(item.SRP).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                        ? `៛${parseSheetValue(item['End User Price']).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                        : parseSheetValue(item['End User Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
                     }
                 </p>
             </div>
-            <div className="text-right">
-                <p className="text-sm font-semibold text-slate-700">Stock: <span className="font-bold text-slate-900">{item.Qty || '0'}</span></p>
-                {parseInt(item.OTW, 10) > 0 && (
-                    <p className="text-xs text-sky-600 font-semibold">OTW: <span className="font-bold">{item.OTW}</span></p>
-                )}
-            </div>
+            {item.Promotion && (
+                <div className="text-right max-w-[50%]">
+                    <p className="text-xs font-semibold text-rose-500 truncate" title={item.Promotion}>{item.Promotion}</p>
+                </div>
+            )}
         </CardFooter>
     </Card>
 );
@@ -150,7 +125,7 @@ const CategorySection: React.FC<{
                     <div className="border-t border-slate-200">
                         <ul className="divide-y divide-slate-100">
                             {items.map(item => (
-                                <li key={item['Item Code']} className="group relative" >
+                                <li key={item.Code} className="group relative" >
                                     <div
                                         className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-slate-50 cursor-pointer"
                                         onClick={() => onViewItem(item)}
@@ -160,11 +135,11 @@ const CategorySection: React.FC<{
                                     >
                                         <div className="min-w-0">
                                             <p className="font-semibold text-slate-900 truncate group-hover:text-primary">{item.Model}</p>
-                                            <p className="text-sm text-slate-500 truncate font-mono">{item['Item Code']}</p>
+                                            <p className="text-sm text-slate-500 truncate font-mono">{item.Code}</p>
                                         </div>
                                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
                                             <div className="w-28 text-right">
-                                                <PriceCell value={item.SRP} currency={item.Currency} />
+                                                <PriceCell value={item['End User Price']} currency={item.Currency} />
                                             </div>
                                             <div className="w-24">
                                                 <StatusBadge status={item.Status} />
@@ -211,13 +186,11 @@ const PricelistDashboard: React.FC = () => {
         }
     }, [loading]);
 
-    // FIX: Update handlers to expect ProcessedPricelistItem to ensure type consistency across the component.
     const handleCloseModal = () => setModalConfig({ item: null, isReadOnly: false, isOpen: false });
     const handleViewItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
     const handleEditItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
     const handleNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
     const handleDeleteItem = (item: ProcessedPricelistItem) => {
-        // Open the modal in view mode, where the user can then click the delete button to confirm.
         setModalConfig({ item, isReadOnly: true, isOpen: true });
     };
 
@@ -256,10 +229,9 @@ const PricelistDashboard: React.FC = () => {
 
     const processedFilteredData: ProcessedPricelistItem[] = useMemo(() => {
         return filteredData.map(item => {
-            const brand = item.Brand || '';
             const model = item.Model || '';
-            const description = item['Item Description'] || '';
-            const combined = `${brand} ${model} ${description ? `(${description})` : ''}`.trim();
+            const description = item.Description || '';
+            const combined = `${model} ${description ? `(${description})` : ''}`.trim();
             return {
                 ...item,
                 fullDescription: combined,
@@ -281,20 +253,18 @@ const PricelistDashboard: React.FC = () => {
 
     const allColumns = useMemo<ColumnDef<ProcessedPricelistItem>[]>(() => [
         { accessorKey: 'Category', header: 'Category', isSortable: true },
-        { accessorKey: 'Item Code', header: 'Item Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
+        { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
         { accessorKey: 'Brand', header: 'Brand', isSortable: true },
         { accessorKey: 'Model', header: 'Model', isSortable: true },
-        { accessorKey: 'Item Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
+        { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
         {
             accessorKey: 'fullDescription',
             header: 'Full Description',
             isSortable: true,
             cell: (value: string) => <p className="text-sm text-slate-600">{value}</p>
         },
-        { accessorKey: 'SRP', header: 'SRP', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
-        { accessorKey: 'SRP (B)', header: 'SRP (B)', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
-        { accessorKey: 'Qty', header: 'Stock', isSortable: true, cell: (value: string) => <StockCell value={value} /> },
-        { accessorKey: 'OTW', header: 'OTW', isSortable: true, cell: (value: string) => <OnOrderCell value={value} /> },
+        { accessorKey: 'End User Price', header: 'Unit Price', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
+        { accessorKey: 'Promotion', header: 'Promotion', isSortable: true, cell: (value: string) => <span className="text-sm font-medium text-rose-500">{value}</span> },
         { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: string) => <StatusBadge status={value} /> },
     ], []);
 
@@ -373,7 +343,7 @@ const PricelistDashboard: React.FC = () => {
                             loading={loading}
                             onRowClick={handleViewItem}
                             initialSort={{ key: 'Category', direction: 'ascending' }}
-                            mobilePrimaryColumns={['Model', 'Brand', 'SRP', 'Status']}
+                            mobilePrimaryColumns={['Model', 'Brand', 'End User Price', 'Status']}
                             cellWrapStyle={cellWrapStyle}
                             renderRowActions={(row) => (
                                 <button
@@ -394,7 +364,7 @@ const PricelistDashboard: React.FC = () => {
                     <div className="px-4 sm:px-6 pb-4 sm:pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                         {processedFilteredData.map(item => (
                             <PricelistCard
-                                key={item['Item Code']}
+                                key={item.Code}
                                 item={item}
                                 onView={() => handleViewItem(item)}
                                 onEdit={() => handleEditItem(item)}
@@ -450,8 +420,8 @@ const PricelistDashboard: React.FC = () => {
                                     onClick={() => setCellWrapStyle('overflow')}
                                     title="Overflow"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                            ? 'bg-white shadow-sm text-brand-700'
-                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-white shadow-sm text-brand-700'
+                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'overflow'}
                                 >
@@ -461,8 +431,8 @@ const PricelistDashboard: React.FC = () => {
                                     onClick={() => setCellWrapStyle('wrap')}
                                     title="Wrap"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                            ? 'bg-white shadow-sm text-brand-700'
-                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-white shadow-sm text-brand-700'
+                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'wrap'}
                                 >
@@ -472,8 +442,8 @@ const PricelistDashboard: React.FC = () => {
                                     onClick={() => setCellWrapStyle('clip')}
                                     title="Clip"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                            ? 'bg-white shadow-sm text-brand-700'
-                                            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-white shadow-sm text-brand-700'
+                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'clip'}
                                 >

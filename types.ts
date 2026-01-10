@@ -234,20 +234,27 @@ export interface SaleOrder {
   'Created By'?: string;
   'Currency'?: 'USD' | 'KHR';
   'Attachment'?: string;
+  'Company Address'?: string;
+  'Prepared By'?: string;
+  'Approved By'?: string;
+  'Prepared By Position'?: string;
+  'Approved By Position'?: string;
+  'Remark'?: string;
+  'Terms and Conditions'?: string;
+  'ItemsJSON'?: any;
   [key: string]: any;
 }
 
 export interface PricelistItem {
-  'Item Code': string;
+  'Code': string;
   'Brand': string;
   'Model': string;
-  'Item Description': string;
-  'SRP': string;
-  'SRP (B)': string;
-  'Qty': string;
-  'OTW': string;
+  'Description': string;
+  'End User Price': string;
+  'Dealer Price': string;
+  'Sheet Name': string;
+  'Promotion': string;
   'Category': string;
-  'Detail Spec': string;
   'Status': string;
   'Currency'?: 'USD' | 'KHR';
   [key: string]: any;

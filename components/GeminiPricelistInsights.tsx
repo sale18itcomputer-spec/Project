@@ -18,12 +18,13 @@ interface GeminiPricelistInsightsProps {
 const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => (
     <div
         className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-slate-800 prose-h3:text-base prose-p:text-slate-700 prose-ul:text-slate-700 prose-li:my-1"
-        dangerouslySetInnerHTML={{ __html: content
-            .replace(/^### (.*$)/gim, '<h3 class="text-base font-semibold text-slate-800 mb-2 mt-4">$1</h3>')
-            .replace(/^- (.*$)/gim, '<li class="ml-4 list-disc text-slate-700">$1</li>')
-            .replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc text-slate-700">$1</li>')
-            .replace(/\n/g, '<br />')
-            .replace(/<br \s*\/?>(\s*<li)/g, '$1') // Clean up breaks before list items
+        dangerouslySetInnerHTML={{
+            __html: content
+                .replace(/^### (.*$)/gim, '<h3 class="text-base font-semibold text-slate-800 mb-2 mt-4">$1</h3>')
+                .replace(/^- (.*$)/gim, '<li class="ml-4 list-disc text-slate-700">$1</li>')
+                .replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc text-slate-700">$1</li>')
+                .replace(/\n/g, '<br />')
+                .replace(/<br \s*\/?>(\s*<li)/g, '$1') // Clean up breaks before list items
         }}
     />
 );
@@ -41,9 +42,7 @@ const GeminiPricelistInsights: React.FC<GeminiPricelistInsightsProps> = ({ items
             Brand: item.Brand,
             Model: item.Model,
             Category: item.Category,
-            Price: parseSheetValue(item.SRP),
-            Stock: parseInt(item.Qty, 10) || 0,
-            OnTheWay: parseInt(item.OTW, 10) || 0,
+            Price: parseSheetValue(item['End User Price']),
             Status: item.Status,
         }));
     }, [items]);
@@ -68,16 +67,16 @@ ${JSON.stringify(summarizedData, null, 2)}
 
 Based on this data, please provide a concise report in Markdown format with the following sections:
 
-### Inventory Status
-- Identify items with low stock (5 or fewer units) or that are "Out of Stock".
-- Highlight any items with incoming stock (On The Way > 0) and mention if they are replenishing low-stock items.
+### Availability Status
+- Analyze the "Status" field to identify how many products are "Available", "Out of Stock", or "Pre-Order".
+- Highlight any major availability concerns for key models or brands.
 
 ### Pricing & Product Observations
 - Point out the top 3 most expensive items in this list.
 - Briefly mention the most common brands or categories in this data view.
 
 ### Recommendations
-- Suggest 1-2 actionable steps. For example, which items should be prioritized for reordering? Are there any expensive, high-stock items that could be featured in a promotion?
+- Suggest 1-2 actionable steps based on availability status and pricing (e.g. promoting available items, restocking out-of-stock items if applicable).
 
 Keep your analysis brief, insightful, and focused on business impact. Avoid mentioning that you are an AI.
             `;
@@ -86,7 +85,7 @@ Keep your analysis brief, insightful, and focused on business impact. Avoid ment
                 model: 'gemini-2.5-flash',
                 contents: prompt,
             });
-            
+
             setInsights(response.text);
 
         } catch (err: any) {
@@ -116,7 +115,7 @@ Keep your analysis brief, insightful, and focused on business impact. Avoid ment
                             Analyzing...
                         </>
                     ) : (
-                         <>
+                        <>
                             <Sparkles className="w-4 h-4 mr-2" />
                             Generate Insights
                         </>
@@ -130,14 +129,14 @@ Keep your analysis brief, insightful, and focused on business impact. Avoid ment
                     <p className="mt-2">{error}</p>
                 </div>
             )}
-            
+
             {isLoading && !insights && (
-                 <div className="mt-4 text-center py-8">
-                     <div className="flex justify-center items-center">
+                <div className="mt-4 text-center py-8">
+                    <div className="flex justify-center items-center">
                         <Loader2 className="h-8 w-8 text-brand-600 animate-spin" />
-                     </div>
-                     <p className="text-slate-600 font-medium mt-4">Gemini is analyzing your pricelist...</p>
-                 </div>
+                    </div>
+                    <p className="text-slate-600 font-medium mt-4">Gemini is analyzing your pricelist...</p>
+                </div>
             )}
 
             {insights && (

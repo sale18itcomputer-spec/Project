@@ -19,42 +19,42 @@ import GeminiDashboardInsights from './GeminiDashboardInsights';
 import { useWindowSize } from '../hooks/useWindowSize';
 
 const DashboardContentSkeleton = () => (
-    <div className="space-y-6 animate-pulse">
-        {/* Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-        {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card p-5 rounded-xl border">
-                <div className="h-4 bg-muted rounded w-3/4 mb-3"></div>
-                <div className="h-8 bg-muted rounded w-1/2"></div>
-            </div>
-        ))}
+  <div className="space-y-6 animate-pulse">
+    {/* Metric Cards */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-card p-5 rounded-xl border">
+          <div className="h-4 bg-muted rounded w-3/4 mb-3"></div>
+          <div className="h-8 bg-muted rounded w-1/2"></div>
         </div>
-        
-        {/* Filter Bar Placeholder */}
-        <div className="h-16 bg-card rounded-xl border"></div>
-
-        {/* Large Chart */}
-        <div className="h-96 bg-card rounded-xl border p-6">
-            <div className="h-6 w-1/3 bg-muted rounded mb-4"></div>
-            <div className="h-4 w-1/2 bg-muted rounded mb-6"></div>
-            <div className="h-64 bg-muted/50 rounded-lg"></div>
-        </div>
-        
-        {/* Grouped Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-80 bg-card rounded-xl border p-6">
-                <div className="h-5 w-1/2 bg-muted rounded mb-4"></div>
-                <div className="h-4 w-3/4 bg-muted rounded mb-6"></div>
-                <div className="h-48 bg-muted/50 rounded-lg"></div>
-            </div>
-            ))}
-        </div>
+      ))}
     </div>
+
+    {/* Filter Bar Placeholder */}
+    <div className="h-16 bg-card rounded-xl border"></div>
+
+    {/* Large Chart */}
+    <div className="h-96 bg-card rounded-xl border p-6">
+      <div className="h-6 w-1/3 bg-muted rounded mb-4"></div>
+      <div className="h-4 w-1/2 bg-muted rounded mb-6"></div>
+      <div className="h-64 bg-muted/50 rounded-lg"></div>
+    </div>
+
+    {/* Grouped Section */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="h-80 bg-card rounded-xl border p-6">
+          <div className="h-5 w-1/2 bg-muted rounded mb-4"></div>
+          <div className="h-4 w-3/4 bg-muted rounded mb-6"></div>
+          <div className="h-48 bg-muted/50 rounded-lg"></div>
+        </div>
+      ))}
+    </div>
+  </div>
 );
 
 const DashboardContent: React.FC = () => {
-  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error } = useData();
+  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders } = useData();
   const { handleNavigation } = useNavigation();
   const { currentUser } = useAuth();
   const { filters } = useFilter();
@@ -82,37 +82,37 @@ const DashboardContent: React.FC = () => {
     if (!hasFilters) return projects;
 
     return projects.filter(p => {
-        if (filters.status?.length && !filters.status.includes(p.Status)) return false;
-        if (filters.responsibleBy?.length && !filters.responsibleBy.includes(p['Responsible By'])) return false;
-        if (filters.companyName?.length && !filters.companyName.includes(p['Company Name'])) return false;
-        if (filters.brand1?.length && !filters.brand1.includes(p['Brand 1'])) return false;
-        
-        const hasDateFilters = filters.startDate || filters.endDate || filters.month?.length || filters.year?.length;
-        if (hasDateFilters) {
-            const projectCreatedDate = parseDate(p['Created Date']);
-            if (!projectCreatedDate) {
-                return false; 
-            }
+      if (filters.status?.length && !filters.status.includes(p.Status)) return false;
+      if (filters.responsibleBy?.length && !filters.responsibleBy.includes(p['Responsible By'])) return false;
+      if (filters.companyName?.length && !filters.companyName.includes(p['Company Name'])) return false;
+      if (filters.brand1?.length && !filters.brand1.includes(p['Brand 1'])) return false;
 
-            if (filters.startDate) {
-                const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
-                if (projectCreatedDate < startDate) return false;
-            }
-            if (filters.endDate) {
-                const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
-                if (projectCreatedDate > endDate) return false;
-            }
-            if (filters.year?.length) {
-                const projectYear = projectCreatedDate.getFullYear();
-                if (!filters.year.map(Number).includes(projectYear)) return false;
-            }
-            if (filters.month?.length) {
-                const projectMonth = projectCreatedDate.toLocaleString('default', { month: 'long' });
-                if (!filters.month.includes(projectMonth)) return false;
-            }
+      const hasDateFilters = filters.startDate || filters.endDate || filters.month?.length || filters.year?.length;
+      if (hasDateFilters) {
+        const projectCreatedDate = parseDate(p['Created Date']);
+        if (!projectCreatedDate) {
+          return false;
         }
 
-        return true;
+        if (filters.startDate) {
+          const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
+          if (projectCreatedDate < startDate) return false;
+        }
+        if (filters.endDate) {
+          const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
+          if (projectCreatedDate > endDate) return false;
+        }
+        if (filters.year?.length) {
+          const projectYear = projectCreatedDate.getFullYear();
+          if (!filters.year.map(Number).includes(projectYear)) return false;
+        }
+        if (filters.month?.length) {
+          const projectMonth = projectCreatedDate.toLocaleString('default', { month: 'long' });
+          if (!filters.month.includes(projectMonth)) return false;
+        }
+      }
+
+      return true;
     });
   }, [projects, filters]);
 
@@ -127,39 +127,39 @@ const DashboardContent: React.FC = () => {
     const years = new Set<number>();
 
     projects.forEach(p => {
-        if (p.Status) statuses.add(p.Status);
-        if (p['Responsible By']) assignees.add(p['Responsible By']);
-        if (p['Company Name']) companies.add(p['Company Name']);
-        if (p['Brand 1'] && p['Brand 1'].trim() !== '' && p['Brand 1'].trim() !== 'N/A') {
-            brands.add(p['Brand 1']);
+      if (p.Status) statuses.add(p.Status);
+      if (p['Responsible By']) assignees.add(p['Responsible By']);
+      if (p['Company Name']) companies.add(p['Company Name']);
+      if (p['Brand 1'] && p['Brand 1'].trim() !== '' && p['Brand 1'].trim() !== 'N/A') {
+        brands.add(p['Brand 1']);
+      }
+      if (p['Created Date']) {
+        const projectCreatedDate = parseDate(p['Created Date']);
+        if (projectCreatedDate) {
+          months.add(projectCreatedDate.toLocaleString('default', { month: 'long' }));
+          years.add(projectCreatedDate.getFullYear());
         }
-        if (p['Created Date']) {
-            const projectCreatedDate = parseDate(p['Created Date']);
-            if (projectCreatedDate) {
-                months.add(projectCreatedDate.toLocaleString('default', { month: 'long' }));
-                years.add(projectCreatedDate.getFullYear());
-            }
-        }
+      }
     });
-    
+
     const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const sortedMonths = Array.from(months).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
     const sortedYears = Array.from(years).sort((a, b) => b - a);
 
     return {
-        statuses: Array.from(statuses).sort(),
-        assignees: Array.from(assignees).sort(),
-        companies: Array.from(companies).sort(),
-        brands: Array.from(brands).sort(),
-        months: sortedMonths,
-        years: sortedYears,
+      statuses: Array.from(statuses).sort(),
+      assignees: Array.from(assignees).sort(),
+      companies: Array.from(companies).sort(),
+      brands: Array.from(brands).sort(),
+      months: sortedMonths,
+      years: sortedYears,
     };
-}, [projects]);
-  
+  }, [projects]);
+
   const processedFilteredProjects = useMemo(() => {
     return filteredProjects.map(project => ({
-        ...project,
-        calculatedDueDate: calculateDueDate(project['Created Date'], project['Time Frame'])
+      ...project,
+      calculatedDueDate: calculateDueDate(project['Created Date'], project['Time Frame'])
     }));
   }, [filteredProjects]);
 
@@ -181,52 +181,52 @@ const DashboardContent: React.FC = () => {
     const upcomingItems: PendingWorkItem[] = [];
 
     if (processedFilteredProjects) {
-        processedFilteredProjects.forEach(p => {
-            if (p['Responsible By'] !== currentUser?.Name) return;
+      processedFilteredProjects.forEach(p => {
+        if (p['Responsible By'] !== currentUser?.Name) return;
 
-            // Use the calculatedDueDate directly. It's already a Date object at midnight UTC+7.
-            const dueDate = p.calculatedDueDate;
-            if (p.Status === 'Quote Submitted' && dueDate) {
-                // Compare timestamps directly. No need to modify the date objects.
-                if (dueDate.getTime() === today.getTime()) {
-                    todayItems.push({
-                        id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
-                        date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
-                    });
-                } else if (dueDate.getTime() > today.getTime() && dueDate.getTime() < endOfUpcoming.getTime()) {
-                    upcomingItems.push({
-                        id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
-                        date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
-                    });
-                }
-            }
-        });
+        // Use the calculatedDueDate directly. It's already a Date object at midnight UTC+7.
+        const dueDate = p.calculatedDueDate;
+        if (p.Status === 'Quote Submitted' && dueDate) {
+          // Compare timestamps directly. No need to modify the date objects.
+          if (dueDate.getTime() === today.getTime()) {
+            todayItems.push({
+              id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
+              date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
+            });
+          } else if (dueDate.getTime() > today.getTime() && dueDate.getTime() < endOfUpcoming.getTime()) {
+            upcomingItems.push({
+              id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
+              date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
+            });
+          }
+        }
+      });
     }
 
     if (meetings) {
-        meetings.forEach(m => {
-            if (m['Responsible By'] !== currentUser?.Name) return;
+      meetings.forEach(m => {
+        if (m['Responsible By'] !== currentUser?.Name) return;
 
-            if ((m.Status === 'Open' || m.Status === 'Pending') && m['Meeting ID']) {
-                // parseDate returns a Date object at midnight UTC+7. Use it directly.
-                const meetingDate = parseDate(m['Meeting Date']);
-                if (meetingDate) {
-                    if (meetingDate.getTime() === today.getTime()) {
-                        todayItems.push({
-                            id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
-                            date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
-                        });
-                    } else if (meetingDate.getTime() > today.getTime() && meetingDate.getTime() < endOfUpcoming.getTime()) {
-                         upcomingItems.push({
-                            id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
-                            date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
-                        });
-                    }
-                }
+        if ((m.Status === 'Open' || m.Status === 'Pending') && m['Meeting ID']) {
+          // parseDate returns a Date object at midnight UTC+7. Use it directly.
+          const meetingDate = parseDate(m['Meeting Date']);
+          if (meetingDate) {
+            if (meetingDate.getTime() === today.getTime()) {
+              todayItems.push({
+                id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
+                date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
+              });
+            } else if (meetingDate.getTime() > today.getTime() && meetingDate.getTime() < endOfUpcoming.getTime()) {
+              upcomingItems.push({
+                id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
+                date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
+              });
             }
-        });
+          }
+        }
+      });
     }
-    
+
     const sortByDate = (a: PendingWorkItem, b: PendingWorkItem) => a.date.getTime() - b.date.getTime();
     todayItems.sort(sortByDate);
     upcomingItems.sort(sortByDate);
@@ -246,7 +246,7 @@ const DashboardContent: React.FC = () => {
         return acc + value;
       }, 0);
   }, [filteredProjects, currencyFilter]);
-  
+
   const winRateData = useMemo(() => {
     const wonCount = filteredProjects.filter(p => p.Status === 'Close (win)').length;
     const lostCount = filteredProjects.filter(p => p.Status === 'Close (lose)').length;
@@ -257,8 +257,8 @@ const DashboardContent: React.FC = () => {
 
 
   const validContactsCount = useMemo(() => {
-      if (!contacts) return 0;
-      return contacts.filter(c => c.Name && c.Name.trim() !== '').length;
+    if (!contacts) return 0;
+    return contacts.filter(c => c.Name && c.Name.trim() !== '').length;
   }, [contacts]);
 
   const metrics = [
@@ -282,26 +282,60 @@ const DashboardContent: React.FC = () => {
 
     return Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
   }, [projects, filteredProjects, filters.status]);
-  
+
   const revenueByPeriodData = useMemo(() => {
-    const wonProjects = filteredProjects.filter(p => {
-        if (p.Status !== 'Close (win)') return false;
-        if (currencyFilter === 'USD') return p.Currency !== 'KHR';
-        return p.Currency === currencyFilter;
+    if (!saleOrders) return { chartData: [] };
+
+    // Filter Sale Orders for Revenue
+    const relevantSaleOrders = saleOrders.filter(so => {
+      // Status check - explicitly 'Completed'
+      if (so.Status !== 'Completed') return false;
+
+      // Currency check
+      if (currencyFilter === 'USD') {
+        if (so.Currency === 'KHR') return false;
+      } else {
+        if (so.Currency !== currencyFilter) return false;
+      }
+
+      // Apply relevant global filters
+      if (filters.companyName?.length && !filters.companyName.includes(so['Company Name'])) return false;
+
+      const soDate = parseDate(so['SO Date']);
+      if (!soDate) return false;
+
+      if (filters.startDate) {
+        const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
+        if (soDate < startDate) return false;
+      }
+      if (filters.endDate) {
+        const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
+        if (soDate > endDate) return false;
+      }
+      if (filters.year?.length) {
+        const year = soDate.getFullYear();
+        if (!filters.year.map(Number).includes(year)) return false;
+      }
+      if (filters.month?.length) {
+        const month = soDate.toLocaleString('default', { month: 'long' });
+        if (!filters.month.includes(month)) return false;
+      }
+
+      return true;
     });
 
     const getQuarter = (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`;
 
-    const aggregation = wonProjects.reduce((acc, project) => {
-      const bidValue = parseSheetValue(project['Bid Value']);
-      const dateStr = project['Inv Date'];
-      
-      if (bidValue > 0 && dateStr) {
+    const aggregation = relevantSaleOrders.reduce((acc, so) => {
+      const value = parseSheetValue(so['Total Amount']);
+      const dateStr = so['SO Date'];
+
+      if (value > 0 && dateStr) {
         const date = parseDate(dateStr);
         if (date) {
           let key = '';
           const year = date.getFullYear();
-          
+
           switch (revenuePeriod) {
             case 'monthly':
               key = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -318,69 +352,68 @@ const DashboardContent: React.FC = () => {
             if (!acc[key]) {
               acc[key] = { winValue: 0, projectCount: 0 };
             }
-            acc[key].winValue += bidValue;
+            acc[key].winValue += value;
             acc[key].projectCount += 1;
           }
         }
       }
       return acc;
-    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
     }, {} as { [key: string]: { winValue: number; projectCount: number } });
 
     const chartData = Object.entries(aggregation)
       .map(([key, { winValue, projectCount }]) => {
-          let name = '';
-          switch (revenuePeriod) {
-            case 'monthly': {
-              const [year, month] = key.split('-');
-              const date = new Date(parseInt(year), parseInt(month) - 1);
-              name = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-              break;
-            }
-            case 'quarterly': {
-              const [qYear, quarter] = key.split('-');
-              name = `${quarter} ${qYear}`;
-              break;
-            }
-            case 'yearly':
-              name = key;
-              break;
+        let name = '';
+        switch (revenuePeriod) {
+          case 'monthly': {
+            const [year, month] = key.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1);
+            name = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            break;
           }
-          return { name, winValue, projectCount, sortKey: key };
+          case 'quarterly': {
+            const [qYear, quarter] = key.split('-');
+            name = `${quarter} ${qYear}`;
+            break;
+          }
+          case 'yearly':
+            name = key;
+            break;
+        }
+        return { name, winValue, projectCount, sortKey: key };
       })
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-    
+
     return { chartData };
-  }, [filteredProjects, revenuePeriod, currencyFilter]);
-  
+  }, [saleOrders, revenuePeriod, currencyFilter, filters]);
+
   const topCustomersData = useMemo(() => {
     const baseData = filters.companyName?.length ? filteredProjects : projects;
     if (!baseData) return [];
 
     const wonProjects = baseData.filter(p => {
-        if (p.Status !== 'Close (win)') return false;
-        if (currencyFilter === 'USD') return p.Currency !== 'KHR';
-        return p.Currency === currencyFilter;
+      if (p.Status !== 'Close (win)') return false;
+      if (currencyFilter === 'USD') return p.Currency !== 'KHR';
+      return p.Currency === currencyFilter;
     });
-    
+
     const customerValues = wonProjects.reduce((acc, project) => {
-        const customer = project['Company Name'];
-        const bidValue = parseSheetValue(project['Bid Value']);
-        if (customer && bidValue > 0) {
-            if (!acc[customer]) {
-                acc[customer] = { winValue: 0, projectCount: 0 };
-            }
-            acc[customer].winValue += bidValue;
-            acc[customer].projectCount += 1;
+      const customer = project['Company Name'];
+      const bidValue = parseSheetValue(project['Bid Value']);
+      if (customer && bidValue > 0) {
+        if (!acc[customer]) {
+          acc[customer] = { winValue: 0, projectCount: 0 };
         }
-        return acc;
-    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
+        acc[customer].winValue += bidValue;
+        acc[customer].projectCount += 1;
+      }
+      return acc;
+      // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
     }, {} as { [key: string]: { winValue: number, projectCount: number } });
 
     return Object.entries(customerValues)
-        .map(([name, { winValue, projectCount }]) => ({ name, winValue, projectCount }))
-        .sort((a, b) => b.winValue - a.winValue)
-        .slice(0, 10);
+      .map(([name, { winValue, projectCount }]) => ({ name, winValue, projectCount }))
+      .sort((a, b) => b.winValue - a.winValue)
+      .slice(0, 10);
   }, [projects, filteredProjects, filters.companyName, currencyFilter]);
 
   const projectsByBrandData = useMemo(() => {
@@ -388,21 +421,21 @@ const DashboardContent: React.FC = () => {
     if (!baseData) return [];
 
     const brandCounts = baseData.reduce((acc, project) => {
-        const brand = project['Brand 1'];
-        if (brand && brand.trim() !== '' && brand.trim() !== 'N/A') {
-            if (!acc[brand]) {
-                acc[brand] = { count: 0, totalValue: 0 };
-            }
-            acc[brand].count += 1;
-            acc[brand].totalValue += parseSheetValue(project['Bid Value']);
+      const brand = project['Brand 1'];
+      if (brand && brand.trim() !== '' && brand.trim() !== 'N/A') {
+        if (!acc[brand]) {
+          acc[brand] = { count: 0, totalValue: 0 };
         }
-        return acc;
-    // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
+        acc[brand].count += 1;
+        acc[brand].totalValue += parseSheetValue(project['Bid Value']);
+      }
+      return acc;
+      // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
     }, {} as { [key: string]: { count: number; totalValue: number } });
 
     return Object.entries(brandCounts)
-        .map(([name, { count, totalValue }]) => ({ name, count, totalValue }))
-        .sort((a, b) => b.count - a.count);
+      .map(([name, { count, totalValue }]) => ({ name, count, totalValue }))
+      .sort((a, b) => b.count - a.count);
   }, [projects, filteredProjects, filters.brand1]);
 
 
@@ -419,7 +452,7 @@ const DashboardContent: React.FC = () => {
     );
   }
 
-  const transitionClass = (step: number) => 
+  const transitionClass = (step: number) =>
     `transition-all duration-500 ease-out transform ${renderStep >= step ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`;
 
   return (
@@ -427,8 +460,8 @@ const DashboardContent: React.FC = () => {
       {renderStep >= 1 && (
         <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 ${transitionClass(1)}`}>
           {metrics.map((metric) => (
-            <MetricCard 
-              key={metric.title} 
+            <MetricCard
+              key={metric.title}
               title={metric.title}
               value={metric.value}
               change=""
@@ -440,45 +473,45 @@ const DashboardContent: React.FC = () => {
           ))}
         </div>
       )}
-      
+
       {renderStep >= 2 && (
-          <div className={`${transitionClass(2)} ${isFilterMenuOpen ? 'relative z-10' : ''}`}>
-              <DashboardFilterBar
-                  statuses={filterOptions.statuses}
-                  assignees={filterOptions.assignees}
-                  companies={filterOptions.companies}
-                  brands={filterOptions.brands}
-                  months={filterOptions.months}
-                  years={filterOptions.years}
-                  onMenuVisibilityChange={setFilterMenuOpen}
-              />
-          </div>
+        <div className={`${transitionClass(2)} ${isFilterMenuOpen ? 'relative z-10' : ''}`}>
+          <DashboardFilterBar
+            statuses={filterOptions.statuses}
+            assignees={filterOptions.assignees}
+            companies={filterOptions.companies}
+            brands={filterOptions.brands}
+            months={filterOptions.months}
+            years={filterOptions.years}
+            onMenuVisibilityChange={setFilterMenuOpen}
+          />
+        </div>
       )}
 
       {renderStep >= 2 && !loading && (
-          <div className={transitionClass(2)}>
-              <GeminiDashboardInsights 
-                  projectOutcomeData={projectOutcomeData}
-                  revenueByPeriodData={revenueByPeriodData}
-                  topCustomersData={topCustomersData}
-                  winRateData={winRateData}
-                  filteredProjectsCount={filteredProjects.length}
-                  revenuePeriod={revenuePeriod}
-              />
-          </div>
+        <div className={transitionClass(2)}>
+          <GeminiDashboardInsights
+            projectOutcomeData={projectOutcomeData}
+            revenueByPeriodData={revenueByPeriodData}
+            topCustomersData={topCustomersData}
+            winRateData={winRateData}
+            filteredProjectsCount={filteredProjects.length}
+            revenuePeriod={revenuePeriod}
+          />
+        </div>
       )}
-      
+
       {renderStep >= 3 && (
         <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
-          <MonthlyWinValueChart 
-            data={revenueByPeriodData.chartData} 
+          <MonthlyWinValueChart
+            data={revenueByPeriodData.chartData}
             period={revenuePeriod}
             onPeriodChange={setRevenuePeriod}
             currency={currencyFilter}
           />
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {renderStep >= 4 && (
           <div className={`${transitionClass(4)} min-h-[400px] min-w-0`}>

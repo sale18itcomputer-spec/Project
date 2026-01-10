@@ -1,0 +1,25 @@
+            {successInfo && (
+                <SuccessModal
+                    isOpen={true}
+                    onClose={() => { setSuccessInfo(null); onBack(); }}
+                    title="Sale Order Saved!"
+                    message={<p>Sale Order <strong>{successInfo.soNo}</strong> has been successfully saved.</p>}
+                    actionButtonLink={null}
+                    actionButtonText="Back to List"
+                    onAction={() => { setSuccessInfo(null); onBack(); }}
+                />
+            )}
+            <PDFConfigModal
+                isOpen={showPdfConfig}
+                onClose={() => setShowPdfConfig(false)}
+                onGenerate={(layout) => {
+                    setPdfLayout(layout);
+                    setShowPdfConfig(false);
+                }}
+                currentLayout={pdfLayout}
+            />
+        </>
+    );
+};
+
+export default SaleOrderCreator;

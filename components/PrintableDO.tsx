@@ -4,6 +4,7 @@ interface LineItem {
     id: string;
     no: number;
     itemCode: string;
+    modelName?: string;
     description: string;
     qty: number | string;
 }
@@ -83,24 +84,24 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
 
                 {/* Info Section */}
                 <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
-                    <div style={{ fontWeight: 'normal' }}>Company Name</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
                     <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
-                    <div style={{ fontWeight: 'normal' }}>DO No</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>DO No</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Inv No.'] ? headerData['Inv No.'].replace('INV', 'DO') : ''}</div>
 
-                    <div style={{ fontWeight: 'normal', alignSelf: 'start' }}>Address</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>DO Date</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>DO Date</div>
                     <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Inv Date'])}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Contact Person</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Name'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>SO Ref.</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Ref.</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['SO No.'] || ''}</div>
 
-                    <div style={{ fontWeight: 'normal' }}>Tel</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Phone Number'] || ''}</div>
-                    <div style={{ fontWeight: 'normal' }}>Email</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
                     <div style={{ fontWeight: 'normal' }}>: {headerData['Email'] || ''}</div>
                 </div>
 
@@ -116,14 +117,32 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
                     </thead>
                     <tbody>
                         {actualItems.map((item, index) => (
-                            <tr key={item.id || `fill-${index}`}>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
-                                    {item.description}
-                                </td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
-                            </tr>
+                            <React.Fragment key={item.id || `item-${index}`}>
+                                <tr>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.no || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
+                                        {item.itemCode || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
+                                        {item.modelName || ''}
+                                    </td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                        {item.qty || ''}
+                                    </td>
+                                </tr>
+                                {item.description && (
+                                    <tr>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
+                                            {item.description}
+                                        </td>
+                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                         ))}
                     </tbody>
                 </table>
@@ -133,8 +152,8 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
                     <div style={{ textAlign: 'center', width: '30%' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            {headerData['Created By'] || ''}<br />
-                            Signature and Name
+                            {headerData['Prepared By'] || headerData['Created By'] || ''}<br />
+                            {headerData['Prepared By Position'] || 'Signature and Name'}
                         </div>
                     </div>
                     <div style={{ textAlign: 'center', width: '30%' }}>
@@ -146,7 +165,8 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
                     <div style={{ textAlign: 'center', width: '30%' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>RECEIVED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            Signature and Name
+                            {headerData['Approved By'] || ''}<br />
+                            {headerData['Approved By Position'] || 'Signature and Name'}
                         </div>
                     </div>
                 </div>

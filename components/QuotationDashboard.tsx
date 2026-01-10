@@ -331,6 +331,15 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         );
       }
     },
+    {
+      accessorKey: 'Tax Type',
+      header: 'Taxable',
+      isSortable: true,
+      cell: (value: string | undefined) => {
+        if (!value) return <span className="text-slate-400">-</span>;
+        return <span className="font-medium text-slate-600">{value}</span>;
+      }
+    },
     { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: Quotation['Status']) => <StatusBadge status={value} /> },
     {
       accessorKey: 'Created By',
@@ -537,6 +546,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                 <DetailItem label="Contact Number" value={selectedQuotationForDetail['Contact Number']} />
                 <DetailItem label="Payment Term" value={selectedQuotationForDetail['Payment Term']} />
                 <DetailItem label="Stock Status" value={selectedQuotationForDetail['Stock Status']} />
+                <DetailItem label="Taxable" value={selectedQuotationForDetail['Tax Type']} />
                 <DetailItem label="Created By" value={selectedQuotationForDetail['Created By']} />
                 <DetailItem label="Reason" value={selectedQuotationForDetail.Reason} />
               </dl>

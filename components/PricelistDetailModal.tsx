@@ -5,9 +5,9 @@ import { parseSheetValue } from '../utils/formatters';
 import ResizableModal from './ResizableModal';
 
 interface PricelistDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  item: PricelistItem | null;
+    isOpen: boolean;
+    onClose: () => void;
+    item: PricelistItem | null;
 }
 
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
@@ -23,7 +23,7 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
     } else if (lowerStatus.includes('out of stock')) {
         colorClass = 'bg-rose-100 text-rose-800';
     }
-    
+
     return (
         <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${colorClass}`}>
             {status}
@@ -34,7 +34,7 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
 const PricelistDetailModal: React.FC<PricelistDetailModalProps> = ({ isOpen, onClose, item }) => {
     if (!item) return null;
 
-    const title = item['Item Code'] ? `${item['Item Code']} - ${item.Model}` : 'Item Details';
+    const title = item.Code ? `${item.Code} - ${item.Model}` : 'Item Details';
 
     const modalFooter = (
         <div className="flex justify-end gap-3 w-full">
@@ -64,31 +64,18 @@ const PricelistDetailModal: React.FC<PricelistDetailModalProps> = ({ isOpen, onC
             <div className="space-y-6">
                 <FormSection title="General Information">
                     <FormDisplay label="Category" value={item.Category} />
-                    <FormDisplay label="Item Code" value={item['Item Code']} />
+                    <FormDisplay label="Code" value={item.Code} />
                     <FormDisplay label="Brand" value={item.Brand} />
                     <FormDisplay label="Model" value={item.Model} />
-                    <FormDisplay label="Item Description" value={item['Item Description']} multiline />
+                    <FormDisplay label="Description" value={item.Description} multiline />
+                    <FormDisplay label="Promotion" value={item.Promotion || '-'} />
                 </FormSection>
 
-                <FormSection title="Pricing">
-                    <FormDisplay label="SRP" value={renderPrice(item.SRP)} />
-                    <FormDisplay label="SRP (B)" value={renderPrice(item['SRP (B)'])} />
-                </FormSection>
-
-                <FormSection title="Inventory">
-                    <FormDisplay label="Stock (Qty)" value={item.Qty} />
-                    <FormDisplay label="On The Way (OTW)" value={item.OTW} />
+                <FormSection title="Pricing & Status">
+                    <FormDisplay label="Unit Price" value={renderPrice(item['End User Price'])} />
                     <FormDisplay label="Status">
                         <StatusBadge status={item.Status} />
                     </FormDisplay>
-                </FormSection>
-                
-                <FormSection title="Detailed Specifications">
-                    <div className="md:col-span-2">
-                         <FormDisplay label="" multiline>
-                            <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans">{item['Detail Spec'] || 'N/A'}</pre>
-                         </FormDisplay>
-                    </div>
                 </FormSection>
             </div>
         </ResizableModal>

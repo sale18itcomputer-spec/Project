@@ -189,6 +189,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             dataToFilter = dataToFilter.filter(item => {
                 if (statusFilter === 'Pending') return item.Status === 'Pending';
                 if (statusFilter === 'Completed') return item.Status === 'Completed';
+                if (statusFilter === 'Cancel') return item.Status === 'Cancel';
                 return true;
             });
         }
@@ -616,6 +617,12 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
                     >
                         Completed
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                    >
+                        Cancel
                     </button>
                 </div>
             </footer>
