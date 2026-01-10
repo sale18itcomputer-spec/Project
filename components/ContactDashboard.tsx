@@ -96,7 +96,7 @@ const ContactCard: React.FC<{
 }
 
 const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) => {
-  const { contacts, setContacts, projects, contactLogs, meetings, quotations, loading, error, companies } = useData();
+  const { contacts, setContacts, projects, contactLogs, meetings, quotations, saleOrders, loading, error, companies } = useData();
   const { addToast } = useToast();
   const [modalConfig, setModalConfig] = useState<{ contact: Contact | null, isReadOnly: boolean, isOpen: boolean }>({ contact: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
@@ -143,22 +143,36 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   }, [contacts]);
 
   const processedData = useMemo<ProcessedContact[]>(() => {
-    if (!validContacts || !projects) return [];
+    if (!validContacts) return [];
 
     return validContacts.map(contact => {
-      const isActive = projects.some(p => p['Contact Name'] === contact.Name && p.Status === 'Quote Submitted');
-      const { totalAmountUSD, totalAmountKHR } = projects
-        .filter(p => p['Contact Name'] === contact.Name && p.Status === 'Close (win)')
-        .reduce((acc, p) => {
-          const value = parseSheetValue(p['Bid Value']);
-          const determinedCurrency = determineCurrency(value, p.Currency);
-          if (determinedCurrency === 'KHR') {
-            acc.totalAmountKHR += value;
-          } else {
-            acc.totalAmountUSD += value;
-          }
-          return acc;
-        }, { totalAmountUSD: 0, totalAmountKHR: 0 });
+      const contactName = contact.Name;
+      const isActive = projects?.some(p => p['Contact Name'] === contactName && p.Status === 'Quote Submitted') || false;
+
+      // Calculate total from completed Sale Orders, excluding VAT
+      const { totalAmountUSD, totalAmountKHR } = saleOrders
+        ? saleOrders
+          .filter(so => so['Contact Name'] === contactName && so.Status === 'Completed')
+          .reduce((acc, so) => {
+            const totalAmount = parseSheetValue(so['Total Amount']);
+            const determinedCurrency = determineCurrency(totalAmount, so.Currency);
+
+            // Exclude VAT from the total
+            let subtotal = totalAmount;
+            if (so['Bill Invoice'] === 'VAT') {
+              // If there's a Tax field, use it; otherwise calculate 10% VAT
+              const taxAmount = so.Tax ? parseSheetValue(so.Tax) : (totalAmount / 1.1) * 0.1;
+              subtotal = totalAmount - taxAmount;
+            }
+
+            if (determinedCurrency === 'KHR') {
+              acc.totalAmountKHR += subtotal;
+            } else {
+              acc.totalAmountUSD += subtotal;
+            }
+            return acc;
+          }, { totalAmountUSD: 0, totalAmountKHR: 0 })
+        : { totalAmountUSD: 0, totalAmountKHR: 0 };
 
       return {
         ...contact,
@@ -167,7 +181,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
         totalAmountKHR,
       };
     });
-  }, [validContacts, projects]);
+  }, [validContacts, projects, saleOrders]);
 
   const companyOptions = useMemo(() => {
     if (!companies) return ['All Companies'];

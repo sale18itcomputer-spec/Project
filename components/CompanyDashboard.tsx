@@ -100,16 +100,26 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     return validCompanies.map(company => {
       const companyName = company['Company Name'];
 
-      const { totalValueUSD, totalValueKHR } = projects
-        ? projects
-          .filter(p => p['Company Name'] === companyName && p.Status === 'Close (win)')
-          .reduce((acc, p) => {
-            const value = parseSheetValue(p['Bid Value']);
-            const determinedCurrency = determineCurrency(value, p.Currency);
+      // Calculate total from completed Sale Orders, excluding VAT
+      const { totalValueUSD, totalValueKHR } = saleOrders
+        ? saleOrders
+          .filter(so => so['Company Name'] === companyName && so.Status === 'Completed')
+          .reduce((acc, so) => {
+            const totalAmount = parseSheetValue(so['Total Amount']);
+            const determinedCurrency = determineCurrency(totalAmount, so.Currency);
+
+            // Exclude VAT from the total
+            let subtotal = totalAmount;
+            if (so['Bill Invoice'] === 'VAT') {
+              // If there's a Tax field, use it; otherwise calculate 10% VAT
+              const taxAmount = so.Tax ? parseSheetValue(so.Tax) : (totalAmount / 1.1) * 0.1;
+              subtotal = totalAmount - taxAmount;
+            }
+
             if (determinedCurrency === 'KHR') {
-              acc.totalValueKHR += value;
+              acc.totalValueKHR += subtotal;
             } else {
-              acc.totalValueUSD += value;
+              acc.totalValueUSD += subtotal;
             }
             return acc;
           }, { totalValueUSD: 0, totalValueKHR: 0 })
@@ -164,19 +174,32 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     const companyName = selectedCompany['Company Name'];
     const relatedProjects = projects?.filter(p => p['Company Name'] === companyName) || [];
     const relatedContacts = contacts?.filter(c => c['Company Name'] === companyName) || [];
-    const { totalValueUSD, totalValueKHR } = relatedProjects.reduce((sum, p) => {
-      const value = parseSheetValue(p['Bid Value']);
-      const determinedCurrency = determineCurrency(value, p.Currency);
-      if (determinedCurrency === 'KHR') {
-        sum.totalValueKHR += value;
-      } else {
-        sum.totalValueUSD += value;
-      }
-      return sum;
-    }, { totalValueUSD: 0, totalValueKHR: 0 });
+
+    // Calculate total from completed Sale Orders, excluding VAT
+    const relatedSaleOrders = saleOrders?.filter(so => so['Company Name'] === companyName) || [];
+    const { totalValueUSD, totalValueKHR } = relatedSaleOrders
+      .filter(so => so.Status === 'Completed')
+      .reduce((sum, so) => {
+        const totalAmount = parseSheetValue(so['Total Amount']);
+        const determinedCurrency = determineCurrency(totalAmount, so.Currency);
+
+        // Exclude VAT from the total
+        let subtotal = totalAmount;
+        if (so['Bill Invoice'] === 'VAT') {
+          const taxAmount = so.Tax ? parseSheetValue(so.Tax) : (totalAmount / 1.1) * 0.1;
+          subtotal = totalAmount - taxAmount;
+        }
+
+        if (determinedCurrency === 'KHR') {
+          sum.totalValueKHR += subtotal;
+        } else {
+          sum.totalValueUSD += subtotal;
+        }
+        return sum;
+      }, { totalValueUSD: 0, totalValueKHR: 0 });
 
     return { relatedProjects, relatedContacts, totalValueUSD, totalValueKHR };
-  }, [selectedCompany, projects, contacts]);
+  }, [selectedCompany, projects, contacts, saleOrders]);
 
   const allColumns = useMemo<ColumnDef<ProcessedCompany>[]>(() => [
     {
