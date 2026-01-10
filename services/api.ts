@@ -28,7 +28,7 @@ const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
     'Site_Survey_Logs': { primaryKey: '"Site ID"' },
     'Quotations': { primaryKey: '"Quote No."' },
     'Sale Orders': { primaryKey: '"SO No."' },
-    'Raw': { primaryKey: '"Item Code"' },
+    'Raw': { primaryKey: '"Code"' },
     'Invoices': { primaryKey: '"Inv No."' },
 };
 
