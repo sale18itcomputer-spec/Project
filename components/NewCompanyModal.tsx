@@ -167,8 +167,14 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             }
         } else { // CREATE
             const tempId = submissionData['Company ID'];
+            console.log('🚀 Creating company optimistically:', submissionData);
             // Optimistic update
-            setCompanies(current => current ? [submissionData as Company, ...current] : [submissionData as Company]);
+            setCompanies(current => {
+                console.log('📊 Current companies:', current?.length || 0);
+                const updated = current ? [submissionData as Company, ...current] : [submissionData as Company];
+                console.log('📊 Updated companies:', updated.length);
+                return updated;
+            });
 
             try {
                 await insertRecord('companies', submissionData, isB2B);

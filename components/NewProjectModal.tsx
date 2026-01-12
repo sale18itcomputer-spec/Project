@@ -213,8 +213,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             }
         } else { // CREATE
             const tempId = submissionData['Pipeline No.'];
+            console.log('🚀 Creating pipeline optimistically:', submissionData);
             // Optimistic update
-            setProjects(current => current ? [submissionData as PipelineProject, ...current] : [submissionData as PipelineProject]);
+            setProjects(current => {
+                console.log('📊 Current pipelines:', current?.length || 0);
+                const updated = current ? [submissionData as PipelineProject, ...current] : [submissionData as PipelineProject];
+                console.log('📊 Updated pipelines:', updated.length);
+                return updated;
+            });
 
             try {
                 await insertRecord('pipelines', submissionData, isB2B);
