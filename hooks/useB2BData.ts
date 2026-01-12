@@ -92,11 +92,14 @@ export const useB2BData = () => {
     useEffect(() => {
         if (!isB2B) return;
 
+        console.log('🔵 Setting up B2B real-time subscriptions...');
+
         const channel = supabase.channel('b2b_changes_channel')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'b2b_companies' },
                 (payload) => {
+                    console.log('🟢 B2B Company change detected:', payload.eventType, payload);
                     const { eventType, new: newRecord, old: oldRecord } = payload;
                     if (eventType === 'INSERT') {
                         const normalizedItem = normalize<Company>([newRecord], COMPANY_HEADERS)[0];
@@ -115,6 +118,7 @@ export const useB2BData = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'b2b_pipelines' },
                 (payload) => {
+                    console.log('🟢 B2B Pipeline change detected:', payload.eventType, payload);
                     const { eventType, new: newRecord, old: oldRecord } = payload;
                     if (eventType === 'INSERT') {
                         const normalizedItem = normalize<PipelineProject>([newRecord], PIPELINE_HEADERS)[0];
@@ -133,6 +137,7 @@ export const useB2BData = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'b2b_quotations' },
                 (payload) => {
+                    console.log('🟢 B2B Quotation change detected:', payload.eventType, payload);
                     const { eventType, new: newRecord, old: oldRecord } = payload;
                     if (eventType === 'INSERT') {
                         const normalizedItem = normalize<Quotation>([newRecord], QUOTATION_HEADERS)[0];
@@ -147,9 +152,19 @@ export const useB2BData = () => {
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('🔵 B2B Subscription status:', status);
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ B2B real-time subscriptions active!');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ B2B subscription error!');
+                } else if (status === 'TIMED_OUT') {
+                    console.error('⏱️ B2B subscription timed out!');
+                }
+            });
 
         return () => {
+            console.log('🔴 Cleaning up B2B subscriptions...');
             supabase.removeChannel(channel);
         };
     }, [isB2B]);
