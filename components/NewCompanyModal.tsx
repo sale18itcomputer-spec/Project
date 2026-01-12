@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Company, PipelineProject, Contact, Quotation, SaleOrder } from '../types';
 import { COMPANY_HEADERS } from '../schemas';
-import { createRecord, updateRecord, deleteRecord, uploadFile } from '../services/api';
+import { insertRecord, updateRecord, deleteRecord } from '../utils/b2bDb';
+import { uploadFile } from '../services/api';
 import { FormSection, FormInput, FormTextarea, FormDisplay } from './FormControls';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
+import { useB2B } from '../contexts/B2BContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { formatToSheetDate, formatToInputDate, formatDisplayDate } from '../utils/time';
 // FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
@@ -46,7 +48,8 @@ const getTodayDateString = () => {
 
 const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, projects = [], contacts = [], quotations = [], saleOrders = [], onSaveSuccess }) => {
     const { currentUser } = useAuth();
-    const { companies, setCompanies } = useData();
+    const { companies, setCompanies } = useB2BData();
+    const { isB2B } = useB2B();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
 
@@ -155,10 +158,9 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? { ...c, ...submissionData } as Company : c) : null);
 
             try {
-                const updatedRecord: Company = await updateRecord('Company List', updatedId, submissionData);
+                await updateRecord('companies', '"Company ID"', updatedId, submissionData, isB2B);
                 addToast('Company updated!', 'success');
-                // Replace optimistic with server record
-                setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? updatedRecord : c) : [updatedRecord]);
+                // Real-time subscription will update the data
             } catch (err: any) {
                 addToast(`Failed to update company: ${err.message}`, 'error');
                 setCompanies(originalCompanies); // Revert on failure
@@ -169,14 +171,13 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             setCompanies(current => current ? [submissionData as Company, ...current] : [submissionData as Company]);
 
             try {
-                const createdRecord: Company = await createRecord('Company List', submissionData);
+                await insertRecord('companies', submissionData, isB2B);
                 addToast('Company created!', 'success');
-                // Replace temp record with the one from the server.
-                setCompanies(current => {
-                    if (!current) return [createdRecord];
-                    return current.map(c => c['Company ID'] === tempId ? createdRecord : c);
-                });
-                if (onSaveSuccess) onSaveSuccess(createdRecord);
+                // Real-time subscription will update the data
+                if (onSaveSuccess) {
+                    // For the callback, we use the optimistic data
+                    onSaveSuccess(submissionData as Company);
+                }
             } catch (err: any) {
                 addToast(`Failed to create company: ${err.message}`, 'error');
                 // Revert by removing the optimistic data.
@@ -197,12 +198,8 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
 
         try {
-            const response: { deletedId: string } = await deleteRecord('Company List', companyToDeleteId);
-            if (response.deletedId === companyToDeleteId) {
-                addToast('Company deleted!', 'success');
-            } else {
-                throw new Error("Backend did not confirm deletion.");
-            }
+            await deleteRecord('companies', '"Company ID"', companyToDeleteId, isB2B);
+            addToast('Company deleted!', 'success');
         } catch (err: any) {
             addToast(`Failed to delete company: ${err.message}`, 'error');
             setCompanies(originalCompanies); // Revert on failure

@@ -5,7 +5,8 @@ import { useB2BData } from '../hooks/useB2BData';
 import { useB2B } from '../contexts/B2BContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
-import { createRecord, updateRecord, createQuotationSheet, readQuotationSheetData, getSetting, saveSetting } from '../services/api';
+import { createQuotationSheet, readQuotationSheetData } from '../utils/b2bDb';
+import { getSetting, saveSetting } from '../services/api';
 import { formatToSheetDate, formatToInputDate } from '../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from './FormControls';
 import PrintableQuotation from './PrintableQuotation';
@@ -383,7 +384,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             setItemsLoading(true);
             setError('');
             try {
-                const response = await readQuotationSheetData(existingQuotation['Quote No.']);
+                const response = await readQuotationSheetData(existingQuotation['Quote No.'], isB2B);
                 if (!response) {
                     throw new Error('Failed to fetch quotation details: empty response.');
                 }
@@ -637,7 +638,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             };
 
             // This now saves to Supabase directly
-            await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData);
+            await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData, isB2B);
 
             // Handle "Close (Win)" auto-conversion logic
             if (masterSheetData.Status === 'Close (Win)') {

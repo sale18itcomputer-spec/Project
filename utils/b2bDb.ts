@@ -201,3 +201,59 @@ export const deleteRecord = async (
 
     if (error) throw error;
 };
+
+/**
+ * B2B-aware quotation sheet creation
+ * Creates or updates a quotation in the appropriate table
+ */
+export const createQuotationSheet = async (
+    quoteNo: string,
+    data: any,
+    isB2B: boolean
+): Promise<{ message: string; url?: string }> => {
+    const tableName = getTableName('quotations', isB2B);
+
+    // Check if quotation exists
+    const { data: existing } = await supabase
+        .from(tableName)
+        .select('"Quote No."')
+        .eq('"Quote No."', quoteNo)
+        .maybeSingle();
+
+    if (existing) {
+        // Update existing
+        await updateRecord('quotations', '"Quote No."', quoteNo, data, isB2B);
+    } else {
+        // Create new
+        await insertRecord('quotations', data, isB2B);
+    }
+
+    return { message: 'Quotation saved successfully', url: '#' };
+};
+
+/**
+ * B2B-aware quotation sheet data reading
+ * Reads quotation data from the appropriate table
+ */
+export const readQuotationSheetData = async (
+    quoteNo: string,
+    isB2B: boolean
+): Promise<{ header: any; items: any[] }> => {
+    const tableName = getTableName('quotations', isB2B);
+
+    const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('"Quote No."', quoteNo)
+        .single();
+
+    if (error) throw error;
+
+    // Parse items from JSON if stored
+    const items = data?.['ItemsJSON'] ? JSON.parse(data['ItemsJSON']) : [];
+
+    return {
+        header: data,
+        items
+    };
+};
