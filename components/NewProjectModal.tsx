@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PipelineProject, Meeting, ContactLog, UnifiedActivity, Company, Contact } from '../types';
-import { createRecord, updateRecord, deleteRecord } from '../services/api';
+import { insertRecord, updateRecord, deleteRecord } from '../utils/b2bDb';
 import { FormSection, FormInput, FormSelect, FormTextarea, FormDisplay } from './FormControls';
 import { formatToSheetDate, formatToInputDate, parseDate, formatDateAsMDY } from '../utils/time';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
+import { useB2B } from '../contexts/B2BContext';
 import ConfirmationModal from './ConfirmationModal';
 import EmptyState from './EmptyState';
 import NewCompanyModal from './NewCompanyModal';
@@ -54,7 +55,8 @@ const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
 const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, meetings, contactLogs }) => {
-    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders } = useData();
+    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders } = useB2BData();
+    const { isB2B } = useB2B();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PipelineProject>>({});
 
@@ -202,10 +204,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
 
             try {
-                const updatedRecord: PipelineProject = await updateRecord('Pipelines', updatedId, submissionData);
+                await updateRecord('pipelines', '"Pipeline No."', updatedId, submissionData, isB2B);
                 addToast('Pipeline updated!', 'success');
-                // Replace optimistic with server record
-                setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? updatedRecord : p) : [updatedRecord]);
+                // The real-time subscription will update the data
             } catch (err: any) {
                 addToast(`Failed to update pipeline: ${err.message}`, 'error');
                 setProjects(originalProjects); // Revert on failure
@@ -216,14 +217,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             setProjects(current => current ? [submissionData as PipelineProject, ...current] : [submissionData as PipelineProject]);
 
             try {
-                const createdRecord: PipelineProject = await createRecord('Pipelines', submissionData);
+                await insertRecord('pipelines', submissionData, isB2B);
                 addToast('Pipeline created!', 'success');
-                // Replace temp record with the one from the server.
-                setProjects(current => {
-                    if (!current) return [createdRecord];
-                    // Use tempId to find and replace, in case the returned ID is different (it shouldn't be, but it's safer)
-                    return current.map(p => p['Pipeline No.'] === tempId ? createdRecord : p);
-                });
+                // The real-time subscription will update the data
             } catch (err: any) {
                 addToast(`Failed to create pipeline: ${err.message}`, 'error');
                 // Revert by removing the optimistic data.
@@ -244,12 +240,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
 
         try {
-            const response: { deletedId: string } = await deleteRecord('Pipelines', projectToDeleteId);
-            if (response.deletedId === projectToDeleteId) {
-                addToast('Pipeline deleted!', 'success');
-            } else {
-                throw new Error("Backend did not confirm deletion.");
-            }
+            await deleteRecord('pipelines', '"Pipeline No."', projectToDeleteId, isB2B);
+            addToast('Pipeline deleted!', 'success');
         } catch (err: any) {
             addToast(`Failed to delete pipeline: ${err.message}`, 'error');
             setProjects(originalProjects); // Revert on failure
