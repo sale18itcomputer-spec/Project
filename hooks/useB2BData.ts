@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useB2B } from '../contexts/B2BContext';
 import { supabase } from '../lib/supabase';
@@ -169,6 +169,22 @@ export const useB2BData = () => {
         };
     }, [isB2B]);
 
+    // Wrap B2B setters with logging for debugging
+    const wrappedSetCompanies = useCallback((action: any) => {
+        console.log('📝 B2B setCompanies called');
+        setB2bCompanies(action);
+    }, []);
+
+    const wrappedSetProjects = useCallback((action: any) => {
+        console.log('📝 B2B setProjects called');
+        setB2bProjects(action);
+    }, []);
+
+    const wrappedSetQuotations = useCallback((action: any) => {
+        console.log('📝 B2B setQuotations called');
+        setB2bQuotations(action);
+    }, []);
+
     // Return B2B or B2C data based on mode
     return useMemo(() => {
         if (isB2B) {
@@ -179,12 +195,12 @@ export const useB2BData = () => {
                 quotations: b2bQuotations,
                 loading: b2cData.loading || b2bLoading,
                 error: b2cData.error || b2bError,
-                // B2B-specific setters
-                setCompanies: setB2bCompanies,
-                setProjects: setB2bProjects,
-                setQuotations: setB2bQuotations,
+                // B2B-specific setters with logging
+                setCompanies: wrappedSetCompanies,
+                setProjects: wrappedSetProjects,
+                setQuotations: wrappedSetQuotations,
             };
         }
         return b2cData;
-    }, [isB2B, b2cData, b2bCompanies, b2bProjects, b2bQuotations, b2bLoading, b2bError]);
+    }, [isB2B, b2cData, b2bCompanies, b2bProjects, b2bQuotations, b2bLoading, b2bError, wrappedSetCompanies, wrappedSetProjects, wrappedSetQuotations]);
 };
