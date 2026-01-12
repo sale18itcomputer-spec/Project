@@ -164,8 +164,10 @@ export const useB2BData = () => {
                 quotations: b2bQuotations,
                 loading: b2cData.loading || b2bLoading,
                 error: b2cData.error || b2bError,
-                // For B2B, we don't have separate setters exposed yet
-                // You can add them if needed for direct manipulation
+                // B2B-specific setters
+                setCompanies: setB2bCompanies,
+                setProjects: setB2bProjects,
+                setQuotations: setB2bQuotations,
             };
         }
         return b2cData;
