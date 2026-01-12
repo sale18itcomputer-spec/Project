@@ -640,6 +640,24 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             // This now saves to Supabase directly
             await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData, isB2B);
 
+            console.log('🚀 Quotation saved, adding to list optimistically:', masterSheetData['Quote No.']);
+
+            // Optimistic update: Add quotation to list immediately
+            setQuotations(current => {
+                if (!current) return [masterSheetData as Quotation];
+                // Check if already exists (update case)
+                const exists = current.some(q => q['Quote No.'] === masterSheetData['Quote No.']);
+                if (exists) {
+                    // Update existing
+                    return current.map(q =>
+                        q['Quote No.'] === masterSheetData['Quote No.'] ? masterSheetData as Quotation : q
+                    );
+                } else {
+                    // Add new
+                    return [masterSheetData as Quotation, ...current];
+                }
+            });
+
             // Handle "Close (Win)" auto-conversion logic
             if (masterSheetData.Status === 'Close (Win)') {
                 // Open Success Modal with option to create Sale Order
