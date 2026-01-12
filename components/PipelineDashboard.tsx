@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PipelineProject } from '../types';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
 import DataTable, { ColumnDef } from './DataTable';
 import { useNavigation } from '../contexts/NavigationContext';
 import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock, SlidersHorizontal, Search, ArrowRightToLine, WrapText, Scissors, Pencil, Columns, Info, Trash2 } from 'lucide-react';
@@ -219,7 +219,7 @@ const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => vo
 
 
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
-  const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error } = useData();
+  const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error } = useB2BData();
   const { addToast } = useToast();
   const { user } = useAuth();
   const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });

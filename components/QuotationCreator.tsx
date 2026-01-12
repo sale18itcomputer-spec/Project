@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Quotation, Company, Contact, PricelistItem } from '../types';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
+import { useB2B } from '../contexts/B2BContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { createRecord, updateRecord, createQuotationSheet, readQuotationSheetData, getSetting, saveSetting } from '../services/api';
@@ -72,7 +73,7 @@ const PricelistCombobox: React.FC<{
     onPricelistItemSelect: (item: LineItem, pricelistItem: PricelistItem) => void;
     disabled?: boolean;
 }> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
-    const { pricelist } = useData();
+    const { pricelist } = useB2BData();
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -167,7 +168,8 @@ const PricelistCombobox: React.FC<{
 
 
 const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation, initialData }) => {
-    const { quotations, setQuotations, companies, contacts, pricelist } = useData();
+    const { quotations, setQuotations, companies, contacts, pricelist } = useB2BData();
+    const { isB2B } = useB2B();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
@@ -288,10 +290,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     }, [showPdfControls, showRightPanel]);
 
     // Calculate the next ID based on the MAX number in the list.
+    // B2B and B2C have separate sequences
     const nextQuotationNumber = useMemo(() => {
         if (existingQuotation) return existingQuotation['Quote No.'];
         if (!quotations || quotations.length === 0) return 'Q-0000001';
 
+        // Only look at quotations from the current mode (B2B or B2C)
+        // Since quotations come from useData() which is B2C-only in non-B2B mode,
+        // and from useB2BData() which switches based on mode,
+        // we just need to find the max in the current list
         const maxNum = quotations.reduce((max, q) => {
             // Robust parsing to handle potential non-standard IDs like 'Q-000001' or 'Q-1'
             const match = q['Quote No.'].match(/Q-(\d+)/);

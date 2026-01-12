@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Quotation } from '../types';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
 import DataTable, { ColumnDef } from './DataTable';
 import { parseDate, formatDateAsMDY, formatDisplayDate } from '../utils/time';
 import QuotationCreator from './QuotationCreator';
@@ -95,7 +95,7 @@ interface QuotationDashboardProps {
 }
 
 const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload }) => {
-  const { quotations, setQuotations, loading, error } = useData();
+  const { quotations, setQuotations, loading, error } = useB2BData();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedQuotationToEdit, setSelectedQuotationToEdit] = useState<Quotation | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);

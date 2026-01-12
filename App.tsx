@@ -14,6 +14,7 @@ import ContentSkeleton from './components/ContentSkeleton';
 import Footer from './components/Footer';
 import { useWindowSize } from './hooks/useWindowSize';
 import MobileBottomNav from './components/MobileBottomNav';
+import { B2BProvider } from './contexts/B2BContext';
 
 // Lazy load components for code splitting and faster initial loads
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -244,14 +245,16 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <DataProvider>
-        <NavigationProvider>
-          <NotificationProvider>
-            <ConnectivityProvider>
-              <AppContent />
-              <Toaster />
-            </ConnectivityProvider>
-          </NotificationProvider>
-        </NavigationProvider>
+        <B2BProvider>
+          <NavigationProvider>
+            <NotificationProvider>
+              <ConnectivityProvider>
+                <AppContent />
+                <Toaster />
+              </ConnectivityProvider>
+            </NotificationProvider>
+          </NavigationProvider>
+        </B2BProvider>
       </DataProvider>
     </AuthProvider>
   );

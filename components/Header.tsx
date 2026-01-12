@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { formatRelativeTime } from '../utils/time';
 import { getInitials } from '../utils/formatters';
+import B2BToggle from './B2BToggle';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -105,6 +106,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
             />
           </div>
         )}
+        <B2BToggle />
         <div className={`flex items-center space-x-2 sm:space-x-4 ${!isMobile && isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

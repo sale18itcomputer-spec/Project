@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Company, PipelineProject, SaleOrder } from '../types';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
 import { useNavigation } from '../contexts/NavigationContext';
 import NewCompanyModal from './NewCompanyModal';
 import { Info, Briefcase, Users, DollarSign, Table, Columns, ExternalLink, Search, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
@@ -65,7 +65,7 @@ const CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => voi
 );
 
 const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) => {
-  const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useData();
+  const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useB2BData();
   const [modalConfig, setModalConfig] = useState<{ company: ProcessedCompany | null, isReadOnly: boolean, isOpen: boolean }>({ company: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);

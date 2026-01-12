@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags } from 'lucide-react';
 import { useNavigation, NavigationState } from '../contexts/NavigationContext';
+import { useB2B } from '../contexts/B2BContext';
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -40,6 +41,7 @@ const NavItem: React.FC<{
 
 const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isCollapsed, onToggleCollapse, onNavigate, onResizeMouseDown, onResizeDoubleClick }) => {
   const { navigation } = useNavigation();
+  const { isB2B } = useB2B();
 
   const sidebarClasses = `
     fixed inset-y-0 left-0 bg-card border-r
@@ -74,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <nav className="pt-6 space-y-6">
+            {/* Main Section - Always visible */}
             <div>
               {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Main</h3>}
               <ul className="mt-2 space-y-1">
@@ -91,15 +94,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   onClick={() => onNavigate({ view: 'companies' })}
                   isCollapsed={isCollapsed}
                 />
-                <NavItem
-                  icon={<Users size={20} />}
-                  label="Contacts"
-                  isActive={navigation.view === 'contacts'}
-                  onClick={() => onNavigate({ view: 'contacts' })}
-                  isCollapsed={isCollapsed}
-                />
+                {/* Contacts - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<Users size={20} />}
+                    label="Contacts"
+                    isActive={navigation.view === 'contacts'}
+                    onClick={() => onNavigate({ view: 'contacts' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </ul>
             </div>
+
+            {/* Sales Documents Section */}
             <div>
               {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Sales Documents</h3>}
               <ul className="mt-2 space-y-1">
@@ -110,34 +118,46 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   onClick={() => onNavigate({ view: 'quotations' })}
                   isCollapsed={isCollapsed}
                 />
-                <NavItem
-                  icon={<ShoppingCart size={20} />}
-                  label="Sale Orders"
-                  isActive={navigation.view === 'sale-orders'}
-                  onClick={() => onNavigate({ view: 'sale-orders' })}
-                  isCollapsed={isCollapsed}
-                />
-                <NavItem
-                  icon={<FileText size={20} />}
-                  label="Invoice & DO"
-                  isActive={navigation.view === 'invoice-do'}
-                  onClick={() => onNavigate({ view: 'invoice-do' })}
-                  isCollapsed={isCollapsed}
-                />
+                {/* Sale Orders - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<ShoppingCart size={20} />}
+                    label="Sale Orders"
+                    isActive={navigation.view === 'sale-orders'}
+                    onClick={() => onNavigate({ view: 'sale-orders' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
+                {/* Invoice & DO - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<FileText size={20} />}
+                    label="Invoice & DO"
+                    isActive={navigation.view === 'invoice-do'}
+                    onClick={() => onNavigate({ view: 'invoice-do' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </ul>
             </div>
-            <div>
-              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Products</h3>}
-              <ul className="mt-2 space-y-1">
-                <NavItem
-                  icon={<Tags size={20} />}
-                  label="Pricelist"
-                  isActive={navigation.view === 'pricelist'}
-                  onClick={() => onNavigate({ view: 'pricelist' })}
-                  isCollapsed={isCollapsed}
-                />
-              </ul>
-            </div>
+
+            {/* Products Section - Hidden in B2B mode */}
+            {!isB2B && (
+              <div>
+                {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Products</h3>}
+                <ul className="mt-2 space-y-1">
+                  <NavItem
+                    icon={<Tags size={20} />}
+                    label="Pricelist"
+                    isActive={navigation.view === 'pricelist'}
+                    onClick={() => onNavigate({ view: 'pricelist' })}
+                    isCollapsed={isCollapsed}
+                  />
+                </ul>
+              </div>
+            )}
+
+            {/* Logs Section */}
             <div>
               {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Logs</h3>}
               <ul className="mt-2 space-y-1">
@@ -148,27 +168,36 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   onClick={() => onNavigate({ view: 'projects' })}
                   isCollapsed={isCollapsed}
                 />
-                <NavItem
-                  icon={<MessageSquare size={20} />}
-                  label="Contact Logs"
-                  isActive={navigation.view === 'contact-logs'}
-                  onClick={() => onNavigate({ view: 'contact-logs' })}
-                  isCollapsed={isCollapsed}
-                />
-                <NavItem
-                  icon={<Map size={20} />}
-                  label="Site Surveys"
-                  isActive={navigation.view === 'site-surveys'}
-                  onClick={() => onNavigate({ view: 'site-surveys' })}
-                  isCollapsed={isCollapsed}
-                />
-                <NavItem
-                  icon={<Calendar size={20} />}
-                  label="Meetings"
-                  isActive={navigation.view === 'meetings'}
-                  onClick={() => onNavigate({ view: 'meetings' })}
-                  isCollapsed={isCollapsed}
-                />
+                {/* Contact Logs - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<MessageSquare size={20} />}
+                    label="Contact Logs"
+                    isActive={navigation.view === 'contact-logs'}
+                    onClick={() => onNavigate({ view: 'contact-logs' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
+                {/* Site Surveys - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<Map size={20} />}
+                    label="Site Surveys"
+                    isActive={navigation.view === 'site-surveys'}
+                    onClick={() => onNavigate({ view: 'site-surveys' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
+                {/* Meetings - Hidden in B2B mode */}
+                {!isB2B && (
+                  <NavItem
+                    icon={<Calendar size={20} />}
+                    label="Meetings"
+                    isActive={navigation.view === 'meetings'}
+                    onClick={() => onNavigate({ view: 'meetings' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </ul>
             </div>
           </nav>

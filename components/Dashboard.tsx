@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import MetricCard from './MetricCard';
 import ProjectOutcomeChart from './ProjectOutcomeChart';
-import { useData } from '../contexts/DataContext';
+import { useB2BData } from '../hooks/useB2BData';
 import { ProjectStatusData, PendingWorkItem } from '../types';
 import MonthlyWinValueChart from './MonthlyWinValueChart';
 import TopCustomersChart from './TopCustomersChart';
@@ -15,6 +15,7 @@ import { parseSheetValue } from '../utils/formatters';
 import PendingWorks from './PendingWorks';
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
+import { useB2B } from '../contexts/B2BContext';
 
 import { useWindowSize } from '../hooks/useWindowSize';
 
@@ -54,10 +55,11 @@ const DashboardContentSkeleton = () => (
 );
 
 const DashboardContent: React.FC = () => {
-  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders } = useData();
+  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders } = useB2BData();
   const { handleNavigation } = useNavigation();
   const { currentUser } = useAuth();
   const { filters } = useFilter();
+  const { isB2B } = useB2B();
   const [renderStep, setRenderStep] = useState(0);
   const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -261,7 +263,14 @@ const DashboardContent: React.FC = () => {
     return contacts.filter(c => c.Name && c.Name.trim() !== '').length;
   }, [contacts]);
 
-  const metrics = [
+  // B2B-specific metrics (only Companies and Pipelines)
+  const b2bMetrics = [
+    { title: 'Total Pipelines', value: loading ? '...' : (projects?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'projects' }), icon: <Briefcase /> },
+    { title: 'Total Companies', value: loading ? '...' : (companies?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'companies' }), icon: <Building /> },
+  ];
+
+  // B2C metrics (all metrics)
+  const b2cMetrics = [
     { title: 'Total Pipelines', value: loading ? '...' : (projects?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'projects' }), icon: <Briefcase /> },
     { title: 'Total Companies', value: loading ? '...' : (companies?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'companies' }), icon: <Building /> },
     { title: 'Total Contacts', value: loading ? '...' : validContactsCount.toString(), onClick: () => handleNavigation({ view: 'contacts' }), icon: <Users /> },
@@ -269,6 +278,8 @@ const DashboardContent: React.FC = () => {
     { title: 'Total Surveys', value: loading ? '...' : (siteSurveys?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'site-surveys' }), icon: <ClipboardList /> },
     { title: 'Total Meetings', value: loading ? '...' : (meetings?.length ?? 0).toString(), onClick: () => handleNavigation({ view: 'meetings' }), icon: <Calendar /> },
   ];
+
+  const metrics = isB2B ? b2bMetrics : b2cMetrics;
 
   const projectOutcomeData = useMemo<ProjectStatusData[]>(() => {
     const baseData = filters.status?.length ? filteredProjects : projects;
@@ -470,7 +481,7 @@ const DashboardContent: React.FC = () => {
   return (
     <div className="space-y-6 p-4 md:p-0">
       {renderStep >= 1 && (
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 ${transitionClass(1)}`}>
+        <div className={`grid ${isB2B ? 'grid-cols-2 gap-4 md:gap-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6'} ${transitionClass(1)}`}>
           {metrics.map((metric) => (
             <MetricCard
               key={metric.title}
@@ -500,9 +511,8 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-
-
-      {renderStep >= 3 && (
+      {/* Hide Monthly Revenue Chart in B2B mode */}
+      {!isB2B && renderStep >= 3 && (
         <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
           <MonthlyWinValueChart
             data={revenueByPeriodData.chartData}
@@ -513,17 +523,20 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {renderStep >= 4 && (
+      <div className={`grid grid-cols-1 ${isB2B ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-6`}>
+        {/* Hide Win Rate Chart in B2B mode */}
+        {!isB2B && renderStep >= 4 && (
           <div className={`${transitionClass(4)} min-h-[400px] min-w-0`}>
             <WinRateChart winRate={winRateData.winRate} won={winRateData.won} total={winRateData.total} />
           </div>
         )}
-        {renderStep >= 5 && (
+        {/* Hide Pending Works in B2B mode */}
+        {!isB2B && renderStep >= 5 && (
           <div className={`${transitionClass(5)} min-h-[400px] min-w-0`}>
             <PendingWorks todayItems={pendingWorks.todayItems} upcomingItems={pendingWorks.upcomingItems} />
           </div>
         )}
+        {/* Keep Project Outcome Chart in both modes */}
         {renderStep >= 6 && (
           <div className={`${transitionClass(6)} min-h-[400px] min-w-0`}>
             <ProjectOutcomeChart data={projectOutcomeData} />
@@ -531,18 +544,21 @@ const DashboardContent: React.FC = () => {
         )}
       </div>
 
-      <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
-        {renderStep >= 7 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
-            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
-          </div>
-        )}
-        {renderStep >= 8 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
-            <ProjectsByBrandChart data={projectsByBrandData} />
-          </div>
-        )}
-      </div>
+      {/* Hide Top Customers and Projects by Brand charts in B2B mode */}
+      {!isB2B && (
+        <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
+          {renderStep >= 7 && (
+            <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
+              <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
+            </div>
+          )}
+          {renderStep >= 8 && (
+            <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
+              <ProjectsByBrandChart data={projectsByBrandData} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
