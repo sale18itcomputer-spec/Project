@@ -22,7 +22,7 @@ export const updateB2BCompany = async (companyId: string, updates: Partial<Compa
     const { data, error } = await supabase
         .from('b2b_companies')
         .update(updates)
-        .eq('Company ID', companyId)
+        .eq('"Company ID"', companyId)
         .select();
 
     if (error) throw error;
@@ -33,7 +33,7 @@ export const deleteB2BCompany = async (companyId: string) => {
     const { error } = await supabase
         .from('b2b_companies')
         .delete()
-        .eq('Company ID', companyId);
+        .eq('"Company ID"', companyId);
 
     if (error) throw error;
 };
@@ -64,7 +64,7 @@ export const updateB2BPipeline = async (pipelineNo: string, updates: Partial<Pip
     const { data, error } = await supabase
         .from('b2b_pipelines')
         .update(updates)
-        .eq('Pipeline No.', pipelineNo)
+        .eq('"Pipeline No."', pipelineNo)
         .select();
 
     if (error) throw error;
@@ -75,7 +75,7 @@ export const deleteB2BPipeline = async (pipelineNo: string) => {
     const { error } = await supabase
         .from('b2b_pipelines')
         .delete()
-        .eq('Pipeline No.', pipelineNo);
+        .eq('"Pipeline No."', pipelineNo);
 
     if (error) throw error;
 };
@@ -106,7 +106,7 @@ export const updateB2BQuotation = async (quoteNo: string, updates: Partial<Quota
     const { data, error } = await supabase
         .from('b2b_quotations')
         .update(updates)
-        .eq('Quote No.', quoteNo)
+        .eq('"Quote No."', quoteNo)
         .select();
 
     if (error) throw error;
@@ -117,7 +117,7 @@ export const deleteB2BQuotation = async (quoteNo: string) => {
     const { error } = await supabase
         .from('b2b_quotations')
         .delete()
-        .eq('Quote No.', quoteNo);
+        .eq('"Quote No."', quoteNo);
 
     if (error) throw error;
 };
@@ -177,7 +177,7 @@ export const updateRecord = async (
     const { data, error } = await supabase
         .from(tableName)
         .update(updates)
-        .eq(primaryKey, primaryValue)
+        .eq(primaryKey.includes(' ') && !primaryKey.startsWith('"') ? `"${primaryKey}"` : primaryKey, primaryValue)
         .select();
 
     if (error) throw error;
@@ -197,7 +197,7 @@ export const deleteRecord = async (
     const { error } = await supabase
         .from(tableName)
         .delete()
-        .eq(primaryKey, primaryValue);
+        .eq(primaryKey.includes(' ') && !primaryKey.startsWith('"') ? `"${primaryKey}"` : primaryKey, primaryValue);
 
     if (error) throw error;
 };
