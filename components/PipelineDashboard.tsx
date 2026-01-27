@@ -486,6 +486,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       isSortable: true,
       cell: (status: PipelineProject['Status']) => <StatusBadge status={status} />
     },
+    {
+      accessorKey: 'Require',
+      header: 'Requirement',
+      isSortable: true,
+      cell: (value: string) => (
+        <div className="max-w-[200px] truncate" title={value}>{value}</div>
+      )
+    },
   ], [handleNavigation]);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
