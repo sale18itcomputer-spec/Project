@@ -49,7 +49,7 @@ const getTodayDateString = () => {
     return `${year}-${month}-${day}`;
 };
 
-const STATUS_OPTIONS: PipelineProject['Status'][] = ['Quote Submitted', 'Close (win)', 'Close (lose)'];
+const STATUS_OPTIONS: PipelineProject['Status'][] = ['Qualification', 'Price Request', 'Presentation', 'Quote Submitted', 'Revising Specs', 'Bid Evaluation', 'Pass Evaluation', 'Pending PO', 'Ordering', 'Close (win)', 'Close (lose)'];
 const TYPE_OPTIONS = ['Project', 'Maintenance', 'Consultant'];
 const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
@@ -114,7 +114,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         const initialState: Partial<PipelineProject> = {
             'Pipeline No.': nextPipelineNo,
             'Created Date': getTodayDateString(),
-            'Status': 'Quote Submitted',
+            'Status': 'Qualification',
             'Taxable': 'VAT',
             'Type': 'Project',
             'Currency': 'USD',

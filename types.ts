@@ -58,7 +58,7 @@ export interface PipelineProject {
   'Brand 1': string;
   'Taxable': 'VAT' | 'NON-VAT';
   'Responsible By': string;
-  'Status': 'Quote Submitted' | 'Close (win)' | 'Close (lose)';
+  'Status': 'Qualification' | 'Price Request' | 'Presentation' | 'Quote Submitted' | 'Revising Specs' | 'Bid Evaluation' | 'Pass Evaluation' | 'Pending PO' | 'Ordering' | 'Close (win)' | 'Close (lose)';
   'Created Date': string;
   'Time Frame': string;
   'Due Date': string;

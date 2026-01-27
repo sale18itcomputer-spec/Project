@@ -26,19 +26,18 @@ type ProcessedProject = PipelineProject & {
 };
 
 const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }) => {
-  const statusConfig = {
-    'Quote Submitted': {
-      label: 'Quote Submitted',
-      color: 'bg-sky-500/10 text-sky-500',
-    },
-    'Close (win)': {
-      label: 'Won',
-      color: 'bg-emerald-500/10 text-emerald-500',
-    },
-    'Close (lose)': {
-      label: 'Lost',
-      color: 'bg-rose-500/10 text-rose-500',
-    },
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    'Qualification': { label: 'Qualification', color: 'bg-slate-500/10 text-slate-500' },
+    'Price Request': { label: 'Price Request', color: 'bg-rose-600/10 text-rose-600' },
+    'Presentation': { label: 'Presentation', color: 'bg-slate-500/10 text-slate-500' },
+    'Quote Submitted': { label: 'Quote Submitted', color: 'bg-slate-500/10 text-slate-500' },
+    'Revising Specs': { label: 'Revising Specs', color: 'bg-rose-600/10 text-rose-600' },
+    'Bid Evaluation': { label: 'Bid Evaluation', color: 'bg-slate-500/10 text-slate-500' },
+    'Pass Evaluation': { label: 'Pass Evaluation', color: 'bg-slate-500/10 text-slate-500' },
+    'Pending PO': { label: 'Pending PO', color: 'bg-blue-600/10 text-blue-600' },
+    'Ordering': { label: 'Ordering', color: 'bg-blue-600/10 text-blue-600' },
+    'Close (win)': { label: 'Close (win)', color: 'bg-emerald-600/10 text-emerald-600' },
+    'Close (lose)': { label: 'Close (lose)', color: 'bg-slate-500/10 text-slate-500' },
   };
   const config = statusConfig[status] || { label: status, color: 'bg-muted text-muted-foreground' };
 
@@ -187,9 +186,9 @@ const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility';
 
 const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => void }> = ({ project, onView }) => {
   let statusClass = 'mobile-status-default';
-  if (project.Status === 'Quote Submitted') statusClass = 'mobile-status-info';
+  if (['Price Request', 'Revising Specs'].includes(project.Status)) statusClass = 'mobile-status-danger';
+  if (['Pending PO', 'Ordering'].includes(project.Status)) statusClass = 'mobile-status-info';
   if (project.Status === 'Close (win)') statusClass = 'mobile-status-success';
-  if (project.Status === 'Close (lose)') statusClass = 'mobile-status-danger';
 
   return (
     <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
@@ -200,7 +199,7 @@ const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => vo
         </div>
         <span className={`mobile-status ${statusClass}`}>
           <span className="mobile-status-dot"></span>
-          {project.Status.replace('(win)', 'Won').replace('(lose)', 'Lost')}
+          {project.Status === 'Close (win)' ? 'Won' : project.Status === 'Close (lose)' ? 'Lost' : project.Status}
         </span>
       </div>
       <div className="mobile-card-body">
@@ -339,11 +338,19 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   }, [viewMode, selectedPipelineNo, filteredData]);
 
   const kanbanColumns = useMemo<KanbanColumn<ProcessedProject>[]>(() => {
-    const statuses: PipelineProject['Status'][] = ['Quote Submitted', 'Close (win)', 'Close (lose)'];
+    const statuses: PipelineProject['Status'][] = ['Qualification', 'Price Request', 'Presentation', 'Quote Submitted', 'Revising Specs', 'Bid Evaluation', 'Pass Evaluation', 'Pending PO', 'Ordering', 'Close (win)', 'Close (lose)'];
     const statusColors = {
-      'Quote Submitted': 'sky',
+      'Qualification': 'slate',
+      'Price Request': 'rose',
+      'Presentation': 'slate',
+      'Quote Submitted': 'slate',
+      'Revising Specs': 'rose',
+      'Bid Evaluation': 'slate',
+      'Pass Evaluation': 'slate',
+      'Pending PO': 'sky',
+      'Ordering': 'sky',
       'Close (win)': 'emerald',
-      'Close (lose)': 'rose',
+      'Close (lose)': 'slate',
     };
 
     return statuses.map(status => ({

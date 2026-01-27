@@ -46,9 +46,17 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 
 const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
-    'Quote Submitted': 'bg-sky-100 text-sky-800',
+    'Qualification': 'bg-slate-100 text-slate-800',
+    'Price Request': 'bg-rose-100 text-rose-800',
+    'Presentation': 'bg-slate-100 text-slate-800',
+    'Quote Submitted': 'bg-slate-100 text-slate-800',
+    'Revising Specs': 'bg-rose-100 text-rose-800',
+    'Bid Evaluation': 'bg-slate-100 text-slate-800',
+    'Pass Evaluation': 'bg-slate-100 text-slate-800',
+    'Pending PO': 'bg-sky-100 text-sky-800',
+    'Ordering': 'bg-sky-100 text-sky-800',
     'Close (win)': 'bg-emerald-100 text-emerald-800',
-    'Close (lose)': 'bg-rose-100 text-rose-800',
+    'Close (lose)': 'bg-slate-100 text-slate-800',
   };
 
   return (

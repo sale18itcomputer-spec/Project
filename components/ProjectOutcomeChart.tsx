@@ -14,10 +14,10 @@ const ECharts = ReactECharts as any;
 
 const getStatusColor = (status: string) => {
   const s = status.toLowerCase();
-  if (s.includes('win')) return '#10b981'; // emerald-500
-  if (s.includes('quote submitted')) return '#0ea5e9'; // sky-500
-  if (s.includes('lose')) return '#f43f5e'; // rose-500
-  return '#94a3b8'; // slate-400
+  if (s === 'close (win)') return '#059669'; // emerald-600
+  if (['price request', 'revising specs'].includes(s)) return '#e11d48'; // rose-600
+  if (['pending po', 'ordering'].includes(s)) return '#2563eb'; // blue-600
+  return '#94a3b8'; // slate-400 for others
 };
 
 interface ProjectOutcomeChartProps {
