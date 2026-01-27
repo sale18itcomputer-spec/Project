@@ -2,6 +2,8 @@ import React from 'react';
 import { PricelistItem } from '../types';
 import { FormSection, FormDisplay } from './FormControls';
 import { parseSheetValue } from '../utils/formatters';
+import { useAuth } from '../contexts/AuthContext';
+import { useB2B } from '../contexts/B2BContext';
 import ResizableModal from './ResizableModal';
 
 interface PricelistDetailModalProps {
@@ -11,17 +13,17 @@ interface PricelistDetailModalProps {
 }
 
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
-    if (!status) return <span className="text-slate-400 italic">N/A</span>;
+    if (!status) return <span className="text-muted-foreground italic">N/A</span>;
 
-    let colorClass = 'bg-slate-100 text-slate-800'; // Default
+    let colorClass = 'bg-muted text-muted-foreground'; // Default
     const lowerStatus = status.toLowerCase();
 
     if (lowerStatus.includes('available')) {
-        colorClass = 'bg-emerald-100 text-emerald-800';
+        colorClass = 'bg-emerald-500/10 text-emerald-500';
     } else if (lowerStatus.includes('pre-order')) {
-        colorClass = 'bg-amber-100 text-amber-800';
+        colorClass = 'bg-amber-500/10 text-amber-500';
     } else if (lowerStatus.includes('out of stock')) {
-        colorClass = 'bg-rose-100 text-rose-800';
+        colorClass = 'bg-rose-500/10 text-rose-500';
     }
 
     return (
@@ -32,6 +34,14 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
 };
 
 const PricelistDetailModal: React.FC<PricelistDetailModalProps> = ({ isOpen, onClose, item }) => {
+    const { currentUser } = useAuth();
+    const { isB2B } = useB2B();
+
+    const showDealerPrice = React.useMemo(() => {
+        const role = currentUser?.Role?.toLowerCase();
+        return role === 'admin' || role === 'b2b' || isB2B;
+    }, [currentUser, isB2B]);
+
     if (!item) return null;
 
     const title = item.Code ? `${item.Code} - ${item.Model}` : 'Item Details';
@@ -41,7 +51,7 @@ const PricelistDetailModal: React.FC<PricelistDetailModalProps> = ({ isOpen, onC
             <button
                 type="button"
                 onClick={onClose}
-                className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition"
+                className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200 shadow-sm"
             >
                 Close
             </button>
@@ -72,6 +82,9 @@ const PricelistDetailModal: React.FC<PricelistDetailModalProps> = ({ isOpen, onC
                 </FormSection>
 
                 <FormSection title="Pricing & Status">
+                    {showDealerPrice && (
+                        <FormDisplay label="Dealer Price" value={renderPrice(item['Dealer Price'])} />
+                    )}
                     <FormDisplay label="Unit Price" value={renderPrice(item['End User Price'])} />
                     <FormDisplay label="Status">
                         <StatusBadge status={item.Status} />

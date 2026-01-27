@@ -18,7 +18,7 @@ interface DashboardFilterBarProps {
 const ContextAwareMultiSelectFilter: React.FC<Omit<ComponentProps<typeof MultiSelectFilter>, 'selectedValues' | 'onApply'> & { filterKey: keyof FilterState }> = ({ filterKey, ...props }) => {
     const { filters, setFilter } = useFilter();
     const selectedValues = (filters[filterKey] as string[] | undefined) || [];
-    
+
     const handleApply = (newSelection: string[]) => {
         setFilter(filterKey, newSelection);
     };
@@ -29,18 +29,18 @@ const ContextAwareMultiSelectFilter: React.FC<Omit<ComponentProps<typeof MultiSe
 const CurrencyToggle: React.FC = () => {
     const { filters, setFilter } = useFilter();
     const activeCurrency = filters.currency || 'USD';
-    
+
     return (
-        <div className="bg-slate-100 p-1 rounded-full flex gap-1 flex-shrink-0">
-            <button onClick={() => setFilter('currency', 'USD')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'USD' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-600 hover:bg-slate-200'}`}>USD</button>
-            <button onClick={() => setFilter('currency', 'KHR')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'KHR' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-600 hover:bg-slate-200'}`}>KHR</button>
+        <div className="bg-muted p-1 rounded-full flex gap-1 flex-shrink-0">
+            <button onClick={() => setFilter('currency', 'USD')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'USD' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'}`}>USD</button>
+            <button onClick={() => setFilter('currency', 'KHR')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'KHR' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'}`}>KHR</button>
         </div>
     );
 };
 
 
 const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assignees, companies, brands, months, years, onMenuVisibilityChange }) => {
-    const { filters, clearFilters } = useFilter();
+    const { filters, setFilter, clearFilters } = useFilter();
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const filterBarRef = useRef<HTMLDivElement>(null);
     const hasActiveFilters = Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val);
@@ -67,37 +67,98 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
         setOpenMenu(null);
     };
 
-    const DateRangeFilterButton = () => {
-        const { filters, setFilter } = useFilter();
+    interface DateRangePickerProps {
+        filters: FilterState;
+        setFilter: (key: keyof FilterState, value: string) => void;
+        isOpen: boolean;
+        onToggle: (key: string) => void;
+        onClose: () => void;
+    }
+
+    const DateRangePicker: React.FC<DateRangePickerProps> = ({ filters, setFilter, isOpen, onToggle, onClose }) => {
         const [localRange, setLocalRange] = useState<[Date | null, Date | null]>([null, null]);
         const [visibleDate, setVisibleDate] = useState(new Date());
         const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
-        
-        const isDateRangeOpen = openMenu === 'dateRange';
 
         useEffect(() => {
-            if (isDateRangeOpen) {
-                const start = filters.startDate ? parseDate(filters.startDate) : null;
-                const end = filters.endDate ? parseDate(filters.endDate) : null;
+            if (isOpen) {
+                const parseToLocal = (str?: string) => {
+                    if (!str) return null;
+                    const date = parseDate(str);
+                    if (!date) return null;
+                    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                };
+
+                const start = parseToLocal(filters.startDate);
+                const end = parseToLocal(filters.endDate);
                 setLocalRange([start, end]);
                 setVisibleDate(start || new Date());
             }
-        }, [isDateRangeOpen]);
+        }, [isOpen, filters.startDate, filters.endDate]);
 
         const handleApply = () => {
             const [start, end] = localRange;
-            setFilter('startDate', start ? formatToInputDate(start.toISOString()) : '');
-            setFilter('endDate', end ? formatToInputDate(end.toISOString()) : '');
-            closeMenu();
-        };
 
-        const handleCancel = () => closeMenu();
+            const formatDate = (date: Date | null) => {
+                if (!date) return '';
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            setFilter('startDate', formatDate(start));
+            setFilter('endDate', formatDate(end));
+            onClose();
+        };
 
         const handleMonthNav = (direction: number) => {
             setVisibleDate(prev => new Date(prev.getFullYear(), prev.getMonth() + direction, 1));
         };
-        
-        const getCalendarDays = (date: Date) => {
+
+        const handleDateClick = (day: Date) => {
+            const [start, end] = localRange;
+            if (!start || end) {
+                setLocalRange([day, null]);
+            } else {
+                if (day < start) {
+                    setLocalRange([day, null]);
+                } else {
+                    setLocalRange([start, day]);
+                }
+            }
+        };
+
+        const handlePresetClick = (preset: { label: string; days?: number; type?: 'this_month' | 'last_month' }) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let start: Date;
+            let end: Date = new Date(today);
+
+            if (preset.type === 'this_month') {
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (preset.type === 'last_month') {
+                start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                end = new Date(today.getFullYear(), today.getMonth(), 0);
+            } else {
+                start = new Date(today);
+                start.setDate(today.getDate() - (preset.days || 0));
+            }
+
+            const formatDate = (date: Date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            setFilter('startDate', formatDate(start));
+            setFilter('endDate', formatDate(end));
+            onClose();
+        };
+
+        const MonthCalendar = ({ date }: { date: Date }) => {
             const year = date.getFullYear();
             const month = date.getMonth();
             const firstDay = new Date(year, month, 1);
@@ -105,188 +166,136 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
             const daysInMonth = lastDay.getDate();
             const startDayOfWeek = firstDay.getDay();
 
-            const days = Array(startDayOfWeek).fill(null);
-            for (let i = 1; i <= daysInMonth; i++) {
-                days.push(new Date(year, month, i));
-            }
-            return days;
-        };
+            const days = [];
+            for (let i = 0; i < startDayOfWeek; i++) days.push(null);
+            for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
 
-        const handleDateClick = (day: Date) => {
-            const [start, end] = localRange;
-            if (!start || end) { // No start date, or range is complete. Start a new range.
-                setLocalRange([day, null]);
-            } else { // Start date is set, but no end date. Set the end date.
-                if (day < start) { // If end date is before start date, reset.
-                    setLocalRange([day, null]);
-                } else {
-                    setLocalRange([start, day]);
-                }
-            }
-        };
-        
-        const presets = [
-            { label: 'Today', days: 0 },
-            { label: 'Last 7 Days', days: 6 },
-            { label: 'Last 30 Days', days: 29 },
-            { label: 'This Month', type: 'this_month' as const },
-            { label: 'Last Month', type: 'last_month' as const },
-        ];
-        
-        const handlePresetClick = (preset: (typeof presets)[number]) => {
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            let start: Date;
-            let end: Date = new Date(today);
-
-            // FIX: Use the 'in' operator as a type guard to correctly discriminate the union type.
-            // This allows safe access to either 'type' or 'days' property based on the object shape.
-            if ('type' in preset) {
-                if (preset.type === 'this_month') {
-                    start = new Date(today.getFullYear(), today.getMonth(), 1);
-                    end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                } else { // 'last_month'
-                    start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    end = new Date(today.getFullYear(), today.getMonth(), 0);
-                }
-            } else {
-                start = new Date(today);
-                start.setDate(today.getDate() - preset.days);
-            }
-
-            setLocalRange([start, end]);
-            setVisibleDate(start);
-        };
-
-
-        const MonthCalendar = ({ date }: { date: Date }) => {
-            const days = getCalendarDays(date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const getDayClasses = (day: Date | null) => {
-                if (!day) return 'bg-transparent';
-                const dayTime = day.getTime();
-                const [start, end] = localRange;
-                let classes = 'w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-100 ';
-
-                const isStart = start && dayTime === start.getTime();
-                const isEnd = end && dayTime === end.getTime();
-                const isInRange = start && end && dayTime > start.getTime() && dayTime < end.getTime();
-                
-                let isHoverInRange = false;
-                if(start && !end && hoveredDate) {
-                    if (hoveredDate > start && day > start && day <= hoveredDate) {
-                        isHoverInRange = true;
-                    } else if (hoveredDate < start && day < start && day >= hoveredDate) {
-                        isHoverInRange = true;
-                    }
-                }
-                
-                if (isStart || isEnd) {
-                    classes += 'bg-brand-600 text-white font-semibold';
-                } else if (isInRange) {
-                    classes += 'bg-brand-100 text-brand-800 rounded-none';
-                    if (day.getDay() === 0) classes += ' rounded-l-full';
-                    if (day.getDay() === 6) classes += ' rounded-r-full';
-                } else if (isHoverInRange) {
-                     classes += 'bg-brand-50 text-brand-700';
-                } else {
-                    classes += 'text-slate-700 hover:bg-slate-100';
-                }
-                
-                if(dayTime === today.getTime() && !isStart && !isEnd && !isInRange) {
-                    classes += ' ring-2 ring-brand-500/50';
-                }
-
-                return classes;
-            };
-
             return (
-                <div>
-                    <h4 className="font-semibold text-center mb-2">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4>
-                    <div className="grid grid-cols-7 gap-y-1 text-center text-xs text-slate-500 font-semibold mb-2">
-                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
-                    </div>
+                <div className="flex-1">
+                    <h4 className="font-bold text-foreground text-center mb-4">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4>
                     <div className="grid grid-cols-7 gap-y-1">
-                        {days.map((day, i) => (
-                            <div key={i} className={`flex justify-center items-center h-9 ${!day ? '' : (localRange[0] && localRange[1] && day >= localRange[0] && day <= localRange[1]) ? 'bg-brand-100' : ''}`}>
-                            {day && (
-                                <button onClick={() => handleDateClick(day)} onMouseEnter={() => setHoveredDate(day)} onMouseLeave={() => setHoveredDate(null)} className={getDayClasses(day)}>
-                                    {day.getDate()}
-                                </button>
-                            )}
-                            </div>
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                            <div key={d} className="text-center text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">{d}</div>
                         ))}
+                        {days.map((day, i) => {
+                            const dayTime = day?.getTime();
+                            const [start, end] = localRange;
+                            const isStart = start && dayTime === start.getTime();
+                            const isEnd = end && dayTime === end.getTime();
+                            const isInRange = start && end && dayTime! > start.getTime() && dayTime! < end.getTime();
+                            const isHoverInRange = start && !end && hoveredDate && (
+                                (hoveredDate > start && day! > start && day! <= hoveredDate) ||
+                                (hoveredDate < start && day! < start && day! >= hoveredDate)
+                            );
+
+                            return (
+                                <div
+                                    key={i}
+                                    className={`relative h-10 flex items-center justify-center cursor-pointer group ${!day ? 'invisible' : ''} ${isInRange ? 'bg-brand-500/10' : ''} ${isHoverInRange ? 'bg-muted' : ''} ${isStart && end ? 'rounded-l-full bg-brand-500/10' : ''} ${isEnd ? 'rounded-r-full bg-brand-500/10' : ''}`}
+                                    onClick={() => day && handleDateClick(day)}
+                                    onMouseEnter={() => day && setHoveredDate(day)}
+                                    onMouseLeave={() => setHoveredDate(null)}
+                                >
+                                    {day && (
+                                        <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all duration-200 ${(isStart || isEnd) ? 'bg-brand-600 text-white font-bold scale-110 shadow-md ring-2 ring-brand-600 ring-offset-2 ring-offset-background' : dayTime === today.getTime() ? 'text-brand-600 font-bold ring-1 ring-brand-600 ring-offset-1 ring-offset-background' : 'text-foreground group-hover:bg-muted group-hover:text-brand-700 dark:group-hover:text-brand-400'}`}>
+                                            {day.getDate()}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             );
         };
-        
-        const nextMonthDate = new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 1);
-        
-        const { startDate, endDate } = filters;
-        const isActive = startDate || endDate;
 
-        const formatDateForDisplay = (dateString: string | undefined) => {
+        const nextMonthDate = new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 1);
+        const { startDate, endDate } = filters;
+        const isActive = !!(startDate || endDate);
+
+        const formatDateForDisplay = (dateString?: string) => {
             if (!dateString) return '';
             const date = parseDate(dateString);
-            if (!date) return '';
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
         };
-        
+
         let label = 'Date Range';
-        if (startDate && endDate) {
-            label = `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`;
-        } else if (startDate) {
-            label = `From ${formatDateForDisplay(startDate)}`;
-        } else if (endDate) {
-            label = `Until ${formatDateForDisplay(endDate)}`;
-        }
-
-        const buttonClasses = `flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
-            isActive
-                ? 'bg-brand-50 text-brand-800 border-brand-200 hover:bg-brand-100'
-                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-        }`;
-
+        if (startDate && endDate) label = `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`;
+        else if (startDate) label = `From ${formatDateForDisplay(startDate)}`;
+        else if (endDate) label = `Until ${formatDateForDisplay(endDate)}`;
 
         return (
             <div className="relative flex-shrink-0">
-                <button onClick={() => toggleMenu('dateRange')} className={buttonClasses}>
-                    <Calendar className="w-4 h-4" />
-                    <span className={`${isActive ? 'font-semibold' : ''} max-w-[200px] truncate`}>{label}</span>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onToggle('dateRange'); }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-300 border ${isActive ? 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/20 dark:text-brand-400 dark:border-brand-800 shadow-sm ring-1 ring-brand-200' : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'}`}
+                >
+                    <Calendar className={`w-4 h-4 ${isActive ? 'text-brand-600' : 'text-muted-foreground'}`} />
+                    <span className={`${isActive ? 'font-bold' : ''}`}>{label}</span>
+                    {isActive && <button onClick={(e) => { e.stopPropagation(); setFilter('startDate', ''); setFilter('endDate', ''); }} className="ml-1 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>}
                 </button>
-                {isDateRangeOpen && (
-                    <div className="absolute top-full mt-2 min-w-[680px] bg-white rounded-lg shadow-lg border border-slate-200 z-20 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
-                        <div className="flex">
-                            <aside className="w-48 p-4 border-r border-slate-200">
-                                <h4 className="font-semibold text-slate-800 text-sm mb-3">Presets</h4>
-                                <ul className="space-y-1">
-                                    {presets.map(p => (
-                                        <li key={p.label}>
-                                            <button onClick={() => handlePresetClick(p)} className="w-full text-left text-sm text-slate-700 hover:bg-slate-100 rounded-md p-2 transition-colors">{p.label}</button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </aside>
-                            <main className="flex-1 p-4">
-                                <div className="flex justify-between items-center px-4 mb-4">
-                                    <button onClick={() => handleMonthNav(-1)} className="p-2 rounded-full hover:bg-slate-100"><ChevronLeft className="w-5 h-5"/></button>
-                                    <div className="font-semibold">{visibleDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
-                                    <div className="font-semibold">{nextMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
-                                    <button onClick={() => handleMonthNav(1)} className="p-2 rounded-full hover:bg-slate-100"><ChevronRight className="w-5 h-5"/></button>
+
+                {isOpen && (
+                    <div
+                        className="absolute top-full left-0 mt-3 p-0 bg-card rounded-2xl shadow-2xl border border-border z-[100] animate-in fade-in zoom-in duration-200 overflow-hidden flex"
+                        style={{ width: '720px' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <aside className="w-44 bg-muted/30 p-6 border-r border-border">
+                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Quick Select</h4>
+                            <div className="space-y-1">
+                                {[
+                                    { label: 'Today', days: 0 },
+                                    { label: 'Last 7 Days', days: 6 },
+                                    { label: 'Last 30 Days', days: 29 },
+                                    { label: 'This Month', type: 'this_month' as const },
+                                    { label: 'Last Month', type: 'last_month' as const },
+                                ].map(p => (
+                                    <button
+                                        key={p.label}
+                                        onClick={() => handlePresetClick(p)}
+                                        className="w-full text-left text-sm font-medium text-muted-foreground hover:text-brand-700 dark:hover:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 p-2.5 rounded-xl transition-all duration-200"
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </aside>
+
+                        <div className="flex-1 flex flex-col min-w-0">
+                            <div className="p-8 flex-1">
+                                <div className="flex justify-between items-center mb-8 px-2">
+                                    <button onClick={() => handleMonthNav(-1)} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground"><ChevronLeft className="w-5 h-5" /></button>
+                                    <div className="flex gap-40 font-bold text-foreground">
+                                        {/* These are placeholder titles to help centering, but MonthCalendar renders its own */}
+                                    </div>
+                                    <button onClick={() => handleMonthNav(1)} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground"><ChevronRight className="w-5 h-5" /></button>
                                 </div>
-                                <div className="flex gap-8 px-4">
+                                <div className="flex gap-12">
                                     <MonthCalendar date={visibleDate} />
                                     <MonthCalendar date={nextMonthDate} />
                                 </div>
-                            </main>
+                            </div>
+                            <footer className="px-8 py-5 border-t border-border bg-muted/30 flex justify-between items-center">
+                                <div className="text-xs text-muted-foreground font-medium">
+                                    {localRange[0] && !localRange[1] && <span>Selecting end date...</span>}
+                                    {localRange[0] && localRange[1] && <span>Range selected</span>}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+                                    <button
+                                        onClick={handleApply}
+                                        disabled={!localRange[0]}
+                                        className="px-6 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl shadow-lg shadow-brand-200 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                                    >
+                                        Apply Range
+                                    </button>
+                                </div>
+                            </footer>
                         </div>
-                        <footer className="p-3 border-t border-slate-200 flex justify-end gap-3 bg-slate-50 rounded-b-lg">
-                            <button onClick={handleCancel} className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md border border-slate-300 transition">Cancel</button>
-                            <button onClick={handleApply} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm">Apply</button>
-                        </footer>
                     </div>
                 )}
             </div>
@@ -303,18 +312,24 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
     ];
 
     return (
-        <div ref={filterBarRef} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2">
-            <div className="flex items-center gap-3 pr-3 border-r border-slate-200">
-                <Filter className="w-5 h-5 text-brand-700 flex-shrink-0"/>
-                <span className="text-sm font-semibold text-slate-800 hidden lg:block">Filters</span>
+        <div ref={filterBarRef} className="bg-card p-3 rounded-xl border border-border shadow-sm flex items-center gap-2">
+            <div className="flex items-center gap-3 pr-3 border-r border-border">
+                <Filter className="w-5 h-5 text-brand-700 flex-shrink-0" />
+                <span className="text-sm font-semibold text-foreground hidden lg:block">Filters</span>
             </div>
             <div className="flex-1 flex flex-wrap items-center gap-2">
                 <CurrencyToggle />
-                <DateRangeFilterButton />
+                <DateRangePicker
+                    filters={filters}
+                    setFilter={setFilter}
+                    isOpen={openMenu === 'dateRange'}
+                    onToggle={toggleMenu}
+                    onClose={closeMenu}
+                />
                 {filterConfig.map(config => (
-                    <ContextAwareMultiSelectFilter 
-                        key={config.filterKey} 
-                        {...config} 
+                    <ContextAwareMultiSelectFilter
+                        key={config.filterKey}
+                        {...config}
                         isOpen={openMenu === config.filterKey}
                         onToggle={() => toggleMenu(config.filterKey)}
                         onClose={closeMenu}
@@ -322,9 +337,9 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
                 ))}
             </div>
             {hasActiveFilters && (
-                <button 
-                    onClick={clearFilters} 
-                    className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                <button
+                    onClick={clearFilters}
+                    className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                     aria-label="Clear all filters"
                     title="Clear all filters"
                 >

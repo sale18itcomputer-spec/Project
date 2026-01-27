@@ -142,7 +142,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
                   ))
                 ) : (
                   <div className="text-center p-8 text-muted-foreground">
-                    <Bell className="w-12 h-12 mx-auto text-slate-300" />
+                    <Bell className="w-12 h-12 mx-auto text-muted-foreground/20" />
                     <p className="font-semibold mt-4">All caught up!</p>
                     <p className="text-sm">You have no new notifications.</p>
                   </div>
@@ -165,7 +165,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>
                 <p className="font-semibold truncate">{currentUser?.Name || 'User'}</p>
-                <p className="text-sm text-slate-600 font-normal truncate">{currentUser?.Role || 'Role'}</p>
+                <p className="text-sm text-muted-foreground font-normal truncate">{currentUser?.Role || 'Role'}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>

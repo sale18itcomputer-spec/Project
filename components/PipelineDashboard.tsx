@@ -29,18 +29,18 @@ const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }
   const statusConfig = {
     'Quote Submitted': {
       label: 'Quote Submitted',
-      color: 'bg-sky-100 text-slate-800',
+      color: 'bg-sky-500/10 text-sky-500',
     },
     'Close (win)': {
       label: 'Won',
-      color: 'bg-emerald-100 text-slate-800',
+      color: 'bg-emerald-500/10 text-emerald-500',
     },
     'Close (lose)': {
       label: 'Lost',
-      color: 'bg-rose-100 text-slate-800',
+      color: 'bg-rose-500/10 text-rose-500',
     },
   };
-  const config = statusConfig[status] || { label: status, color: 'bg-slate-100 text-slate-800' };
+  const config = statusConfig[status] || { label: status, color: 'bg-muted text-muted-foreground' };
 
   return (
     <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${config.color}`}>
@@ -52,13 +52,13 @@ const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
   const typeColors: { [key: string]: string } = {
-    'Maintenance': 'bg-indigo-100 text-slate-800',
-    'Project': 'bg-fuchsia-100 text-slate-800',
-    'Consultant': 'bg-cyan-100 text-slate-800',
+    'Maintenance': 'bg-indigo-500/10 text-indigo-500',
+    'Project': 'bg-fuchsia-500/10 text-fuchsia-500',
+    'Consultant': 'bg-cyan-500/10 text-cyan-500',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${typeColors[type] || 'bg-slate-100 text-slate-800'}`}>
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${typeColors[type] || 'bg-muted text-muted-foreground'}`}>
       {type}
     </span>
   );
@@ -66,7 +66,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
 
 const DueDate: React.FC<{ dueDate?: Date | null }> = ({ dueDate }) => {
   if (!dueDate) {
-    return <span className="text-gray-400 italic">N/A</span>;
+    return <span className="text-muted-foreground/30 italic">N/A</span>;
   }
 
   const now = new Date();
@@ -79,22 +79,22 @@ const DueDate: React.FC<{ dueDate?: Date | null }> = ({ dueDate }) => {
   let text, color;
   if (diffDays < 0) {
     text = `Overdue`;
-    color = 'text-rose-600 font-semibold';
+    color = 'text-rose-500 font-semibold';
   } else if (diffDays === 0) {
     text = 'Today';
-    color = 'text-amber-600 font-semibold';
+    color = 'text-amber-500 font-semibold';
   } else if (diffDays <= 7) {
     text = `in ${diffDays} day(s)`;
-    color = 'text-sky-600';
+    color = 'text-sky-500';
   } else {
     text = `in ${diffDays} days`;
-    color = 'text-gray-500';
+    color = 'text-muted-foreground';
   }
 
   return (
     <div>
       <div className={`font-medium ${color}`}>{text}</div>
-      <div className="text-xs text-gray-400">{formatDateAsMDY(dueDate)}</div>
+      <div className="text-xs text-muted-foreground/60">{formatDateAsMDY(dueDate)}</div>
     </div>
   );
 };
@@ -110,15 +110,15 @@ const CardDueDate: React.FC<{ dueDate: Date }> = ({ dueDate }) => {
   let text, color, icon;
   if (diffDays < 0) {
     text = `Overdue`;
-    color = 'text-rose-600 bg-rose-100';
+    color = 'text-rose-500 bg-rose-500/10';
     icon = <AlertTriangle className="w-3 h-3" />;
   } else if (diffDays === 0) {
     text = 'Today';
-    color = 'text-amber-600 bg-amber-100';
+    color = 'text-amber-500 bg-amber-500/10';
     icon = <Calendar className="w-3 h-3" />;
   } else if (diffDays <= 7) {
     text = `${diffDays}d`;
-    color = 'text-sky-600 bg-sky-100';
+    color = 'text-sky-500 bg-sky-500/10';
     icon = <Clock className="w-3 h-3" />;
   } else {
     return null; // Don't show if it's far out
@@ -126,7 +126,7 @@ const CardDueDate: React.FC<{ dueDate: Date }> = ({ dueDate }) => {
 
   return (
     <div
-      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}
+      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${color} dark:bg-opacity-20`}
       title={`Due on ${formatDateAsMDY(dueDate)}`}
     >
       {icon}
@@ -157,13 +157,13 @@ const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void }> = ({ onE
 
   return (
     <div className="relative" ref={menuRef}>
-      <button onClick={(e) => { e.stopPropagation(); setIsOpen(prev => !prev); }} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+      <button onClick={(e) => { e.stopPropagation(); setIsOpen(prev => !prev); }} className="p-2 rounded-full text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-brand-500">
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
       </button>
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg border z-10 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
-          <button onClick={handleAction(onView)} className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">View Details</button>
-          <button onClick={handleAction(onEdit)} className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Edit</button>
+        <div className="absolute right-0 mt-1 w-36 bg-card rounded-md shadow-lg border border-border z-10 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
+          <button onClick={handleAction(onView)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">View Details</button>
+          <button onClick={handleAction(onEdit)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">Edit</button>
         </div>
       )}
     </div>
@@ -219,7 +219,7 @@ const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => vo
 
 
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
-  const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error } = useB2BData();
+  const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error, isB2B } = useB2BData();
   const { addToast } = useToast();
   const { user } = useAuth();
   const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });
@@ -264,7 +264,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     setProjectToDelete(null);
     setProjects(prev => prev ? prev.filter(p => p['Pipeline No.'] !== projectId) : null);
     try {
-      await deleteRecord('Pipelines', projectId);
+      const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
+      await deleteRecord(tableName, projectId);
       addToast('Project deleted!', 'success');
     } catch (err: any) {
       addToast('Failed to delete project.', 'error');
@@ -287,7 +288,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     });
 
     try {
-      await updateRecord('Pipelines', pipelineNo, { 'Status': newStatus });
+      const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
+      await updateRecord(tableName, pipelineNo, { 'Status': newStatus });
       addToast('Pipeline moved successfully!', 'success');
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -299,7 +301,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const validPipelineData = useMemo(() => {
     if (!pipelineData) return [];
-    return pipelineData.filter(project => project['Pipeline No.'] && project['Pipeline No.'].startsWith('PL'))
+    return pipelineData.filter(project => project['Pipeline No.'] && (project['Pipeline No.'].startsWith('PL') || project['Pipeline No.'].startsWith('BPL')))
   }, [pipelineData]);
 
   const processedData: ProcessedProject[] = useMemo(() => {
@@ -368,8 +370,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         if (usdStr && khrStr) {
           return (
             <div>
-              <span className="text-xl font-bold text-slate-800 block">{usdStr}</span>
-              <span className="text-lg font-bold text-slate-600 block">{khrStr}</span>
+              <span className="text-xl font-bold text-foreground block">{usdStr}</span>
+              <span className="text-lg font-bold text-muted-foreground block">{khrStr}</span>
             </div>
           );
         }
@@ -377,7 +379,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         const singleValue = usdStr || khrStr || '$0';
 
         return (
-          <span className="text-2xl font-bold text-slate-800">
+          <span className="text-2xl font-bold text-foreground">
             {singleValue}
           </span>
         );
@@ -391,14 +393,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       header: 'Pipeline No.',
       isSortable: true,
       cell: (value: string) => (
-        <div className="font-semibold text-slate-600">{value}</div>
+        <div className="font-semibold text-muted-foreground/80">{value}</div>
       )
     },
     {
       accessorKey: 'Responsible By',
       header: 'Sales Rep',
       isSortable: true,
-      cell: (value: string) => <span className="font-medium text-slate-800">{value}</span>
+      cell: (value: string) => <span className="font-medium text-foreground">{value}</span>
     },
     {
       accessorKey: 'Company Name',
@@ -407,11 +409,11 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       cell: (value: string) => (
         <button
           onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'companies', filter: value }); }}
-          className="group font-semibold text-sm text-slate-800 hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+          className="group font-semibold text-sm text-foreground hover:underline text-left transition-colors inline-flex items-center gap-1.5"
           aria-label={`View company: ${value}`}
         >
           {value}
-          <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       )
     },
@@ -422,7 +424,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       cell: (value: string) => (
         <button
           onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'contacts', filter: value }); }}
-          className="group font-medium text-slate-800 hover:underline text-left transition-colors"
+          className="group font-medium text-foreground hover:underline text-left transition-colors"
         >
           {value}
         </button>
@@ -450,10 +452,9 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       header: 'Taxable',
       isSortable: true,
       cell: (value: string | undefined) => {
-        if (!value) return '-';
-        if (value === 'Yes') return 'VAT';
-        if (value === 'No') return 'NON-VAT';
-        return value;
+        if (!value) return <span className="text-muted-foreground">-</span>;
+        const display = value === 'Yes' ? 'VAT' : value === 'No' ? 'NON-VAT' : value;
+        return <span className="font-medium text-foreground">{display}</span>;
       }
     },
     {
@@ -463,10 +464,10 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       cell: (value: string, row: ProcessedProject) => {
         const formattedValue = formatCurrencySmartly(value, row.Currency);
         if (formattedValue === '-') {
-          return <span className="text-slate-400 text-right block w-full">-</span>;
+          return <span className="text-muted-foreground/30 text-right block w-full">-</span>;
         }
         return (
-          <span className="text-sm font-medium text-slate-800 text-right block w-full">
+          <span className="text-sm font-medium text-foreground text-right block w-full">
             {formattedValue}
           </span>
         )
@@ -555,14 +556,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           <ActionsMenu onEdit={() => handleEditProject(item)} onView={() => handleViewProject(item)} onDelete={() => handleDeleteRequest(item)} />
         </div>
 
-        <h4 className="font-bold text-slate-900 pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
-        <p className="text-lg font-semibold text-brand-800 mt-1">
+        <h4 className="font-bold text-foreground pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
+        <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-1">
           {formattedValue}
         </p>
 
-        <p className="text-sm text-slate-600 mt-2.5 line-clamp-2">{item.Require}</p>
+        <p className="text-sm text-muted-foreground mt-2.5 line-clamp-2">{item.Require}</p>
 
-        <div className="text-xs text-slate-500 mt-3 flex items-center gap-4">
+        <div className="text-xs text-muted-foreground mt-3 flex items-center gap-4">
           <div className="flex items-center gap-1.5" title={`Type: ${item.Type}`}>
             <Briefcase className="w-3.5 h-3.5" />
             <span>{item.Type}</span>
@@ -575,12 +576,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           )}
         </div>
 
-        <div className="flex justify-between items-end mt-4 pt-3 border-t border-slate-100">
+        <div className="flex justify-between items-end mt-4 pt-3 border-t border-border">
           <div className="flex items-center gap-3">
             {item['Responsible By'] && (
               <Avatar name={item['Responsible By']} showName={false} className="w-7 h-7 text-xs" />
             )}
-            <div className="flex items-center gap-1 text-xs text-slate-500" title={`Created on ${createdDate?.toLocaleDateString()}`}>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`Created on ${createdDate?.toLocaleDateString()}`}>
               <Clock className="w-3.5 h-3.5" />
               <span>{ageText}</span>
             </div>
@@ -593,7 +594,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const renderDetailView = () => (
     <div className="flex flex-col md:flex-row h-full">
-      <aside className="w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col">
+      <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
         <PipelineListContainer
           projects={filteredData}
           selectedPipelineNo={selectedPipelineNo}
@@ -601,25 +602,25 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           loading={loading && !pipelineData}
         />
       </aside>
-      <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-slate-50">
+      <main className="flex-1 overflow-hidden bg-background p-4">
         {loading && !selectedProject ? <Spinner /> : selectedProject ? (
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <div className="max-w-4xl mx-auto space-y-8 h-full overflow-y-auto pr-2">
+            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">{selectedProject['Company Name']}</h1>
-                  <p className="text-slate-600 font-mono mt-1">{selectedProject['Pipeline No.']}</p>
+                  <h1 className="text-2xl font-bold text-foreground">{selectedProject['Company Name']}</h1>
+                  <p className="text-muted-foreground font-mono mt-1">{selectedProject['Pipeline No.']}</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => handleEditProject(selectedProject)}
-                    className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
+                    className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
                   >
                     <Pencil className="w-4 h-4" /> Edit
                   </button>
                   <button
                     onClick={() => handleDeleteRequest(selectedProject)}
-                    className="text-sm font-semibold text-rose-600 hover:underline flex items-center gap-1.5"
+                    className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
                   >
                     <Trash2 className="w-4 h-4" /> Delete
                   </button>
@@ -627,53 +628,53 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               </div>
 
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-gray-500">Bid Value</dt>
-                  <dd className="mt-1 text-xl font-semibold text-gray-900">{formatCurrencySmartly(selectedProject['Bid Value'], selectedProject.Currency)}</dd>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-muted-foreground/60">Bid Value</dt>
+                  <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Bid Value'], selectedProject.Currency)}</dd>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
                   <dd className="mt-1"><StatusBadge status={selectedProject.Status} /></dd>
                 </div>
               </div>
 
               <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Sales Rep</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{selectedProject['Responsible By']}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Sales Rep</dt>
+                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Responsible By']}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Contact Person</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{selectedProject['Contact Name']}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Contact Person</dt>
+                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Contact Name']}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Created Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDateAsMDY(parseDate(selectedProject['Created Date']))}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Created Date</dt>
+                  <dd className="mt-1 text-sm text-foreground">{formatDateAsMDY(parseDate(selectedProject['Created Date']))}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Time Frame</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{selectedProject['Time Frame']}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Time Frame</dt>
+                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Time Frame']}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Brand</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{selectedProject['Brand 1'] || 'N/A'}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Brand</dt>
+                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Brand 1'] || 'N/A'}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Type</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{selectedProject.Type}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Type</dt>
+                  <dd className="mt-1 text-sm text-foreground">{selectedProject.Type}</dd>
                 </div>
                 <div className="sm:col-span-2">
-                  <dt className="text-sm font-medium text-gray-500">Requirement</dt>
-                  <dd className="mt-1 text-sm text-gray-900 break-words">{selectedProject.Require}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground/60">Requirement</dt>
+                  <dd className="mt-1 text-sm text-foreground break-words">{selectedProject.Require}</dd>
                 </div>
               </dl>
             </div>
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <EmptyState illustration={<Info className="w-16 h-16 text-slate-300" />}>
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">Select an Opportunity</h3>
-              <p className="mt-1 text-sm text-gray-500">Choose an opportunity from the list to see its details.</p>
+            <EmptyState illustration={<Info className="w-16 h-16 text-muted-foreground/20" />}>
+              <h3 className="mt-2 text-sm font-semibold text-foreground">Select an Opportunity</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Choose an opportunity from the list to see its details.</p>
             </EmptyState>
           </div>
         )}
@@ -719,10 +720,10 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
+      <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-card border-b border-border">
         <div className="flex items-center">
-          <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
-          <span className="ml-2 text-sm text-gray-500">opportunities</span>
+          <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
+          <span className="ml-2 text-sm text-muted-foreground">opportunities</span>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-grow">
@@ -733,20 +734,20 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               placeholder="Search opportunities..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+              className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
             />
-            <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </div>
           <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
           {viewMode === 'table' && (
             <>
-              <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+              <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
                 <button
                   onClick={() => setCellWrapStyle('overflow')}
                   title="Overflow"
                   className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                    ? 'bg-white shadow-sm text-brand-700'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                    ? 'bg-background shadow-sm text-brand-500'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                     }`}
                   aria-pressed={cellWrapStyle === 'overflow'}
                 >
@@ -756,8 +757,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   onClick={() => setCellWrapStyle('wrap')}
                   title="Wrap"
                   className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                    ? 'bg-white shadow-sm text-brand-700'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                    ? 'bg-background shadow-sm text-brand-500'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                     }`}
                   aria-pressed={cellWrapStyle === 'wrap'}
                 >
@@ -767,8 +768,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   onClick={() => setCellWrapStyle('clip')}
                   title="Clip"
                   className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                    ? 'bg-white shadow-sm text-brand-700'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                    ? 'bg-background shadow-sm text-brand-500'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                     }`}
                   aria-pressed={cellWrapStyle === 'clip'}
                 >
@@ -793,7 +794,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       </div>
 
       {viewMode === 'table' ? (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
+        <div className="flex-1 overflow-hidden bg-background p-4">
           <DataTable
             tableId="pipeline-table"
             data={filteredData}
@@ -809,7 +810,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                     e.stopPropagation();
                     handleEditProject(row);
                   }}
-                  className="p-2 text-slate-400 hover:text-brand-600 transition"
+                  className="p-2 text-muted-foreground hover:text-brand-500 transition"
                   title="Edit"
                 >
                   <Pencil size={16} />
@@ -819,7 +820,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                     e.stopPropagation();
                     handleDeleteRequest(row);
                   }}
-                  className="p-2 text-slate-400 hover:text-rose-600 transition"
+                  className="p-2 text-muted-foreground hover:text-rose-500 transition"
                   title="Delete"
                 >
                   <Trash2 size={16} />
@@ -838,7 +839,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           getItemId={(item) => item['Pipeline No.']}
         />
       ) : (
-        <div className="flex-1 min-h-0 bg-slate-50 overflow-hidden">
+        <div className="flex-1 min-h-0 bg-background overflow-hidden">
           {renderDetailView()}
         </div>
       )}

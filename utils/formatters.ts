@@ -51,20 +51,20 @@ export const getInitials = (name: string): string => {
 
 
 export const formatMixedCurrency = (usd: number, khr: number): string => {
-    const usdStr = usd > 0 ? `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(usd)}` : '';
-    const khrStr = khr > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(khr)}` : '';
-    
-    if (usdStr && khrStr) return `${usdStr} | ${khrStr}`;
-    if (usdStr) return usdStr;
-    if (khrStr) return khrStr;
-    return '$0';
+  const usdStr = usd > 0 ? `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd)}` : '';
+  const khrStr = khr > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(khr)}` : '';
+
+  if (usdStr && khrStr) return `${usdStr} | ${khrStr}`;
+  if (usdStr) return usdStr;
+  if (khrStr) return khrStr;
+  return '$0';
 };
 
 export const determineCurrency = (num: number, currency?: 'USD' | 'KHR' | ''): 'USD' | 'KHR' => {
   const trimmedCurrency = currency?.trim();
   if (trimmedCurrency === 'USD') return 'USD';
   if (trimmedCurrency === 'KHR') return 'KHR';
-  
+
   // Heuristic for older data without a currency field:
   // KHR does not use cents. If there are cents, it must be USD.
   const hasCents = num % 1 !== 0;
@@ -94,17 +94,17 @@ export const formatCurrencySmartly = (value: any, currency?: 'USD' | 'KHR' | '')
 }
 
 export const decodeJwt = (token: string) => {
-    try {
-        const base64Url = token.split('.')[1];
-        if (!base64Url) return null;
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
 
-        return JSON.parse(jsonPayload);
-    } catch (e) {
-        console.error("Failed to decode JWT:", e);
-        return null;
-    }
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("Failed to decode JWT:", e);
+    return null;
+  }
 };

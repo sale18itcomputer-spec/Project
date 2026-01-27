@@ -25,10 +25,10 @@ interface InvoiceDODashboardProps {
 
 const StatusBadge: React.FC<{ status: Invoice['Status'] }> = ({ status }) => {
     const statusConfig: { [key in Invoice['Status'] | string]: { bg: string; text: string } } = {
-        'Draft': { bg: 'bg-slate-100', text: 'text-slate-800' },
-        'Processing': { bg: 'bg-brand-100', text: 'text-slate-800' },
-        'Completed': { bg: 'bg-emerald-100', text: 'text-slate-800' },
-        'Cancel': { bg: 'bg-rose-100', text: 'text-slate-800' },
+        'Draft': { bg: 'bg-sky-500/10', text: 'text-sky-500' },
+        'Processing': { bg: 'bg-amber-500/10', text: 'text-amber-500' },
+        'Completed': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
+        'Cancel': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
     };
 
     const config = statusConfig[status] || { bg: 'bg-slate-100', text: 'text-slate-800' };
@@ -130,7 +130,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
             header: 'Inv No.',
             isSortable: true,
             cell: (value: string) => (
-                <div className="font-semibold text-slate-800">{value}</div>
+                <div className="font-semibold text-muted-foreground/80">{value}</div>
             )
         },
         {
@@ -154,7 +154,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
             header: 'Amount',
             isSortable: true,
             cell: (value: string, row: Invoice) => (
-                <span className="text-sm font-medium text-slate-800 text-right block w-full">
+                <span className="text-sm font-medium text-foreground text-right block w-full">
                     {formatCurrencySmartly(value, row.Currency)}
                 </span>
             )
@@ -164,9 +164,9 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
             header: 'Taxable',
             isSortable: true,
             cell: (value: string | undefined) => {
-                if (!value) return <span className="text-slate-400">-</span>;
+                if (!value) return <span className="text-muted-foreground/30">-</span>;
                 const display = value === 'Yes' ? 'VAT' : value === 'No' ? 'NON-VAT' : value;
-                return <span className="font-medium text-slate-600">{display}</span>;
+                return <span className="font-medium text-foreground">{display}</span>;
             }
         },
         {
@@ -226,10 +226,10 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const renderKanbanCard = (item: Invoice) => (
         <>
-            <h4 className="font-bold text-slate-900 text-base">{item['Company Name']}</h4>
-            <p className="text-sm text-slate-500 font-mono">{item['Inv No.']}</p>
-            <p className="text-lg font-semibold text-brand-800 mt-2">{formatCurrencySmartly(item.Amount, item.Currency)}</p>
-            <p className="text-sm text-slate-600 mt-2">By {item['Created By']}</p>
+            <h4 className="font-bold text-foreground text-base">{item['Company Name']}</h4>
+            <p className="text-sm text-muted-foreground font-mono">{item['Inv No.']}</p>
+            <p className="text-lg font-semibold text-brand-500 mt-2">{formatCurrencySmartly(item.Amount, item.Currency)}</p>
+            <p className="text-sm text-muted-foreground/80 mt-2">By {item['Created By']}</p>
         </>
     );
 
@@ -255,39 +255,39 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
     }
 
     return (
-        <div className="h-full flex flex-col bg-slate-50">
-            <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div className="h-full flex flex-col bg-background">
+            <header className="flex-shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-slate-900">INVOICE & DO Record</h1>
+                    <h1 className="text-xl font-bold text-foreground">INVOICE & DO Record</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative w-64">
                         <input
                             type="text" placeholder="Search invoices..."
                             value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-white border border-slate-300 text-slate-700 placeholder-slate-400 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
+                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground/40 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
                         />
-                        <Search className="w-5 h-5 text-slate-400 absolute top-1/2 left-3 -translate-y-1/2" />
+                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
                     </div>
-                    <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                    <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
                         {VIEW_OPTIONS.map(view => (
                             <button
                                 key={view.id} onClick={() => setViewMode(view.id)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 {view.icon} <span className="hidden lg:inline">{view.label}</span>
                             </button>
                         ))}
                     </div>
-                    <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm">
-                        <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}><ArrowRightToLine size={16} /></button>
-                        <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}><WrapText size={16} /></button>
-                        <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}><Scissors size={16} /></button>
+                    <div className="flex items-center bg-card border border-border rounded-md shadow-sm">
+                        <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
+                        <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
+                        <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
                     </div>
                     <DataTableColumnToggle
                         allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
                         trigger={
-                            <button className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-md hover:bg-slate-50 transition shadow-sm text-sm">
+                            <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
                                 <LayoutGrid className="w-4 h-4" /> View
                             </button>
                         }
@@ -300,7 +300,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                     </button>
                 </div>
             </header>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-50">
+            <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
                 {loading ? <Spinner /> : viewMode === 'table' ? (
                     <DataTable
                         tableId="invoice-table" data={filteredData} columns={displayedColumns} loading={loading}
@@ -314,7 +314,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                         e.stopPropagation();
                                         handleViewInvoice(row);
                                     }}
-                                    className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                                     title="View"
                                 >
                                     <Info size={16} />
@@ -324,7 +324,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                         e.stopPropagation();
                                         handleEditInvoice(row);
                                     }}
-                                    className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                                     title="Edit"
                                 >
                                     <Pencil size={16} />
@@ -334,7 +334,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                         e.stopPropagation();
                                         handleDeleteRequest(row);
                                     }}
-                                    className="p-2.5 text-slate-400 hover:text-rose-600 transition hover:bg-rose-50 rounded-full"
+                                    className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
                                     title="Delete"
                                 >
                                     <Trash2 size={16} />
@@ -348,48 +348,48 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                         loading={loading} getItemId={(item) => item['Inv No.']}
                     />
                 ) : (
-                    <div className="h-full flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                    <div className="h-full flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
                         {/* Summary List */}
-                        <div className="w-full md:w-80 flex-shrink-0 bg-white overflow-y-auto">
+                        <div className="w-full md:w-80 flex-shrink-0 bg-card overflow-y-auto">
                             {filteredData.map(inv => (
                                 <button
                                     key={inv['Inv No.']}
                                     onClick={() => setSelectedInvoiceId(inv['Inv No.'])}
-                                    className={`w-full text-left p-4 border-b hover:bg-slate-50 transition-colors ${selectedInvoiceId === inv['Inv No.'] ? 'bg-brand-50 border-r-4 border-r-brand-600' : 'border-slate-100'}`}
+                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No.'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-slate-900">{inv['Inv No.']}</span>
+                                        <span className="font-bold text-foreground">{inv['Inv No.']}</span>
                                         <StatusBadge status={inv.Status} />
                                     </div>
-                                    <div className="text-sm font-medium text-slate-700 truncate">{inv['Company Name']}</div>
-                                    <div className="text-xs text-slate-500 mt-1">{inv['Inv Date']}</div>
-                                    <div className="text-sm font-bold text-brand-700 mt-2">{formatCurrencySmartly(inv.Amount, inv.Currency)}</div>
+                                    <div className="text-sm font-medium text-foreground/80 truncate">{inv['Company Name']}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">{inv['Inv Date']}</div>
+                                    <div className="text-sm font-bold text-brand-500 mt-2">{formatCurrencySmartly(inv.Amount, inv.Currency)}</div>
                                 </button>
                             ))}
-                            {filteredData.length === 0 && <div className="p-8 text-center text-slate-400">No invoices found</div>}
+                            {filteredData.length === 0 && <div className="p-8 text-center text-muted-foreground">No invoices found</div>}
                         </div>
 
                         {/* Detail Content */}
-                        <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8">
+                        <div className="flex-1 bg-background overflow-y-auto p-4 md:p-8">
                             {selectedInvoiceId ? (
                                 (() => {
                                     const selectedInv = invoices.find(i => i['Inv No.'] === selectedInvoiceId);
                                     if (!selectedInv) return null;
                                     return (
                                         <div className="max-w-4xl mx-auto space-y-6">
-                                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                                <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                                    <h2 className="text-lg font-bold text-slate-800">Invoice Details</h2>
+                                            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+                                                <div className="px-6 py-4 bg-muted border-b border-border flex justify-between items-center">
+                                                    <h2 className="text-lg font-bold text-foreground">Invoice Details</h2>
                                                     <div className="flex items-center gap-4">
                                                         <button
                                                             onClick={() => handleEditInvoice(selectedInv)}
-                                                            className="flex items-center gap-2 text-brand-600 font-semibold hover:underline"
+                                                            className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"
                                                         >
                                                             <Pencil size={16} /> Edit
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteRequest(selectedInv)}
-                                                            className="flex items-center gap-2 text-rose-600 font-semibold hover:underline"
+                                                            className="flex items-center gap-2 text-rose-500 font-semibold hover:underline"
                                                         >
                                                             <Trash2 size={16} /> Delete
                                                         </button>
@@ -398,49 +398,49 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                                                     <div className="space-y-4">
                                                         <div>
-                                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Invoice Info</label>
+                                                            <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Invoice Info</label>
                                                             <div className="mt-1 grid grid-cols-2 gap-4">
                                                                 <div>
-                                                                    <p className="text-xs text-slate-500">Invoice No.</p>
-                                                                    <p className="font-bold text-slate-900">{selectedInv['Inv No.']}</p>
+                                                                    <p className="text-xs text-muted-foreground">Invoice No.</p>
+                                                                    <p className="font-bold text-foreground">{selectedInv['Inv No.']}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-xs text-slate-500">Date</p>
-                                                                    <p className="font-semibold text-slate-800">{selectedInv['Inv Date']}</p>
+                                                                    <p className="text-xs text-muted-foreground">Date</p>
+                                                                    <p className="font-semibold text-foreground/80">{selectedInv['Inv Date']}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-xs text-slate-500">SO Ref</p>
-                                                                    <p className="font-medium text-slate-800">{selectedInv['SO No.'] || 'N/A'}</p>
+                                                                    <p className="text-xs text-muted-foreground">SO Ref</p>
+                                                                    <p className="font-medium text-foreground/80">{selectedInv['SO No.'] || 'N/A'}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-xs text-slate-500">Taxable</p>
-                                                                    <p className="font-medium text-slate-800">
+                                                                    <p className="text-xs text-muted-foreground">Taxable</p>
+                                                                    <p className="font-medium text-foreground/80">
                                                                         {selectedInv['Taxable'] === 'Yes' ? 'VAT' : selectedInv['Taxable'] === 'No' ? 'NON-VAT' : selectedInv['Taxable'] || 'N/A'}
                                                                     </p>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Financials</label>
+                                                            <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Financials</label>
                                                             <div className="mt-1">
-                                                                <p className="text-xs text-slate-500">Total Amount</p>
-                                                                <p className="text-2xl font-bold text-brand-700">{formatCurrencySmartly(selectedInv.Amount, selectedInv.Currency)}</p>
+                                                                <p className="text-xs text-muted-foreground">Total Amount</p>
+                                                                <p className="text-2xl font-bold text-brand-500">{formatCurrencySmartly(selectedInv.Amount, selectedInv.Currency)}</p>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="space-y-4">
                                                         <div>
-                                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Customer</label>
-                                                            <p className="mt-1 font-bold text-slate-900 text-lg leading-tight">{selectedInv['Company Name']}</p>
-                                                            <p className="text-sm text-slate-600 mt-1">{selectedInv['Company Address']}</p>
-                                                            {selectedInv['Tin No.'] && <p className="text-xs text-slate-500 mt-1">TIN: {selectedInv['Tin No.']}</p>}
+                                                            <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Customer</label>
+                                                            <p className="mt-1 font-bold text-foreground text-lg leading-tight">{selectedInv['Company Name']}</p>
+                                                            <p className="text-sm text-muted-foreground mt-1">{selectedInv['Company Address']}</p>
+                                                            {selectedInv['Tin No.'] && <p className="text-xs text-muted-foreground mt-1">TIN: {selectedInv['Tin No.']}</p>}
                                                         </div>
                                                         <div>
-                                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</label>
+                                                            <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Contact</label>
                                                             <div className="mt-1 space-y-1">
-                                                                <p className="text-sm font-semibold text-slate-800">{selectedInv['Contact Name']}</p>
-                                                                <p className="text-sm text-slate-600">{selectedInv['Phone Number']}</p>
-                                                                <p className="text-sm text-slate-600">{selectedInv['Email']}</p>
+                                                                <p className="text-sm font-semibold text-foreground/80">{selectedInv['Contact Name']}</p>
+                                                                <p className="text-sm text-muted-foreground">{selectedInv['Phone Number']}</p>
+                                                                <p className="text-sm text-muted-foreground">{selectedInv['Email']}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -448,16 +448,16 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                             </div>
 
                                             {selectedInv['Attachment'] && (
-                                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                                        <FileText size={18} className="text-brand-600" />
+                                                <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+                                                    <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                                                        <FileText size={18} className="text-brand-500" />
                                                         Attachment
                                                     </h3>
                                                     <a
                                                         href={selectedInv['Attachment']}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg hover:bg-brand-100 transition-colors font-semibold"
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500/10 text-brand-500 border border-brand-500/20 rounded-lg hover:bg-brand-500/20 transition-colors font-semibold"
                                                     >
                                                         View Document
                                                     </a>
@@ -467,7 +467,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                     );
                                 })()
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/30">
                                     <FileText size={48} className="mb-4 opacity-20" />
                                     <p className="text-lg">Select an invoice to view details</p>
                                 </div>
@@ -476,11 +476,11 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                     </div>
                 )}
             </div>
-            <footer className="flex-shrink-0 bg-white border-t border-slate-200 p-3 flex items-center gap-3">
+            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
 
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-                    <button onClick={() => setStatusFilter(statusFilter === 'Processing' ? null : 'Processing')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Processing' ? 'bg-brand-600 text-white' : 'border-slate-300'}`}>Processing</button>
-                    <button onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white' : 'border-slate-300'}`}>Completed</button>
+                    <button onClick={() => setStatusFilter(statusFilter === 'Processing' ? null : 'Processing')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Processing' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Processing</button>
+                    <button onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Completed</button>
                 </div>
             </footer>
             <ConfirmationModal

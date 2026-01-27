@@ -38,17 +38,17 @@ const PricelistFilterBar: React.FC<PricelistFilterBarProps> = ({ categories, bra
     const closeMenu = () => {
         setOpenMenu(null);
     };
-    
+
     const clearFilters = () => {
         onCategoryChange([]);
         onBrandChange([]);
     };
 
     return (
-        <div ref={filterBarRef} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2">
-            <div className="flex items-center gap-3 pr-3 border-r border-slate-200">
-                <Filter className="w-5 h-5 text-brand-700 flex-shrink-0"/>
-                <span className="text-sm font-semibold text-slate-800 hidden lg:block">Filters</span>
+        <div ref={filterBarRef} className="bg-card p-3 rounded-xl border border-border shadow-sm flex items-center gap-2">
+            <div className="flex items-center gap-3 pr-3 border-r border-border">
+                <Filter className="w-5 h-5 text-brand-500 flex-shrink-0" />
+                <span className="text-sm font-semibold text-foreground hidden lg:block">Filters</span>
             </div>
             <div className="flex-1 flex flex-wrap items-center gap-2">
                 <MultiSelectFilter
@@ -73,9 +73,9 @@ const PricelistFilterBar: React.FC<PricelistFilterBarProps> = ({ categories, bra
                 />
             </div>
             {hasActiveFilters && (
-                <button 
-                    onClick={clearFilters} 
-                    className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                <button
+                    onClick={clearFilters}
+                    className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-brand-500/10 hover:text-brand-500 transition-colors"
                     aria-label="Clear all filters"
                     title="Clear all filters"
                 >

@@ -185,6 +185,8 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
         </button>
       ),
     },
+    { accessorKey: 'Position', header: 'Position', isSortable: true },
+    { accessorKey: 'Phone Number', header: 'Phone Number', isSortable: true },
     { accessorKey: 'Type', header: 'Type', isSortable: true },
     { accessorKey: 'Responsible By', header: 'Logged By', isSortable: true },
     {
@@ -381,7 +383,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
           getItemId={(item) => item['Log ID'] || ''}
         />
       ) : (
-        <div className="flex-1 overflow-auto bg-white">
+        <div className="flex-1 overflow-hidden bg-slate-50 p-4">
           <DataTable
             tableId="contact-logs-table"
             data={filteredData}

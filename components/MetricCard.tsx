@@ -27,12 +27,12 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, subValue, onClick
   const cardElement = (
     <Card {...cardProps}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
         {isCompact && icon && React.cloneElement(icon, { className: 'h-4 w-4 text-muted-foreground' })}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {subValue && <div className="text-base font-semibold text-slate-600 -mt-1">{subValue}</div>}
+        <div className="text-2xl font-bold text-foreground">{value}</div>
+        {subValue && <div className="text-base font-semibold text-muted-foreground -mt-1">{subValue}</div>}
       </CardContent>
     </Card>
   );

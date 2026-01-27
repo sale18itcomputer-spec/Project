@@ -58,9 +58,15 @@ const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }
   );
 };
 
+import { useB2B } from '../contexts/B2BContext';
+
 const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClose, onEditRequest, meetings, contactLogs }) => {
   const { handleNavigation } = useNavigation();
-  const { projects, setProjects } = useData();
+  const { projects: b2cProjects, setProjects } = useData();
+  const { isB2B, setProjects: setB2bProjects, projects: b2bProjects } = useB2B();
+
+  const projects = isB2B ? b2bProjects : b2cProjects;
+
   const { addToast } = useToast();
   const [isShowing, setIsShowing] = useState(false);
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -133,14 +139,25 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
     setDeleteConfirmOpen(false);
     onClose();
 
-    setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
+    // Optimistic update
+    if (isB2B) {
+      setB2bProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
+    } else {
+      setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
+    }
 
     try {
-      await deleteRecord('Pipelines', projectToDeleteId);
+      const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
+      await deleteRecord(tableName, projectToDeleteId);
       addToast('Pipeline deleted!', 'success');
     } catch (err: any) {
       addToast('Failed to delete pipeline.', 'error');
-      setProjects(originalProjects);
+      // Revert on error
+      if (isB2B) {
+        setB2bProjects(originalProjects);
+      } else {
+        setProjects(originalProjects);
+      }
     }
   };
 

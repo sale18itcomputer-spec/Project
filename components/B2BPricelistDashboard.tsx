@@ -9,6 +9,7 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from './ViewToggle';
 import ItemActionsMenu from './ItemActionsMenu';
 import NewPricelistItemModal from './NewPricelistItemModal';
+import { ShieldCheck, TrendingUp, Info } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -18,7 +19,7 @@ import { DataTableColumnToggle } from './DataTableColumnToggle';
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
     if (num === 0 && String(value || '').trim() === '') {
-        return <span className="text-slate-400 text-right block w-full">-</span>;
+        return <span className="text-muted-foreground/40 text-right block w-full">-</span>;
     }
 
     const formatted = currency === 'KHR'
@@ -26,7 +27,24 @@ const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] 
         : num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
     return (
-        <span className="text-sm font-medium text-slate-800 text-right block w-full">
+        <span className="text-sm font-medium text-foreground text-right block w-full">
+            {formatted}
+        </span>
+    );
+};
+
+const DealerPriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
+    const num = parseSheetValue(value);
+    if (num === 0 && String(value || '').trim() === '') {
+        return <span className="text-muted-foreground/40 text-right block w-full">-</span>;
+    }
+
+    const formatted = currency === 'KHR'
+        ? `៛${num.toLocaleString('en-US')}`
+        : num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+    return (
+        <span className="text-sm font-medium text-foreground text-right block w-full">
             {formatted}
         </span>
     );
@@ -43,10 +61,10 @@ const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status
         variant = 'destructive';
     } else if (lowerStatus.includes('available')) {
         variant = 'outline';
-        customClass = 'font-semibold text-emerald-700 border-emerald-500/80 bg-emerald-50';
+        customClass = 'font-semibold text-emerald-500 border-emerald-500/20 bg-emerald-500/10';
     } else if (lowerStatus.includes('pre-order')) {
         variant = 'outline';
-        customClass = 'font-semibold text-amber-700 border-amber-500/80 bg-amber-50';
+        customClass = 'font-semibold text-amber-500 border-amber-500/20 bg-amber-500/10';
     }
 
     return <Badge variant={variant} className={`${customClass} ${className}`}>{status}</Badge>;
@@ -58,39 +76,49 @@ const PricelistCard: React.FC<{
     onView: () => void;
     onEdit: () => void;
     onDelete: () => void;
-}> = ({ item, onView, onEdit, onDelete }) => (
+    showDealerPrice?: boolean;
+}> = ({ item, onView, onEdit, onDelete, showDealerPrice = true }) => (
     <Card
-        className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative cursor-pointer border hover:border-primary hover:shadow-xl hover:-translate-y-1.5"
-        onClick={onView}
+        className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative border hover:shadow-md"
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? onView() : undefined}
         tabIndex={0}
-        role="button"
-        aria-label={`View details for ${item.Model}`}
+        role="article"
+        aria-label={`Product card for ${item.Model}`}
     >
-        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute top-3 right-3 z-10 opacity-100 transition-opacity duration-300">
             <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} />
         </div>
 
         <CardHeader className="pb-2">
             <div className="flex justify-between items-start gap-2">
-                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-slate-600">{item.Brand}</CardDescription>
+                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">{item.Brand}</CardDescription>
                 <StatusBadge status={item.Status} />
             </div>
-            <CardTitle className="pt-0.5 group-hover:text-primary transition-colors text-lg leading-tight font-bold break-words">
+            <CardTitle className="pt-0.5 group-hover:text-primary transition-colors text-lg leading-tight font-bold break-words text-foreground">
                 {item.Model}
             </CardTitle>
         </CardHeader>
 
-        <CardContent className="flex-grow text-xs text-slate-600">
+        <CardContent className="flex-grow text-xs text-muted-foreground">
             <p>{item.Description}</p>
         </CardContent>
 
-        <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-slate-50/70 border-t">
+        <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-muted/30 border-t">
             <div className="flex flex-col">
-                <p className="text-2xl font-bold text-slate-900">
+                {showDealerPrice && (
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-tight">Dealer:
+                        <span className="ml-1 text-foreground">
+                            {item.Currency === 'KHR'
+                                ? `៛${parseSheetValue(item['Dealer Price']).toLocaleString('en-US')}`
+                                : parseSheetValue(item['Dealer Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                            }
+                        </span>
+                    </p>
+                )}
+                <p className="text-2xl font-bold text-foreground">
                     {item.Currency === 'KHR'
-                        ? `៛${parseSheetValue(item['End User Price']).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                        : parseSheetValue(item['End User Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                        ? `៛${parseSheetValue(item['End User Price']).toLocaleString('en-US')}`
+                        : parseSheetValue(item['End User Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
                     }
                 </p>
             </div>
@@ -109,7 +137,8 @@ const CategorySection: React.FC<{
     onViewItem: (item: ProcessedPricelistItem) => void;
     onEditItem: (item: ProcessedPricelistItem) => void;
     onDeleteItem: (item: ProcessedPricelistItem) => void;
-}> = ({ category, items, onViewItem, onEditItem, onDeleteItem }) => {
+    showDealerPrice?: boolean;
+}> = ({ category, items, onViewItem, onEditItem, onDeleteItem, showDealerPrice = true }) => {
     const [isOpen, setIsOpen] = useState(true);
     const contentId = useId();
 
@@ -117,41 +146,46 @@ const CategorySection: React.FC<{
         <Card className="overflow-hidden transition-shadow hover:shadow-md">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full flex justify-between items-center p-4 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={isOpen}
                 aria-controls={contentId}
             >
                 <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg text-slate-800">{category}</h3>
+                    <h3 className="font-semibold text-lg text-foreground">{category}</h3>
                     <Badge variant="secondary">{items.length}</Badge>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             <div id={contentId} className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
-                    <div className="border-t border-slate-200">
-                        <ul className="divide-y divide-slate-100">
+                    <div className="border-t border-border">
+                        <ul className="divide-y divide-border/40">
                             {items.map(item => (
                                 <li key={item.Code} className="group relative" >
                                     <div
-                                        className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-slate-50 cursor-pointer"
-                                        onClick={() => onViewItem(item)}
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onViewItem(item)}
+                                        className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-muted/30"
+                                        role="presentation"
                                     >
                                         <div className="min-w-0">
-                                            <p className="font-semibold text-slate-900 truncate group-hover:text-primary">{item.Model}</p>
-                                            <p className="text-sm text-slate-500 truncate font-mono">{item.Code}</p>
+                                            <p className="font-semibold text-foreground truncate group-hover:text-primary">{item.Model}</p>
+                                            <p className="text-sm text-muted-foreground truncate font-mono">{item.Code}</p>
                                         </div>
                                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
+                                            {showDealerPrice && (
+                                                <div className="w-28 text-right hidden md:block">
+                                                    <div className="text-[10px] text-muted-foreground/60 font-semibold uppercase">Dealer</div>
+                                                    <PriceCell value={item['Dealer Price']} currency={item.Currency} />
+                                                </div>
+                                            )}
                                             <div className="w-28 text-right">
+                                                {showDealerPrice && <div className="text-[10px] text-muted-foreground/60 font-semibold uppercase md:hidden">Dealer: {item['Dealer Price']}</div>}
+                                                <div className="text-[10px] text-muted-foreground/60 font-semibold uppercase hidden md:block">End User</div>
                                                 <PriceCell value={item['End User Price']} currency={item.Currency} />
                                             </div>
                                             <div className="w-24">
                                                 <StatusBadge status={item.Status} />
                                             </div>
-                                            <div className="w-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                            <div className="w-10 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                                 <ItemActionsMenu
                                                     onView={() => onViewItem(item)}
                                                     onEdit={() => onEditItem(item)}
@@ -174,10 +208,29 @@ const CategorySection: React.FC<{
 type ViewMode = 'table' | 'grid' | 'category';
 type ProcessedPricelistItem = PricelistItem & { fullDescription: string };
 
-const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility';
+const B2B_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-b2b-pricelist-columns-visibility';
 
-const PricelistDashboard: React.FC = () => {
+const B2BPricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
+    const { currentUser } = useAuth();
+    const { isB2B } = useB2B();
+
+    // Restricted access for B2B Pricelist
+    const canAccess = useMemo(() => {
+        const role = currentUser?.Role?.toLowerCase();
+        return role === 'admin' || role === 'b2b' || isB2B;
+    }, [currentUser, isB2B]);
+
+    if (!canAccess) {
+        return (
+            <div className="p-6 md:p-8 flex items-center justify-center h-full">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-foreground mb-2">Access Restricted</h2>
+                    <p className="text-muted-foreground">You do not have permission to view the B2B Pricelist.</p>
+                </div>
+            </div>
+        );
+    }
 
     const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
     const [searchQuery, setSearchQuery] = useState('');
@@ -259,30 +312,36 @@ const PricelistDashboard: React.FC = () => {
         }, {} as Record<string, ProcessedPricelistItem[]>);
     }, [processedFilteredData]);
 
+
     const allColumns = useMemo<ColumnDef<ProcessedPricelistItem>[]>(() => {
         const cols: ColumnDef<ProcessedPricelistItem>[] = [
             { accessorKey: 'Category', header: 'Category', isSortable: true },
-            { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
+            { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-foreground">{value}</span> },
             { accessorKey: 'Brand', header: 'Brand', isSortable: true },
             { accessorKey: 'Model', header: 'Model', isSortable: true },
-            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
+            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-muted-foreground line-clamp-2 max-w-sm">{value}</p> },
             {
                 accessorKey: 'fullDescription',
                 header: 'Full Description',
                 isSortable: true,
-                cell: (value: string) => <p className="text-sm text-slate-600">{value}</p>
+                cell: (value: string) => <p className="text-sm text-muted-foreground">{value}</p>
+            },
+            {
+                accessorKey: 'Dealer Price',
+                header: 'Dealer Price',
+                isSortable: true,
+                cell: (value: string, row) => <DealerPriceCell value={value} currency={row.Currency} />
             },
             { accessorKey: 'End User Price', header: 'Unit Price', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
             { accessorKey: 'Promotion', header: 'Promotion', isSortable: true, cell: (value: string) => <span className="text-sm font-medium text-rose-500">{value}</span> },
             { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: string) => <StatusBadge status={value} /> },
         ];
-
         return cols;
     }, []);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorage.getItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -296,7 +355,7 @@ const PricelistDashboard: React.FC = () => {
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+        const saved = localStorage.getItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
         if (!saved && allColumns.length > 0) {
             setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
         }
@@ -313,7 +372,7 @@ const PricelistDashboard: React.FC = () => {
                 newSet.add(columnKey);
             }
             try {
-                localStorage.setItem(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+                localStorage.setItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             } catch (e) {
                 console.error("Failed to save visible columns to storage", e);
             }
@@ -349,24 +408,37 @@ const PricelistDashboard: React.FC = () => {
                 return (
                     <div className="h-full px-4 sm:px-6 pb-4 sm:pb-6">
                         <DataTable
-                            tableId="pricelist-table"
+                            tableId="b2b-pricelist-table"
                             data={processedFilteredData}
                             columns={displayedColumns}
                             loading={loading}
-                            onRowClick={handleViewItem}
                             initialSort={{ key: 'Category', direction: 'ascending' }}
                             mobilePrimaryColumns={['Model', 'Brand', 'End User Price', 'Status']}
                             cellWrapStyle={cellWrapStyle}
+                            highlightedCheck={(row) => !!row.Promotion}
                             renderRowActions={(row) => (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditItem(row);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-brand-600 transition"
-                                >
-                                    <Pencil size={16} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleViewItem(row);
+                                        }}
+                                        className="p-2 text-muted-foreground hover:text-brand-500 transition-colors"
+                                        title="View Details"
+                                    >
+                                        <Info size={16} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditItem(row);
+                                        }}
+                                        className="p-2 text-muted-foreground hover:text-brand-500 transition-colors"
+                                        title="Edit Product"
+                                    >
+                                        <Pencil size={16} />
+                                    </button>
+                                </div>
                             )}
                         />
                     </div>
@@ -381,6 +453,7 @@ const PricelistDashboard: React.FC = () => {
                                 onView={() => handleViewItem(item)}
                                 onEdit={() => handleEditItem(item)}
                                 onDelete={() => handleDeleteItem(item)}
+                                showDealerPrice={true}
                             />
                         ))}
                     </div>
@@ -398,6 +471,7 @@ const PricelistDashboard: React.FC = () => {
                                     onViewItem={handleViewItem}
                                     onEditItem={handleEditItem}
                                     onDeleteItem={handleDeleteItem}
+                                    showDealerPrice={true}
                                 />
                             ))}
                     </div>
@@ -406,11 +480,27 @@ const PricelistDashboard: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-                <p className="text-base text-slate-600">
-                    <span className="font-bold text-slate-800">{filteredData.length}</span> items found
-                </p>
+        <div className="h-full flex flex-col bg-background">
+            <div className="p-4 sm:px-8 py-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-card border-b border-border">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-2xl font-bold text-foreground tracking-tight">B2B Master Pricelist</h1>
+                        <Badge variant="outline" className="bg-brand-500/10 text-brand-500 border-brand-500/20 flex items-center gap-1 py-0.5 px-2">
+                            <ShieldCheck className="w-3 h-3" />
+                            Secure Access
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <p className="flex items-center gap-1.5">
+                            <span className="font-bold text-foreground">{filteredData.length}</span> items in inventory
+                        </p>
+                        <span className="w-1 h-1 bg-muted rounded-full"></span>
+                        <p className="flex items-center gap-1.5 text-brand-600 font-medium">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Live Dealer Rates
+                        </p>
+                    </div>
+                </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
                     <div className="relative flex-grow sm:w-56">
                         <label htmlFor="pricelist-search" className="sr-only">Search</label>
@@ -420,20 +510,20 @@ const PricelistDashboard: React.FC = () => {
                             placeholder="Search pricelist..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                            className="bg-muted border-transparent text-foreground placeholder-muted-foreground/60 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
                         />
-                        <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <svg className="w-5 h-5 text-muted-foreground/60 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
                     <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                     {viewMode === 'table' && (
                         <>
-                            <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
+                            <div className="bg-muted p-1 rounded-lg flex items-center gap-1 border border-border">
                                 <button
                                     onClick={() => setCellWrapStyle('overflow')}
                                     title="Overflow"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                        ? 'bg-white shadow-sm text-brand-700'
-                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-background shadow-sm text-brand-500'
+                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'overflow'}
                                 >
@@ -443,8 +533,8 @@ const PricelistDashboard: React.FC = () => {
                                     onClick={() => setCellWrapStyle('wrap')}
                                     title="Wrap"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                        ? 'bg-white shadow-sm text-brand-700'
-                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-background shadow-sm text-brand-500'
+                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'wrap'}
                                 >
@@ -454,8 +544,8 @@ const PricelistDashboard: React.FC = () => {
                                     onClick={() => setCellWrapStyle('clip')}
                                     title="Clip"
                                     className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                        ? 'bg-white shadow-sm text-brand-700'
-                                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                        ? 'bg-background shadow-sm text-brand-500'
+                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                         }`}
                                     aria-pressed={cellWrapStyle === 'clip'}
                                 >
@@ -471,15 +561,15 @@ const PricelistDashboard: React.FC = () => {
                     )}
                     <button
                         onClick={handleNewItem}
-                        className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
+                        className="flex-shrink-0 flex items-center justify-center bg-brand-700 hover:bg-brand-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all duration-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_15px_-3px_rgba(0,0,0,0.3)] transform hover:-translate-y-0.5 active:translate-y-0"
                     >
                         <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span className="hidden sm:inline">New Item</span>
+                        <span className="hidden sm:inline">Add B2B Product</span>
                     </button>
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-hidden bg-slate-50 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
+            <div className={`flex-1 overflow-hidden bg-background transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
                 <div className="p-4 sm:p-6 space-y-4">
 
                     <PricelistFilterBar
@@ -502,8 +592,8 @@ const PricelistDashboard: React.FC = () => {
                 existingData={modalConfig.item}
                 initialReadOnly={modalConfig.isReadOnly}
             />
-        </div>
+        </div >
     );
 };
 
-export default PricelistDashboard;
+export default B2BPricelistDashboard;

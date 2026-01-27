@@ -3,6 +3,8 @@ import { PricelistItem } from '../types';
 import { createRecord, updateRecord, deleteRecord } from '../services/api';
 import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from './FormControls';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useB2B } from '../contexts/B2BContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmationModal from './ConfirmationModal';
 import ResizableModal from './ResizableModal';
@@ -26,7 +28,15 @@ const STATUS_OPTIONS = ['Available', 'Pre-Order', 'Out of Stock'];
 
 const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
     const { pricelist, setPricelist } = useData();
+    const { currentUser } = useAuth();
+    const { isB2B } = useB2B();
     const { addToast } = useToast();
+
+    const showDealerPrice = React.useMemo(() => {
+        const role = currentUser?.Role?.toLowerCase();
+        return role === 'admin' || role === 'b2b' || isB2B;
+    }, [currentUser, isB2B]);
+
     const [formData, setFormData] = useState<Partial<PricelistItem>>({});
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -198,21 +208,21 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         <div className="flex justify-between items-center w-full">
             {isReadOnly ? (
                 <>
-                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-6 rounded-lg transition-all duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
                         <Trash2 className="w-5 h-5" /> Delete
                     </button>
                     <div className="flex items-center gap-3">
-                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                        <button type="button" onClick={onClose} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200 shadow-sm">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
                             <Pencil className="w-5 h-5" /> Edit
                         </button>
                     </div>
                 </>
             ) : (
                 <div className="flex justify-end gap-3 w-full">
-                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                    <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200">Cancel</button>
+                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
+                        <Check className="w-5 h-5" />
                         {submitText}
                     </button>
                 </div>
@@ -248,7 +258,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                                         {isSearchingWebsite ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
-                                            <ExternalLink className="h-4 w-4 text-slate-500" />
+                                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
                                         )}
                                     </Button>
                                 </div>
@@ -262,6 +272,9 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                     </FormSection>
 
                     <FormSection title="Pricing & Status">
+                        {showDealerPrice && (
+                            isReadOnly ? <FormDisplay label="Dealer Price" value={formData['Dealer Price']} /> : <FormInput name="Dealer Price" label="Dealer Price" value={formData['Dealer Price']} onChange={handleChange} type="text" />
+                        )}
                         {isReadOnly ? <FormDisplay label="Unit Price" value={formData['End User Price']} /> : <FormInput name="End User Price" label="Unit Price" value={formData['End User Price']} onChange={handleChange} type="text" />}
                         {isReadOnly ? <FormDisplay label="Status">{formData.Status && <StatusBadge status={formData.Status} />}</FormDisplay> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} />}
                     </FormSection>
@@ -275,12 +288,12 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 };
 
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
-    if (!status) return <span className="text-slate-400 italic">N/A</span>;
-    let colorClass = 'bg-slate-100 text-slate-800';
+    if (!status) return <span className="text-muted-foreground italic">N/A</span>;
+    let colorClass = 'bg-muted text-muted-foreground';
     const lowerStatus = status.toLowerCase();
-    if (lowerStatus.includes('available')) colorClass = 'bg-emerald-100 text-emerald-800';
-    else if (lowerStatus.includes('pre-order')) colorClass = 'bg-amber-100 text-amber-800';
-    else if (lowerStatus.includes('out of stock')) colorClass = 'bg-rose-100 text-rose-800';
+    if (lowerStatus.includes('available')) colorClass = 'bg-emerald-500/10 text-emerald-500';
+    else if (lowerStatus.includes('pre-order')) colorClass = 'bg-amber-500/10 text-amber-500';
+    else if (lowerStatus.includes('out of stock')) colorClass = 'bg-rose-500/10 text-rose-500';
     return <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${colorClass}`}>{status}</span>;
 };
 

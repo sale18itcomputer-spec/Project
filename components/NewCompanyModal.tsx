@@ -68,17 +68,21 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
 
     const getInitialState = useCallback(() => {
-        let nextCompanyId = 'COM0000001';
+        const prefix = isB2B ? 'BCOM' : 'COM';
+        let nextCompanyId = `${prefix}0000001`; // BCOM has 4 chars, COM has 3. But usually we want standardized length. 
+        // COM0000001 = 3 + 7 = 10 chars.
+        // BCOM0000001 = 4 + 7 = 11 chars. That is fine.
+
         if (companies && Array.isArray(companies) && companies.length > 0) {
             const companyNumbers = companies
                 .map(c => c['Company ID'])
-                .filter(id => id && typeof id === 'string' && id.startsWith('COM'))
-                .map(id => parseInt(id.substring(3), 10))
+                .filter(id => id && typeof id === 'string' && id.startsWith(prefix))
+                .map(id => parseInt(id.substring(prefix.length), 10))
                 .filter(num => !isNaN(num));
 
             if (companyNumbers.length > 0) {
                 const maxNum = Math.max(...companyNumbers);
-                nextCompanyId = `COM${String(maxNum + 1).padStart(7, '0')}`;
+                nextCompanyId = `${prefix}${String(maxNum + 1).padStart(7, '0')}`;
             }
         }
         return {
@@ -86,7 +90,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             'Created Date': getTodayDateString(),
             'Created By': currentUser?.Name || '',
         };
-    }, [companies, currentUser]);
+    }, [companies, currentUser, isB2B]);
 
     const getFormDataForEdit = useCallback((c: Company) => ({
         ...c,
@@ -158,7 +162,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
             setCompanies(current => current ? current.map(c => c['Company ID'] === updatedId ? { ...c, ...submissionData } as Company : c) : null);
 
             try {
-                await updateRecord('companies', '"Company ID"', updatedId, submissionData, isB2B);
+                await updateRecord('companies', 'Company ID', updatedId, submissionData, isB2B);
                 addToast('Company updated!', 'success');
                 // Real-time subscription will update the data
             } catch (err: any) {
@@ -204,7 +208,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
 
         try {
-            await deleteRecord('companies', '"Company ID"', companyToDeleteId, isB2B);
+            await deleteRecord('companies', 'Company ID', companyToDeleteId, isB2B);
             addToast('Company deleted!', 'success');
         } catch (err: any) {
             addToast(`Failed to delete company: ${err.message}`, 'error');
@@ -235,24 +239,33 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
         <div className="flex justify-between items-center w-full">
             {isReadOnly ? (
                 <>
-                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
                         <Trash2 className="w-5 h-5" /> Delete
                     </button>
                     <div className="flex items-center gap-3">
-                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-border bg-card text-foreground hover:bg-muted">Close</button>
                         <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
                             <Pencil className="w-5 h-5" /> Edit
                         </button>
                     </div>
                 </>
             ) : (
-                <div className="flex justify-end gap-3 w-full">
-                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                        <Check className="w-5 h-5 -ml-1 mr-2" />
-                        {submitText}
-                    </button>
-                </div>
+                <>
+                    <div>
+                        {isEditMode && (
+                            <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
+                                <Trash2 className="w-5 h-5" /> Delete
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition">Cancel</button>
+                        <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                            <Check className="w-5 h-5 -ml-1 mr-2" />
+                            {submitText}
+                        </button>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -288,7 +301,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                             <FormDisplay label="Payment Term" value={formData['Payment Term']} />
                         ) : (
                             <div className="flex flex-col">
-                                <label htmlFor="Payment Term" className="block text-sm font-medium text-slate-600 mb-1.5">Payment Term</label>
+                                <label htmlFor="Payment Term" className="block text-sm font-medium text-muted-foreground/60 mb-1.5">Payment Term</label>
                                 <input
                                     type="text"
                                     name="Payment Term"
@@ -296,7 +309,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                     value={formData['Payment Term'] || ''}
                                     onChange={handleChange}
                                     list="payment-terms-list"
-                                    className="block w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg placeholder-slate-400 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 hover:border-slate-300"
+                                    className="block w-full px-3.5 py-2.5 bg-muted border border-border rounded-lg placeholder-muted-foreground/40 focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150"
                                     placeholder="Select or type a payment term"
                                 />
                                 <datalist id="payment-terms-list">
@@ -306,35 +319,35 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                         )}
 
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Patent File</label>
+                            <label className="block text-sm font-medium text-muted-foreground/60 mb-1.5">Patent File</label>
                             {isReadOnly ? (
                                 formData['Patent File'] ? (
-                                    <div className="block w-full px-3.5 py-2.5 bg-slate-50 border-transparent rounded-lg sm:text-sm text-slate-800 min-h-[42px] flex items-center">
+                                    <div className="block w-full px-3.5 py-2.5 bg-muted border-transparent rounded-lg sm:text-sm text-foreground min-h-[42px] flex items-center">
                                         <a href={formData['Patent File']} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:underline">
                                             View Patent File
                                             <ExternalLink className="w-4 h-4" />
                                         </a>
                                     </div>
-                                ) : <div className="block w-full px-3.5 py-2.5 bg-slate-50 border-transparent rounded-lg sm:text-sm text-slate-400 italic min-h-[42px] flex items-center">N/A</div>
+                                ) : <div className="block w-full px-3.5 py-2.5 bg-muted border-transparent rounded-lg sm:text-sm text-muted-foreground italic min-h-[42px] flex items-center">N/A</div>
                             ) : (
                                 <>
                                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
                                     {isUploading ? (
-                                        <div className="flex items-center gap-3 text-sm text-slate-600 p-3 rounded-lg bg-slate-100 border border-slate-200">
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground p-3 rounded-lg bg-muted border border-border">
                                             <Spinner size="sm" />
                                             <span>Uploading...</span>
                                         </div>
                                     ) : formData['Patent File'] ? (
-                                        <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                                            <a href={formData['Patent File']} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 hover:underline truncate max-w-xs sm:max-w-md">
+                                        <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                            <a href={formData['Patent File']} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-500 hover:underline truncate max-w-xs sm:max-w-md">
                                                 View Uploaded File
                                             </a>
-                                            <button type="button" onClick={handleRemoveFile} className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors ml-2 flex-shrink-0">
+                                            <button type="button" onClick={handleRemoveFile} className="p-1 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors ml-2 flex-shrink-0">
                                                 <X className="w-4 h-4" />
                                             </button>
                                         </div>
                                     ) : (
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border-2 border-dashed border-slate-300 hover:border-slate-400 transition-colors">
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center py-2.5 px-4 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-lg border-2 border-dashed border-border transition-colors">
                                             Click to Upload File
                                         </button>
                                     )}
@@ -345,17 +358,17 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
 
                     {isEditMode && (
                         <>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Projects (${relatedProjects.length})`}</h3>
-                                <div className="flow-root">{relatedProjects.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedProjects.map(project => (<li key={project['Pipeline No.']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-gray-900 truncate">{project['Pipeline No.']}</p><p className="text-sm text-gray-500 truncate">{project.Require}</p></div><div className="text-right"><span className="text-sm font-medium text-gray-700">{project['Bid Value']}</span><p className="text-xs text-gray-500">{project.Status}</p></div><button type="button" onClick={() => navigateTo('projects', project['Pipeline No.'])} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Projects (${relatedProjects.length})`}</h3>
+                                <div className="flow-root">{relatedProjects.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedProjects.map(project => (<li key={project['Pipeline No.']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-foreground truncate">{project['Pipeline No.']}</p><p className="text-sm text-muted-foreground truncate">{project.Require}</p></div><div className="text-right"><span className="text-sm font-medium text-foreground">{project['Bid Value']}</span><p className="text-xs text-muted-foreground">{project.Status}</p></div><button type="button" onClick={() => navigateTo('projects', project['Pipeline No.'])} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Contacts (${relatedContacts.length})`}</h3>
-                                <div className="flow-root">{relatedContacts.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedContacts.map(contact => (<li key={contact['Customer ID']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-gray-900 truncate">{contact.Name}</p><p className="text-sm text-gray-500 truncate">{contact.Role}</p></div><div className="text-right"><p className="text-sm text-gray-700">{contact['Tel (1)']}</p><p className="text-xs text-gray-500">{contact.Email}</p></div><button type="button" onClick={() => navigateTo('contacts', contact.Name)} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Contacts (${relatedContacts.length})`}</h3>
+                                <div className="flow-root">{relatedContacts.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedContacts.map(contact => (<li key={contact['Customer ID']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-foreground truncate">{contact.Name}</p><p className="text-sm text-muted-foreground truncate">{contact.Role}</p></div><div className="text-right"><p className="text-sm text-foreground">{contact['Tel (1)']}</p><p className="text-xs text-muted-foreground">{contact.Email}</p></div><button type="button" onClick={() => navigateTo('contacts', contact.Name)} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Quotations (${relatedQuotations.length})`}</h3>
-                                <div className="flow-root">{relatedQuotations.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedQuotations.map(quote => {
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Quotations (${relatedQuotations.length})`}</h3>
+                                <div className="flow-root">{relatedQuotations.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedQuotations.map(quote => {
                                     let url = '#';
                                     if (quote.File) {
                                         const match = quote.File.match(/=HYPERLINK\("([^"]+)"/i);
@@ -363,20 +376,20 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                     }
                                     return (<li key={quote['Quote No.']} className="flex items-center space-x-4 py-4">
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{quote['Quote No.']}</p>
-                                            <p className="text-sm text-gray-500 truncate">{formatDisplayDate(quote['Quote Date'])}</p>
+                                            <p className="text-sm font-semibold text-foreground truncate">{quote['Quote No.']}</p>
+                                            <p className="text-sm text-muted-foreground truncate">{formatDisplayDate(quote['Quote Date'])}</p>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-sm font-medium text-gray-700">{parseSheetValue(quote.Amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                                            <p className="text-xs text-gray-500">{quote.Status}</p>
+                                            <span className="text-sm font-medium text-foreground">{parseSheetValue(quote.Amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                                            <p className="text-xs text-muted-foreground">{quote.Status}</p>
                                         </div>
-                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-gray-400 text-sm">No file</span>}
+                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-muted-foreground text-sm">No file</span>}
                                     </li>)
                                 })}</ul>) : <EmptyState />}</div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Sale Orders (${relatedSaleOrders.length})`}</h3>
-                                <div className="flow-root">{relatedSaleOrders.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedSaleOrders.map(so => {
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Sale Orders (${relatedSaleOrders.length})`}</h3>
+                                <div className="flow-root">{relatedSaleOrders.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedSaleOrders.map(so => {
                                     let url = '#';
                                     if (so.File) {
                                         const match = so.File.match(/=HYPERLINK\("([^"]+)"/i);
@@ -384,14 +397,14 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                     }
                                     return (<li key={so['SO No.']} className="flex items-center space-x-4 py-4">
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{so['SO No.']}</p>
-                                            <p className="text-sm text-gray-500 truncate">{formatDisplayDate(so['SO Date'])}</p>
+                                            <p className="text-sm font-semibold text-foreground truncate">{so['SO No.']}</p>
+                                            <p className="text-sm text-muted-foreground truncate">{formatDisplayDate(so['SO Date'])}</p>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-sm font-medium text-gray-700">{parseSheetValue(so['Total Amount']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                                            <p className="text-xs text-gray-500">{so.Status}</p>
+                                            <span className="text-sm font-medium text-foreground">{parseSheetValue(so['Total Amount']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                                            <p className="text-xs text-muted-foreground">{so.Status}</p>
                                         </div>
-                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-gray-400 text-sm">No file</span>}
+                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-muted-foreground text-sm">No file</span>}
                                     </li>)
                                 })}</ul>) : <EmptyState />}</div>
                             </div>

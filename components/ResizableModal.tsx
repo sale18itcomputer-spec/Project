@@ -43,7 +43,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
       setIsShowing(false);
     }
   }, [isOpen, initialWidth, initialHeight]);
-  
+
   // Focus trap
   useEffect(() => {
     if (isOpen && modalRef.current) {
@@ -86,7 +86,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
       };
     }
   }, [isOpen, onClose]);
-  
+
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -98,12 +98,12 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
       startHeight: size.height,
     };
   }, [size.width, size.height]);
-  
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizing && resizeStartRef.current) {
       const dx = e.clientX - resizeStartRef.current.startX;
       const dy = e.clientY - resizeStartRef.current.startY;
-      
+
       const newWidth = Math.max(minWidth, resizeStartRef.current.startWidth + dx);
       const newHeight = Math.max(minHeight, resizeStartRef.current.startHeight + dy);
 
@@ -135,36 +135,36 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-40 flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       aria-modal="true"
       role="dialog"
     >
       <div
         ref={modalRef}
         style={{ width: `${size.width}px`, height: `${size.height}px` }}
-        className={`relative bg-white rounded-xl shadow-xl flex flex-col transform transition-all duration-300 ease-in-out ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isResizing ? 'transition-none' : ''}`}
+        className={`relative bg-card rounded-xl shadow-2xl flex flex-col transform transition-all duration-300 ease-in-out border border-border ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isResizing ? 'transition-none' : ''}`}
         aria-labelledby={titleId}
       >
-        <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm p-6 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-xl">
-          <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors" aria-label="Close form">
+        <div className="flex-shrink-0 bg-card/80 backdrop-blur-md p-6 border-b border-border flex justify-between items-center z-10 rounded-t-xl">
+          <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-foreground truncate">{title}</h2>
+          <button onClick={onClose} className="p-2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200" aria-label="Close form">
             <CloseIcon />
           </button>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-6">
+
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-border">
           {children}
         </div>
 
         {footer && (
-          <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm pt-4 pb-4 mt-auto border-t border-gray-200 z-10 px-6 rounded-b-xl">
+          <div className="flex-shrink-0 bg-card/80 backdrop-blur-md pt-4 pb-4 mt-auto border-t border-border z-10 px-6 rounded-b-xl">
             {footer}
           </div>
         )}
 
-        <div 
+        <div
           onMouseDown={handleMouseDown}
-          className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize z-20 flex items-center justify-center text-slate-400 hover:text-slate-700"
+          className="absolute bottom-1 right-1 w-6 h-6 cursor-nwse-resize z-20 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors"
           title="Resize modal"
         >
           <Expand className="w-4 h-4 rotate-90" />

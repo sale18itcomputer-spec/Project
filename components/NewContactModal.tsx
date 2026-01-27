@@ -228,24 +228,33 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
         <div className="flex justify-between items-center w-full">
             {isReadOnly ? (
                 <>
-                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
                         <Trash2 className="w-5 h-5" /> Delete
                     </button>
                     <div className="flex items-center gap-3">
-                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-border bg-card text-foreground hover:bg-muted">Close</button>
                         <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
                             <Pencil className="w-5 h-5" /> Edit
                         </button>
                     </div>
                 </>
             ) : (
-                <div className="flex justify-end gap-3 w-full">
-                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                        <Check className="w-5 h-5 -ml-1 mr-2" />
-                        {submitText}
-                    </button>
-                </div>
+                <>
+                    <div>
+                        {isEditMode && (
+                            <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
+                                <Trash2 className="w-5 h-5" /> Delete
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition">Cancel</button>
+                        <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                            <Check className="w-5 h-5 -ml-1 mr-2" />
+                            {submitText}
+                        </button>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -280,17 +289,17 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
 
                     {isEditMode && (
                         <>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Projects (${relatedProjects.length})`}</h3>
-                                <div className="flow-root">{relatedProjects.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedProjects.map(project => (<li key={project['Pipeline No.']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-gray-900 truncate">{project['Pipeline No.']}</p><p className="text-sm text-gray-500 truncate">{project.Require}</p></div><div className="text-right"><span className="text-sm font-medium text-gray-700">{project['Bid Value']}</span><p className="text-xs text-gray-500">{project.Status}</p></div><button type="button" onClick={() => navigateTo('projects', project['Pipeline No.'])} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Projects (${relatedProjects.length})`}</h3>
+                                <div className="flow-root">{relatedProjects.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedProjects.map(project => (<li key={project['Pipeline No.']} className="flex items-center space-x-4 py-4"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-foreground truncate">{project['Pipeline No.']}</p><p className="text-sm text-muted-foreground truncate">{project.Require}</p></div><div className="text-right"><span className="text-sm font-medium text-foreground">{project['Bid Value']}</span><p className="text-xs text-muted-foreground">{project.Status}</p></div><button type="button" onClick={() => navigateTo('projects', project['Pipeline No.'])} className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</button></li>))}</ul>) : <EmptyState />}</div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Activities (${relatedActivities.length})`}</h3>
-                                <div className="flow-root">{relatedActivities.length > 0 ? (<div className="space-y-4 relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">{relatedActivities.map((activity, index) => (<div key={`${activity.type}-${activity.isoDate}-${index}`} className="relative"><div className="absolute -left-[29px] top-0.5 w-8 h-8 rounded-full bg-white flex items-center justify-center ring-4 ring-white">{activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-600" /> : <MessageSquare className="w-5 h-5 text-violet-600" />}</div><div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80"><p className="font-semibold text-gray-800">{activity.summary}</p><p className="text-sm text-gray-500 mb-2">{formatDateAsMDY(activity.date)} by {activity.responsible}</p>{activity.details && <p className="text-sm text-gray-700 whitespace-pre-wrap">{activity.details}</p>}</div></div>))}</div>) : <EmptyState />}</div>
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Activities (${relatedActivities.length})`}</h3>
+                                <div className="flow-root">{relatedActivities.length > 0 ? (<div className="space-y-4 relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">{relatedActivities.map((activity, index) => (<div key={`${activity.type}-${activity.isoDate}-${index}`} className="relative"><div className="absolute -left-[29px] top-0.5 w-8 h-8 rounded-full bg-card flex items-center justify-center ring-4 ring-card">{activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-500" /> : <MessageSquare className="w-5 h-5 text-violet-500" />}</div><div className="bg-muted p-4 rounded-lg border border-border"><p className="font-semibold text-foreground">{activity.summary}</p><p className="text-sm text-muted-foreground mb-2">{formatDateAsMDY(activity.date)} by {activity.responsible}</p>{activity.details && <p className="text-sm text-muted-foreground whitespace-pre-wrap">{activity.details}</p>}</div></div>))}</div>) : <EmptyState />}</div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Quotations (${relatedQuotations.length})`}</h3>
-                                <div className="flow-root">{relatedQuotations.length > 0 ? (<ul className="-my-4 divide-y divide-gray-200">{relatedQuotations.map(quote => {
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Quotations (${relatedQuotations.length})`}</h3>
+                                <div className="flow-root">{relatedQuotations.length > 0 ? (<ul className="-my-4 divide-y divide-border">{relatedQuotations.map(quote => {
                                     let url = '#';
                                     if (quote.File) {
                                         const match = quote.File.match(/=HYPERLINK\("([^"]+)"/i);
@@ -298,14 +307,14 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
                                     }
                                     return (<li key={quote['Quote No.']} className="flex items-center space-x-4 py-4">
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{quote['Quote No.']}</p>
-                                            <p className="text-sm text-gray-500 truncate">{formatDisplayDate(quote['Quote Date'])}</p>
+                                            <p className="text-sm font-semibold text-foreground truncate">{quote['Quote No.']}</p>
+                                            <p className="text-sm text-muted-foreground truncate">{formatDisplayDate(quote['Quote Date'])}</p>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-sm font-medium text-gray-700">{parseSheetValue(quote.Amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                                            <p className="text-xs text-gray-500">{quote.Status}</p>
+                                            <span className="text-sm font-medium text-foreground">{parseSheetValue(quote.Amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                                            <p className="text-xs text-muted-foreground">{quote.Status}</p>
                                         </div>
-                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-gray-400 text-sm">No file</span>}
+                                        {url !== '#' ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-800 text-sm font-semibold">View</a> : <span className="text-muted-foreground text-sm">No file</span>}
                                     </li>)
                                 })}</ul>) : <EmptyState />}</div>
                             </div>

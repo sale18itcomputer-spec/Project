@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
           <nav className="pt-6 space-y-6">
             {/* Main Section - Always visible */}
             <div>
-              {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Main</h3>}
+              {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</h3>}
               <ul className="mt-2 space-y-1">
                 <NavItem
                   icon={<LayoutDashboard size={20} />}
@@ -109,7 +109,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
 
             {/* Sales Documents Section */}
             <div>
-              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Sales Documents</h3>}
+              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Documents</h3>}
               <ul className="mt-2 space-y-1">
                 <NavItem
                   icon={<FileText size={20} />}
@@ -141,11 +141,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
               </ul>
             </div>
 
-            {/* Products Section - Hidden in B2B mode */}
-            {!isB2B && (
-              <div>
-                {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Products</h3>}
-                <ul className="mt-2 space-y-1">
+            {/* Products Section */}
+            <div>
+              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Products</h3>}
+              <ul className="mt-2 space-y-1">
+                {isB2B ? (
+                  <NavItem
+                    icon={<Tags size={20} />}
+                    label="B2B Pricelist"
+                    isActive={navigation.view === 'b2b-pricelist'}
+                    onClick={() => onNavigate({ view: 'b2b-pricelist' })}
+                    isCollapsed={isCollapsed}
+                  />
+                ) : (
                   <NavItem
                     icon={<Tags size={20} />}
                     label="Pricelist"
@@ -153,13 +161,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                     onClick={() => onNavigate({ view: 'pricelist' })}
                     isCollapsed={isCollapsed}
                   />
-                </ul>
-              </div>
-            )}
+                )}
+              </ul>
+            </div>
 
             {/* Logs Section */}
             <div>
-              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Logs</h3>}
+              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Logs</h3>}
               <ul className="mt-2 space-y-1">
                 <NavItem
                   icon={<Filter size={20} />}

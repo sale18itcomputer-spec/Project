@@ -27,6 +27,7 @@ const MeetingDashboard = lazy(() => import('./components/MeetingDashboard'));
 const QuotationDashboard = lazy(() => import('./components/QuotationDashboard'));
 const SaleOrderDashboard = lazy(() => import('./components/SaleOrderDashboard'));
 const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'));
+const B2BPricelistDashboard = lazy(() => import('./components/B2BPricelistDashboard'));
 const InvoiceDODashboard = lazy(() => import('./components/InvoiceDODashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
@@ -141,6 +142,8 @@ const AuthenticatedLayout: React.FC = () => {
         return <SaleOrderDashboard initialPayload={navigation.payload} />;
       case 'pricelist':
         return <PricelistDashboard />;
+      case 'b2b-pricelist':
+        return <B2BPricelistDashboard />;
       case 'invoice-do':
         return <InvoiceDODashboard initialPayload={navigation.payload} />;
       case 'dashboard':
@@ -151,7 +154,7 @@ const AuthenticatedLayout: React.FC = () => {
 
   const customLayoutViews = [
     'projects', 'companies', 'contacts', 'contact-logs',
-    'site-surveys', 'meetings', 'pricelist', 'quotations', 'sale-orders', 'invoice-do',
+    'site-surveys', 'meetings', 'pricelist', 'b2b-pricelist', 'quotations', 'sale-orders', 'invoice-do',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);
@@ -161,7 +164,7 @@ const AuthenticatedLayout: React.FC = () => {
 
   if (isMobile) {
     return (
-      <div className="relative min-h-screen bg-muted/40">
+      <div className="relative min-h-screen bg-background">
         <Header
           onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
@@ -199,7 +202,7 @@ const AuthenticatedLayout: React.FC = () => {
 
   // Desktop Layout
   return (
-    <div className="relative h-screen flex bg-muted/40" style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}>
+    <div className="relative h-screen flex bg-background" style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}>
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         width={effectiveSidebarWidth}

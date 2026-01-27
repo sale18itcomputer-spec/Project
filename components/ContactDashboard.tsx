@@ -69,7 +69,7 @@ const ContactCard: React.FC<{
   onDelete: () => void
 }> = ({ contact, onView, onEdit, onDelete }) => {
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200/80 hover:shadow-md hover:border-slate-300 transition-all duration-200 relative group flex flex-col">
+    <div className="w-full bg-card rounded-lg shadow-sm border border-border hover:shadow-md hover:border-brand-500/30 transition-all duration-200 relative group flex flex-col">
       <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} />
       </div>
@@ -78,14 +78,14 @@ const ContactCard: React.FC<{
         className="w-full text-left p-4 h-full flex flex-col flex-grow"
       >
         <div className="min-w-0 flex-grow">
-          <p className="font-semibold text-slate-900 truncate">{contact.Name}</p>
-          <p className="text-sm text-slate-600 truncate mt-0.5">{contact.Role || 'No role specified'}</p>
-          <p className="text-sm text-brand-600 font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
+          <p className="font-semibold text-foreground truncate">{contact.Name}</p>
+          <p className="text-sm text-muted-foreground truncate mt-0.5">{contact.Role || 'No role specified'}</p>
+          <p className="text-sm text-brand-500 font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
         </div>
         {(contact.totalAmountUSD > 0 || contact.totalAmountKHR > 0) && (
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <p className="text-xs text-slate-600 font-medium">Won Pipeline Value</p>
-            <p className="text-base font-semibold text-slate-800">
+          <div className="mt-3 pt-3 border-t border-border">
+            <p className="text-xs text-muted-foreground font-medium">Won Pipeline Value</p>
+            <p className="text-base font-semibold text-foreground">
               {formatMixedCurrency(contact.totalAmountUSD, contact.totalAmountKHR)}
             </p>
           </div>
@@ -213,7 +213,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       accessorKey: 'Customer ID',
       header: 'Customer ID',
       isSortable: true,
-      cell: (value: string) => <div className="text-slate-600">{value}</div>,
+      cell: (value: string) => <div className="text-muted-foreground">{value}</div>,
     },
     {
       accessorKey: 'Created Date',
@@ -236,7 +236,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       header: 'Contact Name',
       isSortable: true,
       cell: (value: string) => (
-        <span className="font-semibold text-slate-800">{value}</span>
+        <span className="font-semibold text-foreground">{value}</span>
       ),
     },
     {
@@ -250,9 +250,9 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       isSortable: true,
       cell: (_, row) => {
         const displayValue = formatMixedCurrency(row.totalAmountUSD, row.totalAmountKHR);
-        if (displayValue === '$0') return <span className="text-slate-400 text-right block w-full">-</span>;
+        if (displayValue === '$0') return <span className="text-muted-foreground/50 text-right block w-full">-</span>;
         return (
-          <span className="text-sm font-medium text-slate-800 text-right block w-full">
+          <span className="text-sm font-medium text-foreground text-right block w-full">
             {displayValue}
           </span>
         );
@@ -263,7 +263,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       header: 'Status',
       isSortable: true,
       cell: (value: 'Active' | 'Inactive') => {
-        const statusColor = value === 'Active' ? 'bg-emerald-100 text-slate-800' : 'bg-slate-100 text-slate-800';
+        const statusColor = value === 'Active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground';
         return (
           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${statusColor}`}>
             {value}
@@ -376,45 +376,45 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-background">
       {/* Header & Filter Section */}
-      <div className="p-4 sm:px-6 bg-white border-b border-slate-200">
+      <div className="p-4 sm:px-6 bg-card border-b border-border">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div className="flex items-center">
-            <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-slate-600">contacts</span>
+            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
+            <span className="ml-2 text-sm text-muted-foreground">contacts</span>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
             <div className="relative flex-grow sm:w-64">
               <label htmlFor="contact-search" className="sr-only">Search</label>
-              <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               <input
                 id="contact-search"
                 type="text"
                 placeholder="Search name, role, company..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
               />
             </div>
             <select
               value={companyFilter}
               onChange={(e) => setCompanyFilter(e.target.value)}
-              className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-56"
+              className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full sm:w-56"
             >
-              {companyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              {companyOptions.map(opt => <option key={opt} value={opt} className="bg-card text-foreground">{opt}</option>)}
             </select>
             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
             {viewMode === 'list' && (
               <>
-                <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                  <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
+                  <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
                     <ArrowRightToLine className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                  <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
                     <WrapText className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                  <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
                     <Scissors className="w-4 h-4" />
                   </button>
                 </div>
@@ -437,11 +437,11 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className={`flex-1 ${viewMode === 'list' ? 'overflow-hidden bg-background p-4' : 'overflow-auto bg-background p-6'}`}>
         {loading ? <Spinner size="lg" /> : (
           filteredData.length > 0 ? (
             viewMode === 'grid' ? (
-              <div className="p-6 md:p-8">
+              <div className="p-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredData.map(contact => (
                     <ContactCard
@@ -455,7 +455,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                 </div>
               </div>
             ) : (
-              <div className="bg-white h-full">
+              <div className="h-full">
                 <DataTable
                   tableId="contact-table"
                   data={filteredData}
@@ -472,7 +472,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                         e.stopPropagation();
                         handleEditContact(row);
                       }}
-                      className="p-2 text-slate-400 hover:text-brand-600 transition"
+                      className="p-2 text-muted-foreground hover:text-brand-500 transition"
                     >
                       <Pencil size={16} />
                     </button>
@@ -482,9 +482,9 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
             )
           ) : (
             <div className="pt-16">
-              <EmptyState illustration={<Users className="w-16 h-16 text-slate-300" />}>
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">No contacts found</h3>
-                <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filters, or create a new contact.</p>
+              <EmptyState illustration={<Users className="w-16 h-16 text-muted-foreground/30" />}>
+                <h3 className="mt-2 text-sm font-semibold text-foreground">No contacts found</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or filters, or create a new contact.</p>
               </EmptyState>
             </div>
           )

@@ -107,6 +107,8 @@ export const COMPACT_CONTACT_LOG_HEADERS = [
   'Contact Date',
   'Company Name',
   'Contact Name',
+  'Position',
+  'Phone Number',
   'Type',
   'Responsible By',
   'Remarks'

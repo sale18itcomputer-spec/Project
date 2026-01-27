@@ -15,10 +15,10 @@ import ResizableModal from './ResizableModal';
 import SearchableSelect from './SearchableSelect';
 
 interface NewContactLogModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  existingData?: ContactLog | null;
-  initialReadOnly?: boolean;
+    isOpen: boolean;
+    onClose: () => void;
+    existingData?: ContactLog | null;
+    initialReadOnly?: boolean;
 }
 
 const getTodayDateString = () => {
@@ -40,7 +40,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isNewCompanyModalOpen, setIsNewCompanyModalOpen] = useState(false);
     const [isNewContactModalOpen, setIsNewContactModalOpen] = useState(false);
-    
+
     const isEditMode = !!existingData;
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
@@ -54,7 +54,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
                 .filter(id => id && typeof id === 'string' && id.startsWith('CONTL'))
                 .map(id => parseInt(id.substring(5), 10))
                 .filter(num => !isNaN(num));
-            
+
             if (logNumbers.length > 0) {
                 const maxNum = Math.max(...logNumbers);
                 nextLogId = `CONTL${String(maxNum + 1).padStart(8, '0')}`;
@@ -67,7 +67,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
             'Type': 'Call'
         };
     }, [contactLogs, currentUser]);
-    
+
     const getFormDataForEdit = useCallback((l: ContactLog) => ({
         ...l,
         'Contact Date': formatToInputDate(l['Contact Date']),
@@ -89,15 +89,28 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
-    
+
     const handleCompanySelect = (companyName: string) => {
-        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Position': '' }));
+        setFormData(prev => ({
+            ...prev,
+            'Company Name': companyName,
+            'Contact Name': '',
+            'Position': '',
+            'Phone Number': '',
+            'Email': ''
+        }));
     };
 
     const handleContactChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const contactName = e.target.value;
         const selectedContact = contacts?.find(c => c.Name === contactName && c['Company Name'] === formData['Company Name']);
-        setFormData(prev => ({ ...prev, 'Contact Name': contactName, 'Position': selectedContact ? selectedContact.Role : '' }));
+        setFormData(prev => ({
+            ...prev,
+            'Contact Name': contactName,
+            'Position': selectedContact ? selectedContact.Role : '',
+            'Phone Number': selectedContact ? selectedContact['Tel (1)'] : '',
+            'Email': selectedContact ? selectedContact.Email : ''
+        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +141,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
             const tempId = submissionData['Log ID']!;
             // Optimistic update
             setContactLogs(current => current ? [submissionData as ContactLog, ...current] : [submissionData as ContactLog]);
-            
+
             try {
                 const createdRecord: ContactLog = await createRecord('Contact_Logs', submissionData);
                 addToast('Contact log created!', 'success');
@@ -147,10 +160,10 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
 
     const handleDelete = async () => {
         if (!existingData || !existingData['Log ID']) return;
-        
+
         const originalLogs = contactLogs ? [...contactLogs] : [];
         const logToDeleteId = existingData['Log ID'];
-        
+
         setDeleteConfirmOpen(false);
         onClose();
 
@@ -171,7 +184,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
 
     const isContactDisabled = !formData['Company Name'];
     const contactPlaceholder = !formData['Company Name'] ? "Select a company first" : (contactOptions.length === 0 ? "No contacts found" : "Select Contact");
-    const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Log ID']}`: `Editing Log: ${existingData['Log ID']}`) : 'Create New Contact Log';
+    const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Log ID']}` : `Editing Log: ${existingData['Log ID']}`) : 'Create New Contact Log';
     const submitText = isEditMode ? 'Save Changes' : 'Save Log';
 
     const handleCancelClick = () => {
@@ -182,33 +195,33 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
             onClose();
         }
     }
-    
+
     const formId = `contact-log-form-${existingData?.['Log ID'] || 'new'}`;
-    
+
     const modalFooter = (
-      <div className="flex justify-between items-center w-full">
-          {isReadOnly ? (
-              <>
-                  <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="w-5 h-5" /> Delete
-                  </button>
-                  <div className="flex items-center gap-3">
-                      <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                      <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
-                          <Pencil className="w-5 h-5" /> Edit
-                      </button>
-                  </div>
-              </>
-          ) : (
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                  <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                      <Check className="w-5 h-5 -ml-1 mr-2" />
-                      {submitText}
-                  </button>
-              </div>
-          )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+            {isReadOnly ? (
+                <>
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="w-5 h-5" /> Delete
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                            <Pencil className="w-5 h-5" /> Edit
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                        {submitText}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
 
@@ -222,36 +235,38 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
             >
                 <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                     <FormSection title="Log Details">
-                        {isReadOnly 
-                            ? <FormDisplay label="Log ID" value={formData['Log ID']} /> 
-                            : <FormInput name="Log ID" label="Log ID" value={formData['Log ID']} onChange={()=>{}} required readOnly />
+                        {isReadOnly
+                            ? <FormDisplay label="Log ID" value={formData['Log ID']} />
+                            : <FormInput name="Log ID" label="Log ID" value={formData['Log ID']} onChange={() => { }} required readOnly />
                         }
                         {isReadOnly ? <FormDisplay label="Type" value={formData.Type} /> : <FormSelect name="Type" label="Type" value={formData.Type} onChange={handleChange} options={TYPE_OPTIONS} required />}
                         {isReadOnly ? <FormDisplay label="Contact Date" value={formatToInputDate(formData['Contact Date'])} /> : <FormInput name="Contact Date" label="Contact Date" value={formData['Contact Date']} onChange={handleChange} type="date" required />}
-                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <SearchableSelect 
-                                name="Company Name" 
-                                label="Company Name" 
+                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
+                            <SearchableSelect
+                                name="Company Name"
+                                label="Company Name"
                                 value={formData['Company Name'] || ''}
                                 onChange={handleCompanySelect}
                                 options={companyOptions}
-                                required 
+                                required
                                 placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
-                        {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> : 
-                            <FormSelect 
-                                name="Contact Name" 
-                                label="Contact Name" 
-                                value={formData['Contact Name']} 
-                                onChange={handleContactChange} 
-                                options={contactOptions} 
-                                disabled={isContactDisabled || contactOptions.length === 0} 
-                                disabledPlaceholder={contactPlaceholder} 
-                                required 
+                        {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> :
+                            <FormSelect
+                                name="Contact Name"
+                                label="Contact Name"
+                                value={formData['Contact Name']}
+                                onChange={handleContactChange}
+                                options={contactOptions}
+                                disabled={isContactDisabled || contactOptions.length === 0}
+                                disabledPlaceholder={contactPlaceholder}
+                                required
                                 actionButton={!isReadOnly && !!formData['Company Name'] && <button type="button" onClick={() => setIsNewContactModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
-                        {isReadOnly ? <FormDisplay label="Position" value={formData.Position} /> : <FormInput name="Position" label="Position" value={formData.Position} onChange={handleChange} readOnly/>}
+                        {isReadOnly ? <FormDisplay label="Position" value={formData.Position} /> : <FormInput name="Position" label="Position" value={formData.Position} onChange={handleChange} />}
+                        {isReadOnly ? <FormDisplay label="Phone Number" value={formData['Phone Number']} /> : <FormInput name="Phone Number" label="Phone Number" value={formData['Phone Number']} onChange={handleChange} />}
+                        {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Responsible By" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Responsible By" value={formData['Responsible By']} onChange={handleChange} required />}
                     </FormSection>
                     <FormSection>
@@ -259,7 +274,7 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
                     </FormSection>
                 </form>
             </ResizableModal>
-            
+
             <NewCompanyModal
                 isOpen={isNewCompanyModalOpen}
                 onClose={() => setIsNewCompanyModalOpen(false)}
@@ -277,6 +292,8 @@ const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose
                         ...prev,
                         'Contact Name': newContact.Name,
                         'Position': newContact.Role,
+                        'Phone Number': newContact['Tel (1)'],
+                        'Email': newContact.Email,
                     }));
                     setIsNewContactModalOpen(false);
                 }}

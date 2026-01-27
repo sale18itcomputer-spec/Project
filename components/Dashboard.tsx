@@ -61,7 +61,7 @@ const DashboardContent: React.FC = () => {
   const { filters } = useFilter();
   const { isB2B } = useB2B();
   const [renderStep, setRenderStep] = useState(0);
-  const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
+  const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
   const { width } = useWindowSize();
   const isMobile = width < 768;
@@ -84,34 +84,50 @@ const DashboardContent: React.FC = () => {
     if (!hasFilters) return projects;
 
     return projects.filter(p => {
+      const hasYearFilter = filters.year?.length && filters.year.length > 0;
+      const hasDateRange = !!(filters.startDate || filters.endDate);
+      const currentYear = new Date().getFullYear();
+
+      // Default to Current Year if no explicit Year or valid Date Range is provided.
+      // This applies even if 'Month' is filtered (e.g. "January" defaults to "January of Current Year").
+      const constrainToCurrentYear = !hasYearFilter && !hasDateRange;
+
       if (filters.status?.length && !filters.status.includes(p.Status)) return false;
       if (filters.responsibleBy?.length && !filters.responsibleBy.includes(p['Responsible By'])) return false;
       if (filters.companyName?.length && !filters.companyName.includes(p['Company Name'])) return false;
       if (filters.brand1?.length && !filters.brand1.includes(p['Brand 1'])) return false;
 
-      const hasDateFilters = filters.startDate || filters.endDate || filters.month?.length || filters.year?.length;
-      if (hasDateFilters) {
-        const projectCreatedDate = parseDate(p['Created Date']);
-        if (!projectCreatedDate) {
-          return false;
-        }
+      const projectCreatedDate = parseDate(p['Created Date']);
+      if (!projectCreatedDate) {
+        // If we can't parse the date, and we are constraining to current year, exclude it.
+        // If we represent "All Time" (which is only possible if user explicitly selects ALL years, logic above prevents implicit All Time), 
+        // we might want to keep it? No, safe to exclude invalid dates when date logic is involved.
+        // However, if standard filters are off, we might hide data. 
+        // Best to return false if date is invalid and we rely on date filtering.
+        return false;
+      }
 
-        if (filters.startDate) {
-          const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
-          if (projectCreatedDate < startDate) return false;
-        }
-        if (filters.endDate) {
-          const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
-          if (projectCreatedDate > endDate) return false;
-        }
-        if (filters.year?.length) {
-          const projectYear = projectCreatedDate.getFullYear();
-          if (!filters.year.map(Number).includes(projectYear)) return false;
-        }
-        if (filters.month?.length) {
-          const projectMonth = projectCreatedDate.toLocaleString('default', { month: 'long' });
-          if (!filters.month.includes(projectMonth)) return false;
-        }
+      if (constrainToCurrentYear) {
+        // Relaxing this to avoid filtering out data when no explicit filter is set.
+        // The charts and lists will still default to sensible views.
+        // if (projectCreatedDate.getFullYear() !== currentYear) return false;
+      }
+
+      if (filters.startDate) {
+        const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
+        if (projectCreatedDate < startDate) return false;
+      }
+      if (filters.endDate) {
+        const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
+        if (projectCreatedDate > endDate) return false;
+      }
+      if (filters.year?.length) {
+        const projectYear = projectCreatedDate.getFullYear();
+        if (!filters.year.map(Number).includes(projectYear)) return false;
+      }
+      if (filters.month?.length) {
+        const projectMonth = projectCreatedDate.toLocaleString('en-US', { month: 'long' });
+        if (!filters.month.includes(projectMonth)) return false;
       }
 
       return true;
@@ -119,33 +135,54 @@ const DashboardContent: React.FC = () => {
   }, [projects, filters]);
 
   const filterOptions = useMemo(() => {
-    if (!projects) return { statuses: [], assignees: [], companies: [], brands: [], months: [], years: [] };
+    // Initialize with safe defaults
+    const defaults = { statuses: [], assignees: [], companies: [], brands: [], months: [], years: [] };
+    if (!projects && !saleOrders) return defaults;
 
     const statuses = new Set<string>();
     const assignees = new Set<string>();
     const companies = new Set<string>();
     const brands = new Set<string>();
-    const months = new Set<string>();
+    // We want ALL months to be available regardless of data
     const years = new Set<number>();
 
-    projects.forEach(p => {
-      if (p.Status) statuses.add(p.Status);
-      if (p['Responsible By']) assignees.add(p['Responsible By']);
-      if (p['Company Name']) companies.add(p['Company Name']);
-      if (p['Brand 1'] && p['Brand 1'].trim() !== '' && p['Brand 1'].trim() !== 'N/A') {
-        brands.add(p['Brand 1']);
-      }
-      if (p['Created Date']) {
-        const projectCreatedDate = parseDate(p['Created Date']);
-        if (projectCreatedDate) {
-          months.add(projectCreatedDate.toLocaleString('default', { month: 'long' }));
-          years.add(projectCreatedDate.getFullYear());
-        }
-      }
-    });
+    // Ensure current year is always available
+    years.add(new Date().getFullYear());
 
+    // Helper to process dates
+    const processDate = (dateStr: string | undefined) => {
+      if (!dateStr) return;
+      const date = parseDate(dateStr);
+      if (date) {
+        years.add(date.getFullYear());
+      }
+    };
+
+    if (projects) {
+      projects.forEach(p => {
+        if (p.Status) statuses.add(p.Status);
+        if (p['Responsible By']) assignees.add(p['Responsible By']);
+        if (p['Company Name']) companies.add(p['Company Name']);
+        if (p['Brand 1'] && p['Brand 1'].trim() !== '' && p['Brand 1'].trim() !== 'N/A') {
+          brands.add(p['Brand 1']);
+        }
+        processDate(p['Created Date']);
+      });
+    }
+
+    if (saleOrders) {
+      saleOrders.forEach(so => {
+        // We might want to filter companies/etc from SOs too? 
+        // For now, user specifically asked about Year/Month. 
+        // But consistency suggests we might want companies there too if they only exist in SOs?
+        // Let's stick to just Dates for now to be safe, as SOs don't have 'Status' same as Projects.
+        processDate(so['SO Date']);
+      });
+    }
+
+    // Always show all months in order
     const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const sortedMonths = Array.from(months).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+
     const sortedYears = Array.from(years).sort((a, b) => b - a);
 
     return {
@@ -153,10 +190,10 @@ const DashboardContent: React.FC = () => {
       assignees: Array.from(assignees).sort(),
       companies: Array.from(companies).sort(),
       brands: Array.from(brands).sort(),
-      months: sortedMonths,
+      months: monthOrder,
       years: sortedYears,
     };
-  }, [projects]);
+  }, [projects, saleOrders]);
 
   const processedFilteredProjects = useMemo(() => {
     return filteredProjects.map(project => ({
@@ -166,6 +203,7 @@ const DashboardContent: React.FC = () => {
   }, [filteredProjects]);
 
   const pendingWorks = useMemo(() => {
+    // ... code for pending works remains SAME ...
     // Get the current date at midnight in UTC+7 to match the timezone of parsed dates from sheets.
     const now = new Date();
     const todayStrInUTC7 = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -282,7 +320,7 @@ const DashboardContent: React.FC = () => {
   const metrics = isB2B ? b2bMetrics : b2cMetrics;
 
   const projectOutcomeData = useMemo<ProjectStatusData[]>(() => {
-    const baseData = filters.status?.length ? filteredProjects : projects;
+    const baseData = filteredProjects;
     if (!baseData) return [];
 
     const statusCounts = baseData.reduce((acc, project) => {
@@ -295,40 +333,59 @@ const DashboardContent: React.FC = () => {
   }, [projects, filteredProjects, filters.status]);
 
   const revenueByPeriodData = useMemo(() => {
-    if (!saleOrders) return { chartData: [] };
+    const rawData = isB2B ? projects : saleOrders;
+    if (!rawData) return { chartData: [] };
 
-    // Filter Sale Orders for Revenue
-    const relevantSaleOrders = saleOrders.filter(so => {
-      // Status check - explicitly 'Completed'
-      if (so.Status !== 'Completed') return false;
+    const currentYear = new Date().getFullYear();
+
+    // Filter Items for Revenue
+    const relevantItems = rawData.filter(item => {
+      // Status check
+      if (isB2B) {
+        // B2B: Pipelines that are 'Close (win)' - handle various casing (e.g., 'Close (Win)')
+        const status = item.Status?.toLowerCase();
+        if (status !== 'close (win)') return false;
+      } else {
+        // B2C: Sale Orders that are 'Completed'
+        if (item.Status !== 'Completed') return false;
+      }
 
       // Currency check
       if (currencyFilter === 'USD') {
-        if (so.Currency === 'KHR') return false;
+        if (item.Currency === 'KHR') return false;
       } else {
-        if (so.Currency !== currencyFilter) return false;
+        if (item.Currency !== currencyFilter) return false;
       }
 
       // Apply relevant global filters
-      if (filters.companyName?.length && !filters.companyName.includes(so['Company Name'])) return false;
+      if (filters.companyName?.length && !filters.companyName.includes(item['Company Name'])) return false;
 
-      const soDate = parseDate(so['SO Date']);
-      if (!soDate) return false;
+      const dateStr = isB2B ? (item['Inv Date'] || item['Created Date']) : item['SO Date'];
+      const date = parseDate(dateStr);
+      if (!date) return false;
+
+      const hasYearFilter = filters.year?.length && filters.year.length > 0;
+      const hasDateRange = !!(filters.startDate || filters.endDate);
+      const constrainToCurrentYear = !hasYearFilter && !hasDateRange;
+
+      if (constrainToCurrentYear) {
+        if (date.getFullYear() !== currentYear) return false;
+      }
 
       if (filters.startDate) {
         const startDate = new Date(`${filters.startDate}T00:00:00.000+07:00`);
-        if (soDate < startDate) return false;
+        if (date < startDate) return false;
       }
       if (filters.endDate) {
         const endDate = new Date(`${filters.endDate}T23:59:59.999+07:00`);
-        if (soDate > endDate) return false;
+        if (date > endDate) return false;
       }
       if (filters.year?.length) {
-        const year = soDate.getFullYear();
+        const year = date.getFullYear();
         if (!filters.year.map(Number).includes(year)) return false;
       }
       if (filters.month?.length) {
-        const month = soDate.toLocaleString('default', { month: 'long' });
+        const month = date.toLocaleString('en-US', { month: 'long' });
         if (!filters.month.includes(month)) return false;
       }
 
@@ -337,19 +394,71 @@ const DashboardContent: React.FC = () => {
 
     const getQuarter = (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`;
 
-    const aggregation = relevantSaleOrders.reduce((acc, so) => {
-      const totalAmount = parseSheetValue(so['Total Amount']);
-      const taxAmount = parseSheetValue(so['Tax']);
-      const dateStr = so['SO Date'];
+    // Helper to determine which years to display
+    const yearsToDisplay: number[] = [];
+    if (filters.year?.length) {
+      yearsToDisplay.push(...filters.year.map(Number));
+    } else if (!filters.startDate && !filters.endDate) {
+      // DEFAULT: If no specific date filter is set, show only the current year.
+      // This fulfills the "monthly of current year" requirement.
+      yearsToDisplay.push(currentYear);
+    } else {
+      // If date range exists, determine all years covered by the range
+      const startYear = filters.startDate ? parseDate(filters.startDate)?.getFullYear() : null;
+      const endYear = filters.endDate ? parseDate(filters.endDate)?.getFullYear() : null;
+
+      if (startYear && endYear) {
+        const minYear = Math.min(startYear, endYear);
+        const maxYear = Math.max(startYear, endYear);
+        for (let y = minYear; y <= maxYear; y++) {
+          yearsToDisplay.push(y);
+        }
+      } else if (startYear) {
+        yearsToDisplay.push(startYear);
+      } else if (endYear) {
+        yearsToDisplay.push(endYear);
+      }
+    }
+
+    // Initialize aggregation with all periods (months/quarters) for the target years to ensure full chart x-axis
+    const initialAggregation: { [key: string]: { winValue: number; projectCount: number } } = {};
+
+    yearsToDisplay.forEach(year => {
+      if (revenuePeriod === 'monthly') {
+        for (let m = 1; m <= 12; m++) {
+          const key = `${year}-${String(m).padStart(2, '0')}`;
+          initialAggregation[key] = { winValue: 0, projectCount: 0 };
+        }
+      } else if (revenuePeriod === 'quarterly') {
+        for (let q = 1; q <= 4; q++) {
+          const key = `${year}-Q${q}`;
+          initialAggregation[key] = { winValue: 0, projectCount: 0 };
+        }
+      } else if (revenuePeriod === 'yearly') {
+        initialAggregation[`${year}`] = { winValue: 0, projectCount: 0 };
+      }
+    });
+
+    const aggregation = relevantItems.reduce((acc, item) => {
+      const amountVal = isB2B ? item['Bid Value'] : item['Total Amount'];
+      const totalAmount = parseSheetValue(amountVal);
+      const dateStr = isB2B ? (item['Inv Date'] || item['Created Date']) : item['SO Date'];
 
       // Calculate subtotal by subtracting VAT from total
-      // If Tax field is available, use it; otherwise calculate 10% VAT if Bill Invoice is VAT
       let subtotal = totalAmount;
-      if (taxAmount > 0) {
-        subtotal = totalAmount - taxAmount;
-      } else if (so['Bill Invoice'] === 'VAT' && totalAmount > 0) {
-        // If no tax field but it's a VAT invoice, calculate subtotal by dividing by 1.1
-        subtotal = totalAmount / 1.1;
+      if (isB2B) {
+        // B2B: Use 'Taxable' field
+        if (item.Taxable === 'VAT' && totalAmount > 0) {
+          subtotal = totalAmount / 1.1;
+        }
+      } else {
+        // B2C: Use 'Tax' field or 'Bill Invoice'
+        const taxAmount = parseSheetValue(item['Tax']);
+        if (taxAmount > 0) {
+          subtotal = totalAmount - taxAmount;
+        } else if (item['Bill Invoice'] === 'VAT' && totalAmount > 0) {
+          subtotal = totalAmount / 1.1;
+        }
       }
 
       if (subtotal > 0 && dateStr) {
@@ -374,23 +483,23 @@ const DashboardContent: React.FC = () => {
             if (!acc[key]) {
               acc[key] = { winValue: 0, projectCount: 0 };
             }
-            // Keep exact decimal precision - don't round
             acc[key].winValue += subtotal;
             acc[key].projectCount += 1;
           }
         }
       }
       return acc;
-    }, {} as { [key: string]: { winValue: number; projectCount: number } });
+    }, initialAggregation);
 
     const chartData = Object.entries(aggregation)
-      .map(([key, { winValue, projectCount }]) => {
+      .map(([key, value]: [string, { winValue: number; projectCount: number }]) => {
+        const { winValue, projectCount } = value;
         let name = '';
         switch (revenuePeriod) {
           case 'monthly': {
             const [year, month] = key.split('-');
             const date = new Date(parseInt(year), parseInt(month) - 1);
-            name = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            name = date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
             break;
           }
           case 'quarterly': {
@@ -407,10 +516,10 @@ const DashboardContent: React.FC = () => {
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     return { chartData };
-  }, [saleOrders, revenuePeriod, currencyFilter, filters]);
+  }, [saleOrders, projects, isB2B, revenuePeriod, currencyFilter, filters]);
 
   const topCustomersData = useMemo(() => {
-    const baseData = filters.companyName?.length ? filteredProjects : projects;
+    const baseData = filteredProjects;
     if (!baseData) return [];
 
     const wonProjects = baseData.filter(p => {
@@ -430,17 +539,16 @@ const DashboardContent: React.FC = () => {
         acc[customer].projectCount += 1;
       }
       return acc;
-      // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
     }, {} as { [key: string]: { winValue: number, projectCount: number } });
 
     return Object.entries(customerValues)
-      .map(([name, { winValue, projectCount }]) => ({ name, winValue, projectCount }))
+      .map(([name, value]: [string, { winValue: number, projectCount: number }]) => ({ name, winValue: value.winValue, projectCount: value.projectCount }))
       .sort((a, b) => b.winValue - a.winValue)
       .slice(0, 10);
   }, [projects, filteredProjects, filters.companyName, currencyFilter]);
 
   const projectsByBrandData = useMemo(() => {
-    const baseData = filters.brand1?.length ? filteredProjects : projects;
+    const baseData = filteredProjects;
     if (!baseData) return [];
 
     const brandCounts = baseData.reduce((acc, project) => {
@@ -453,11 +561,10 @@ const DashboardContent: React.FC = () => {
         acc[brand].totalValue += parseSheetValue(project['Bid Value']);
       }
       return acc;
-      // FIX: Correctly type the initial value for the `reduce` accumulator to resolve TypeScript errors where properties were being accessed on an inferred empty object type `{}`.
     }, {} as { [key: string]: { count: number; totalValue: number } });
 
     return Object.entries(brandCounts)
-      .map(([name, { count, totalValue }]) => ({ name, count, totalValue }))
+      .map(([name, value]: [string, { count: number, totalValue: number }]) => ({ name, count: value.count, totalValue: value.totalValue }))
       .sort((a, b) => b.count - a.count);
   }, [projects, filteredProjects, filters.brand1]);
 
@@ -511,14 +618,15 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      {/* Hide Monthly Revenue Chart in B2B mode */}
-      {!isB2B && renderStep >= 3 && (
+      {/* Show Revenue Chart in both modes, but logic differs inside */}
+      {renderStep >= 3 && (
         <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
           <MonthlyWinValueChart
             data={revenueByPeriodData.chartData}
             period={revenuePeriod}
             onPeriodChange={setRevenuePeriod}
             currency={currencyFilter}
+            isB2B={isB2B}
           />
         </div>
       )}
@@ -544,21 +652,19 @@ const DashboardContent: React.FC = () => {
         )}
       </div>
 
-      {/* Hide Top Customers and Projects by Brand charts in B2B mode */}
-      {!isB2B && (
-        <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
-          {renderStep >= 7 && (
-            <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
-              <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
-            </div>
-          )}
-          {renderStep >= 8 && (
-            <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
-              <ProjectsByBrandChart data={projectsByBrandData} />
-            </div>
-          )}
-        </div>
-      )}
+      {/* Show Top Customers and Projects by Brand charts in both modes */}
+      <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
+        {renderStep >= 7 && (
+          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
+            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
+          </div>
+        )}
+        {renderStep >= 8 && (
+          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
+            <ProjectsByBrandChart data={projectsByBrandData} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

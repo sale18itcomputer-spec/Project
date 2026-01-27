@@ -25,13 +25,13 @@ import { ScrollArea } from './ui/scroll-area';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
-    'Open': { bg: 'bg-brand-100', text: 'text-slate-800' },
-    'Close (Win)': { bg: 'bg-emerald-100', text: 'text-slate-800' },
-    'Close (Lose)': { bg: 'bg-rose-100', text: 'text-slate-800' },
-    'Cancel': { bg: 'bg-red-100', text: 'text-slate-800' },
+    'Open': { bg: 'bg-sky-500/10', text: 'text-sky-500' },
+    'Close (Win)': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
+    'Close (Lose)': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
+    'Cancel': { bg: 'bg-violet-500/10', text: 'text-violet-500' },
   };
 
-  const config = statusConfig[status] || { bg: 'bg-slate-100', text: 'text-slate-800' };
+  const config = statusConfig[status] || { bg: 'bg-muted', text: 'text-muted-foreground' };
 
   return (
     <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${config.bg} ${config.text}`}>
@@ -44,8 +44,8 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
   if (!value || (typeof value === 'string' && !value.trim())) return null;
   return (
     <div>
-      <dt className="text-sm font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm text-foreground">{value}</dd>
     </div>
   );
 };
@@ -89,13 +89,14 @@ const QuotationMobileCard: React.FC<{ quotation: Quotation, onView: () => void }
 
 interface QuotationDashboardProps {
   initialPayload?: {
-    action: 'create';
-    initialData: Partial<Quotation>;
-  };
+    action: 'create' | 'edit' | 'view';
+    initialData?: Partial<Quotation>;
+    data?: Quotation;
+  } | Quotation; // Also support direct Quotation object for backward compatibility
 }
 
 const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload }) => {
-  const { quotations, setQuotations, loading, error } = useB2BData();
+  const { quotations, setQuotations, loading, error, isB2B } = useB2BData();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedQuotationToEdit, setSelectedQuotationToEdit] = useState<Quotation | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
@@ -110,9 +111,27 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const isMobile = width < 1024; // lg breakpoint
 
   useEffect(() => {
-    if (initialPayload?.action === 'create') {
+    if (!initialPayload) return;
+
+    // Handle the case where initialPayload is directly a Quotation object
+    if ('Quote No.' in (initialPayload as any)) {
+      const quote = initialPayload as Quotation;
+      setSelectedQuotationToEdit(quote);
+      setIsCreating(true);
+      return;
+    }
+
+    const payload = initialPayload as { action: string, initialData?: any, data?: Quotation };
+
+    if (payload.action === 'create') {
       setIsCreating(true);
       setSelectedQuotationToEdit(null);
+    } else if (payload.action === 'edit' && payload.data) {
+      setSelectedQuotationToEdit(payload.data);
+      setIsCreating(true);
+    } else if (payload.action === 'view' && payload.data) {
+      setSelectedQuotationId(payload.data['Quote No.']);
+      setViewMode('detail');
     }
   }, [initialPayload]);
 
@@ -152,13 +171,23 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
     const originalQuotations = quotations ? [...quotations] : [];
     const quoteToDeleteId = quotationToDelete['Quote No.'];
+    // Access isB2B directly from hook result (see step 1) or context.
+    // Actually useB2BData returns { ...b2cData, ...b2bOverrides, isB2B }. 
+    // Let's verify useB2BData returns isB2B. It does? 
+    // DataContext doesn't. B2BContext does. 
+    // useB2BData merges them.
 
     setQuotationToDelete(null);
 
     setQuotations(current => current ? current.filter(q => q['Quote No.'] !== quoteToDeleteId) : null);
 
     try {
-      await deleteRecord('Quotations', quoteToDeleteId);
+      const isB2BMode = (quotationToDelete['Quote No.'] || '').startsWith('BQ-') || (quotationToDelete['Quote No.'] || '').startsWith('B2B-');
+      // Better to rely on the hook's isB2B if available, but ID check is robust too.
+      // Let's rely on the isB2B prop I will add to the destructuring.
+
+      const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
+      await deleteRecord(tableName, quoteToDeleteId);
       addToast('Quotation deleted!', 'success');
     } catch (err: any) {
       addToast('Failed to delete quotation.', 'error');
@@ -181,7 +210,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     });
 
     try {
-      await updateRecord('Quotations', quoteNo, { 'Status': newStatus });
+      const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
+      await updateRecord(tableName, quoteNo, { 'Status': newStatus });
       addToast('Quotation moved successfully!', 'success');
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -267,7 +297,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       header: 'Quote No.',
       isSortable: true,
       cell: (value: string, row) => (
-        <div className="font-semibold text-slate-800">
+        <div className="font-semibold text-muted-foreground/80">
           {value}
         </div>
       )
@@ -278,7 +308,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       isSortable: true,
       cell: (value: string) => {
         const date = parseDate(value);
-        return date ? formatDateAsMDY(date) : <span className="text-slate-400 italic">N/A</span>;
+        return date ? formatDateAsMDY(date) : <span className="text-muted-foreground italic">N/A</span>;
       }
     },
     {
@@ -291,7 +321,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             e.stopPropagation();
             if (value) handleNavigation({ view: 'companies', filter: value });
           }}
-          className="group font-semibold text-base text-slate-800 hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
+          className="group font-semibold text-base text-foreground hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
           aria-label={`View company: ${value}`}
         >
           {value}
@@ -308,7 +338,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             e.stopPropagation();
             if (value) handleNavigation({ view: 'contacts', filter: value });
           }}
-          className="group font-medium text-slate-800 hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
+          className="group font-medium text-foreground hover:underline transition-colors inline-flex items-center gap-1.5 text-left"
           aria-label={`View contact: ${value}`}
         >
           {value}
@@ -322,10 +352,10 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       cell: (value: string, row: Quotation) => {
         const formattedValue = formatCurrencySmartly(value, row.Currency);
         if (formattedValue === '-') {
-          return <span className="text-slate-400 text-right block w-full">-</span>;
+          return <span className="text-muted-foreground text-right block w-full">-</span>;
         }
         return (
-          <span className="text-sm font-medium text-slate-800 text-right block w-full">
+          <span className="text-sm font-medium text-foreground text-right block w-full">
             {formattedValue}
           </span>
         );
@@ -336,8 +366,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       header: 'Taxable',
       isSortable: true,
       cell: (value: string | undefined) => {
-        if (!value) return <span className="text-slate-400">-</span>;
-        return <span className="font-medium text-slate-600">{value}</span>;
+        if (!value) return <span className="text-muted-foreground">-</span>;
+        return <span className="font-medium text-foreground">{value}</span>;
       }
     },
     { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: Quotation['Status']) => <StatusBadge status={value} /> },
@@ -345,7 +375,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       accessorKey: 'Created By',
       header: 'Created By',
       isSortable: true,
-      cell: (value: string) => <span className="font-medium text-slate-800">{value}</span>
+      cell: (value: string) => <span className="font-medium text-foreground">{value}</span>
     },
   ], [handleNavigation, quotationSheetId]);
 
@@ -427,8 +457,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         if (usdStr && khrStr) {
           return (
             <div>
-              <span className="text-lg font-bold text-slate-800 block">{usdStr}</span>
-              <span className="text-base font-bold text-slate-600 block">{khrStr}</span>
+              <span className="text-lg font-bold text-foreground block">{usdStr}</span>
+              <span className="text-base font-bold text-muted-foreground block">{khrStr}</span>
             </div>
           );
         }
@@ -436,7 +466,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         const singleValue = usdStr || khrStr || '$0';
 
         return (
-          <span className="text-xl font-bold text-slate-800">
+          <span className="text-xl font-bold text-foreground">
             {singleValue}
           </span>
         );
@@ -464,20 +494,20 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             onDelete={() => handleDeleteRequest(item)}
           />
         </div>
-        <h4 className="font-bold text-slate-900 pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
-        <p className="text-sm text-slate-500 font-mono">{item['Quote No.']}</p>
+        <h4 className="font-bold text-foreground pr-8 text-base group-hover:text-brand-600 transition-colors">{item['Company Name']}</h4>
+        <p className="text-sm text-muted-foreground font-mono">{item['Quote No.']}</p>
 
-        <p className="text-lg font-semibold text-brand-800 mt-2">
+        <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-2">
           {formattedValue}
         </p>
 
-        <p className="text-sm text-slate-600 mt-2.5 line-clamp-1">Contact: {item['Contact Name']}</p>
+        <p className="text-sm text-muted-foreground mt-2.5 line-clamp-1">Contact: {item['Contact Name']}</p>
 
-        <div className="flex justify-between items-end mt-4 pt-3 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created by ${item['Created By']}`}>
+        <div className="flex justify-between items-end mt-4 pt-3 border-t border-border">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Created by ${item['Created By']}`}>
             <span>By {item['Created By']}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500" title={`Created on ${quoteDate?.toLocaleDateString()}`}>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Created on ${quoteDate?.toLocaleDateString()}`}>
             <span>{ageText}</span>
           </div>
         </div>
@@ -486,8 +516,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   };
 
   const renderDetailView = () => (
-    <div className="flex flex-col md:flex-row h-full bg-white">
-      <aside className="w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col">
+    <div className="flex flex-col md:flex-row h-full bg-background">
+      <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
         <QuotationListContainer
           quotations={filteredData}
           selectedQuotationId={selectedQuotationId}
@@ -495,26 +525,26 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
           loading={loading && !quotations}
         />
       </aside>
-      <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-slate-50">
+      <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-background">
         {loading && !selectedQuotationForDetail ? <Spinner /> : selectedQuotationForDetail ? (
           <div className="max-w-4xl mx-auto space-y-8">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">{selectedQuotationForDetail['Company Name']}</h1>
-                  <p className="text-slate-600 font-mono mt-1">{selectedQuotationForDetail['Quote No.']}</p>
+                  <h1 className="text-2xl font-bold text-foreground">{selectedQuotationForDetail['Company Name']}</h1>
+                  <p className="text-muted-foreground font-mono mt-1">{selectedQuotationForDetail['Quote No.']}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => handleEditQuotation(selectedQuotationForDetail)}
-                      className="text-sm font-semibold text-brand-600 hover:underline flex items-center gap-1.5"
+                      className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
                     >
                       <Pencil className="w-4 h-4" /> Edit
                     </button>
                     <button
                       onClick={() => handleDeleteRequest(selectedQuotationForDetail)}
-                      className="text-sm font-semibold text-rose-600 hover:underline flex items-center gap-1.5"
+                      className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
                     >
                       <Trash2 className="w-4 h-4" /> Delete
                     </button>
@@ -529,12 +559,12 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               </div>
 
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-gray-500">Total Amount</dt>
-                  <dd className="mt-1 text-xl font-semibold text-gray-900">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-muted-foreground/60">Total Amount</dt>
+                  <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
                   <dd className="mt-1"><StatusBadge status={selectedQuotationForDetail.Status} /></dd>
                 </div>
               </div>
@@ -554,9 +584,9 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <EmptyState illustration={<Info className="w-16 h-16 text-slate-300" />}>
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">Select a Quotation</h3>
-              <p className="mt-1 text-sm text-gray-500">Choose a quotation from the list to see its details.</p>
+            <EmptyState illustration={<Info className="w-16 h-16 text-muted-foreground/20" />}>
+              <h3 className="mt-2 text-sm font-semibold text-foreground">Select a Quotation</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Choose a quotation from the list to see its details.</p>
             </EmptyState>
           </div>
         )}
@@ -637,10 +667,10 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+    <div className="h-full flex flex-col bg-background">
+      <header className="flex-shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-slate-900">Quote Record</h1>
+          <h1 className="text-xl font-bold text-foreground">Quote Record</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -651,30 +681,30 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               placeholder="Search quotations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-300 text-slate-700 placeholder-slate-400 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
+              className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
             />
-            <Search className="w-5 h-5 text-slate-400 absolute top-1/2 left-3 -translate-y-1/2" />
+            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+          <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Table className="w-4 h-4" />
               <span className="hidden lg:inline">Table</span>
             </button>
             <button
               onClick={() => setViewMode('board')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden lg:inline">Board</span>
             </button>
             <button
               onClick={() => setViewMode('detail')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Columns className="w-4 h-4" />
               <span className="hidden lg:inline">Detail</span>
@@ -682,14 +712,14 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
           </div>
 
           {/* Alignment/Wrap Icons */}
-          <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm">
-            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-slate-50 transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+          <div className="flex items-center bg-card border border-border rounded-md shadow-sm">
+            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
               <ArrowRightToLine className="w-4 h-4" />
             </button>
-            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-slate-50 transition border-x border-slate-200 ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
               <WrapText className="w-4 h-4" />
             </button>
-            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-slate-50 transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-50' : 'text-slate-500'}`}>
+            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
               <Scissors className="w-4 h-4" />
             </button>
           </div>
@@ -700,7 +730,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             visibleColumns={visibleColumns}
             onColumnToggle={handleColumnToggle}
             trigger={
-              <button className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-md hover:bg-slate-50 transition shadow-sm text-sm">
+              <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
                 <LayoutGrid className="w-4 h-4" />
                 View
               </button>
@@ -717,7 +747,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">
+      <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
         {viewMode === 'table' ? (
           <DataTable
             tableId="quotation-table"
@@ -735,7 +765,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                     e.stopPropagation();
                     handleEditQuotation(row);
                   }}
-                  className="p-2.5 text-slate-400 hover:text-brand-600 transition hover:bg-brand-50 rounded-full"
+                  className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                   title="Edit"
                 >
                   <Pencil size={16} />
@@ -745,7 +775,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                     e.stopPropagation();
                     handleDeleteRequest(row);
                   }}
-                  className="p-2.5 text-slate-400 hover:text-rose-600 transition hover:bg-rose-50 rounded-full"
+                  className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
                   title="Delete"
                 >
                   <Trash2 size={16} />
@@ -767,31 +797,31 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-white border-t border-slate-200 p-3 flex items-center gap-3">
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
 
 
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote Pending' ? null : 'Quote Pending')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote Pending
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote (Win)' ? null : 'Quote (Win)')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote (Win)
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote (Lose)' ? null : 'Quote (Lose)')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote (Lose)
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Cancel
           </button>
@@ -804,6 +834,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         onConfirm={handleConfirmDelete}
         title="Delete Quotation"
         confirmText="Delete"
+        variant="danger"
       >
         Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
       </ConfirmationModal>

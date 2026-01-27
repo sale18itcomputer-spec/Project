@@ -216,7 +216,9 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                                             justifyContent: 'center',
                                             position: 'relative'
                                         }}>
-                                            <div style={{ position: 'absolute', top: '2px', left: '2px', right: '2px', bottom: '2px', background: '#000' }}></div>
+                                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: 'absolute' }}>
+                                                <path d="M2 5L4.5 7.5L8.5 2.5" stroke="black" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                                            </svg>
                                         </div>
                                         <span style={{ fontSize: '11px' }}>{opt}</span>
                                     </div>

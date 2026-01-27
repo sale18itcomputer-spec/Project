@@ -97,19 +97,30 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     const contactOptions = useMemo(() => filteredContacts.map(c => c.Name), [filteredContacts]);
 
     const getInitialState = useCallback(() => {
-        let nextPipelineNo = 'PL00000001';
+        const prefix = isB2B ? 'BPL' : 'PL';
+        let nextPipelineNo = `${prefix}00000001`;
+
         if (projects && projects.length > 0) {
-            const pipelineNumbers = projects.map(p => p['Pipeline No.']).filter(pNo => pNo && typeof pNo === 'string' && pNo.startsWith('PL')).map(pNo => parseInt(pNo.substring(2), 10)).filter(num => !isNaN(num));
+            const pipelineNumbers = projects
+                .map(p => p['Pipeline No.'])
+                .filter(pNo => pNo && typeof pNo === 'string' && pNo.startsWith(prefix))
+                .map(pNo => parseInt(pNo.substring(prefix.length), 10))
+                .filter(num => !isNaN(num));
+
             if (pipelineNumbers.length > 0) {
-                nextPipelineNo = `PL${String(Math.max(...pipelineNumbers) + 1).padStart(8, '0')}`;
+                nextPipelineNo = `${prefix}${String(Math.max(...pipelineNumbers) + 1).padStart(8, '0')}`;
             }
         }
         const initialState: Partial<PipelineProject> = {
-            'Pipeline No.': nextPipelineNo, 'Created Date': getTodayDateString(), 'Status': 'Quote Submitted',
-            'Taxable': 'VAT', 'Type': 'Project', 'Currency': 'USD',
+            'Pipeline No.': nextPipelineNo,
+            'Created Date': getTodayDateString(),
+            'Status': 'Quote Submitted',
+            'Taxable': 'VAT',
+            'Type': 'Project',
+            'Currency': 'USD',
         };
         return initialState;
-    }, [projects]);
+    }, [projects, isB2B]);
 
     const getFormDataForEdit = useCallback((p: PipelineProject) => ({
         ...p,
@@ -204,7 +215,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
 
             try {
-                await updateRecord('pipelines', '"Pipeline No."', updatedId, submissionData, isB2B);
+                await updateRecord('pipelines', 'Pipeline No.', updatedId, submissionData, isB2B);
                 addToast('Pipeline updated!', 'success');
                 // The real-time subscription will update the data
             } catch (err: any) {
@@ -246,7 +257,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
 
         try {
-            await deleteRecord('pipelines', '"Pipeline No."', projectToDeleteId, isB2B);
+            await deleteRecord('pipelines', 'Pipeline No.', projectToDeleteId, isB2B);
             addToast('Pipeline deleted!', 'success');
         } catch (err: any) {
             addToast(`Failed to delete pipeline: ${err.message}`, 'error');
@@ -295,11 +306,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         <div className="flex justify-between items-center w-full">
             {isReadOnly ? (
                 <>
-                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} disabled={isSubmitting} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} disabled={isSubmitting} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
                         <Trash2 className="w-5 h-5" /> Delete
                     </button>
                     <div className="flex items-center gap-3">
-                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-border bg-card text-foreground hover:bg-muted">Close</button>
                         <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
                             <Pencil className="w-5 h-5" /> Edit
                         </button>
@@ -307,7 +318,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                 </>
             ) : (
                 <div className="flex justify-end gap-3 w-full">
-                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition">Cancel</button>
                     <button type="submit" onClick={handleSubmit} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
                         <Check className="w-5 h-5 -ml-1 mr-2" />
                         {submitText}
@@ -375,7 +386,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? (
                             <FormDisplay label="Quote Link">
                                 <div className="flex items-center justify-between">
-                                    {formData.Quote ? <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline truncate max-w-[200px]">{formData.Quote}</a> : <span className="text-gray-400 italic">N/A</span>}
+                                    {formData.Quote ? <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline truncate max-w-[200px]">{formData.Quote}</a> : <span className="text-muted-foreground italic">N/A</span>}
                                     <button
                                         type="button"
                                         onClick={() => handleNavigation({
@@ -410,7 +421,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? (
                             <FormDisplay label="SO No.">
                                 <div className="flex items-center justify-between">
-                                    <span>{formData['SO No.'] || <span className="text-gray-400 italic">N/A</span>}</span>
+                                    <span>{formData['SO No.'] || <span className="text-muted-foreground italic">N/A</span>}</span>
                                     <button
                                         type="button"
                                         onClick={() => handleNavigation({
@@ -445,7 +456,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? (
                             <FormDisplay label="Invoice No.">
                                 <div className="flex items-center justify-between">
-                                    <span>{formData['Invoice No.'] || <span className="text-gray-400 italic">N/A</span>}</span>
+                                    <span>{formData['Invoice No.'] || <span className="text-muted-foreground italic">N/A</span>}</span>
                                     {!formData['Invoice No.'] && (
                                         <button
                                             type="button"
@@ -480,20 +491,20 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? <FormDisplay label="Invoice Date" value={formatToInputDate(formData['Inv Date'])} /> : <FormInput name="Inv Date" label="Invoice Date" value={formData['Inv Date']} onChange={handleChange} type="date" />}
                     </FormSection>
                     {isEditMode && (
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-6">{`Activities (${relatedActivities.length})`}</h3>
+                        <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Activities (${relatedActivities.length})`}</h3>
                             <div className="flow-root">
                                 {relatedActivities.length > 0 ? (
-                                    <div className="space-y-4 relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+                                    <div className="space-y-4 relative pl-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
                                         {relatedActivities.map((activity, index) => (
                                             <div key={`${activity.type}-${activity.isoDate}-${index}`} className="relative">
-                                                <div className="absolute -left-[29px] top-0.5 w-8 h-8 rounded-full bg-white flex items-center justify-center ring-4 ring-white">
-                                                    {activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-600" /> : <MessageSquare className="w-5 h-5 text-violet-600" />}
+                                                <div className="absolute -left-[29px] top-0.5 w-8 h-8 rounded-full bg-card flex items-center justify-center ring-4 ring-card">
+                                                    {activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-500" /> : <MessageSquare className="w-5 h-5 text-violet-500" />}
                                                 </div>
-                                                <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-                                                    <p className="font-semibold text-gray-800">{activity.summary}</p>
-                                                    <p className="text-sm text-gray-500 mb-2">{formatDateAsMDY(activity.date)} by {activity.responsible}</p>
-                                                    {activity.details && <p className="text-sm text-gray-700 whitespace-pre-wrap">{activity.details}</p>}
+                                                <div className="bg-muted p-4 rounded-lg border border-border">
+                                                    <p className="font-semibold text-foreground">{activity.summary}</p>
+                                                    <p className="text-sm text-muted-foreground mb-2">{formatDateAsMDY(activity.date)} by {activity.responsible}</p>
+                                                    {activity.details && <p className="text-sm text-foreground whitespace-pre-wrap">{activity.details}</p>}
                                                 </div>
                                             </div>
                                         ))}

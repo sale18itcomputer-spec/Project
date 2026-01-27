@@ -8,6 +8,8 @@ import { limperialTheme } from './charts/echartsTheme';
 
 echarts.registerTheme('limperial', limperialTheme);
 
+const ECharts = ReactECharts as any;
+
 interface WinRateChartProps {
   winRate: number;
   won: number;
@@ -50,7 +52,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
         axisLine: {
           lineStyle: {
             width: 18,
-            color: [[1, '#f1f5f9']], // slate-100
+            color: [[1, 'var(--muted)']],
             roundCap: true,
           }
         },
@@ -97,7 +99,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
             offsetCenter: ['0%', '35%'],
             fontSize: 16,
             fontWeight: 500,
-            color: '#64748b' // slate-500
+            color: 'var(--muted-foreground)'
           },
           detail: {
             valueAnimation: true,
@@ -119,12 +121,12 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
-      <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Win Rate</h2>
-      <p className="text-sm text-slate-600 mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
+    <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
+      <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1 flex-shrink-0">Pipeline Win Rate</h2>
+      <p className="text-sm text-muted-foreground mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
       {total > 0 ? (
         <div className="h-full w-full flex-grow min-h-0 -mt-8" role="figure" aria-labelledby={titleId}>
-          <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} notMerge={true} lazyUpdate={true} theme="limperial" />
+          <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">

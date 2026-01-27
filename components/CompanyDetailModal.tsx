@@ -20,25 +20,32 @@ interface CompanyDetailModalProps {
 }
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
-    if (!value || (typeof value === 'string' && !value.trim())) return null;
-    return (
-        <div className="flex items-center bg-slate-100 border border-slate-200/90 rounded-md text-sm leading-none">
-            <span className="px-2.5 py-1.5 text-slate-500 font-semibold">{label}</span>
-            <span className="px-2.5 py-1.5 text-slate-800 font-medium bg-white rounded-r-md border-l border-slate-200/90 break-all">
-                {value}
-            </span>
-        </div>
-    );
+  if (!value || (typeof value === 'string' && !value.trim())) return null;
+  return (
+    <div className="flex items-center bg-slate-100 border border-slate-200/90 rounded-md text-sm leading-none">
+      <span className="px-2.5 py-1.5 text-slate-500 font-semibold">{label}</span>
+      <span className="px-2.5 py-1.5 text-slate-800 font-medium bg-white rounded-r-md border-l border-slate-200/90 break-all">
+        {value}
+      </span>
+    </div>
+  );
 };
+
+import { useB2B } from '../contexts/B2BContext';
 
 const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClose, onEditRequest, projects, contacts }) => {
   const { handleNavigation } = useNavigation();
-  const { companies, setCompanies } = useData();
+  const { companies: b2cCompanies, setCompanies } = useData();
+  const { isB2B, setCompanies: setB2bCompanies, companies: b2bCompanies } = useB2B();
+
+  // Use correct data source based on mode
+  const companies = isB2B ? b2bCompanies : b2cCompanies;
+
   const { addToast } = useToast();
   const [isShowing, setIsShowing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  
+
   useEffect(() => {
     if (company) {
       setDeleteConfirmOpen(false);
@@ -65,7 +72,7 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
     onClose();
     handleNavigation({ view, filter });
   };
-  
+
   const handleDelete = async () => {
     if (!company || !company['Company ID']) return;
 
@@ -76,18 +83,27 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
     onClose();
 
     // Optimistic update
-    setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
+    if (isB2B) {
+      setB2bCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
+    } else {
+      setCompanies(current => current ? current.filter(c => c['Company ID'] !== companyToDeleteId) : null);
+    }
 
     try {
-        const response: { deletedId: string } = await deleteRecord('Company List', companyToDeleteId);
-        if (response.deletedId === companyToDeleteId) {
-            addToast('Company deleted successfully!', 'success');
-        } else {
-            throw new Error("Backend did not confirm deletion.");
-        }
+      const response: { deletedId: string } = await deleteRecord('Company List', companyToDeleteId);
+      if (response.deletedId === companyToDeleteId) {
+        addToast('Company deleted successfully!', 'success');
+      } else {
+        throw new Error("Backend did not confirm deletion.");
+      }
     } catch (err: any) {
-        addToast(`Failed to delete company: ${err.message}`, 'error');
-        setCompanies(originalCompanies); // Revert on error
+      addToast(`Failed to delete company: ${err.message}`, 'error');
+      // Revert on error
+      if (isB2B) {
+        setB2bCompanies(originalCompanies);
+      } else {
+        setCompanies(originalCompanies);
+      }
     }
   };
 
@@ -97,29 +113,29 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
 
   const renderDetailView = () => (
     <div className="space-y-6">
-        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
-            <div className="flex flex-wrap items-center gap-3">
-                <DetailItem label="Company ID" value={company['Company ID']} />
-                <DetailItem label="Company Name (Khmer)" value={company['Company Name (Khmer)']} />
-                <DetailItem label="Phone Number" value={company['Phone Number']} />
-                <DetailItem label="Email" value={company.Email} />
-                <DetailItem label="Website" value={company.Website ? <a href={company.Website} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{company.Website}</a> : null} />
-                <DetailItem label="Field" value={company.Field} />
-                <DetailItem label="Payment Term" value={company['Payment Term']} />
-                <DetailItem label="Patent" value={company.Patent} />
-                <DetailItem label="Created Date" value={formatDisplayDate(company['Created Date'])} />
-                <DetailItem label="Created By" value={company['Created By']} />
-            </div>
+      <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80">
+        <div className="flex flex-wrap items-center gap-3">
+          <DetailItem label="Company ID" value={company['Company ID']} />
+          <DetailItem label="Company Name (Khmer)" value={company['Company Name (Khmer)']} />
+          <DetailItem label="Phone Number" value={company['Phone Number']} />
+          <DetailItem label="Email" value={company.Email} />
+          <DetailItem label="Website" value={company.Website ? <a href={company.Website} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{company.Website}</a> : null} />
+          <DetailItem label="Field" value={company.Field} />
+          <DetailItem label="Payment Term" value={company['Payment Term']} />
+          <DetailItem label="Patent" value={company.Patent} />
+          <DetailItem label="Created Date" value={formatDisplayDate(company['Created Date'])} />
+          <DetailItem label="Created By" value={company['Created By']} />
         </div>
-        <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80 space-y-4">
-           <div className="flex flex-wrap gap-3">
-                <DetailItem label="Address (English)" value={company['Address (English)']} />
-                <DetailItem label="Address (Khmer)" value={company['Address (Khmer)']} />
-           </div>
+      </div>
+      <div className="bg-slate-50/80 p-4 rounded-lg border border-slate-200/80 space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <DetailItem label="Address (English)" value={company['Address (English)']} />
+          <DetailItem label="Address (Khmer)" value={company['Address (Khmer)']} />
         </div>
-        {company['Patent File'] && (
-            <div className="pt-2"><a href={company['Patent File']} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-brand-600 hover:text-brand-700 font-medium">View Patent File<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a></div>
-        )}
+      </div>
+      {company['Patent File'] && (
+        <div className="pt-2"><a href={company['Patent File']} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-brand-600 hover:text-brand-700 font-medium">View Patent File<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a></div>
+      )}
     </div>
   );
 
@@ -140,7 +156,7 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors" aria-label="Close company details"><X /></button>
         </div>
-        
+
         <div className="flex-1 p-6 overflow-y-auto">
           {renderDetailView()}
 
@@ -159,15 +175,15 @@ const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({ company, onClos
           onEdit={() => onEditRequest(company)}
         />
       </div>
-    <ConfirmationModal
-      isOpen={isDeleteConfirmOpen}
-      onClose={() => setDeleteConfirmOpen(false)}
-      onConfirm={handleDelete}
-      title="Delete Company"
-      confirmText="Delete"
-    >
-      Are you sure you want to delete this company? This action cannot be undone.
-    </ConfirmationModal>
+      <ConfirmationModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Company"
+        confirmText="Delete"
+      >
+        Are you sure you want to delete this company? This action cannot be undone.
+      </ConfirmationModal>
     </>,
     document.body
   );

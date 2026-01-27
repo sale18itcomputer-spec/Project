@@ -9,10 +9,12 @@ import { limperialTheme } from './charts/echartsTheme';
 
 echarts.registerTheme('limperial', limperialTheme);
 
+const ECharts = ReactECharts as any;
+
 interface CustomerData {
-  name: string;
-  winValue: number;
-  projectCount: number;
+    name: string;
+    winValue: number;
+    projectCount: number;
 }
 
 interface TopCustomersChartProps {
@@ -38,19 +40,19 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             maximumFractionDigits: 0,
         }).format(value).replace('KHR', '៛');
     };
-    
+
     const formatShortCurrency = (val: number | string) => {
         const num = Number(val);
         const prefix = currency === 'KHR' ? '៛' : '$';
         if (num >= 1000000) return `${prefix}${(num / 1000000).toFixed(1)}M`;
-        if (num >= 1000) return `${prefix}${Math.round(num/1000)}k`;
+        if (num >= 1000) return `${prefix}${Math.round(num / 1000)}k`;
         return `${prefix}${num}`;
     }
 
     const handleResize = useDebouncedCallback(() => {
         const echartsInstance = chartRef.current?.getEchartsInstance();
         if (echartsInstance) {
-        echartsInstance.resize();
+            echartsInstance.resize();
         }
     }, 150);
 
@@ -76,13 +78,13 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             }
         }
     };
-    
+
     // Sort data descending by winValue to establish ranking
-    const rankedData = useMemo(() => 
+    const rankedData = useMemo(() =>
         [...data]
             .sort((a, b) => b.winValue - a.winValue)
-            .map((d, i) => ({ ...d, rank: i + 1 })), 
-    [data]);
+            .map((d, i) => ({ ...d, rank: i + 1 })),
+        [data]);
 
     const option = {
         grid: {
@@ -98,8 +100,8 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             right: 10,
             top: 'center',
             feature: {
-              dataView: { show: true, readOnly: false, title: "Data View" },
-              saveAsImage: { show: true, title: "Save Image" }
+                dataView: { show: true, readOnly: false, title: "Data View" },
+                saveAsImage: { show: true, title: "Save Image" }
             },
             iconStyle: {
                 borderColor: '#9ca3af' // slate-400
@@ -139,20 +141,20 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             type: 'bar',
             cursor: 'pointer',
             barMaxWidth: 30,
-            data: rankedData.map(d => ({ 
-                value: d.winValue, 
+            data: rankedData.map(d => ({
+                value: d.winValue,
                 projectCount: d.projectCount,
                 name: `${d.rank}. ${d.name}`,
                 itemStyle: {
-                    color: d.rank <= 3 
-                    ? new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                        { offset: 0, color: '#2563eb' }, // blue-600
-                        { offset: 1, color: '#004aad' }  // brand-600
-                    ])
-                    : new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                        { offset: 0, color: '#93c5fd' }, // blue-300
-                        { offset: 1, color: '#3b82f6' }  // blue-500
-                    ])
+                    color: d.rank <= 3
+                        ? new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                            { offset: 0, color: '#2563eb' }, // blue-600
+                            { offset: 1, color: '#004aad' }  // brand-600
+                        ])
+                        : new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                            { offset: 0, color: '#93c5fd' }, // blue-300
+                            { offset: 1, color: '#3b82f6' }  // blue-500
+                        ])
                 }
             })).reverse(),
             itemStyle: {
@@ -170,11 +172,11 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
                 show: true,
                 position: 'right',
                 formatter: (params: any) => new Intl.NumberFormat('en-US').format(params.value),
-                color: '#1e293b',
+                color: 'var(--foreground)',
                 fontWeight: 'bold',
                 distance: 8,
                 textShadowBlur: 4,
-                textShadowColor: 'rgba(255,255,255,0.7)',
+                textShadowColor: 'var(--background)',
             },
             animationEasing: 'cubicOut',
             animationDelay: (idx: number) => {
@@ -187,34 +189,34 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             formatter: (params: any) => {
                 const param = Array.isArray(params) ? params[0] : params;
                 if (!param || param.value === undefined) return '';
-                
+
                 // param.name has the rank, param.data is the object with projectCount
                 const { value, name, data } = param;
                 const { projectCount } = data;
-                
+
                 const percentage = totalWinValue > 0 ? ((value / totalWinValue) * 100).toFixed(1) : 0;
-                
+
                 const color = param.color.colorStops ? param.color.colorStops[1].color : param.color;
                 const marker = `<span class="w-3 h-3 rounded-full mr-2 inline-block" style="background-color: ${color};"></span>`;
-                
+
                 return `
                         <div class="font-sans p-2 w-64">
-                            <div class="flex items-center mb-2 font-bold text-slate-800 text-base">
+                            <div class="flex items-center mb-2 font-bold text-foreground text-base">
                                ${marker}
                                <span class="truncate">${name.replace(/^\d+\.\s*/, '')}</span>
                             </div>
                             <div class="space-y-1 text-sm pl-5">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-slate-600">Revenue:</span>
-                                    <span class="font-semibold text-slate-800">${formatFullCurrency(value)}</span>
+                                    <span class="text-muted-foreground">Revenue:</span>
+                                    <span class="font-semibold text-foreground">${formatFullCurrency(value)}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-slate-600">Projects Won:</span>
-                                    <span class="font-semibold text-slate-800">${projectCount}</span>
+                                    <span class="text-muted-foreground">Projects Won:</span>
+                                    <span class="font-semibold text-foreground">${projectCount}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-slate-600">Contribution:</span>
-                                    <span class="font-semibold text-slate-800">${percentage}%</span>
+                                    <span class="text-muted-foreground">Contribution:</span>
+                                    <span class="font-semibold text-foreground">${percentage}%</span>
                                 </div>
                             </div>
                         </div>`;
@@ -222,26 +224,26 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
         },
         legend: { show: false },
     };
-    
 
-  return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
-      <div className="flex-shrink-0">
-          <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1">Top 10 Customers by Revenue</h2>
-          <p className="text-sm text-slate-600 mb-4">Highest revenue-generating clients from won pipelines.</p>
-      </div>
-      {data && data.length > 0 ? (
-        <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-            <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+
+    return (
+        <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
+            <div className="flex-shrink-0">
+                <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1">Top 10 Customers by Revenue</h2>
+                <p className="text-sm text-muted-foreground mb-4">Highest revenue-generating clients from won pipelines.</p>
+            </div>
+            {data && data.length > 0 ? (
+                <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
+                    <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
+                    <BarChartHorizontal className="w-12 h-12 text-gray-300" />
+                    <p className="mt-4 text-sm font-medium">No customer data to display.</p>
+                </div>
+            )}
         </div>
-      ) : (
-         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
-            <BarChartHorizontal className="w-12 h-12 text-gray-300" />
-            <p className="mt-4 text-sm font-medium">No customer data to display.</p>
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default TopCustomersChart;

@@ -292,9 +292,9 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto bg-white">
+      <div className="flex-1 overflow-hidden bg-slate-50 p-4">
         {viewMode === 'table' ? (
-          <div className="bg-white h-full">
+          <div className="h-full">
             <DataTable
               tableId="site-survey-table"
               data={filteredData}

@@ -22,9 +22,9 @@ const PipelineListContainer: React.FC<PipelineListContainerProps> = ({ projects,
         if (projects.length === 0) {
             return (
                 <div className="p-8 h-full flex items-center justify-center">
-                    <EmptyState illustration={<Briefcase className="w-16 h-16 text-slate-300" />}>
-                        <h3 className="mt-2 text-sm font-semibold text-gray-900">No Opportunities Found</h3>
-                        <p className="mt-1 text-sm text-gray-500">Try adjusting your search query.</p>
+                    <EmptyState illustration={<Briefcase className="w-16 h-16 text-muted-foreground/20" />}>
+                        <h3 className="mt-2 text-sm font-semibold text-foreground">No Opportunities Found</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search query.</p>
                     </EmptyState>
                 </div>
             );
@@ -36,23 +36,23 @@ const PipelineListContainer: React.FC<PipelineListContainerProps> = ({ projects,
                     <li key={project['Pipeline No.']}>
                         <button
                             onClick={() => onSelectProject(project['Pipeline No.'])}
-                            className={`w-full text-left px-4 py-3.5 border-b border-slate-100 border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedPipelineNo === project['Pipeline No.']
-                                    ? 'bg-brand-50 border-brand-500'
-                                    : 'border-transparent hover:bg-slate-100'
+                            className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedPipelineNo === project['Pipeline No.']
+                                ? 'bg-brand-500/10 border-brand-500'
+                                : 'border-transparent hover:bg-muted'
                                 }`}
                         >
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0">
                                     <h3 className={`truncate text-base ${selectedPipelineNo === project['Pipeline No.']
-                                            ? 'font-bold text-brand-800'
-                                            : 'font-semibold text-slate-800'
+                                        ? 'font-bold text-brand-500'
+                                        : 'font-semibold text-foreground'
                                         }`}>
                                         {project['Company Name']}
                                     </h3>
-                                    <p className="text-sm text-slate-600 truncate mt-0.5 font-mono">{project['Pipeline No.']}</p>
+                                    <p className="text-sm text-muted-foreground truncate mt-0.5 font-mono">{project['Pipeline No.']}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-2">
-                                    <p className={`text-sm font-semibold ${selectedPipelineNo === project['Pipeline No.'] ? 'text-brand-900' : 'text-slate-800'
+                                    <p className={`text-sm font-semibold ${selectedPipelineNo === project['Pipeline No.'] ? 'text-brand-500' : 'text-foreground'
                                         }`}>
                                         {formatCurrencySmartly(project['Bid Value'], project.Currency)}
                                     </p>

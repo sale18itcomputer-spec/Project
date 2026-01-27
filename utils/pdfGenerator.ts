@@ -359,8 +359,8 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
             const displayUnitPrice = qty > 0 ? (amt / qty) : (uPrice + cm);
 
             const symbol = getCurrencySymbol(currency);
-            const unitPriceStr = `${symbol}   ${displayUnitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            const amountStr = `${symbol}   ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            const unitPriceStr = `${symbol} ${displayUnitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            const amountStr = `${symbol} ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             // For Sale Order: combine model name and description in the same row
             // For Quotation: keep model name and description on separate rows
@@ -480,15 +480,15 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
             if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'bold');
             else doc.setFont('times', 'bold');
             doc.setFontSize(9);
-            doc.text(label1, labelEndX - 2, currentY + 5, { align: 'right' });
+            doc.text(label1, labelEndX - 1, currentY + 5, { align: 'right' });
 
             const symbol = isKHR ? 'R' : '$'; // Use 'R' for Riel symbol
             doc.setTextColor(0, 0, 0);
             doc.setFont('times', 'bold');
-            doc.text(symbol, valueStartX + 2, currentY + 5, { align: 'left' });
+            doc.text(symbol, valueStartX + 1, currentY + 5, { align: 'left' });
 
             doc.setFont('times', 'bold');
-            doc.text(val1.toLocaleString('en-US', { minimumFractionDigits: 2 }), valueEndX - 2, currentY + 5, { align: 'right' });
+            doc.text(val1.toLocaleString('en-US', { minimumFractionDigits: 2 }), valueEndX - 1, currentY + 5, { align: 'right' });
             currentY += 7;
         };
 
@@ -531,9 +531,17 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
             doc.rect(xPos, currentY - checkSize, checkSize, checkSize);
 
             // Always checked since we are only iterating selected ones
+            // Draw check mark (tick) instead of X
             doc.setLineWidth(0.4);
-            doc.line(xPos, currentY - checkSize, xPos + checkSize, currentY);
-            doc.line(xPos + checkSize, currentY - checkSize, xPos, currentY);
+            const startX = xPos + (checkSize * 0.2);
+            const startY = currentY - (checkSize * 0.45);
+            const midX = xPos + (checkSize * 0.45);
+            const midY = currentY - (checkSize * 0.15);
+            const endX = xPos + (checkSize * 0.85);
+            const endY = currentY - (checkSize * 0.8);
+
+            doc.line(startX, startY, midX, midY);
+            doc.line(midX, midY, endX, endY);
 
             doc.text(option, xPos + checkSize + 2, currentY);
             xPos += colWidth;

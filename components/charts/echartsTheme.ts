@@ -1,16 +1,16 @@
 import { EChartsOption } from 'echarts';
 
-// A modern, sleek theme with a teal and amber palette
+// A modern, sleek theme that adapts to B2B dark mode using CSS variables
 const colors = {
   primary: '#0d9488',    // teal-600
   secondary: '#f59e0b',  // amber-500
   accent: '#6366f1',     // indigo-500
-  text: '#1e293b',       // slate-800
-  textSecondary: '#64748b', // slate-500
-  axisLine: '#cbd5e1',     // slate-300
-  splitLine: '#f1f5f9',    // slate-100
-  bg: '#ffffff',
-  tooltipBg: 'rgba(255, 255, 255, 0.98)',
+  text: 'rgba(0,0,0,0.85)', // Default, but overridden if possible or using CSS variables
+  textSecondary: '#64748b',
+  axisLine: '#cbd5e1',
+  splitLine: 'rgba(0,0,0,0.05)',
+  bg: 'transparent',
+  tooltipBg: '#ffffff',
   shadow: 'rgba(0, 0, 0, 0.08)'
 };
 
@@ -53,7 +53,7 @@ export const limperialTheme: EChartsOption = {
   },
   bar: {
     itemStyle: {
-        borderRadius: [6, 6, 0, 0]
+      borderRadius: [6, 6, 0, 0]
     },
     barMaxWidth: 40
   },
@@ -66,35 +66,35 @@ export const limperialTheme: EChartsOption = {
       shadowBlur: 10,
     },
     label: {
-        color: colors.textSecondary
+      color: colors.textSecondary
     }
   },
   gauge: {
     axisLine: {
-        lineStyle: {
-            width: 20,
-            color: [
-                [1, colors.splitLine]
-            ]
-        }
+      lineStyle: {
+        width: 20,
+        color: [
+          [1, colors.splitLine]
+        ]
+      }
     },
     progress: {
-        show: true,
-        roundCap: true,
-        width: 20,
-        itemStyle: {
-            shadowBlur: 10,
-            shadowColor: colors.shadow
-        }
+      show: true,
+      roundCap: true,
+      width: 20,
+      itemStyle: {
+        shadowBlur: 10,
+        shadowColor: colors.shadow
+      }
     },
     pointer: {
-        show: false
+      show: false
     },
     detail: {
-        valueAnimation: true,
-        fontSize: 40,
-        fontWeight: 'bold',
-        offsetCenter: [0, '0%']
+      valueAnimation: true,
+      fontSize: 40,
+      fontWeight: 'bold',
+      offsetCenter: [0, '0%']
     },
   },
   tooltip: {
@@ -165,19 +165,19 @@ export const limperialTheme: EChartsOption = {
   },
   dataZoom: {
     handleStyle: {
-        borderColor: colors.primary,
-        color: colors.bg
+      borderColor: colors.primary,
+      color: colors.bg
     },
     dataBackground: {
-        areaStyle: { color: colors.splitLine },
-        lineStyle: { opacity: 0.8, color: colors.axisLine }
+      areaStyle: { color: colors.splitLine },
+      lineStyle: { opacity: 0.8, color: colors.axisLine }
     },
     selectedDataBackground: {
-        areaStyle: { color: colors.primary, opacity: 0.2 },
-        lineStyle: { color: colors.primary }
+      areaStyle: { color: colors.primary, opacity: 0.2 },
+      lineStyle: { color: colors.primary }
     },
     textStyle: {
-        color: colors.textSecondary
+      color: colors.textSecondary
     }
   },
   legend: {
@@ -186,7 +186,7 @@ export const limperialTheme: EChartsOption = {
     },
     inactiveColor: '#ccc',
     pageTextStyle: {
-        color: colors.textSecondary,
+      color: colors.textSecondary,
     }
   },
   toolbox: {

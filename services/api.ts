@@ -14,6 +14,10 @@ const TABLE_MAP: { [key: string]: string } = {
     'Sale Orders': 'sale_orders',
     'Raw': 'pricelist',
     'Invoices': 'invoices',
+    // B2B Mappings
+    'b2b_pipelines': 'b2b_pipelines',
+    'b2b_companies': 'b2b_companies',
+    'b2b_quotations': 'b2b_quotations',
 };
 
 // Configuration for primary keys (matching the old config for compatibility)
@@ -30,6 +34,10 @@ const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
     'Sale Orders': { primaryKey: '"SO No."' },
     'Raw': { primaryKey: '"Code"' },
     'Invoices': { primaryKey: '"Inv No."' },
+    // B2B Config
+    'b2b_pipelines': { primaryKey: '"Pipeline No."' },
+    'b2b_companies': { primaryKey: '"Company ID"' },
+    'b2b_quotations': { primaryKey: '"Quote No."' },
 };
 
 /**

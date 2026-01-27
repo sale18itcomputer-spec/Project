@@ -33,7 +33,7 @@ const ItemActionsMenu: React.FC<ItemActionsMenuProps> = ({ onView, onEdit, onDel
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg border border-slate-100 z-20 animate-contentFadeIn" style={{animationDuration: '0.15s'}}>
+                <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg border border-slate-100 z-[100] animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
                     <ul className="py-1">
                         <li>
                             <button onClick={handleAction(onView)} className="flex items-center gap-3 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
@@ -47,7 +47,7 @@ const ItemActionsMenu: React.FC<ItemActionsMenuProps> = ({ onView, onEdit, onDel
                                 <span>Edit</span>
                             </button>
                         </li>
-                         <li>
+                        <li>
                             <div className="border-t border-slate-100 my-1"></div>
                             <button onClick={handleAction(onDelete)} className="flex items-center gap-3 w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
                                 <Trash2 className="w-4 h-4" />

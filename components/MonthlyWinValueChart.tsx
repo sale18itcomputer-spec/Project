@@ -9,6 +9,8 @@ import { useFilter } from '../contexts/FilterContext';
 
 echarts.registerTheme('limperial', limperialTheme);
 
+const ECharts = ReactECharts as any;
+
 interface MonthlyWinValueData {
   name: string; // e.g., "Apr 2024", "Q2 2024", "2024"
   winValue: number;
@@ -22,6 +24,7 @@ interface MonthlyWinValueChartProps {
   period: Period;
   onPeriodChange: (period: Period) => void;
   currency: 'USD' | 'KHR';
+  isB2B?: boolean;
 }
 
 const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Period, onClick: (period: Period) => void }> =
@@ -30,7 +33,7 @@ const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Peri
     return (
       <button
         onClick={() => onClick(period)}
-        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${isActive ? 'bg-white shadow-sm text-brand-700' : 'text-slate-600 hover:bg-slate-200'
+        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${isActive ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'
           }`}
       >
         {label}
@@ -38,7 +41,7 @@ const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Peri
     );
   }
 
-const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, period, onPeriodChange, currency }) => {
+const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, period, onPeriodChange, currency, isB2B }) => {
   const { width } = useWindowSize();
   const isMobile = width ? width < 768 : false;
   const chartRef = useRef<any>(null);
@@ -192,29 +195,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
           formatter: (params: any) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(params.value),
           fontSize: 12,
         },
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          data: [
-            {
-              yAxis: avgValue,
-              name: 'Average',
-              lineStyle: {
-                type: 'dashed',
-                color: '#f59e0b',
-                width: 2
-              },
-              label: {
-                formatter: `Avg: ${formatCurrency(avgValue)}`,
-                position: 'insideEndTop',
-                color: '#b45309',
-                padding: [2, 4],
-                backgroundColor: 'rgba(255, 251, 235, 0.8)',
-                borderRadius: 4,
-              }
-            }
-          ]
-        }
+
       },
     ],
     tooltip: {
@@ -236,7 +217,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
             </div>
             <div class="flex items-center mt-1">
                 <span class="w-3 h-3 rounded-full mr-2 inline-block bg-slate-400"></span>
-                <span class="text-gray-600">Projects Won:</span>
+                <span class="text-gray-600">${isB2B ? 'Projects Won' : 'Orders Completed'}:</span>
                 <span class="font-semibold text-gray-800 ml-auto">${projectCount}</span>
             </div>`;
       }
@@ -268,13 +249,15 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
   }[period];
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
+    <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
       <div className="flex flex-col sm:flex-row justify-between items-start mb-4 flex-shrink-0 gap-2">
         <div>
-          <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1">{chartTitle}</h2>
-          <p className="text-sm text-slate-600">Revenue from completed sale orders (excluding VAT). Click and drag to zoom.</p>
+          <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1">{chartTitle}</h2>
+          <p className="text-sm text-muted-foreground">
+            {isB2B ? 'Revenue from won projects (excluding VAT)' : 'Revenue from completed sale orders (excluding VAT)'}. Click and drag to zoom.
+          </p>
         </div>
-        <div className="bg-slate-100 p-1 rounded-lg flex gap-1 flex-shrink-0">
+        <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0">
           <ToggleButton period='monthly' label='Monthly' activePeriod={period} onClick={onPeriodChange} />
           <ToggleButton period='quarterly' label='Quarterly' activePeriod={period} onClick={onPeriodChange} />
           <ToggleButton period='yearly' label='Yearly' activePeriod={period} onClick={onPeriodChange} />
@@ -282,7 +265,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
       </div>
       {data && data.length > 0 ? (
         <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-          <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+          <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">

@@ -10,6 +10,8 @@ import { limperialTheme } from './charts/echartsTheme';
 
 echarts.registerTheme('limperial', limperialTheme);
 
+const ECharts = ReactECharts as any;
+
 const getStatusColor = (status: string) => {
   const s = status.toLowerCase();
   if (s.includes('win')) return '#10b981'; // emerald-500
@@ -140,12 +142,12 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col" ref={containerRef}>
-      <h2 id={titleId} className="text-lg font-semibold text-gray-900 mb-1 flex-shrink-0">Pipeline Status</h2>
-      <p className="text-sm text-slate-600 mb-4 flex-shrink-0">A summary of all pipelines by their current status.</p>
+    <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
+      <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1 flex-shrink-0">Pipeline Status</h2>
+      <p className="text-sm text-muted-foreground mb-4 flex-shrink-0">A summary of all pipelines by their current status.</p>
       {data && data.length > 0 ? (
         <div className="w-full h-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-          <ReactECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+          <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-grow text-slate-600">

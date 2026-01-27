@@ -1,5 +1,6 @@
 import React from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, ChevronLeft, Save } from 'lucide-react';
+import Spinner from './Spinner';
 
 interface DocumentEditorContainerProps {
   title: string;
@@ -21,46 +22,62 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
   onSave,
   onPrint,
   isSubmitting,
-  saveButtonText = 'Save & Generate File',
+  saveButtonText = 'Save & Generate',
   children,
   leftActions,
   rightActions,
 }) => {
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      {/* Sticky Header */}
-      <header className="flex-shrink-0 bg-white/95 backdrop-blur-sm p-4 sm:p-6 border-b border-slate-200 sticky top-0 z-10 screen-only">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4 min-w-0">
-            <div>
-              <button onClick={onBack} className="text-sm font-semibold text-brand-700 hover:underline">&larr; Back to Dashboard</button>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-1 truncate">{title}</h1>
-              {subtitle && <p className="text-base lg:text-lg text-slate-500 font-medium truncate">{subtitle}</p>}
+    <div className="h-full flex flex-col bg-background">
+      {/* Premium Sticky Header */}
+      <header className="flex-shrink-0 bg-card/80 backdrop-blur-md border-b border-border/60 sticky top-0 z-[100] screen-only">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+
+          {/* Navigation & Title */}
+          <div className="flex items-center gap-6 min-w-0">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-muted-foreground hover:text-brand-500 transition-colors group py-2"
+            >
+              <div className="p-1.5 rounded-lg bg-muted group-hover:bg-brand-500/10 transition-colors">
+                <ChevronLeft className="w-5 h-5 text-foreground" />
+              </div>
+              <span className="text-sm font-bold hidden sm:inline uppercase tracking-widest text-[10px]">Back</span>
+            </button>
+
+            <div className="h-8 w-px bg-border hidden sm:block" />
+
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate tracking-tight">{title}</h1>
+              {subtitle && <p className="text-xs text-muted-foreground font-medium truncate">{subtitle}</p>}
             </div>
-            {leftActions}
+
+            <div className="hidden lg:flex items-center">
+              {leftActions}
+            </div>
           </div>
+
+          {/* Action Buttons */}
           <div className="flex items-center gap-3">
             {rightActions ? rightActions : (
               <>
                 {onPrint && (
-                  <button onClick={onPrint} className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md border border-slate-300 transition flex items-center gap-2 shadow-sm">
-                    <Printer className="w-4 h-4" />
+                  <button onClick={onPrint} className="bg-card hover:bg-muted text-foreground font-bold py-2.5 px-5 rounded-xl border border-border transition-all flex items-center gap-2 shadow-sm active:scale-95">
+                    <Printer className="w-4 h-4 text-muted-foreground" />
                     <span className="hidden sm:inline">Print</span>
                   </button>
                 )}
-                <button onClick={onSave} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition disabled:bg-slate-400 shadow-sm flex items-center gap-2 min-w-[150px] sm:min-w-[180px] justify-center">
+                <button
+                  onClick={onSave}
+                  disabled={isSubmitting}
+                  className="bg-brand-600 hover:bg-brand-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all disabled:bg-muted shadow-lg shadow-brand-500/20 flex items-center gap-2 min-w-[120px] sm:min-w-[200px] justify-center active:scale-95"
+                >
                   {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>Saving...</span>
-                    </>
+                    <Spinner size="sm" color="white" />
                   ) : (
                     <>
-                      <span className="hidden sm:inline">{saveButtonText}</span>
-                      <span className="sm:hidden">Save</span>
+                      <Save className="w-4 h-4" />
+                      <span>{saveButtonText}</span>
                     </>
                   )}
                 </button>
@@ -70,9 +87,18 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
         </div>
       </header>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
-        {children}
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto relative bg-background">
+        {/* Mobile Header Actions (Visible only on small screens if provided) */}
+        <div className="lg:hidden p-4 pb-0">
+          {leftActions}
+        </div>
+
+        <div className="p-4 sm:p-6 lg:p-10 h-full">
+          <div className="max-w-[1920px] mx-auto h-full">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
