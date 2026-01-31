@@ -137,7 +137,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             axisLine: { show: false },
         },
         series: [{
-            name: 'Total Win Value',
+            name: 'Total Revenue',
             type: 'bar',
             cursor: 'pointer',
             barMaxWidth: 30,
@@ -190,9 +190,8 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
                 const param = Array.isArray(params) ? params[0] : params;
                 if (!param || param.value === undefined) return '';
 
-                // param.name has the rank, param.data is the object with projectCount
                 const { value, name, data } = param;
-                const { projectCount } = data;
+                const { projectCount } = data; // Note: using projectCount property but labeling as Orders
 
                 const percentage = totalWinValue > 0 ? ((value / totalWinValue) * 100).toFixed(1) : 0;
 
@@ -211,7 +210,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
                                     <span class="font-semibold text-foreground">${formatFullCurrency(value)}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-muted-foreground">Projects Won:</span>
+                                    <span class="text-muted-foreground">Orders:</span>
                                     <span class="font-semibold text-foreground">${projectCount}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
@@ -230,7 +229,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
         <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
             <div className="flex-shrink-0">
                 <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1">Top 10 Customers by Revenue</h2>
-                <p className="text-sm text-muted-foreground mb-4">Highest revenue-generating clients from won pipelines.</p>
+                <p className="text-sm text-muted-foreground mb-4">Highest revenue-generating clients from sales orders.</p>
             </div>
             {data && data.length > 0 ? (
                 <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>

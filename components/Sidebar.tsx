@@ -2,6 +2,7 @@ import React from 'react';
 import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags } from 'lucide-react';
 import { useNavigation, NavigationState } from '../contexts/NavigationContext';
 import { useB2B } from '../contexts/B2BContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -42,6 +43,7 @@ const NavItem: React.FC<{
 const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isCollapsed, onToggleCollapse, onNavigate, onResizeMouseDown, onResizeDoubleClick }) => {
   const { navigation } = useNavigation();
   const { isB2B } = useB2B();
+  const { currentUser } = useAuth();
 
   const sidebarClasses = `
     fixed inset-y-0 left-0 bg-card border-r
@@ -101,6 +103,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                     label="Contacts"
                     isActive={navigation.view === 'contacts'}
                     onClick={() => onNavigate({ view: 'contacts' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
+                {/* User management - Admin only */}
+                {currentUser?.Role === 'Admin' && (
+                  <NavItem
+                    icon={<Users size={20} />}
+                    label="User Management"
+                    isActive={navigation.view === 'users'}
+                    onClick={() => onNavigate({ view: 'users' })}
                     isCollapsed={isCollapsed}
                   />
                 )}

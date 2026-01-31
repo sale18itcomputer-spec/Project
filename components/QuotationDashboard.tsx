@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Quotation } from '../types';
 import { useB2BData } from '../hooks/useB2BData';
@@ -171,21 +170,10 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
     const originalQuotations = quotations ? [...quotations] : [];
     const quoteToDeleteId = quotationToDelete['Quote No.'];
-    // Access isB2B directly from hook result (see step 1) or context.
-    // Actually useB2BData returns { ...b2cData, ...b2bOverrides, isB2B }. 
-    // Let's verify useB2BData returns isB2B. It does? 
-    // DataContext doesn't. B2BContext does. 
-    // useB2BData merges them.
-
     setQuotationToDelete(null);
-
     setQuotations(current => current ? current.filter(q => q['Quote No.'] !== quoteToDeleteId) : null);
 
     try {
-      const isB2BMode = (quotationToDelete['Quote No.'] || '').startsWith('BQ-') || (quotationToDelete['Quote No.'] || '').startsWith('B2B-');
-      // Better to rely on the hook's isB2B if available, but ID check is robust too.
-      // Let's rely on the isB2B prop I will add to the destructuring.
-
       const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
       await deleteRecord(tableName, quoteToDeleteId);
       addToast('Quotation deleted!', 'success');
@@ -201,7 +189,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
     const originalQuotations = quotations ? [...quotations] : [];
 
-    // Optimistic UI Update
     setQuotations(current => {
       if (!current) return null;
       return current.map(q =>
@@ -216,7 +203,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     } catch (err) {
       console.error("Failed to update status:", err);
       addToast('Failed to move quotation. Reverting change.', 'error');
-      setQuotations(originalQuotations); // Revert UI on error
+      setQuotations(originalQuotations);
     }
   };
 
@@ -405,7 +392,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     setVisibleColumns(prev => {
       const newSet = new Set(prev);
       if (newSet.has(columnKey)) {
-        if (newSet.size > 1) { // Prevent hiding the last column
+        if (newSet.size > 1) {
           newSet.delete(columnKey);
         }
       } else {
@@ -599,7 +586,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       <QuotationCreator
         onBack={handleBackToDashboard}
         existingQuotation={selectedQuotationToEdit}
-        initialData={initialPayload?.action === 'create' ? initialPayload.initialData : undefined}
+        initialData={initialPayload?.action === 'create' ? (initialPayload as any).initialData : undefined}
       />
     );
   }
@@ -674,18 +661,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Search Box */}
-          <div className="relative w-64">
-            <input
-              type="text"
-              placeholder="Search quotations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
-            />
-            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-          </div>
-
           {/* View Mode Toggle */}
           <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
             <button
@@ -723,19 +698,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               <Scissors className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Column Toggle / View Options */}
-          <DataTableColumnToggle
-            allColumns={allColumns}
-            visibleColumns={visibleColumns}
-            onColumnToggle={handleColumnToggle}
-            trigger={
-              <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
-                <LayoutGrid className="w-4 h-4" />
-                View
-              </button>
-            }
-          />
 
           {/* New Quotation Button */}
           <button
@@ -798,8 +760,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       </div>
 
       <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-
-
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote Pending' ? null : 'Quote Pending')}

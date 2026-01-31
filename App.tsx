@@ -4,8 +4,11 @@ import Header from './components/Header';
 import { DataProvider } from './contexts/DataContext';
 import { NavigationProvider, useNavigation, NavigationState } from './contexts/NavigationContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
+import PasscodeLock from './components/PasscodeLock';
+import SecurityModal from './components/SecurityModal';
 import { Quotation } from './types';
 import { Toaster } from './components/ui/sonner';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
@@ -29,6 +32,7 @@ const SaleOrderDashboard = lazy(() => import('./components/SaleOrderDashboard'))
 const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'));
 const B2BPricelistDashboard = lazy(() => import('./components/B2BPricelistDashboard'));
 const InvoiceDODashboard = lazy(() => import('./components/InvoiceDODashboard'));
+const UserManagementDashboard = lazy(() => import('./components/UserManagementDashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
@@ -146,6 +150,8 @@ const AuthenticatedLayout: React.FC = () => {
         return <B2BPricelistDashboard />;
       case 'invoice-do':
         return <InvoiceDODashboard initialPayload={navigation.payload} />;
+      case 'users':
+        return <UserManagementDashboard />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -240,7 +246,13 @@ const AppContent: React.FC = () => {
     return <BrandedLoader />;
   }
 
-  return isAuthenticated ? <AuthenticatedLayout /> : <LoginPage />;
+  return isAuthenticated ? (
+    <PasscodeLock>
+      <AuthenticatedLayout />
+    </PasscodeLock>
+  ) : (
+    <LoginPage />
+  );
 };
 
 
@@ -253,6 +265,7 @@ const App: React.FC = () => {
             <NotificationProvider>
               <ConnectivityProvider>
                 <AppContent />
+                <SecurityModal />
                 <Toaster />
               </ConnectivityProvider>
             </NotificationProvider>

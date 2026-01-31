@@ -212,7 +212,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         if (viewMode === 'detail' && !selectedSaleOrderId && filteredData.length > 0) {
             setSelectedSaleOrderId(filteredData[0]['SO No.']);
         }
-    }, [viewMode, selectedSaleOrderId, filteredData]);
+
+        // Handle direct view action from payload
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['SO No.']) {
+            setSelectedSaleOrderId(initialPayload.data['SO No.']);
+            setViewMode('detail');
+        }
+    }, [viewMode, selectedSaleOrderId, filteredData, initialPayload]);
 
     const allColumns = useMemo<ColumnDef<SaleOrder>[]>(() => [
         {

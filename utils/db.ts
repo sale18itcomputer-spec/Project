@@ -5,7 +5,7 @@ import {
 } from '../types';
 
 const DB_NAME = 'limperial-db';
-const DB_VERSION = 3; // Incremented version to trigger upgrade
+const DB_VERSION = 4; // Incremented version to ensure all stores (like invoices) exist
 
 const STORE_CONFIG = {
     projects: { keyPath: 'Pipeline No.' },

@@ -161,28 +161,36 @@ export interface UnifiedActivity {
   original: Meeting | ContactLog;
 }
 
-export interface Notification {
-  id: string;
-  type: 'due_date' | 'overdue' | 'status_win';
-  title: string;
-  description: string;
-  timestamp: Date;
-  read: boolean;
-  link: {
-    view: 'projects';
-    filter: string; // Pipeline No.
-  };
-}
+
 
 export interface PendingWorkItem {
   id: string;
-  type: 'project' | 'meeting';
+  type: 'quotation' | 'saleOrder' | 'pipeline' | 'invoice' | 'meeting' | 'survey' | 'contactLog';
   title: string;
   subtitle: string;
-  date: Date;
-  time?: string;
-  link: { view: string; filter: string };
+  dueDate: Date;
+  date: string;
+  time: string;
+  status: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  daysUntil: number;
   icon: React.ReactNode;
+  link: string;
+}
+
+export interface Notification {
+  id: string;
+  type: 'quotation' | 'sale_order' | 'project' | 'invoice' | 'meeting' | 'site_survey';
+  subtype: 'expiry' | 'delivery' | 'due_date' | 'stuck' | 'upcoming';
+  title: string;
+  description: string;
+  timestamp: Date;
+  severity: 'low' | 'medium' | 'high';
+  link: {
+    view: string;
+    filter: string;
+  };
+  read?: boolean;
 }
 
 export interface Quotation {

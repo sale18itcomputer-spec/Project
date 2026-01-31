@@ -8,9 +8,9 @@ const B2BToggle: React.FC = () => {
     const { currentUser } = useAuth();
 
     // Only show toggle for admin users
-    if (currentUser?.Role !== 'Admin') {
-        return null;
-    }
+    // if (currentUser?.Role !== 'Admin') {
+    //    return null;
+    // }
 
     return (
         <div className="flex items-center gap-3">

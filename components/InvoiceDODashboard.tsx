@@ -107,6 +107,13 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
         }
     };
 
+    useEffect(() => {
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['Inv No.']) {
+            setSelectedInvoiceId(initialPayload.data['Inv No.']);
+            setViewMode('detail');
+        }
+    }, [initialPayload]);
+
     const filteredData = useMemo(() => {
         let dataToFilter = invoices || [];
         if (statusFilter) {

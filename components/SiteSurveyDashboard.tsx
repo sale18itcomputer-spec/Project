@@ -333,6 +333,15 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         existingData={modalConfig.survey}
         initialReadOnly={modalConfig.isReadOnly}
       />
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            className="whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition bg-brand-600 text-white border-brand-600 shadow-sm"
+          >
+            All Surveys
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

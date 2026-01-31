@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Bell, Search, LogOut, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Menu, Bell, Search, LogOut, Info, CheckCircle, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
 import { useNavigation } from '../contexts/NavigationContext';
+
 import { useNotification } from '../contexts/NotificationContext';
 import { Notification, User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,11 +31,16 @@ const OfflineIndicator = () => (
   </div>
 );
 
+
+
 const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) => {
   switch (type) {
-    case 'due_date': return <Bell className="w-5 h-5 text-sky-600" />;
-    case 'overdue': return <AlertTriangle className="w-5 h-5 text-rose-600" />;
-    case 'status_win': return <CheckCircle className="w-5 h-5 text-emerald-600" />;
+    case 'quotation': return <FileText className="w-5 h-5 text-orange-600" />;
+    case 'sale_order': return <ShoppingCart className="w-5 h-5 text-emerald-600" />;
+    case 'project': return <Briefcase className="w-5 h-5 text-indigo-600" />;
+    case 'invoice': return <FileText className="w-5 h-5 text-blue-600" />;
+    case 'meeting': return <Calendar className="w-5 h-5 text-sky-600" />;
+    case 'site_survey': return <MapPin className="w-5 h-5 text-red-600" />;
     default: return <Bell className="w-5 h-5 text-slate-600" />;
   }
 }
@@ -45,6 +51,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
   const { currentUser, logout } = useAuth();
   const { isOnline } = useConnectivity();
   const [isAvatarError, setAvatarError] = useState(false);
+
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    handleNavigation(notification.link);
+  };
 
   const getTitle = () => {
     switch (navigation.view) {
@@ -64,12 +75,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   useEffect(() => { setAvatarError(false); }, [currentUser]);
 
-  const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id);
-    handleNavigation(notification.link);
-  };
-
   const avatarUrl = currentUser ? transformToDirectImageUrl(currentUser.Picture) : '';
+
   const isDashboard = navigation.view === 'dashboard';
 
   const headerClasses = isMobile
@@ -107,6 +114,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
           </div>
         )}
         <B2BToggle />
+        {/* Quick Lock Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-brand-600 transition-colors"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('lock-app'));
+          }}
+          title="Lock Screen"
+        >
+          <Lock className="w-5 h-5" />
+        </Button>
         <div className={`flex items-center space-x-2 sm:space-x-4 ${!isMobile && isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -131,13 +150,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
               <div className="max-h-96 overflow-y-auto">
                 {notifications.length > 0 ? (
                   notifications.map(n => (
-                    <DropdownMenuItem key={n.id} onClick={() => handleNotificationClick(n)} className="flex items-start gap-3 p-3 cursor-pointer">
+                    <DropdownMenuItem
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`flex items-start gap-3 p-3 cursor-pointer ${n.read ? 'opacity-60' : ''}`}
+                    >
                       <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"><NotificationIcon type={n.type} /></div>
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">{n.title}</p>
+                        <p className={`text-sm ${n.read ? 'font-medium' : 'font-bold'}`}>{n.title}</p>
                         <p className="text-sm text-muted-foreground line-clamp-2">{n.description}</p>
                         <p className="text-xs text-muted-foreground mt-1">{formatRelativeTime(n.timestamp)}</p>
                       </div>
+                      {!n.read && <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>}
                     </DropdownMenuItem>
                   ))
                 ) : (
@@ -150,7 +174,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full" aria-label="Open user menu">
@@ -168,9 +191,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
                 <p className="text-sm text-muted-foreground font-normal truncate">{currentUser?.Role || 'Role'}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Info className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+              <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-security-modal'))}>
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                <span>Security</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                window.dispatchEvent(new CustomEvent('lock-app'));
+              }}>
+                <Lock className="mr-2 h-4 w-4" />
+                <span>Lock Screen</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive focus:bg-destructive/10">

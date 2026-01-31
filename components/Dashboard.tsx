@@ -2,17 +2,19 @@ import React, { useMemo, useState, useEffect } from 'react';
 import MetricCard from './MetricCard';
 import ProjectOutcomeChart from './ProjectOutcomeChart';
 import { useB2BData } from '../hooks/useB2BData';
-import { ProjectStatusData, PendingWorkItem } from '../types';
+import { ProjectStatusData } from '../types';
 import MonthlyWinValueChart from './MonthlyWinValueChart';
 import TopCustomersChart from './TopCustomersChart';
-import ProjectsByBrandChart from './ProjectsByBrandChart';
+import SalesByBrandChart from './ProjectsByBrandChart';
 import WinRateChart from './WinRateChart';
 import { useNavigation } from '../contexts/NavigationContext';
 import { FilterProvider, useFilter } from '../contexts/FilterContext';
 import DashboardFilterBar from './DashboardFilterBar';
 import { calculateDueDate, parseDate } from '../utils/time';
 import { parseSheetValue } from '../utils/formatters';
+import AnalyticsDashboard from './AnalyticsDashboard';
 import PendingWorks from './PendingWorks';
+
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
 import { useB2B } from '../contexts/B2BContext';
@@ -55,7 +57,7 @@ const DashboardContentSkeleton = () => (
 );
 
 const DashboardContent: React.FC = () => {
-  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders } = useB2BData();
+  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders, quotations, pricelist } = useB2BData();
   const { handleNavigation } = useNavigation();
   const { currentUser } = useAuth();
   const { filters } = useFilter();
@@ -201,78 +203,6 @@ const DashboardContent: React.FC = () => {
       calculatedDueDate: calculateDueDate(project['Created Date'], project['Time Frame'])
     }));
   }, [filteredProjects]);
-
-  const pendingWorks = useMemo(() => {
-    // ... code for pending works remains SAME ...
-    // Get the current date at midnight in UTC+7 to match the timezone of parsed dates from sheets.
-    const now = new Date();
-    const todayStrInUTC7 = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-    const today = parseDate(todayStrInUTC7);
-
-    // If today can't be parsed, we can't calculate pending items.
-    if (!today) {
-      console.error("Could not determine today's date for pending works.");
-      return { todayItems: [], upcomingItems: [] };
-    }
-
-    const endOfUpcoming = new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000); // Today + 8 days to include the 7th day
-
-    const todayItems: PendingWorkItem[] = [];
-    const upcomingItems: PendingWorkItem[] = [];
-
-    if (processedFilteredProjects) {
-      processedFilteredProjects.forEach(p => {
-        if (p['Responsible By'] !== currentUser?.Name) return;
-
-        // Use the calculatedDueDate directly. It's already a Date object at midnight UTC+7.
-        const dueDate = p.calculatedDueDate;
-        if (p.Status === 'Quote Submitted' && dueDate) {
-          // Compare timestamps directly. No need to modify the date objects.
-          if (dueDate.getTime() === today.getTime()) {
-            todayItems.push({
-              id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
-              date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
-            });
-          } else if (dueDate.getTime() > today.getTime() && dueDate.getTime() < endOfUpcoming.getTime()) {
-            upcomingItems.push({
-              id: p['Pipeline No.'], type: 'project', title: p['Company Name'], subtitle: p.Require || 'Pipeline Requirement',
-              date: dueDate, link: { view: 'projects', filter: p['Pipeline No.'] }, icon: <Briefcase className="w-5 h-5 text-indigo-600" />
-            });
-          }
-        }
-      });
-    }
-
-    if (meetings) {
-      meetings.forEach(m => {
-        if (m['Responsible By'] !== currentUser?.Name) return;
-
-        if ((m.Status === 'Open' || m.Status === 'Pending') && m['Meeting ID']) {
-          // parseDate returns a Date object at midnight UTC+7. Use it directly.
-          const meetingDate = parseDate(m['Meeting Date']);
-          if (meetingDate) {
-            if (meetingDate.getTime() === today.getTime()) {
-              todayItems.push({
-                id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
-                date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
-              });
-            } else if (meetingDate.getTime() > today.getTime() && meetingDate.getTime() < endOfUpcoming.getTime()) {
-              upcomingItems.push({
-                id: m['Meeting ID'], type: 'meeting', title: m['Company Name'], subtitle: `With ${m.Participants}`,
-                date: meetingDate, time: m['Start Time'], link: { view: 'meetings', filter: m['Meeting ID'] }, icon: <Calendar className="w-5 h-5 text-sky-600" />
-              });
-            }
-          }
-        }
-      });
-    }
-
-    const sortByDate = (a: PendingWorkItem, b: PendingWorkItem) => a.date.getTime() - b.date.getTime();
-    todayItems.sort(sortByDate);
-    upcomingItems.sort(sortByDate);
-
-    return { todayItems, upcomingItems };
-  }, [processedFilteredProjects, meetings, currentUser]);
 
   const totalWinValue = useMemo(() => {
     return filteredProjects
@@ -518,24 +448,76 @@ const DashboardContent: React.FC = () => {
     return { chartData };
   }, [saleOrders, projects, isB2B, revenuePeriod, currencyFilter, filters]);
 
-  const topCustomersData = useMemo(() => {
-    const baseData = filteredProjects;
-    if (!baseData) return [];
+  const [customerPeriod, setCustomerPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
 
-    const wonProjects = baseData.filter(p => {
-      if (p.Status !== 'Close (win)') return false;
-      if (currencyFilter === 'USD') return p.Currency !== 'KHR';
-      return p.Currency === currencyFilter;
+  const topCustomersData = useMemo(() => {
+    if (!saleOrders) return [];
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentQuarter = Math.floor(currentMonth / 3);
+
+    const relevantSOs = saleOrders.filter(so => {
+      // 1. Status: Filter out Cancelled orders
+      if (so.Status === 'Cancel') return false;
+
+      // 2. Currency Filter
+      if (currencyFilter === 'USD') {
+        if (so.Currency === 'KHR') return false;
+      } else {
+        if (so.Currency !== currencyFilter) return false;
+      }
+
+      // 3. Date Parsing
+      const date = parseDate(so['SO Date']);
+      if (!date) return false;
+
+      // 4. Period Scoping (relative to now)
+      // Only apply if NO global date range/year/month filter is active
+      const hasDateFilter = !!(filters.startDate || filters.endDate || filters.year?.length || filters.month?.length);
+
+      if (!hasDateFilter) {
+        const itemYear = date.getFullYear();
+        if (customerPeriod === 'yearly') {
+          if (itemYear !== currentYear) return false;
+        } else if (customerPeriod === 'monthly') {
+          if (itemYear !== currentYear || date.getMonth() !== currentMonth) return false;
+        } else if (customerPeriod === 'quarterly') {
+          const itemQuarter = Math.floor(date.getMonth() / 3);
+          if (itemYear !== currentYear || itemQuarter !== currentQuarter) return false;
+        }
+      }
+
+      // 5. Global Dashboard Filters (if active)
+      if (filters.startDate) {
+        const start = new Date(`${filters.startDate}T00:00:00.000+07:00`);
+        if (date < start) return false;
+      }
+      if (filters.endDate) {
+        const end = new Date(`${filters.endDate}T23:59:59.999+07:00`);
+        if (date > end) return false;
+      }
+      if (filters.year?.length) {
+        if (!filters.year.map(Number).includes(date.getFullYear())) return false;
+      }
+      if (filters.month?.length) {
+        const m = date.toLocaleString('en-US', { month: 'long' });
+        if (!filters.month.includes(m)) return false;
+      }
+      if (filters.companyName?.length && !filters.companyName.includes(so['Company Name'])) return false;
+
+      return true;
     });
 
-    const customerValues = wonProjects.reduce((acc, project) => {
-      const customer = project['Company Name'];
-      const bidValue = parseSheetValue(project['Bid Value']);
-      if (customer && bidValue > 0) {
+    const customerValues = relevantSOs.reduce((acc, so) => {
+      const customer = so['Company Name'];
+      const amount = parseSheetValue(so['Total Amount']);
+      if (customer && amount > 0) {
         if (!acc[customer]) {
           acc[customer] = { winValue: 0, projectCount: 0 };
         }
-        acc[customer].winValue += bidValue;
+        acc[customer].winValue += amount;
         acc[customer].projectCount += 1;
       }
       return acc;
@@ -545,28 +527,86 @@ const DashboardContent: React.FC = () => {
       .map(([name, value]: [string, { winValue: number, projectCount: number }]) => ({ name, winValue: value.winValue, projectCount: value.projectCount }))
       .sort((a, b) => b.winValue - a.winValue)
       .slice(0, 10);
-  }, [projects, filteredProjects, filters.companyName, currencyFilter]);
+  }, [saleOrders, filters, currencyFilter, customerPeriod]);
 
-  const projectsByBrandData = useMemo(() => {
-    const baseData = filteredProjects;
-    if (!baseData) return [];
+  const salesByBrandData = useMemo(() => {
+    if (!saleOrders || !pricelist) return [];
 
-    const brandCounts = baseData.reduce((acc, project) => {
-      const brand = project['Brand 1'];
-      if (brand && brand.trim() !== '' && brand.trim() !== 'N/A') {
-        if (!acc[brand]) {
-          acc[brand] = { count: 0, totalValue: 0 };
-        }
-        acc[brand].count += 1;
-        acc[brand].totalValue += parseSheetValue(project['Bid Value']);
+    const brandMap = new Map<string, string>();
+    pricelist.forEach(item => {
+      if (item.Code && item.Brand) {
+        brandMap.set(item.Code.trim(), item.Brand.trim());
       }
-      return acc;
-    }, {} as { [key: string]: { count: number; totalValue: number } });
+    });
 
-    return Object.entries(brandCounts)
-      .map(([name, value]: [string, { count: number, totalValue: number }]) => ({ name, count: value.count, totalValue: value.totalValue }))
-      .sort((a, b) => b.count - a.count);
-  }, [projects, filteredProjects, filters.brand1]);
+    const brandStats: Record<string, { count: number; totalValue: number }> = {};
+
+    saleOrders.forEach(so => {
+      if (so.Status === 'Cancel') return;
+
+      // 1. Currency Filter
+      if (currencyFilter === 'USD') {
+        if (so.Currency === 'KHR') return;
+      } else {
+        if (so.Currency !== currencyFilter) return;
+      }
+
+      // 2. Date Filters
+      const date = parseDate(so['SO Date']);
+      if (!date) return;
+
+      if (filters.startDate) {
+        const start = new Date(`${filters.startDate}T00:00:00.000+07:00`);
+        if (date < start) return;
+      }
+      if (filters.endDate) {
+        const end = new Date(`${filters.endDate}T23:59:59.999+07:00`);
+        if (date > end) return;
+      }
+      if (filters.year?.length) {
+        if (!filters.year.map(Number).includes(date.getFullYear())) return;
+      }
+      if (filters.month?.length) {
+        const m = date.toLocaleString('en-US', { month: 'long' });
+        if (!filters.month.includes(m)) return;
+      }
+      if (filters.companyName?.length && !filters.companyName.includes(so['Company Name'])) return;
+
+      // 3. Extract Brands from Items
+      let items: any[] = [];
+      try {
+        items = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : (so.ItemsJSON || []);
+      } catch (e) {
+        // ignore parse errors
+      }
+
+      const uniqueBrandsInSO = new Set<string>();
+      items.forEach(item => {
+        const brand = item.brand || brandMap.get(String(item.itemCode || '').trim()) || 'Unknown';
+        if (brand === 'N/A' || brand === 'Unknown' || brand === '') return;
+
+        if (!brandStats[brand]) {
+          brandStats[brand] = { count: 0, totalValue: 0 };
+        }
+
+        const itemAmount = parseSheetValue(item.amount);
+        brandStats[brand].totalValue += itemAmount;
+        uniqueBrandsInSO.add(brand);
+      });
+
+      uniqueBrandsInSO.forEach(brand => {
+        brandStats[brand].count += 1;
+      });
+    });
+
+    return Object.entries(brandStats)
+      .map(([name, value]) => ({
+        name,
+        count: value.count,
+        totalValue: value.totalValue
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue);
+  }, [saleOrders, pricelist, filters, currencyFilter]);
 
 
   if (loading && !projects) {
@@ -586,7 +626,7 @@ const DashboardContent: React.FC = () => {
     `transition-all duration-500 ease-out transform ${renderStep >= step ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`;
 
   return (
-    <div className="space-y-6 p-4 md:p-0">
+    <div className="space-y-8 p-4 md:p-0">
       {renderStep >= 1 && (
         <div className={`grid ${isB2B ? 'grid-cols-2 gap-4 md:gap-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6'} ${transitionClass(1)}`}>
           {metrics.map((metric) => (
@@ -618,7 +658,7 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      {/* Show Revenue Chart in both modes, but logic differs inside */}
+      {/* Detailed Revenue Charts - NOW TOP PRIORITY */}
       {renderStep >= 3 && (
         <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
           <MonthlyWinValueChart
@@ -631,23 +671,25 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      <div className={`grid grid-cols-1 ${isB2B ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-6`}>
-        {/* Hide Win Rate Chart in B2B mode */}
-        {!isB2B && renderStep >= 4 && (
-          <div className={`${transitionClass(4)} min-h-[400px] min-w-0`}>
-            <WinRateChart winRate={winRateData.winRate} won={winRateData.won} total={winRateData.total} />
-          </div>
-        )}
-        {/* Hide Pending Works in B2B mode */}
-        {!isB2B && renderStep >= 5 && (
-          <div className={`${transitionClass(5)} min-h-[400px] min-w-0`}>
-            <PendingWorks todayItems={pendingWorks.todayItems} upcomingItems={pendingWorks.upcomingItems} />
-          </div>
-        )}
+      {/* Unified Analytics Dashboard Section */}
+      {renderStep >= 4 && (
+        <div className={transitionClass(4)}>
+          <AnalyticsDashboard />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Keep Project Outcome Chart in both modes */}
         {renderStep >= 6 && (
-          <div className={`${transitionClass(6)} min-h-[400px] min-w-0`}>
+          <div className={`${transitionClass(6)} h-[500px] min-w-0`}>
             <ProjectOutcomeChart data={projectOutcomeData} />
+          </div>
+        )}
+
+        {/* Pending Works Section */}
+        {renderStep >= 6 && (
+          <div className={`${transitionClass(6)} h-[500px] min-w-0`}>
+            <PendingWorks />
           </div>
         )}
       </div>
@@ -656,12 +698,16 @@ const DashboardContent: React.FC = () => {
       <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
         {renderStep >= 7 && (
           <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
-            <TopCustomersChart data={topCustomersData} totalWinValue={totalWinValue} currency={currencyFilter} />
+            <TopCustomersChart
+              data={topCustomersData}
+              totalWinValue={totalWinValue}
+              currency={currencyFilter}
+            />
           </div>
         )}
         {renderStep >= 8 && (
           <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
-            <ProjectsByBrandChart data={projectsByBrandData} />
+            <SalesByBrandChart data={salesByBrandData} />
           </div>
         )}
       </div>

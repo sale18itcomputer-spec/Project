@@ -180,6 +180,7 @@ const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
 
     const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
+    const [statusFilter, setStatusFilter] = useState<string | null>('Available');
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
@@ -218,6 +219,11 @@ const PricelistDashboard: React.FC = () => {
 
     const filteredData = useMemo(() => {
         let data = pricelist || [];
+
+        if (statusFilter) {
+            data = data.filter(item => (item.Status || '').toLowerCase().includes(statusFilter.toLowerCase()));
+        }
+
         if (categoryFilter.length > 0) {
             data = data.filter(item => item.Category && categoryFilter.includes(item.Category));
         }
@@ -233,7 +239,7 @@ const PricelistDashboard: React.FC = () => {
             );
         }
         return data;
-    }, [pricelist, searchQuery, categoryFilter, brandFilter]);
+    }, [pricelist, searchQuery, categoryFilter, brandFilter, statusFilter]);
 
     const processedFilteredData: ProcessedPricelistItem[] = useMemo(() => {
         return filteredData.map(item => {
@@ -502,6 +508,28 @@ const PricelistDashboard: React.FC = () => {
                 existingData={modalConfig.item}
                 initialReadOnly={modalConfig.isReadOnly}
             />
+            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Available' ? null : 'Available')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Available' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+                    >
+                        Available
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Out of Stock' ? null : 'Out of Stock')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Out of Stock' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+                    >
+                        Out of Stock
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter(statusFilter === 'Pre-order' ? null : 'Pre-order')}
+                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pre-order' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+                    >
+                        Pre-order
+                    </button>
+                </div>
+            </footer>
         </div>
     );
 };

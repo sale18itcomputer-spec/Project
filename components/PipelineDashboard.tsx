@@ -134,7 +134,7 @@ const CardDueDate: React.FC<{ dueDate: Date }> = ({ dueDate }) => {
   );
 };
 
-const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void }> = ({ onEdit, onView }) => {
+const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void; onDelete: () => void }> = ({ onEdit, onView, onDelete }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +163,7 @@ const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void }> = ({ onE
         <div className="absolute right-0 mt-1 w-36 bg-card rounded-md shadow-lg border border-border z-10 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
           <button onClick={handleAction(onView)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">View Details</button>
           <button onClick={handleAction(onEdit)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">Edit</button>
+          <button onClick={handleAction(onDelete)} className="block w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition-colors">Delete</button>
         </div>
       )}
     </div>
@@ -220,7 +221,7 @@ const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => vo
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
   const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error, isB2B } = useB2BData();
   const { addToast } = useToast();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });
   const [projectToDelete, setProjectToDelete] = useState<PipelineProject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -234,7 +235,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   useEffect(() => {
     if (initialFilter) {
       setSearchQuery(initialFilter);
-      setViewMode('table'); // Switch to table view when filtering from another page
+      setViewMode('table'); // Default to table for search
+
+      // If the filter looks like a project ID, select it and show detail
+      if (initialFilter.startsWith('PL') || initialFilter.startsWith('BPL')) {
+        setSelectedPipelineNo(initialFilter);
+        setViewMode('detail');
+        setSearchQuery(''); // Clear search query to show all in list but focus on this one
+      }
     } else {
       setSearchQuery('');
     }
@@ -298,6 +306,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }
   };
 
+  const [statusFilter, setStatusFilter] = useState<string | null>('Active');
+
   const validPipelineData = useMemo(() => {
     if (!pipelineData) return [];
     return pipelineData.filter(project => project['Pipeline No.'] && (project['Pipeline No.'].startsWith('PL') || project['Pipeline No.'].startsWith('BPL')))
@@ -313,6 +323,18 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const filteredData = useMemo(() => {
     let dataToFilter = processedData;
 
+    if (statusFilter) {
+      if (statusFilter === 'Active') {
+        dataToFilter = dataToFilter.filter(item => !(item.Status || '').toLowerCase().includes('close'));
+      } else if (statusFilter === 'Won') {
+        dataToFilter = dataToFilter.filter(item => (item.Status || '').toLowerCase() === 'close (win)');
+      } else if (statusFilter === 'Lost') {
+        dataToFilter = dataToFilter.filter(item => (item.Status || '').toLowerCase() === 'close (lose)');
+      } else {
+        dataToFilter = dataToFilter.filter(item => item.Status === statusFilter);
+      }
+    }
+
     if (searchQuery) {
       const lowercasedQuery = searchQuery.toLowerCase();
       const searchKeys = ['Company Name', 'Pipeline No.', 'Responsible By', 'Contact Name', 'Require'];
@@ -324,7 +346,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }
 
     return dataToFilter;
-  }, [processedData, searchQuery]);
+  }, [processedData, searchQuery, statusFilter]);
 
   const selectedProject = useMemo(() => {
     if (!selectedPipelineNo) return null;
@@ -628,7 +650,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                 </div>
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => handleEditProject(selectedProject)}
+                    onClick={() => setModalConfig({ project: selectedProject, isReadOnly: false, isOpen: true })}
                     className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
                   >
                     <Pencil className="w-4 h-4" /> Edit
@@ -641,49 +663,49 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   </button>
                 </div>
               </div>
-
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-muted-foreground/60">Bid Value</dt>
-                  <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Bid Value'], selectedProject.Currency)}</dd>
-                </div>
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
-                  <dd className="mt-1"><StatusBadge status={selectedProject.Status} /></dd>
-                </div>
-              </div>
-
-              <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Sales Rep</dt>
-                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Responsible By']}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Contact Person</dt>
-                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Contact Name']}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Created Date</dt>
-                  <dd className="mt-1 text-sm text-foreground">{formatDateAsMDY(parseDate(selectedProject['Created Date']))}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Time Frame</dt>
-                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Time Frame']}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Brand</dt>
-                  <dd className="mt-1 text-sm text-foreground">{selectedProject['Brand 1'] || 'N/A'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground/60">Type</dt>
-                  <dd className="mt-1 text-sm text-foreground">{selectedProject.Type}</dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-sm font-medium text-muted-foreground/60">Requirement</dt>
-                  <dd className="mt-1 text-sm text-foreground break-words">{selectedProject.Require}</dd>
-                </div>
-              </dl>
             </div>
+
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <dt className="text-sm font-medium text-muted-foreground/60">Bid Value</dt>
+                <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Bid Value'], selectedProject.Currency)}</dd>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
+                <dd className="mt-1"><StatusBadge status={selectedProject.Status} /></dd>
+              </div>
+            </div>
+
+            <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Sales Rep</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Responsible By']}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Contact Person</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Contact Name']}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Created Date</dt>
+                <dd className="mt-1 text-sm text-foreground">{formatDateAsMDY(parseDate(selectedProject['Created Date']))}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Time Frame</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Time Frame']}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Brand</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Brand 1'] || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground/60">Type</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject.Type}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-muted-foreground/60">Requirement</dt>
+                <dd className="mt-1 text-sm text-foreground break-words">{selectedProject.Require}</dd>
+              </div>
+            </dl>
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
@@ -866,9 +888,6 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         initialReadOnly={modalConfig.isReadOnly}
         meetings={meetings || []}
         contactLogs={contactLogs || []}
-        onSaveSuccess={(newProject) => {
-          setSelectedPipelineNo(newProject['Pipeline No.']);
-        }}
       />
       <ConfirmationModal
         isOpen={!!projectToDelete}
@@ -880,6 +899,28 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       >
         Are you sure you want to delete project {projectToDelete?.['Pipeline No.']}? This action cannot be undone.
       </ConfirmationModal>
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Active' ? null : 'Active')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Active' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Active Pipelines
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Won' ? null : 'Won')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Won' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Won
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Lost' ? null : 'Lost')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Lost' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Lost
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

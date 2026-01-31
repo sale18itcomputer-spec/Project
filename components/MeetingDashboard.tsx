@@ -103,12 +103,29 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
   const { width } = useWindowSize();
   const isMobile = width < 1024;
 
+  useEffect(() => {
+    if (initialFilter) {
+      setSearchQuery(initialFilter);
+      // Auto-open meeting if direct ID match
+      const match = meetingData?.find(m => m['Meeting ID'] === initialFilter);
+      if (match) {
+        handleViewMeeting(match);
+      }
+    }
+  }, [initialFilter, meetingData]);
+
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewMeeting = () => setModalConfig({ meeting: null, isReadOnly: false, isOpen: true });
   const handleViewMeeting = (meeting: Meeting) => setModalConfig({ meeting, isReadOnly: true, isOpen: true });
 
+  const [statusFilter, setStatusFilter] = useState<string | null>('Open');
+
   const filteredData = useMemo(() => {
     let filtered = [...(meetingData || [])];
+
+    if (statusFilter) {
+      filtered = filtered.filter(item => item.Status === statusFilter);
+    }
 
     if (searchQuery) {
       filtered = filtered.filter(item =>
@@ -119,7 +136,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
     }
 
     return filtered;
-  }, [meetingData, searchQuery]);
+  }, [meetingData, searchQuery, statusFilter]);
 
   const agendaItems = useMemo<AgendaItem<Meeting>[]>(() => {
     return filteredData.map(meeting => ({
@@ -392,6 +409,34 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
         existingData={modalConfig.meeting}
         initialReadOnly={modalConfig.isReadOnly}
       />
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Open' ? null : 'Open')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Open' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Open
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Pending' ? null : 'Pending')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Pending
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Close' ? null : 'Close')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Close' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Close
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Cancelled' ? null : 'Cancelled')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancelled' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Cancelled
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

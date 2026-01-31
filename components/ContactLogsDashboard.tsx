@@ -68,6 +68,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const { users } = useAuth();
   const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
@@ -118,6 +119,10 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const filteredData = useMemo(() => {
     let data = contactLogs || [];
 
+    if (statusFilter) {
+      data = data.filter(log => log.Type === statusFilter);
+    }
+
     if (logTypeFilter !== 'All Types') {
       data = data.filter(log => log.Type === logTypeFilter);
     }
@@ -130,7 +135,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     }
     // Sort by date descending
     return data.sort((a, b) => (parseDate(b['Contact Date'])?.getTime() ?? 0) - (parseDate(a['Contact Date'])?.getTime() ?? 0));
-  }, [contactLogs, searchQuery, logTypeFilter, responsibleUserFilter]);
+  }, [contactLogs, searchQuery, logTypeFilter, responsibleUserFilter, statusFilter]);
 
   const kanbanColumns = useMemo<KanbanColumn<ContactLog>[]>(() => {
     const statusColors: Record<KanbanColumnId, string> = {
@@ -423,7 +428,35 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
       >
         Are you sure you want to delete this contact log? This action cannot be undone.
       </ConfirmationModal>
-    </div>
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Call' ? null : 'Call')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Call' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Call
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Message' ? null : 'Message')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Message' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Message
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Email' ? null : 'Email')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Email' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Email
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Meeting' ? null : 'Meeting')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Meeting' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Meeting
+          </button>
+        </div>
+      </footer>
+    </div >
   );
 };
 
