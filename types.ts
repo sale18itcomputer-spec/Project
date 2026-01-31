@@ -146,7 +146,7 @@ export interface Meeting {
   'Meeting Date': string;
   'Start Time': string;
   'End Time': string;
-  'Status': string;
+  'Status': 'Open' | 'Close' | 'Cancelled';
   'Remarks': string;
   [key: string]: any;
 }

@@ -21,7 +21,7 @@ import EmptyState from './EmptyState';
 // FIX: Imported the Spinner component to resolve a "Cannot find name 'Spinner'" error.
 import Spinner from './Spinner';
 
-const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email', 'Meeting'] as const;
+const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
 type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
 
 interface ContactLogsDashboardProps {
@@ -141,8 +141,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     const statusColors: Record<KanbanColumnId, string> = {
       'Call': 'sky',
       'Message': 'violet',
-      'Email': 'amber',
-      'Meeting': 'emerald'
+      'Email': 'amber'
     };
 
     return KANBAN_COLUMN_IDS.map(status => ({
@@ -447,12 +446,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Email' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Email
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Meeting' ? null : 'Meeting')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Meeting' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Meeting
           </button>
         </div>
       </footer>

@@ -29,7 +29,7 @@ const getTodayDateString = () => {
     return `${year}-${month}-${day}`;
 };
 
-const TYPE_OPTIONS = ['Call', 'Message', 'Email', 'Meeting'];
+const TYPE_OPTIONS = ['Call', 'Message', 'Email'];
 
 const NewContactLogModal: React.FC<NewContactLogModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
     const { currentUser } = useAuth();

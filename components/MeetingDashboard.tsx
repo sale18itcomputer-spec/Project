@@ -18,7 +18,6 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
     'Close': 'bg-emerald-100 text-slate-800',
     'Open': 'bg-sky-100 text-slate-800',
-    'Pending': 'bg-amber-100 text-slate-800',
     'Cancelled': 'bg-rose-100 text-slate-800',
   };
 
@@ -59,7 +58,6 @@ const MeetingMobileCard: React.FC<{ meeting: Meeting, onView: () => void }> = ({
   let statusClass = 'mobile-status-default';
   if (meeting.Status === 'Open') statusClass = 'mobile-status-info';
   if (meeting.Status === 'Close') statusClass = 'mobile-status-success';
-  if (meeting.Status === 'Pending') statusClass = 'mobile-status-warning';
   if (meeting.Status === 'Cancelled') statusClass = 'mobile-status-danger';
 
   return (
@@ -416,12 +414,6 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
             className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Open' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Open
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Pending' ? null : 'Pending')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Pending
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Close' ? null : 'Close')}

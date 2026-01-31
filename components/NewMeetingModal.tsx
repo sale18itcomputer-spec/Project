@@ -15,10 +15,10 @@ import SearchableSelect from './SearchableSelect';
 
 
 interface NewMeetingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  existingData?: Meeting | null;
-  initialReadOnly?: boolean;
+    isOpen: boolean;
+    onClose: () => void;
+    existingData?: Meeting | null;
+    initialReadOnly?: boolean;
 }
 
 const getTodayDateString = () => {
@@ -30,7 +30,7 @@ const getTodayDateString = () => {
 };
 
 const TYPE_OPTIONS = ['Online', 'Onsite'];
-const STATUS_OPTIONS = ['Open', 'Close', 'Pending', 'Cancelled'];
+const STATUS_OPTIONS = ['Open', 'Close', 'Cancelled'];
 
 const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
     const { currentUser } = useAuth();
@@ -40,7 +40,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isNewCompanyModalOpen, setIsNewCompanyModalOpen] = useState(false);
-    
+
     const isEditMode = !!existingData;
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
@@ -54,7 +54,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
                 .filter(id => id && typeof id === 'string' && id.startsWith('M'))
                 .map(id => parseInt(id.substring(1), 10))
                 .filter(num => !isNaN(num));
-            
+
             if (meetingNumbers.length > 0) {
                 const maxNum = Math.max(...meetingNumbers);
                 nextMeetingId = `M${String(maxNum + 1).padStart(8, '0')}`;
@@ -65,19 +65,19 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
             'Meeting Date': getTodayDateString(),
             'Responsible By': currentUser?.Name || '',
             'Type': 'Online',
-            'Status': 'Open'
-        };
+            'Status': 'Open' as const
+        } as Partial<Meeting>;
     }, [meetings, currentUser]);
 
-     const getFormDataForEdit = useCallback((m: Meeting) => ({
+    const getFormDataForEdit = useCallback((m: Meeting) => ({
         ...m,
         'Meeting Date': formatToInputDate(m['Meeting Date']),
     }), []);
 
     useEffect(() => {
         if (isOpen) {
-             setIsReadOnly(initialReadOnly);
-             if (isEditMode) {
+            setIsReadOnly(initialReadOnly);
+            if (isEditMode) {
                 setFormData(getFormDataForEdit(existingData));
             } else {
                 setFormData(getInitialState());
@@ -123,7 +123,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
             const tempId = submissionData['Meeting ID']!;
             // Optimistic update
             setMeetings(current => current ? [submissionData as Meeting, ...current] : [submissionData as Meeting]);
-            
+
             try {
                 const createdRecord: Meeting = await createRecord('Meeting_Logs', submissionData);
                 addToast('Meeting created!', 'success');
@@ -142,7 +142,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
 
     const handleDelete = async () => {
         if (!existingData || !existingData['Meeting ID']) return;
-        
+
         const originalMeetings = meetings ? [...meetings] : [];
         const meetingToDeleteId = existingData['Meeting ID'];
 
@@ -168,7 +168,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
     const pipelinePlaceholder = !formData['Company Name'] ? "Select a company first" : (pipelineOptions.length === 0 ? "No pipelines found" : "Select Pipeline ID");
     const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Meeting ID']}` : `Editing Meeting: ${existingData['Meeting ID']}`) : 'Create New Meeting';
     const submitText = isEditMode ? 'Save Changes' : 'Save Meeting';
-    
+
     const handleCancelClick = () => {
         if (isEditMode) {
             setFormData(getFormDataForEdit(existingData));
@@ -179,31 +179,31 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
     };
 
     const formId = `meeting-form-${existingData?.['Meeting ID'] || 'new'}`;
-    
+
     const modalFooter = (
-      <div className="flex justify-between items-center w-full">
-          {isReadOnly ? (
-              <>
-                  <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="w-5 h-5" /> Delete
-                  </button>
-                  <div className="flex items-center gap-3">
-                      <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
-                      <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
-                          <Pencil className="w-5 h-5" /> Edit
-                      </button>
-                  </div>
-              </>
-          ) : (
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
-                  <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
-                      <Check className="w-5 h-5 -ml-1 mr-2" />
-                      {submitText}
-                  </button>
-              </div>
-          )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+            {isReadOnly ? (
+                <>
+                    <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-rose-500 text-rose-500 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="w-5 h-5" /> Delete
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={onClose} className="font-semibold py-2 px-4 rounded-lg transition-colors duration-200 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Close</button>
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2">
+                            <Pencil className="w-5 h-5" /> Edit
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={handleCancelClick} className="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-md border border-gray-300 transition">Cancel</button>
+                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center">
+                        <Check className="w-5 h-5 -ml-1 mr-2" />
+                        {submitText}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
     return (
@@ -216,29 +216,29 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
             >
                 <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                     <FormSection title="Meeting Details">
-                        {isReadOnly 
-                            ? <FormDisplay label="Meeting ID" value={formData['Meeting ID']} /> 
-                            : <FormInput name="Meeting ID" label="Meeting ID" value={formData['Meeting ID']} onChange={() => {}} required readOnly />
+                        {isReadOnly
+                            ? <FormDisplay label="Meeting ID" value={formData['Meeting ID']} />
+                            : <FormInput name="Meeting ID" label="Meeting ID" value={formData['Meeting ID']} onChange={() => { }} required readOnly />
                         }
-                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : 
-                            <SearchableSelect 
-                                name="Company Name" 
-                                label="Company Name" 
+                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
+                            <SearchableSelect
+                                name="Company Name"
+                                label="Company Name"
                                 value={formData['Company Name'] || ''}
                                 onChange={handleCompanySelect}
-                                options={companyOptions} 
-                                required 
+                                options={companyOptions}
+                                required
                                 placeholder="Search companies..."
                                 actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
                             />}
-                        {isReadOnly ? <FormDisplay label="Pipeline ID" value={formData.Pipeline_ID} /> : <FormSelect name="Pipeline_ID" label="Pipeline ID" value={formData.Pipeline_ID} onChange={handleChange} options={pipelineOptions} disabled={isPipelineDisabled || pipelineOptions.length === 0} disabledPlaceholder={pipelinePlaceholder}/>}
+                        {isReadOnly ? <FormDisplay label="Pipeline ID" value={formData.Pipeline_ID} /> : <FormSelect name="Pipeline_ID" label="Pipeline ID" value={formData.Pipeline_ID} onChange={handleChange} options={pipelineOptions} disabled={isPipelineDisabled || pipelineOptions.length === 0} disabledPlaceholder={pipelinePlaceholder} />}
                         {isReadOnly ? <FormDisplay label="Type" value={formData.Type} /> : <FormSelect name="Type" label="Type" value={formData.Type} onChange={handleChange} options={TYPE_OPTIONS} required />}
                         {isReadOnly ? <FormDisplay label="Status" value={formData.Status} /> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
                         {isReadOnly ? <FormDisplay label="Participants" value={formData.Participants} /> : <FormInput name="Participants" label="Participants" value={formData.Participants} onChange={handleChange} required />}
                         {isReadOnly ? <FormDisplay label="Responsible By" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Responsible By" value={formData['Responsible By']} onChange={handleChange} required />}
                     </FormSection>
                     <FormSection title="Schedule">
-                        {isReadOnly ? <FormDisplay label="Date" value={formatToInputDate(formData['Meeting Date'])} /> : <FormInput name="Meeting Date" label="Date" value={formData['Meeting Date']} onChange={handleChange} type="date" required/>}
+                        {isReadOnly ? <FormDisplay label="Date" value={formatToInputDate(formData['Meeting Date'])} /> : <FormInput name="Meeting Date" label="Date" value={formData['Meeting Date']} onChange={handleChange} type="date" required />}
                         <div />
                         {isReadOnly ? <FormDisplay label="Start Time" value={formData['Start Time']} /> : <FormInput name="Start Time" label="Start Time" value={formData['Start Time']} onChange={handleChange} type="time" />}
                         {isReadOnly ? <FormDisplay label="End Time" value={formData['End Time']} /> : <FormInput name="End Time" label="End Time" value={formData['End Time']} onChange={handleChange} type="time" />}
@@ -248,7 +248,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
                     </FormSection>
                 </form>
             </ResizableModal>
-            
+
             <NewCompanyModal
                 isOpen={isNewCompanyModalOpen}
                 onClose={() => setIsNewCompanyModalOpen(false)}

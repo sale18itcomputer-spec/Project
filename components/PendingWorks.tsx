@@ -128,7 +128,7 @@ const PendingWorks: React.FC = () => {
 
         // 5. Meetings (Upcoming)
         meetings?.forEach(m => {
-            if (m.Status !== 'Completed' && m.Status !== 'Cancel' && canView(m['Responsible By'])) {
+            if (m.Status === 'Open' && canView(m['Responsible By'])) {
                 const mDate = parseDate(m['Meeting Date']) || today;
                 if (mDate >= today) {
                     const diff = Math.ceil((mDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
