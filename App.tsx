@@ -41,7 +41,7 @@ const AuthenticatedLayout: React.FC = () => {
   const isMobile = width < 1024; // lg breakpoint
 
   const SIDEBAR_COLLAPSED_WIDTH = 80;
-  const SIDEBAR_INITIAL_WIDTH = 240;
+  const SIDEBAR_INITIAL_WIDTH = 220;
   const SIDEBAR_MIN_WIDTH = 200;
   const SIDEBAR_MAX_WIDTH = 500;
 
@@ -160,7 +160,7 @@ const AuthenticatedLayout: React.FC = () => {
 
   const customLayoutViews = [
     'projects', 'companies', 'contacts', 'contact-logs',
-    'site-surveys', 'meetings', 'pricelist', 'b2b-pricelist', 'quotations', 'sale-orders', 'invoice-do',
+    'site-surveys', 'meetings', 'pricelist', 'b2b-pricelist', 'quotations', 'sale-orders', 'invoice-do', 'users',
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);
@@ -180,7 +180,7 @@ const AuthenticatedLayout: React.FC = () => {
         {isSidebarOpen && (
           <div
             onClick={closeSidebar}
-            className="fixed inset-0 bg-black/60 z-20 lg:hidden"
+            className="fixed inset-0 bg-black/60 z-[90] lg:hidden"
             aria-hidden="true"
           ></div>
         )}
@@ -226,7 +226,7 @@ const AuthenticatedLayout: React.FC = () => {
           isSidebarOpen={false}
           isMobile={false}
         />
-        <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultLayout ? 'p-4 md:p-6 lg:p-8' : ''}`}>
+        <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultLayout ? 'p-4 md:p-5 lg:p-6' : ''}`}>
           <Suspense fallback={<ContentSkeleton />}>
             <div key={`${navigation.view}-${navigation.filter}-${navigation.payload ? JSON.stringify(navigation.payload).slice(0, 50) : ''}`} className={`${needsConstrainedHeight ? 'h-full' : ''}`}>
               {renderContent()}

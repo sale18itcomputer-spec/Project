@@ -133,8 +133,8 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
     grid: {
       left: isMobile ? '1%' : '3%',
       right: isMobile ? '4%' : '4%',
-      bottom: isMobile ? '20%' : 80, // Increased bottom margin for slider
-      top: 70, // Add space for toolbox
+      bottom: isMobile ? '15%' : 60, // Reduced margin
+      top: 50, // Reduced space for better fit
       containLabel: true,
     },
     toolbox: {

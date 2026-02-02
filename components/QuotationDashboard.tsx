@@ -104,7 +104,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const { handleNavigation } = useNavigation();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
@@ -619,93 +619,91 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     mainValue = '$0';
   }
 
-  if (isMobile) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 space-y-4">
-          <div className="mobile-search">
-            <Search className="mobile-search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="mobile-search-input"
-              placeholder="Search quotations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <button
-            onClick={handleNewQuotation}
-            className="w-full flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-sm"
-          >
-            + New Quotation
-          </button>
-        </div>
-        <ScrollArea className="flex-1 px-4">
-          {loading ? <Spinner /> : filteredData.length > 0 ? (
-            filteredData.map(quotation => (
-              <QuotationMobileCard key={quotation['Quote No.']} quotation={quotation} onView={() => handleViewQuotation(quotation)} />
-            ))
-          ) : (
-            <EmptyState>No quotations found.</EmptyState>
-          )}
-        </ScrollArea>
-      </div>
-    );
-  }
+
 
   return (
     <div className="h-full flex flex-col bg-background">
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-foreground">Quote Record</h1>
+      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center justify-between lg:justify-start gap-4">
+          <div className="flex items-center">
+            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
+            <span className="ml-2 text-sm text-muted-foreground">quotations</span>
+          </div>
+          <div className="lg:hidden">
+            {/* Spacer or mobile specific header action if needed */}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <Table className="w-4 h-4" />
-              <span className="hidden lg:inline">Table</span>
-            </button>
-            <button
-              onClick={() => setViewMode('board')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              <span className="hidden lg:inline">Board</span>
-            </button>
-            <button
-              onClick={() => setViewMode('detail')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <Columns className="w-4 h-4" />
-              <span className="hidden lg:inline">Detail</span>
-            </button>
+        <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
+          <div className="relative w-full lg:w-64 flex-shrink-0">
+            <label htmlFor="quotation-search" className="sr-only">Search</label>
+            <input
+              id="quotation-search"
+              type="text"
+              placeholder="Search quotations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+            />
+            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
           </div>
 
-          {/* Alignment/Wrap Icons */}
-          <div className="flex items-center bg-card border border-border rounded-md shadow-sm">
-            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-              <ArrowRightToLine className="w-4 h-4" />
-            </button>
-            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-              <WrapText className="w-4 h-4" />
-            </button>
-            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-              <Scissors className="w-4 h-4" />
+          <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Table className="w-4 h-4" />
+                <span className="hidden xl:inline">Table</span>
+              </button>
+              <button
+                onClick={() => setViewMode('board')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="hidden xl:inline">Board</span>
+              </button>
+              <button
+                onClick={() => setViewMode('detail')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Columns className="w-4 h-4" />
+                <span className="hidden xl:inline">Detail</span>
+              </button>
+            </div>
+
+            {/* Alignment/Wrap Icons */}
+            <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
+              <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                <ArrowRightToLine className="w-4 h-4" />
+              </button>
+              <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                <WrapText className="w-4 h-4" />
+              </button>
+              <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                <Scissors className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Column Toggle */}
+            <div className="flex-shrink-0">
+              <DataTableColumnToggle
+                allColumns={allColumns}
+                visibleColumns={visibleColumns}
+                onColumnToggle={handleColumnToggle}
+              />
+            </div>
+
+            {/* New Quotation Button */}
+            <button
+              onClick={handleNewQuotation}
+              className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
+            >
+              <span className="text-xl leading-none">+</span> New
             </button>
           </div>
-
-          {/* New Quotation Button */}
-          <button
-            onClick={handleNewQuotation}
-            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm"
-          >
-            <span className="text-xl leading-none">+</span> New Quotation
-          </button>
         </div>
       </header>
 
@@ -759,29 +757,29 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote Pending' ? null : 'Quote Pending')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote Pending
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote (Win)' ? null : 'Quote (Win)')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote (Win)
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Quote (Lose)' ? null : 'Quote (Lose)')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Quote (Lose)
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Cancel
           </button>

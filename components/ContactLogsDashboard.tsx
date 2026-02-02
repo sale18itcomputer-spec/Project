@@ -70,7 +70,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
   const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
@@ -196,7 +196,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     {
       accessorKey: 'Remarks',
       header: 'Remarks',
-      cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-1 max-w-sm">{value}</p>,
+      cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-1 max-w-[200px] sm:max-w-sm md:max-w-md">{value}</p>,
     },
   ], [handleNavigation]);
 
@@ -280,101 +280,71 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     </>
   );
 
-  if (isMobile) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 space-y-4">
-          <div className="mobile-search">
-            <Search className="mobile-search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="mobile-search-input"
-              placeholder="Search logs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="mobile-tabs">
-            {logTypeOptions.map(opt => (
-              <button key={opt} onClick={() => setLogTypeFilter(opt)} className={`mobile-tab ${logTypeFilter === opt ? 'active' : ''}`}>{opt}</button>
-            ))}
-          </div>
-        </div>
-        <ScrollArea className="flex-1 px-4">
-          {loading ? <Spinner /> : filteredData.length > 0 ? (
-            filteredData.map(log => (
-              <ContactLogMobileCard key={log['Log ID']} log={log} onView={() => handleViewLog(log)} />
-            ))
-          ) : (
-            <EmptyState>No logs found.</EmptyState>
-          )}
-        </ScrollArea>
-        <NewContactLogModal
-          isOpen={modalConfig.isOpen}
-          onClose={handleCloseModal}
-          existingData={modalConfig.log}
-          initialReadOnly={modalConfig.isReadOnly}
-        />
-      </div>
-    );
-  }
+
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 sm:px-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-        <p className="text-base text-slate-500">
-          <span className="font-bold text-slate-800">{filteredData.length}</span> logs
-        </p>
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-          <div className="relative flex-grow sm:w-56">
-            <label htmlFor="log-search" className="sr-only">Search</label>
-            <input
-              id="log-search"
-              type="text"
-              placeholder="Search logs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-            />
-            <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          </div>
+      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-white border-b border-slate-200 flex-shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <p className="text-base text-slate-500">
+            <span className="font-bold text-slate-800">{filteredData.length}</span> logs
+          </p>
 
-          <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
-            {logTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-
-          <select value={responsibleUserFilter} onChange={e => setResponsibleUserFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full sm:w-auto">
-            {userOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-
-          <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-          {viewMode === 'table' && (
-            <>
-              <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                  <ArrowRightToLine className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                  <WrapText className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                  <Scissors className="w-4 h-4" />
-                </button>
+          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
+            <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
+              <div className="relative w-full lg:w-56 flex-shrink-0">
+                <label htmlFor="log-search" className="sr-only">Search</label>
+                <input
+                  id="log-search"
+                  type="text"
+                  placeholder="Search logs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                />
+                <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </div>
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
-            </>
-          )}
-          <button
-            onClick={handleOpenNewLog}
-            className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-          >
-            <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-            <span className="hidden sm:inline">New Log</span>
-          </button>
+
+              <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+                {logTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+
+              <select value={responsibleUserFilter} onChange={e => setResponsibleUserFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+                {userOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+              {viewMode === 'table' && (
+                <>
+                  <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                      <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                      <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                      <Scissors className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                  />
+                </>
+              )}
+              <button
+                onClick={handleOpenNewLog}
+                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+              >
+                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                <span className="hidden sm:inline">New Log</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -387,7 +357,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
           getItemId={(item) => item['Log ID'] || ''}
         />
       ) : (
-        <div className="flex-1 overflow-hidden bg-slate-50 p-4">
+        <div className="flex-1 min-h-0 overflow-hidden bg-slate-50 p-4">
           <DataTable
             tableId="contact-logs-table"
             data={filteredData}

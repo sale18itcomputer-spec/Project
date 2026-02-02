@@ -81,7 +81,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   const headerClasses = isMobile
     ? "mobile-nav"
-    : "sticky top-0 bg-background/95 backdrop-blur-sm h-16 sm:h-20 px-4 sm:px-6 flex justify-between items-center border-b z-30";
+    : "sticky top-0 bg-background/95 backdrop-blur-sm h-16 sm:h-16 px-4 sm:px-5 flex justify-between items-center border-b z-[80]";
 
   return (
     <header className={headerClasses}>

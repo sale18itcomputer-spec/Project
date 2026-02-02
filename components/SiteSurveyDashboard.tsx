@@ -53,7 +53,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
   const [modalConfig, setModalConfig] = useState<{ survey: SiteSurveyLog | null, isReadOnly: boolean, isOpen: boolean }>({ survey: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const { handleNavigation } = useNavigation();
   const { width } = useWindowSize();
   const isMobile = width < 1024;
@@ -207,92 +207,66 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
     </>
   );
 
-  if (isMobile) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 space-y-4">
-          <div className="mobile-search">
-            <Search className="mobile-search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="mobile-search-input"
-              placeholder="Search surveys..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-        <ScrollArea className="flex-1 px-4">
-          {loading ? <Spinner /> : filteredData.length > 0 ? (
-            filteredData.map(survey => (
-              <SiteSurveyMobileCard key={survey['Site ID']} survey={survey} onView={() => handleViewSurvey(survey)} />
-            ))
-          ) : (
-            <EmptyState>No surveys found.</EmptyState>
-          )}
-        </ScrollArea>
-        <NewSiteSurveyModal
-          isOpen={modalConfig.isOpen}
-          onClose={handleCloseModal}
-          existingData={modalConfig.survey}
-          initialReadOnly={modalConfig.isReadOnly}
-        />
-      </div>
-    );
-  }
+
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-white border-b border-slate-200">
-        <div className="flex items-center">
-          <span className="text-lg font-semibold text-gray-800">{filteredData.length}</span>
-          <span className="ml-2 text-sm text-gray-500">surveys</span>
-        </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative flex-grow">
-            <label htmlFor="survey-search" className="sr-only">Search</label>
-            <input
-              id="survey-search"
-              type="text"
-              placeholder="Search surveys..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-            />
-            <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center">
+            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
+            <span className="ml-2 text-sm text-muted-foreground">surveys</span>
           </div>
-          <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-          {viewMode === 'table' && (
-            <>
-              <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1">
-                <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                  <ArrowRightToLine className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                  <WrapText className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                  <Scissors className="w-4 h-4" />
-                </button>
-              </div>
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
+
+          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
+            <div className="relative w-full lg:w-64 flex-shrink-0">
+              <label htmlFor="survey-search" className="sr-only">Search</label>
+              <input
+                id="survey-search"
+                type="text"
+                placeholder="Search surveys..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
               />
-            </>
-          )}
-          <button
-            onClick={handleOpenNewSurvey}
-            className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-          >
-            <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-            <span className="hidden sm:inline">New</span>
-          </button>
+              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+              {viewMode === 'table' && (
+                <>
+                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                      <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                      <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                      <Scissors className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                  />
+                </>
+              )}
+              <button
+                onClick={handleOpenNewSurvey}
+                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+              >
+                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                <span className="hidden sm:inline">New</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-slate-50 p-4">
+      <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
         {viewMode === 'table' ? (
           <div className="h-full">
             <DataTable
@@ -333,10 +307,10 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         existingData={modalConfig.survey}
         initialReadOnly={modalConfig.isReadOnly}
       />
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
           <button
-            className="whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition bg-brand-600 text-white border-brand-600 shadow-sm"
+            className="flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition bg-brand-600 text-white border-brand-600 shadow-sm"
           >
             All Surveys
           </button>

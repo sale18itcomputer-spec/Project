@@ -88,10 +88,10 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
 
     const option = {
         grid: {
-            left: '1%',
-            right: '12%',
+            left: '2%',
+            right: '15%',
             bottom: '3%',
-            top: '8%',
+            top: '5%',
             containLabel: true,
         },
         toolbox: {

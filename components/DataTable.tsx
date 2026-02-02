@@ -23,8 +23,9 @@ interface DataTableProps<T extends object> {
   initialSort?: { key: keyof T; direction: 'ascending' | 'descending' };
   highlightedCheck?: (row: T) => boolean;
   mobilePrimaryColumns: (keyof T)[];
-  cellWrapStyle?: 'overflow' | 'wrap' | 'clip';
+  cellWrapStyle?: 'overflow' | 'wrap' | 'clip' | 'nowrap';
   renderRowActions?: (row: T) => React.ReactNode;
+  stickyFirstColumn?: boolean;
 }
 
 const DOTS = '...';
@@ -105,7 +106,7 @@ const DesktopTableSkeleton: React.FC<{ columns: number, rows: number }> = ({ col
     <thead className="bg-brand-600">
       <tr>
         {[...Array(columns)].map((_, i) => (
-          <th key={i} className="px-6 py-3 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+          <th key={i} className="px-4 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
             <div className="h-4 bg-white/20 rounded w-3/4 animate-pulse"></div>
           </th>
         ))}
@@ -115,8 +116,8 @@ const DesktopTableSkeleton: React.FC<{ columns: number, rows: number }> = ({ col
       {[...Array(rows)].map((_, i) => (
         <tr key={i} className="border-b border-border">
           {[...Array(columns)].map((_, j) => (
-            <td key={j} className="px-6 py-4">
-              <div className={`h-5 bg-muted rounded animate-pulse ${j === 0 ? 'w-4/5' : 'w-3/5'}`}></div>
+            <td key={j} className="px-4 sm:px-6 py-3 sm:py-4">
+              <div className="h-4 bg-muted rounded w-full animate-pulse"></div>
             </td>
           ))}
         </tr>
@@ -144,14 +145,63 @@ function DataTable<T extends object>({
   mobilePrimaryColumns,
   cellWrapStyle = 'overflow',
   renderRowActions,
+  stickyFirstColumn = true,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [sortConfig, setSortConfig] = useState<{ key: keyof T | null; direction: 'ascending' | 'descending' }>(initialSort || { key: null, direction: 'ascending' });
   const { columnWidths, handleMouseDown, tableRef, resizingColumn, autoFitColumn } = useResizableColumns(tableId, columns);
   const [expandedRows, setExpandedRows] = useState(new Set<number>());
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { width } = useWindowSize();
   const isMobile = width < 768; // Tailwind's `md` breakpoint
+
+  // Drag to scroll functionality
+  const dragRef = React.useRef<{ isDown: boolean; startX: number; scrollLeft: number }>({ isDown: false, startX: 0, scrollLeft: 0 });
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDragDown = (e: React.MouseEvent) => {
+    if (!containerRef.current || resizingColumn) return;
+    dragRef.current = {
+      isDown: true,
+      startX: e.pageX - containerRef.current.offsetLeft,
+      scrollLeft: containerRef.current.scrollLeft
+    };
+    containerRef.current.style.cursor = 'grabbing';
+    containerRef.current.style.userSelect = 'none';
+  };
+
+  const handleDragLeave = () => {
+    if (!containerRef.current) return;
+    dragRef.current.isDown = false;
+    containerRef.current.style.cursor = 'default';
+    containerRef.current.style.removeProperty('user-select');
+  };
+
+  const handleDragUp = () => {
+    if (!containerRef.current) return;
+    dragRef.current.isDown = false;
+    containerRef.current.style.cursor = 'default';
+    containerRef.current.style.removeProperty('user-select');
+  };
+
+  const handleDragMove = (e: React.MouseEvent) => {
+    if (!dragRef.current.isDown || !containerRef.current || resizingColumn) return;
+    e.preventDefault();
+    const x = e.pageX - containerRef.current.offsetLeft;
+    const walk = (x - dragRef.current.startX) * 1.5; // multiplier for speed
+    containerRef.current.scrollLeft = dragRef.current.scrollLeft - walk;
+  };
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = containerRef.current;
+    // Show hint if there's more content to the right (at least 50px)
+    setShowScrollHint(scrollWidth > clientWidth + scrollLeft + 50);
+    setIsScrolled(scrollLeft > 0);
+  };
+
 
   const wrapClass = useMemo(() => {
     switch (cellWrapStyle) {
@@ -159,6 +209,8 @@ function DataTable<T extends object>({
         return 'whitespace-normal break-words';
       case 'clip':
         return 'overflow-clip';
+      case 'nowrap':
+        return 'whitespace-nowrap';
       case 'overflow':
       default:
         return 'truncate';
@@ -259,6 +311,16 @@ function DataTable<T extends object>({
     return sortedData.slice(startIndex, startIndex + itemsPerPage);
   }, [sortedData, currentPage, itemsPerPage]);
 
+  useEffect(() => {
+    // Initial check with a small delay to allow DOM to settle
+    const timer = setTimeout(handleScroll, 100);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [paginatedData, columnWidths]);
+
   const handleSort = (key: keyof T) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -308,12 +370,26 @@ function DataTable<T extends object>({
   };
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg border border-border shadow-sm overflow-hidden text-foreground">
-      <div className="responsive-table flex-1 overflow-auto min-h-0 relative">
+    <div className="flex flex-col h-full w-full bg-card rounded-lg border border-border shadow-sm overflow-hidden text-foreground scroll-hint-wrapper">
+      <div
+        ref={containerRef}
+        onMouseDown={handleDragDown}
+        onMouseLeave={handleDragLeave}
+        onMouseUp={handleDragUp}
+        onMouseMove={handleDragMove}
+        onScroll={handleScroll}
+        className="responsive-table flex-1 w-full overflow-auto horizontal-scroll min-h-0 relative cursor-grab active:cursor-grabbing"
+      >
+        {showScrollHint && (
+          <div className="scroll-hint-indicator md:flex hidden">
+            <span>Scroll for more</span>
+            <ChevronRight className="w-3 h-3" />
+          </div>
+        )}
         {loading ? (
           <TableSkeleton columns={columns.length + (renderRowActions ? 1 : 0)} rows={itemsPerPage} />
         ) : (
-          <table ref={tableRef} className="w-full text-sm text-left text-muted-foreground min-w-[640px] table-auto md:border-l md:border-t md:border-border" aria-busy={loading}>
+          <table ref={tableRef} className="w-full text-sm text-left text-muted-foreground min-w-full table-auto md:border-l md:border-t md:border-border" aria-busy={loading}>
             <colgroup>
               {columns.map(col => (
                 <col
@@ -332,13 +408,15 @@ function DataTable<T extends object>({
                   <th
                     key={String(col.accessorKey)}
                     scope="col"
-                    className={`pl-6 pr-4 py-3 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:[&:not(:last-child)]:border-brand-700/50 transition-colors 
-                      sticky top-0 
-                      ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''} 
-                      ${i === 0 ? 'left-0 z-50 bg-brand-600' : 'z-40 bg-brand-600'}
-                    `}
+                    className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:border-brand-700/50 transition-colors 
+                        sticky top-0 
+                        ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''} 
+                        ${i === 0 && stickyFirstColumn ? 'left-0 z-50 bg-brand-600' : 'z-40 bg-brand-600'}
+                        ${i === 0 && stickyFirstColumn && isScrolled ? 'shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]' : ''}
+                        ${isMobile && !mobilePrimaryColumns.includes(col.accessorKey) ? 'secondary-cell' : ''}
+                      `}
                     aria-sort={sortConfig.key === col.accessorKey ? sortConfig.direction : 'none'}
-                    style={{ zIndex: i === 0 ? 50 : 40 }} // Explicit inline z-index to reinforce sticky layering
+                    style={{ zIndex: i === 0 && stickyFirstColumn ? 55 : 40 }} // Explicit inline z-index to reinforce sticky layering
                   >
                     <div className="truncate">
                       {col.isSortable ? (
@@ -395,10 +473,11 @@ function DataTable<T extends object>({
                           const isFirstColumn = colIndex === 0;
 
                           const cellClass = `
-                            px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-border 
+                            px-4 sm:px-6 py-2 sm:py-2.5 md:border-b md:[&:not(:last-child)]:border-r md:border-border 
                             ${isSecondaryOnMobile ? 'secondary-cell' : ''}
                             ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}
-                            ${isFirstColumn ? 'sticky left-0 z-30 bg-card md:bg-card ' + (isHighlighted ? 'bg-amber-500/10 md:bg-amber-500/10' : 'group-hover:bg-accent md:group-hover:bg-accent md:group-even:bg-muted/20') : ''}
+                            ${isFirstColumn && stickyFirstColumn ? 'sticky left-0 z-30 bg-card md:bg-card ' + (isHighlighted ? 'bg-amber-500/10 md:bg-amber-500/10' : 'group-hover:bg-accent md:group-hover:bg-accent md:group-even:bg-muted/20') : ''}
+                            ${isFirstColumn && stickyFirstColumn && isScrolled ? 'shadow-[4px_0_12px_-4px_rgba(0,0,0,0.25)] border-r-0' : ''}
                           `;
 
                           return (

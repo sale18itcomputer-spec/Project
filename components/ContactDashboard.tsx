@@ -102,10 +102,8 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
-  const { width } = useWindowSize();
-  const isMobile = width < 1024; // lg breakpoint
 
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewContact = () => setModalConfig({ contact: null, isReadOnly: false, isOpen: true });
@@ -330,114 +328,75 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
     );
   }
 
-  if (isMobile) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 space-y-4">
-          <div className="mobile-search">
-            <Search className="mobile-search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="mobile-search-input"
-              placeholder="Search contacts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <select
-            value={companyFilter}
-            onChange={(e) => setCompanyFilter(e.target.value)}
-            className="w-full bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-3 transition"
-          >
-            {companyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-        </div>
-        <ScrollArea className="flex-1 px-4">
-          {loading ? <Spinner /> : filteredData.length > 0 ? (
-            filteredData.map(contact => (
-              <ContactMobileCard key={contact['Customer ID']} contact={contact} onView={() => handleViewContact(contact)} />
-            ))
-          ) : (
-            <EmptyState>No contacts found.</EmptyState>
-          )}
-        </ScrollArea>
-        <NewContactModal
-          isOpen={modalConfig.isOpen}
-          onClose={handleCloseModal}
-          existingData={modalConfig.contact}
-          initialReadOnly={modalConfig.isReadOnly}
-          projects={projects || []}
-          contactLogs={contactLogs || []}
-          meetings={meetings || []}
-          quotations={quotations || []}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header & Filter Section */}
-      <div className="p-4 sm:px-6 bg-card border-b border-border">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+      <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center">
             <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
             <span className="ml-2 text-sm text-muted-foreground">contacts</span>
           </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-            <div className="relative flex-grow sm:w-64">
-              <label htmlFor="contact-search" className="sr-only">Search</label>
-              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              <input
-                id="contact-search"
-                type="text"
-                placeholder="Search name, role, company..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-            </div>
-            <select
-              value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
-              className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full sm:w-56"
-            >
-              {companyOptions.map(opt => <option key={opt} value={opt} className="bg-card text-foreground">{opt}</option>)}
-            </select>
-            <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-            {viewMode === 'list' && (
-              <>
-                <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
-                  <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                    <ArrowRightToLine className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                    <WrapText className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                    <Scissors className="w-4 h-4" />
-                  </button>
-                </div>
-                <DataTableColumnToggle
-                  allColumns={allColumns}
-                  visibleColumns={visibleColumns}
-                  onColumnToggle={handleColumnToggle}
+          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
+            <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
+              <div className="relative w-full lg:w-64 flex-shrink-0">
+                <label htmlFor="contact-search" className="sr-only">Search</label>
+                <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input
+                  id="contact-search"
+                  type="text"
+                  placeholder="Search name, role, company..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
                 />
-              </>
-            )}
-            <button
-              onClick={handleOpenNewContact}
-              className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-            >
-              <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-              <span className="hidden sm:inline">New</span>
-            </button>
+              </div>
+              <select
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full md:w-48 lg:w-56"
+              >
+                {companyOptions.map(opt => <option key={opt} value={opt} className="bg-card text-foreground">{opt}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+              {viewMode === 'list' && (
+                <>
+                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                      <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                      <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                      <Scissors className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                  />
+                </>
+              )}
+              <button
+                onClick={handleOpenNewContact}
+                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+              >
+                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                <span className="hidden sm:inline">New</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 ${viewMode === 'list' ? 'overflow-hidden bg-background p-4' : 'overflow-auto bg-background p-6'}`}>
+      <div className={`flex-1 min-h-0 ${viewMode === 'list' ? 'overflow-hidden bg-background p-4' : 'overflow-auto bg-background p-6'}`}>
         {loading ? <Spinner size="lg" /> : (
           filteredData.length > 0 ? (
             viewMode === 'grid' ? (
@@ -464,7 +423,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   onRowClick={handleViewContact}
                   initialSort={{ key: 'Customer ID', direction: 'ascending' }}
                   highlightedCheck={(contact) => contact.status === 'Active'}
-                  mobilePrimaryColumns={['Name', 'Company Name']}
+                  mobilePrimaryColumns={['Name', 'Company Name', 'status']}
                   cellWrapStyle={cellWrapStyle}
                   renderRowActions={(row) => (
                     <button

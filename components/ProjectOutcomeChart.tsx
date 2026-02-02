@@ -114,8 +114,8 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
         name: 'Pipeline Status',
         type: 'pie',
         cursor: 'pointer',
-        radius: [isMobile ? '30%' : '45%', isMobile ? '55%' : '70%'],
-        center: [isMobile ? '50%' : '50%', isMobile ? '40%' : '50%'],
+        radius: isMobile ? ['30%', '50%'] : ['45%', '60%'],
+        center: ['50%', isMobile ? '40%' : '52%'],
         roseType: 'radius',
         itemStyle: {
           borderRadius: 5

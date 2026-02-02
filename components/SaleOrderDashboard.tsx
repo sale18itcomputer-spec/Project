@@ -99,7 +99,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [selectedSaleOrderId, setSelectedSaleOrderId] = useState<string | null>(null);
     const { handleNavigation } = useNavigation();
 
@@ -461,7 +461,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                 <DetailItem label="Payment Term" value={selectedSaleOrder['Payment Term']} />
                                 <DetailItem label="Contact Person" value={selectedSaleOrder['Contact Name']} />
                                 <DetailItem label="Phone Number" value={selectedSaleOrder['Phone Number']} />
-                                <DetailItem label="Bill Invoice" value={selectedSaleOrder['Bill Invoice'] === 'Yes' ? 'VAT' : selectedSaleOrder['Bill Invoice'] === 'No' ? 'NON-VAT' : selectedSaleOrder['Bill Invoice']} />
+                                <DetailItem label="Bill Invoice" value={selectedSaleOrder['Bill Invoice'] === 'VAT' ? 'VAT' : selectedSaleOrder['Bill Invoice'] === 'NON-VAT' ? 'NON-VAT' : selectedSaleOrder['Bill Invoice']} />
                             </dl>
                         </div>
                     </div>
@@ -479,14 +479,14 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     return (
         <div className="h-full flex flex-col bg-background">
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-xl font-bold text-foreground">Sale Order Record</h1>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
                     {/* Search Box */}
-                    <div className="relative w-64">
+                    <div className="relative w-full lg:w-64 flex-shrink-0">
                         <input
                             type="text"
                             placeholder="Search sale orders..."
@@ -497,53 +497,57 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
                     </div>
 
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-                        {VIEW_OPTIONS.map(view => (
-                            <button
-                                key={view.id}
-                                onClick={() => setViewMode(view.id)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                            >
-                                {view.icon}
-                                <span className="hidden lg:inline">{view.label}</span>
+                    <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
+                            {VIEW_OPTIONS.map(view => (
+                                <button
+                                    key={view.id}
+                                    onClick={() => setViewMode(view.id)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    {view.icon}
+                                    <span className="hidden xl:inline">{view.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Alignment/Wrap Icons */}
+                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
+                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                                <ArrowRightToLine className="w-4 h-4" />
                             </button>
-                        ))}
-                    </div>
-
-                    {/* Alignment/Wrap Icons */}
-                    <div className="flex items-center bg-card border border-border rounded-md shadow-sm">
-                        <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                            <ArrowRightToLine className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                            <WrapText className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                            <Scissors className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    {/* Column Toggle / View Options */}
-                    <DataTableColumnToggle
-                        allColumns={allColumns}
-                        visibleColumns={visibleColumns}
-                        onColumnToggle={handleColumnToggle}
-                        trigger={
-                            <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
-                                <LayoutGrid className="w-4 h-4" />
-                                View
+                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                                <WrapText className="w-4 h-4" />
                             </button>
-                        }
-                    />
+                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
+                                <Scissors className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                    {/* New Sale Order Button */}
-                    <button
-                        onClick={handleNewSaleOrder}
-                        className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm"
-                    >
-                        <span className="text-xl leading-none">+</span> New SO
-                    </button>
+                        {/* Column Toggle / View Options */}
+                        <div className="flex-shrink-0">
+                            <DataTableColumnToggle
+                                allColumns={allColumns}
+                                visibleColumns={visibleColumns}
+                                onColumnToggle={handleColumnToggle}
+                                trigger={
+                                    <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
+                                        <LayoutGrid className="w-4 h-4" />
+                                        View
+                                    </button>
+                                }
+                            />
+                        </div>
+
+                        {/* New Sale Order Button */}
+                        <button
+                            onClick={handleNewSaleOrder}
+                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
+                        >
+                            <span className="text-xl leading-none">+</span> New SO
+                        </button>
+                    </div>
                 </div>
             </header>
 

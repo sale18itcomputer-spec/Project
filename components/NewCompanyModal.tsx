@@ -277,6 +277,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                 onClose={onClose}
                 title={title}
                 footer={modalFooter}
+                zIndex={9999}
             >
                 <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                     <FormSection title="Company Information">

@@ -50,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
     flex
     transform transition-transform duration-300 ease-in-out
     lg:translate-x-0
-    z-30
+    z-[100]
     ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
     ${isResizing ? 'lg:transition-none' : 'lg:transition-[width] lg:duration-300 lg:ease-in-out'}
   `;
@@ -77,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <nav className="pt-6 space-y-6">
+          <nav className="pt-4 space-y-4 sm:space-y-5">
             {/* Main Section - Always visible */}
             <div>
               {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</h3>}

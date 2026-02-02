@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import CloseIcon from './icons/CloseIcon';
 import { Expand } from 'lucide-react';
 
+
+
 interface ResizableModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +15,7 @@ interface ResizableModalProps {
   minHeight?: number;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  zIndex?: number;
 }
 
 const ResizableModal: React.FC<ResizableModalProps> = ({
@@ -25,6 +28,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
   minHeight = 300,
   children,
   footer,
+  zIndex,
 }) => {
   const [isShowing, setIsShowing] = useState(false);
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight });
@@ -132,10 +136,12 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
   if (!isOpen) return null;
+  const overlayZIndex = zIndex ?? 9999;
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      style={{ zIndex: overlayZIndex }}
+      className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       aria-modal="true"
       role="dialog"
     >

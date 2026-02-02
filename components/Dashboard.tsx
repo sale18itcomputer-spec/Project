@@ -626,9 +626,9 @@ const DashboardContent: React.FC = () => {
     `transition-all duration-500 ease-out transform ${renderStep >= step ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`;
 
   return (
-    <div className="space-y-8 p-4 md:p-0">
+    <div className="space-y-6 p-4 md:p-0 dashboard-container">
       {renderStep >= 1 && (
-        <div className={`grid ${isB2B ? 'grid-cols-2 gap-4 md:gap-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6'} ${transitionClass(1)}`}>
+        <div className={`grid ${isB2B ? 'grid-cols-2 gap-4 md:gap-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-5'} metric-cards-grid ${transitionClass(1)}`}>
           {metrics.map((metric) => (
             <MetricCard
               key={metric.title}
@@ -660,7 +660,7 @@ const DashboardContent: React.FC = () => {
 
       {/* Detailed Revenue Charts - NOW TOP PRIORITY */}
       {renderStep >= 3 && (
-        <div className={`${transitionClass(3)} h-[400px] lg:h-[480px] min-w-0`}>
+        <div className={`${transitionClass(3)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
           <MonthlyWinValueChart
             data={revenueByPeriodData.chartData}
             period={revenuePeriod}
@@ -681,14 +681,14 @@ const DashboardContent: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Keep Project Outcome Chart in both modes */}
         {renderStep >= 6 && (
-          <div className={`${transitionClass(6)} h-[500px] min-w-0`}>
+          <div className={`${transitionClass(6)} h-[350px] lg:h-[420px] chart-container min-w-0`}>
             <ProjectOutcomeChart data={projectOutcomeData} />
           </div>
         )}
 
         {/* Pending Works Section */}
         {renderStep >= 6 && (
-          <div className={`${transitionClass(6)} h-[500px] min-w-0`}>
+          <div className={`${transitionClass(6)} h-[350px] lg:h-[420px] chart-container min-w-0`}>
             <PendingWorks />
           </div>
         )}
@@ -697,7 +697,7 @@ const DashboardContent: React.FC = () => {
       {/* Show Top Customers and Projects by Brand charts in both modes */}
       <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
         {renderStep >= 7 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[400px] lg:h-[480px] min-w-0`}>
+          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
             <TopCustomersChart
               data={topCustomersData}
               totalWinValue={totalWinValue}
@@ -706,8 +706,8 @@ const DashboardContent: React.FC = () => {
           </div>
         )}
         {renderStep >= 8 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[400px] lg:h-[480px] min-w-0`}>
-            <SalesByBrandChart data={salesByBrandData} />
+          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
+            <SalesByBrandChart data={salesByBrandData} currency={currencyFilter} />
           </div>
         )}
       </div>

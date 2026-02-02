@@ -36,7 +36,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-background/80 backdrop-blur-sm z-[60] flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 bg-background/80 backdrop-blur-sm z-[10000] flex justify-center items-center p-4 transition-opacity duration-300 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
       onClick={onClose}
       aria-modal="true"
       role="dialog"

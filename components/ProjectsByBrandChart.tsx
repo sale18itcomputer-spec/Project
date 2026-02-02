@@ -13,19 +13,20 @@ interface SalesByBrandData {
 
 interface SalesByBrandChartProps {
   data: SalesByBrandData[];
+  currency?: string;
 }
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('en-MY', {
+const formatCurrency = (value: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat(currency === 'KHR' ? 'km-KH' : 'en-US', {
     style: 'currency',
-    currency: 'MYR',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
 };
 
 
-const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data }) => {
+const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data, currency = 'USD' }) => {
   const { width } = useWindowSize();
   const isMobile = width ? width < 768 : false;
   const chartRef = useRef<any>(null);
@@ -33,64 +34,77 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data }) => {
   const chartOptions = useMemo(() => {
     if (!data || data.length === 0) return null;
 
+    const totalValue = data.reduce((acc, item) => acc + item.totalValue, 0);
+
     return {
-      title: {
-        text: 'Sales by Brand',
-        subtext: 'Revenue distribution across product brands',
-        left: 'center',
-        top: 20,
-        textStyle: {
-          fontSize: isMobile ? 16 : 18,
-          fontWeight: 600,
-          color: '#334155'
+      title: [
+        {
+          text: formatCurrency(totalValue, currency),
+          subtext: 'Total Revenue',
+          left: '50%',
+          top: '48%',
+          textAlign: 'center',
+          textStyle: {
+            fontSize: isMobile ? 13 : 15,
+            fontWeight: 800,
+            color: '#1e293b'
+          },
+          subtextStyle: {
+            fontSize: 10,
+            color: '#64748b',
+            fontWeight: 500
+          }
         }
-      },
+      ],
       tooltip: {
         trigger: 'item',
         formatter: (params: any) => {
           const { name, value, percent } = params;
           const dataItem = data.find(item => item.name === name);
           return `
-            <div style="font-weight: 600; margin-bottom: 4px;">${name}</div>
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px;">
-              <span>Total Orders:</span>
+            <div style="font-weight: 700; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${name}</div>
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 13px; margin-bottom: 2px;">
+              <span style="color: #64748b;">Orders:</span>
               <span style="font-weight: 600;">${dataItem?.count || 0}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px;">
-              <span>Revenue:</span>
-              <span style="font-weight: 600;">${formatCurrency(value || 0)}</span>
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 13px; margin-bottom: 2px;">
+              <span style="color: #64748b;">Revenue:</span>
+              <span style="font-weight: 600;">${formatCurrency(value || 0, currency)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px;">
-              <span>Share:</span>
-              <span style="font-weight: 600;">${percent}%</span>
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 13px;">
+              <span style="color: #64748b;">Share:</span>
+              <span style="font-weight: 600; color: #0ea5e9;">${percent}%</span>
             </div>
           `;
         },
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        className: 'echarts-tooltip-dark',
-        borderWidth: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderRadius: 12,
         padding: [12, 16],
-        textStyle: {
-          color: '#1e293b'
-        }
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        shadowBlur: 10,
+        shadowColor: 'rgba(0, 0, 0, 0.05)',
+        textStyle: { color: '#1e293b' }
       },
       legend: {
-        orient: isMobile ? 'horizontal' : 'vertical',
-        left: isMobile ? 'center' : 'right',
-        bottom: isMobile ? 0 : 'auto',
-        top: isMobile ? 'auto' : 'middle',
-        itemWidth: 10,
-        itemHeight: 10,
+        orient: 'horizontal',
+        bottom: 5,
+        left: 'center',
+        itemWidth: 8,
+        itemHeight: 8,
+        icon: 'circle',
         textStyle: {
-          color: '#64748b'
+          color: '#64748b',
+          fontSize: 10,
+          fontWeight: 500
         }
       },
       series: [
         {
           name: 'Sales by Brand',
           type: 'pie',
-          radius: isMobile ? ['30%', '60%'] : ['40%', '70%'],
-          center: isMobile ? ['50%', '55%'] : ['45%', '50%'],
+          radius: isMobile ? ['40%', '60%'] : ['45%', '65%'],
+          center: ['50%', '50%'],
           avoidLabelOverlap: true,
           itemStyle: {
             borderRadius: 8,
@@ -99,18 +113,27 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data }) => {
           },
           label: {
             show: !isMobile,
-            formatter: '{b}: {d}%',
-            color: '#64748b'
+            position: 'outside',
+            formatter: '{b}\n{d}%',
+            color: '#64748b',
+            fontSize: 10,
+            fontWeight: 600
+          },
+          labelLine: {
+            show: !isMobile,
+            length: 10,
+            length2: 5,
+            smooth: true,
+            lineStyle: {
+              width: 1,
+              color: '#cbd5e1'
+            }
           },
           emphasis: {
-            label: {
-              show: true,
-              fontSize: 14,
-              fontWeight: 'bold'
-            },
+            scale: true,
+            scaleSize: 5,
             itemStyle: {
-              shadowBlur: 10,
-              shadowOffsetX: 0,
+              shadowBlur: 15,
               shadowColor: 'rgba(0, 0, 0, 0.1)'
             }
           },
@@ -121,29 +144,37 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data }) => {
         }
       ],
       color: [
-        '#0ea5e9', // Sky
-        '#8b5cf6', // Violet
-        '#ec4899', // Pink
-        '#f59e0b', // Amber
-        '#10b981', // Emerald
-        '#f43f5e', // Rose
-        '#6366f1', // Indigo
-        '#14b8a6', // Teal
-        '#f97316', // Orange
-        '#a855f7'  // Purple
+        '#0284c7', // Sky 600
+        '#7c3aed', // Violet 600
+        '#db2777', // Pink 600
+        '#d97706', // Amber 600
+        '#059669', // Emerald 600
+        '#e11d48', // Rose 600
+        '#4f46e5', // Indigo 600
+        '#0d9488', // Teal 600
+        '#ea580c', // Orange 600
+        '#9333ea'  // Purple 600
       ]
     };
-  }, [data, isMobile]);
+  }, [data, isMobile, currency]);
+
+  const titleId = React.useId();
 
   return (
-    <div className="w-full h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className="w-full h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col">
+      <div className="flex-shrink-0">
+        <h2 id={titleId} className="text-base font-semibold text-foreground mb-0.5">Sales by Brand</h2>
+        <p className="text-xs text-muted-foreground mb-4">Revenue share across product brands.</p>
+      </div>
       {data && data.length > 0 ? (
-        <ECharts
-          ref={chartRef}
-          option={chartOptions}
-          style={{ height: '100%', width: '100%' }}
-          opts={{ renderer: 'svg' }}
-        />
+        <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
+          <ECharts
+            ref={chartRef}
+            option={chartOptions}
+            style={{ height: '100%', width: '100%' }}
+            opts={{ renderer: 'svg' }}
+          />
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
           <PieChart className="w-12 h-12 text-gray-300" />

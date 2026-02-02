@@ -227,10 +227,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedPipelineNo, setSelectedPipelineNo] = useState<string | null>(null);
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('overflow');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const { handleNavigation } = useNavigation();
-  const { width } = useWindowSize();
-  const isMobile = width < 1024; // lg breakpoint
 
   useEffect(() => {
     if (initialFilter) {
@@ -251,12 +249,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
   const handleOpenNewProject = () => setModalConfig({ project: null, isReadOnly: false, isOpen: true });
   const handleViewProject = (project: ProcessedProject) => {
-    if (isMobile) {
-      setModalConfig({ project, isReadOnly: true, isOpen: true });
-    } else {
-      setSelectedPipelineNo(project['Pipeline No.']);
-      setViewMode('detail');
-    }
+    setSelectedPipelineNo(project['Pipeline No.']);
+    setViewMode('detail');
   };
   const handleEditProject = (project: ProcessedProject) => setModalConfig({ project, isReadOnly: false, isOpen: true });
 
@@ -631,7 +625,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const renderDetailView = () => (
     <div className="flex flex-col md:flex-row h-full">
-      <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
+      <aside className="w-full md:w-80 border-r border-border bg-card flex flex-col">
         <PipelineListContainer
           projects={filteredData}
           selectedPipelineNo={selectedPipelineNo}
@@ -719,126 +713,101 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 space-y-4">
-          <div className="mobile-search">
-            <Search className="mobile-search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="mobile-search-input"
-              placeholder="Search opportunities..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-        <ScrollArea className="flex-1 px-4">
-          {loading ? <Spinner /> : filteredData.length > 0 ? (
-            filteredData.map(project => (
-              <PipelineMobileCard key={project['Pipeline No.']} project={project} onView={() => handleViewProject(project)} />
-            ))
-          ) : (
-            <EmptyState>No opportunities found.</EmptyState>
-          )}
-        </ScrollArea>
-        <NewProjectModal
-          isOpen={modalConfig.isOpen}
-          onClose={handleCloseModal}
-          existingData={modalConfig.project}
-          initialReadOnly={modalConfig.isReadOnly}
-          meetings={meetings || []}
-          contactLogs={contactLogs || []}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-card border-b border-border">
-        <div className="flex items-center">
-          <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-          <span className="ml-2 text-sm text-muted-foreground">opportunities</span>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-grow">
-            <label htmlFor="pipeline-search" className="sr-only">Search</label>
-            <input
-              id="pipeline-search"
-              type="text"
-              placeholder="Search opportunities..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-            />
-            <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center">
+            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
+            <span className="ml-2 text-sm text-muted-foreground">opportunities</span>
           </div>
-          <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-          {viewMode === 'table' && (
-            <>
-              <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
-                <button
-                  onClick={() => setCellWrapStyle('overflow')}
-                  title="Overflow"
-                  className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                    ? 'bg-background shadow-sm text-brand-500'
-                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                    }`}
-                  aria-pressed={cellWrapStyle === 'overflow'}
-                >
-                  <ArrowRightToLine className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setCellWrapStyle('wrap')}
-                  title="Wrap"
-                  className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                    ? 'bg-background shadow-sm text-brand-500'
-                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                    }`}
-                  aria-pressed={cellWrapStyle === 'wrap'}
-                >
-                  <WrapText className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setCellWrapStyle('clip')}
-                  title="Clip"
-                  className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                    ? 'bg-background shadow-sm text-brand-500'
-                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                    }`}
-                  aria-pressed={cellWrapStyle === 'clip'}
-                >
-                  <Scissors className="w-4 h-4" />
-                </button>
-              </div>
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
+
+          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
+            <div className="relative w-full lg:w-64 flex-shrink-0">
+              <label htmlFor="pipeline-search" className="sr-only">Search</label>
+              <input
+                id="pipeline-search"
+                type="text"
+                placeholder="Search opportunities..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
               />
-            </>
-          )}
-          <button
-            onClick={handleOpenNewProject}
-            className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px"
-          >
-            <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-            <span className="hidden sm:inline">New</span>
-          </button>
+              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <div className="flex-shrink-0">
+                <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+              </div>
+              {viewMode === 'table' && (
+                <>
+                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => setCellWrapStyle('overflow')}
+                      title="Overflow"
+                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
+                        ? 'bg-background shadow-sm text-brand-500'
+                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                        }`}
+                      aria-pressed={cellWrapStyle === 'overflow'}
+                    >
+                      <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCellWrapStyle('wrap')}
+                      title="Wrap"
+                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
+                        ? 'bg-background shadow-sm text-brand-500'
+                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                        }`}
+                      aria-pressed={cellWrapStyle === 'wrap'}
+                    >
+                      <WrapText className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCellWrapStyle('clip')}
+                      title="Clip"
+                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
+                        ? 'bg-background shadow-sm text-brand-500'
+                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                        }`}
+                      aria-pressed={cellWrapStyle === 'clip'}
+                    >
+                      <Scissors className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <DataTableColumnToggle
+                      allColumns={allColumns}
+                      visibleColumns={visibleColumns}
+                      onColumnToggle={handleColumnToggle}
+                    />
+                  </div>
+                </>
+              )}
+              <button
+                onClick={handleOpenNewProject}
+                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+              >
+                <svg className="w-5 h-5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                <span className="hidden md:inline">New</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {viewMode === 'table' ? (
-        <div className="flex-1 overflow-hidden bg-background p-4">
+        <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
           <DataTable
             tableId="pipeline-table"
             data={filteredData}
             columns={displayedColumns}
             loading={loading}
             onRowClick={handleViewProject}
-            mobilePrimaryColumns={['Pipeline No.', 'Company Name', 'Status']}
+            mobilePrimaryColumns={['Pipeline No.', 'Company Name', 'Bid Value', 'Status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
@@ -899,23 +868,23 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       >
         Are you sure you want to delete project {projectToDelete?.['Pipeline No.']}? This action cannot be undone.
       </ConfirmationModal>
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
           <button
             onClick={() => setStatusFilter(statusFilter === 'Active' ? null : 'Active')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Active' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Active' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
-            Active Pipelines
+            Active
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Won' ? null : 'Won')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Won' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Won' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Won
           </button>
           <button
             onClick={() => setStatusFilter(statusFilter === 'Lost' ? null : 'Lost')}
-            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Lost' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Lost' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
           >
             Lost
           </button>

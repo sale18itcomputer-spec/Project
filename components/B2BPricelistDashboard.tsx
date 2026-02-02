@@ -238,7 +238,7 @@ const B2BPricelistDashboard: React.FC = () => {
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [renderStep, setRenderStep] = useState(0);
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip' | 'nowrap'>('wrap');
 
     useEffect(() => {
         if (!loading) {
@@ -481,91 +481,108 @@ const B2BPricelistDashboard: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col bg-background">
-            <div className="p-4 sm:px-8 py-6 flex flex-col sm:flex-row justify-between sm:items-center flex-wrap gap-4 bg-card border-b border-border">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-2xl font-bold text-foreground tracking-tight">B2B Master Pricelist</h1>
-                        <Badge variant="outline" className="bg-brand-500/10 text-brand-500 border-brand-500/20 flex items-center gap-1 py-0.5 px-2">
-                            <ShieldCheck className="w-3 h-3" />
-                            Secure Access
-                        </Badge>
+            <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-bold text-foreground tracking-tight">B2B Master Pricelist</h1>
+                            <Badge variant="outline" className="bg-brand-500/10 text-brand-500 border-brand-500/20 flex items-center gap-1 py-0.5 px-2">
+                                <ShieldCheck className="w-3 h-3" />
+                                Secure Access
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <p className="flex items-center gap-1.5">
+                                <span className="font-bold text-foreground">{filteredData.length}</span> items in inventory
+                            </p>
+                            <span className="w-1 h-1 bg-muted rounded-full"></span>
+                            <p className="flex items-center gap-1.5 text-brand-600 font-medium">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                Live Dealer Rates
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <p className="flex items-center gap-1.5">
-                            <span className="font-bold text-foreground">{filteredData.length}</span> items in inventory
-                        </p>
-                        <span className="w-1 h-1 bg-muted rounded-full"></span>
-                        <p className="flex items-center gap-1.5 text-brand-600 font-medium">
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            Live Dealer Rates
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-                    <div className="relative flex-grow sm:w-56">
-                        <label htmlFor="pricelist-search" className="sr-only">Search</label>
-                        <input
-                            id="pricelist-search"
-                            type="text"
-                            placeholder="Search pricelist..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-muted border-transparent text-foreground placeholder-muted-foreground/60 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                        />
-                        <svg className="w-5 h-5 text-muted-foreground/60 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </div>
-                    <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                    {viewMode === 'table' && (
-                        <>
-                            <div className="bg-muted p-1 rounded-lg flex items-center gap-1 border border-border">
-                                <button
-                                    onClick={() => setCellWrapStyle('overflow')}
-                                    title="Overflow"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                        ? 'bg-background shadow-sm text-brand-500'
-                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                        }`}
-                                    aria-pressed={cellWrapStyle === 'overflow'}
-                                >
-                                    <ArrowRightToLine className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setCellWrapStyle('wrap')}
-                                    title="Wrap"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                        ? 'bg-background shadow-sm text-brand-500'
-                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                        }`}
-                                    aria-pressed={cellWrapStyle === 'wrap'}
-                                >
-                                    <WrapText className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setCellWrapStyle('clip')}
-                                    title="Clip"
-                                    className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                        ? 'bg-background shadow-sm text-brand-500'
-                                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                        }`}
-                                    aria-pressed={cellWrapStyle === 'clip'}
-                                >
-                                    <Scissors className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <DataTableColumnToggle
-                                allColumns={allColumns}
-                                visibleColumns={visibleColumns}
-                                onColumnToggle={handleColumnToggle}
+
+                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center mt-2 lg:mt-0">
+                        <div className="relative w-full lg:w-64 flex-shrink-0">
+                            <label htmlFor="pricelist-search" className="sr-only">Search</label>
+                            <input
+                                id="pricelist-search"
+                                type="text"
+                                placeholder="Search pricelist..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/60 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
                             />
-                        </>
-                    )}
-                    <button
-                        onClick={handleNewItem}
-                        className="flex-shrink-0 flex items-center justify-center bg-brand-700 hover:bg-brand-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all duration-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_15px_-3px_rgba(0,0,0,0.3)] transform hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                        <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span className="hidden sm:inline">Add B2B Product</span>
-                    </button>
+                            <svg className="w-5 h-5 text-muted-foreground/60 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+                            <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+                            {viewMode === 'table' && (
+                                <>
+                                    <div className="bg-muted p-1 rounded-lg flex items-center gap-1 border border-border flex-shrink-0">
+                                        <button
+                                            onClick={() => setCellWrapStyle('overflow')}
+                                            title="Overflow"
+                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
+                                                ? 'bg-background shadow-sm text-brand-500'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                                                }`}
+                                            aria-pressed={cellWrapStyle === 'overflow'}
+                                        >
+                                            <ArrowRightToLine className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setCellWrapStyle('wrap')}
+                                            title="Wrap"
+                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
+                                                ? 'bg-background shadow-sm text-brand-500'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                                                }`}
+                                            aria-pressed={cellWrapStyle === 'wrap'}
+                                        >
+                                            <WrapText className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setCellWrapStyle('clip')}
+                                            title="Clip"
+                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
+                                                ? 'bg-background shadow-sm text-brand-500'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                                                }`}
+                                            aria-pressed={cellWrapStyle === 'clip'}
+                                        >
+                                            <Scissors className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setCellWrapStyle('nowrap')}
+                                            title="No Wrap (Horizontal)"
+                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'nowrap'
+                                                ? 'bg-background shadow-sm text-brand-500'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                                                }`}
+                                            aria-pressed={cellWrapStyle === 'nowrap'}
+                                        >
+                                            <LayoutGrid className="w-4 h-4 rotate-90" />
+                                        </button>
+                                    </div>
+                                    <DataTableColumnToggle
+                                        allColumns={allColumns}
+                                        visibleColumns={visibleColumns}
+                                        onColumnToggle={handleColumnToggle}
+                                    />
+                                </>
+                            )}
+                            <button
+                                onClick={handleNewItem}
+                                className="flex-shrink-0 flex items-center justify-center bg-brand-700 hover:bg-brand-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all duration-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_15px_-3px_rgba(0,0,0,0.3)] transform hover:-translate-y-0.5 active:translate-y-0 ml-auto lg:ml-0"
+                            >
+                                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span className="hidden sm:inline">Add B2B Product</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
