@@ -251,3 +251,38 @@ export const INVOICE_HEADERS = [
   'Tin No.',
   'ItemsJSON'
 ] as const;
+
+export const VENDOR_HEADERS = [
+  'id',
+  'vendor_name',
+  'category',
+  'contact_person',
+  'phone',
+  'email',
+  'address',
+  'website',
+  'payment_terms',
+  'tax_id',
+  'status',
+  'remarks',
+  'created_at',
+  'updated_at',
+  'created_by'
+] as const;
+
+export const VENDOR_PRICELIST_HEADERS = [
+  'id',
+  'vendor_id',
+  'brand',
+  'model_name',
+  'specification',
+  'dealer_price',
+  'user_price',
+  'promotion',
+  'currency',
+  'status',
+  'remarks',
+  'created_at',
+  'updated_at',
+  'created_by'
+] as const;

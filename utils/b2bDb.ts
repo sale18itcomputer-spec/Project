@@ -144,6 +144,8 @@ export const getTableName = (baseTable: string, isB2B: boolean): string => {
         'companies': 'b2b_companies',
         'pipelines': 'b2b_pipelines',
         'quotations': 'b2b_quotations',
+        'vendors': 'vendors', // Shared for now
+        'vendor_pricelist': 'vendor_pricelist' // Shared for now
     };
 
     return b2bTables[baseTable] || baseTable;

@@ -82,8 +82,9 @@ export const FormSelect: React.FC<{
 
 
 // Updated textarea with styles consistent with the new FormInput.
-export const FormTextarea: React.FC<{ name: string; label: string; value: any; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void; rows?: number; }> =
-    ({ name, label, value, onChange, rows = 3 }) => (
+export const FormTextarea: React.FC<{ name: string; label: string; value: any; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void; rows?: number; placeholder?: string; }> =
+    ({ name, label, value, onChange, rows = 3, placeholder }) => (
+
         <div className="md:col-span-2 flex flex-col">
             <label htmlFor={name} className="block text-sm font-medium text-foreground mb-1.5">{label}</label>
             <textarea
@@ -92,6 +93,7 @@ export const FormTextarea: React.FC<{ name: string; label: string; value: any; o
                 value={value || ''}
                 onChange={onChange}
                 rows={rows}
+                placeholder={placeholder}
                 className="block w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-lg placeholder-muted-foreground focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 hover:border-muted-foreground/30"
             />
         </div>

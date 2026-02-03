@@ -5,7 +5,7 @@ import {
 } from '../types';
 
 const DB_NAME = 'limperial-db';
-const DB_VERSION = 4; // Incremented version to ensure all stores (like invoices) exist
+const DB_VERSION = 5; // Added vendors and vendorPricelist
 
 const STORE_CONFIG = {
     projects: { keyPath: 'Pipeline No.' },
@@ -18,6 +18,8 @@ const STORE_CONFIG = {
     saleOrders: { keyPath: 'SO No.' },
     pricelist: { keyPath: 'Item Code' },
     invoices: { keyPath: 'Inv No.' },
+    vendors: { keyPath: 'id' },
+    vendorPricelist: { keyPath: 'id' },
 } as const;
 
 export const STORE_NAMES = Object.keys(STORE_CONFIG) as (keyof typeof STORE_CONFIG)[];

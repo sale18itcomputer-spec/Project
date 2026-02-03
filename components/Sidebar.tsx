@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags } from 'lucide-react';
+import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package } from 'lucide-react';
 import { useNavigation, NavigationState } from '../contexts/NavigationContext';
 import { useB2B } from '../contexts/B2BContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,20 +21,33 @@ const NavItem: React.FC<{
   isActive: boolean;
   onClick: () => void;
   isCollapsed: boolean;
-}> = ({ icon, label, isActive, onClick, isCollapsed }) => {
+  badge?: string;
+  disabled?: boolean;
+}> = ({ icon, label, isActive, onClick, isCollapsed, badge, disabled }) => {
   const baseClasses = 'group flex items-center w-full text-left rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ease-in-out';
   const activeClasses = 'bg-primary text-primary-foreground shadow-sm';
   const inactiveClasses = 'text-muted-foreground hover:bg-accent hover:text-accent-foreground';
+  const disabledClasses = 'opacity-50 cursor-not-allowed';
 
   return (
     <li>
       <button
-        onClick={onClick}
-        className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${isCollapsed ? 'justify-center px-3' : 'px-3'}`}
+        onClick={disabled ? undefined : onClick}
+        className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${isCollapsed ? 'justify-center px-3' : 'px-3'} ${disabled ? disabledClasses : ''}`}
         aria-label={isCollapsed ? label : undefined}
+        disabled={disabled}
       >
         <span className={`transition-colors ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-accent-foreground'}`}>{icon}</span>
-        {!isCollapsed && <span className="ml-3 truncate">{label}</span>}
+        {!isCollapsed && (
+          <div className="ml-3 flex items-center justify-between flex-1 min-w-0">
+            <span className="truncate">{label}</span>
+            {badge && (
+              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-brand-500/10 text-brand-600 rounded">
+                {badge}
+              </span>
+            )}
+          </div>
+        )}
       </button>
     </li>
   );
@@ -171,6 +184,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                     label="Pricelist"
                     isActive={navigation.view === 'pricelist'}
                     onClick={() => onNavigate({ view: 'pricelist' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
+
+                {/* Vendor Pricelist - Now under Products */}
+                <NavItem
+                  icon={<Package size={20} />}
+                  label="Vendor Pricelist"
+                  isActive={navigation.view === 'vendor-pricelist'}
+                  onClick={() => onNavigate({ view: 'vendor-pricelist' })}
+                  isCollapsed={isCollapsed}
+                />
+
+                {/* Vendor Master - Now under Products (Admin/Procurement Only) */}
+                {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
+                  <NavItem
+                    icon={<Truck size={20} />}
+                    label="Vendor Master"
+                    isActive={navigation.view === 'vendors'}
+                    onClick={() => onNavigate({ view: 'vendors' })}
                     isCollapsed={isCollapsed}
                   />
                 )}

@@ -69,6 +69,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       case 'sale-orders': return 'Sale Orders';
       case 'pricelist': return 'Pricelist';
       case 'invoice-do': return 'Invoice & Delivery Order';
+      case 'vendors': return 'Vendor Master';
+      case 'vendor-pricelist': return 'Vendor Pricelist';
+      case 'users': return 'User Management';
       case 'dashboard': default: return 'Dashboard';
     }
   };

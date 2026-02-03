@@ -253,6 +253,42 @@ export interface SaleOrder {
   [key: string]: any;
 }
 
+export interface Vendor {
+  id: string;
+  vendor_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: string;
+  website: string;
+  payment_terms: string;
+  tax_id: string;
+  category: string;
+  status: 'Active' | 'Inactive' | 'Blocked';
+  remarks: string;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export interface VendorPricelistItem {
+  id: string;
+  vendor_id: string;
+  brand: string;
+  model_name: string;
+  specification: string;
+  dealer_price: number;
+  user_price: number;
+  promotion: string;
+  currency: 'USD' | 'KHR';
+  status: 'Available' | 'Discontinued' | 'Out of Stock';
+  remarks: string;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  vendor_name?: string; // Virtual field for display
+}
+
 export interface PricelistItem {
   'Code': string;
   'Brand': string;
