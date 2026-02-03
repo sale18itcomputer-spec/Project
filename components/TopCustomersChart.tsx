@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, useMemo, useId } from 'react';
+import React, { useRef, useEffect, useMemo, useId, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { BarChartHorizontal } from 'lucide-react';
 import { useFilter } from '../contexts/FilterContext';
 import { useWindowSize } from '../hooks/useWindowSize';
-import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
+import { useDebouncedCallback } from 'use-debounce';
 import { limperialTheme } from './charts/echartsTheme';
 
 echarts.registerTheme('limperial', limperialTheme);
@@ -56,11 +56,23 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
         }
     }, 150);
 
+    const [shouldRender, setShouldRender] = useState(false);
+
     useEffect(() => {
+        // Ensure container has dimensions before rendering
+        const timer = setTimeout(() => {
+            setShouldRender(true);
+            handleResize();
+        }, 50);
+
         if (!containerRef.current) return;
         const resizeObserver = new ResizeObserver(handleResize);
         resizeObserver.observe(containerRef.current);
-        return () => resizeObserver.disconnect();
+
+        return () => {
+            clearTimeout(timer);
+            resizeObserver.disconnect();
+        };
     }, [handleResize]);
 
     const onEvents = {
@@ -233,7 +245,9 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
             </div>
             {data && data.length > 0 ? (
                 <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-                    <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+                    {shouldRender && (
+                        <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
+                    )}
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center flex-grow text-slate-600">

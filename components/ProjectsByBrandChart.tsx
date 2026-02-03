@@ -1,7 +1,8 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { PieChart } from 'lucide-react';
+import { useDebouncedCallback } from 'use-debounce';
 
 const ECharts = ReactECharts as any;
 
@@ -30,6 +31,32 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data, currency = 
   const { width } = useWindowSize();
   const isMobile = width ? width < 768 : false;
   const chartRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  const handleResize = useDebouncedCallback(() => {
+    const echartsInstance = chartRef.current?.getEchartsInstance();
+    if (echartsInstance) {
+      echartsInstance.resize();
+    }
+  }, 150);
+
+  useEffect(() => {
+    // Ensure container has dimensions before rendering
+    const timer = setTimeout(() => {
+      setShouldRender(true);
+      handleResize();
+    }, 50);
+
+    if (!containerRef.current) return;
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [handleResize]);
 
   const chartOptions = useMemo(() => {
     if (!data || data.length === 0) return null;
@@ -158,22 +185,24 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data, currency = 
     };
   }, [data, isMobile, currency]);
 
-  const titleId = React.useId();
+  const titleId = useId();
 
   return (
-    <div className="w-full h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col">
+    <div className="w-full h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col" ref={containerRef}>
       <div className="flex-shrink-0">
         <h2 id={titleId} className="text-base font-semibold text-foreground mb-0.5">Sales by Brand</h2>
         <p className="text-xs text-muted-foreground mb-4">Revenue share across product brands.</p>
       </div>
       {data && data.length > 0 ? (
         <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-          <ECharts
-            ref={chartRef}
-            option={chartOptions}
-            style={{ height: '100%', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-          />
+          {shouldRender && (
+            <ECharts
+              ref={chartRef}
+              option={chartOptions}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'svg' }}
+            />
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">

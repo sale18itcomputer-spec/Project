@@ -1,12 +1,38 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { useB2BData } from '../hooks/useB2BData';
 import { useAuth } from '../contexts/AuthContext';
+import { useDebouncedCallback } from 'use-debounce';
 
 const AnalyticsDashboard: React.FC = () => {
     const { quotations, saleOrders, projects, invoices } = useB2BData();
     const { currentUser } = useAuth();
+    const chartRef1 = useRef<any>(null);
+    const chartRef2 = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [shouldRender, setShouldRender] = useState(false);
+
+    const handleResize = useDebouncedCallback(() => {
+        chartRef1.current?.getEchartsInstance().resize();
+        chartRef2.current?.getEchartsInstance().resize();
+    }, 150);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setShouldRender(true);
+            handleResize();
+        }, 50);
+
+        if (!containerRef.current) return;
+        const resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(containerRef.current);
+
+        return () => {
+            clearTimeout(timer);
+            resizeObserver.disconnect();
+        };
+    }, [handleResize]);
 
     // --- Data Preparation ---
     const data = useMemo(() => {
@@ -313,7 +339,7 @@ const AnalyticsDashboard: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500" ref={containerRef}>
             {/* Section Header */}
             <div className="flex items-center gap-3 mb-2">
                 <div className="h-8 w-1 bg-primary rounded-full" />
@@ -329,7 +355,9 @@ const AnalyticsDashboard: React.FC = () => {
                         <p className="text-xs text-muted-foreground mt-1">Breakdown of items currently awaiting action across all categories.</p>
                     </div>
                     <div className="p-4 flex-grow" style={{ minHeight: '320px' }}>
-                        <ReactECharts option={pendingOption} style={{ height: '100%', width: '100%' }} />
+                        {shouldRender && (
+                            <ReactECharts ref={chartRef1} option={pendingOption} style={{ height: '100%', width: '100%' }} />
+                        )}
                     </div>
                 </div>
 
@@ -341,7 +369,9 @@ const AnalyticsDashboard: React.FC = () => {
                         <p className="text-xs text-muted-foreground mt-1">Comparison between active/pending items and successfully closed completions.</p>
                     </div>
                     <div className="p-4 flex-grow" style={{ minHeight: '320px' }}>
-                        <ReactECharts option={statusOption} style={{ height: '100%', width: '100%' }} />
+                        {shouldRender && (
+                            <ReactECharts ref={chartRef2} option={statusOption} style={{ height: '100%', width: '100%' }} />
+                        )}
                     </div>
                 </div>
             </div>
