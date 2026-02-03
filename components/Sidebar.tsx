@@ -188,14 +188,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   />
                 )}
 
-                {/* Vendor Pricelist - Now under Products */}
-                <NavItem
-                  icon={<Package size={20} />}
-                  label="Vendor Pricelist"
-                  isActive={navigation.view === 'vendor-pricelist'}
-                  onClick={() => onNavigate({ view: 'vendor-pricelist' })}
-                  isCollapsed={isCollapsed}
-                />
+                {/* Vendor Pricelist - Now under Products (Hidden for Sales/Senior Corp Sales) */}
+                {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
+                  <NavItem
+                    icon={<Package size={20} />}
+                    label="Vendor Pricelist"
+                    isActive={navigation.view === 'vendor-pricelist'}
+                    onClick={() => onNavigate({ view: 'vendor-pricelist' })}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
 
                 {/* Vendor Master - Now under Products (Admin/Procurement Only) */}
                 {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
