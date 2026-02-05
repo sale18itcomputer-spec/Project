@@ -1,40 +1,40 @@
 import React, { useState, lazy, Suspense, useCallback, useEffect, useRef } from 'react';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
+import Sidebar from './components/layout/Sidebar';
+import Header from './components/layout/Header';
 import { DataProvider } from './contexts/DataContext';
 import { NavigationProvider, useNavigation, NavigationState } from './contexts/NavigationContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LoginPage from './components/LoginPage';
-import PasscodeLock from './components/PasscodeLock';
-import SecurityModal from './components/SecurityModal';
+import LoginPage from './components/pages/LoginPage';
+import PasscodeLock from './components/common/PasscodeLock';
+import SecurityModal from './components/modals/SecurityModal';
 import { Quotation } from './types';
 import { Toaster } from './components/ui/sonner';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
-import BrandedLoader from './components/DashboardSkeleton';
-import ContentSkeleton from './components/ContentSkeleton';
-import Footer from './components/Footer';
+import BrandedLoader from './components/common/DashboardSkeleton';
+import ContentSkeleton from './components/common/ContentSkeleton';
+import Footer from './components/layout/Footer';
 import { useWindowSize } from './hooks/useWindowSize';
-import MobileBottomNav from './components/MobileBottomNav';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 import { B2BProvider } from './contexts/B2BContext';
 
 // Lazy load components for code splitting and faster initial loads
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const PipelineDashboard = lazy(() => import('./components/PipelineDashboard'));
-const CompanyDashboard = lazy(() => import('./components/CompanyDashboard'));
-const ContactDashboard = lazy(() => import('./components/ContactDashboard'));
-const ContactLogsDashboard = lazy(() => import('./components/ContactLogsDashboard'));
-const SiteSurveyDashboard = lazy(() => import('./components/SiteSurveyDashboard'));
-const MeetingDashboard = lazy(() => import('./components/MeetingDashboard'));
-const QuotationDashboard = lazy(() => import('./components/QuotationDashboard'));
-const SaleOrderDashboard = lazy(() => import('./components/SaleOrderDashboard'));
-const PricelistDashboard = lazy(() => import('./components/PricelistDashboard'));
-const B2BPricelistDashboard = lazy(() => import('./components/B2BPricelistDashboard'));
-const InvoiceDODashboard = lazy(() => import('./components/InvoiceDODashboard'));
-const UserManagementDashboard = lazy(() => import('./components/UserManagementDashboard'));
-const VendorDashboard = lazy(() => import('./components/VendorDashboard'));
-const VendorPricelistDashboard = lazy(() => import('./components/VendorPricelistDashboard'));
+const Dashboard = lazy(() => import('./components/dashboards/Dashboard'));
+const PipelineDashboard = lazy(() => import('./components/dashboards/PipelineDashboard'));
+const CompanyDashboard = lazy(() => import('./components/dashboards/CompanyDashboard'));
+const ContactDashboard = lazy(() => import('./components/dashboards/ContactDashboard'));
+const ContactLogsDashboard = lazy(() => import('./components/dashboards/ContactLogsDashboard'));
+const SiteSurveyDashboard = lazy(() => import('./components/dashboards/SiteSurveyDashboard'));
+const MeetingDashboard = lazy(() => import('./components/dashboards/MeetingDashboard'));
+const QuotationDashboard = lazy(() => import('./components/dashboards/QuotationDashboard'));
+const SaleOrderDashboard = lazy(() => import('./components/dashboards/SaleOrderDashboard'));
+const PricelistDashboard = lazy(() => import('./components/dashboards/PricelistDashboard'));
+const B2BPricelistDashboard = lazy(() => import('./components/dashboards/B2BPricelistDashboard'));
+const InvoiceDODashboard = lazy(() => import('./components/dashboards/InvoiceDODashboard'));
+const UserManagementDashboard = lazy(() => import('./components/dashboards/UserManagementDashboard'));
+const VendorDashboard = lazy(() => import('./components/dashboards/VendorDashboard'));
+const VendorPricelistDashboard = lazy(() => import('./components/dashboards/VendorPricelistDashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
@@ -235,7 +235,7 @@ const AuthenticatedLayout: React.FC = () => {
         />
         <main className={`flex-1 ${needsConstrainedHeight ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultLayout ? 'p-4 md:p-5 lg:p-6' : ''}`}>
           <Suspense fallback={<ContentSkeleton />}>
-            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload ? JSON.stringify(navigation.payload).slice(0, 50) : ''}`} className={`${needsConstrainedHeight ? 'h-full' : ''}`}>
+            <div key={`${navigation.view}-${navigation.filter}-${navigation.payload ? JSON.stringify(navigation.payload).slice(0, 50) : ''}`} className={`${needsConstrainedHeight ? 'h-full' : ''} animate-slide-up`}>
               {renderContent()}
             </div>
           </Suspense>

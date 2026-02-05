@@ -15,8 +15,8 @@ interface PDFHeaderData {
     [key: string]: any;
 }
 
-// Reliable JSDelivr CDN for the Khmer OS System font
-const KHMER_FONT_URL = 'https://cdn.jsdelivr.net/gh/Seanghay/jspdf-khmer@master/fonts/KhmerOS_System.ttf';
+// Local Khmer OS font from the public directory
+const KHMER_FONT_URL = '/KhmerOS.ttf';
 let khmerFontBase64: string | null = null;
 let isKhmerFontActive = false;
 

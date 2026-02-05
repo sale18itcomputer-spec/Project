@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ColumnDef } from '../components/DataTable';
+import { ColumnDef } from '../components/common/DataTable';
 
 const TABLE_WIDTHS_STORAGE_KEY = 'limperial-table-widths';
 
