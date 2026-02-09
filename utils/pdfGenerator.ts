@@ -126,7 +126,7 @@ export const defaultLayoutConfig: PDFLayoutConfig = {
         contentFontSize: 9,
     },
     footer: {
-        y: 245,
+        y: 255, // Positioned near bottom but visible on A4 page
         preparedBy: { x: 35 },
         middlePosition: { x: 105 },
         approvedBy: { x: 175 },
@@ -586,7 +586,13 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
     }
 
     // --- Signatures ---
-    currentY = Math.max(currentY + 20, layout.footer.y);
+    // Dynamic positioning: use footer.y if content is short, otherwise add spacing after content
+    // Ensure signatures stay near bottom while maintaining minimum 25mm spacing from content
+    const minSpacingFromContent = 25;
+    const contentEndY = currentY + minSpacingFromContent;
+    currentY = Math.max(contentEndY, layout.footer.y);
+
+    // If signatures would overflow page, move to new page
     if (currentY > 270) {
         doc.addPage();
         currentY = 20;

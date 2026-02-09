@@ -213,20 +213,20 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                     </tfoot>
                 </table>
 
-                {/* Signatures */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px' }}>
-                    <div style={{ textAlign: 'center', width: '35%' }}>
+                {/* Signatures - Positioned near bottom of page */}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '80px', gap: '40px', pageBreakInside: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
+                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            {headerData['Prepared By'] || headerData['Created By'] || ''}<br />
-                            {headerData['Prepared By Position'] || 'Signature and Name'}
+                            {headerData['Prepared By'] || headerData['Created By'] || 'Signature and Name'}<br />
+                            {headerData['Prepared By Position'] || '\u00A0'}
                         </div>
                     </div>
-                    <div style={{ textAlign: 'center', width: '35%' }}>
+                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>RECEIVED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            {headerData['Approved By'] || ''}<br />
-                            {headerData['Approved By Position'] || 'Signature and Name'}
+                            {headerData['Approved By'] || 'Signature and Name'}<br />
+                            {headerData['Approved By Position'] || '\u00A0'}
                         </div>
                     </div>
                 </div>

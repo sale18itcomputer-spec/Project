@@ -208,26 +208,26 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                 </table>
 
                 {/* Remarks */}
-                <div style={{ clear: 'both', marginTop: '20px', fontSize: '11px', lineHeight: 1.6 }}>
-                    <h4 style={{ fontWeight: 'bold', textDecoration: 'underline' }}>Terms and Conditions</h4>
-                    <div style={{ whiteSpace: 'pre-wrap', marginTop: '5px' }}>
+                <div style={{ clear: 'both', marginTop: '10px', fontSize: '10px', lineHeight: 1.4, pageBreakInside: 'avoid' }}>
+                    <h4 style={{ fontWeight: 'bold', textDecoration: 'underline', fontSize: '11px', marginBottom: '3px' }}>Terms and Conditions</h4>
+                    <div style={{ whiteSpace: 'pre-wrap', marginTop: '3px' }}>
                         {headerData['Terms and Conditions']}
                     </div>
                 </div>
-                {/* Signatures */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px' }}>
-                    <div style={{ textAlign: 'center', width: '35%' }}>
+                {/* Signatures - Positioned near bottom of page */}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '80px', gap: '40px', pageBreakInside: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
+                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px' }}>
+                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
                             {headerData['Prepared By'] || headerData['Created By']}<br />
                             {headerData['Prepared By Position'] || 'Senior Corporate Sale'}
                         </div>
                     </div>
-                    <div style={{ textAlign: 'center', width: '35%' }}>
+                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>APPROVED BY</div>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px' }}>
-                            {headerData['Approved By'] || <br />}<br />
-                            {headerData['Approved By Position'] || <br />}
+                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
+                            {headerData['Approved By'] || 'Signature and Name'}<br />
+                            {headerData['Approved By Position'] || '\u00A0'}
                         </div>
                     </div>
                 </div>

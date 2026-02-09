@@ -266,6 +266,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             // Priority 1: Database
             const dbLayout = await getSetting('global_pdf_layout');
             if (dbLayout && typeof dbLayout === 'object' && Object.keys(dbLayout).length > 0) {
+                // Migration: Update old layouts with low footer.y to new default
+                if (dbLayout.footer && dbLayout.footer.y < 260) {
+                    console.log('📝 Migrating old PDF layout: updating footer.y from', dbLayout.footer.y, 'to', defaultLayoutConfig.footer.y);
+                    dbLayout.footer.y = defaultLayoutConfig.footer.y;
+                    // Save the migrated layout back to database
+                    await saveSetting('global_pdf_layout', dbLayout);
+                }
                 setPdfLayout(dbLayout);
                 localStorage.setItem('global_pdf_layout', JSON.stringify(dbLayout));
                 return;
@@ -277,6 +284,14 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 try {
                     const parsed = JSON.parse(savedLayout);
                     if (parsed && typeof parsed === 'object') {
+                        // Migration: Update old layouts with low footer.y to new default
+                        if (parsed.footer && parsed.footer.y < 260) {
+                            console.log('📝 Migrating old PDF layout from localStorage: updating footer.y from', parsed.footer.y, 'to', defaultLayoutConfig.footer.y);
+                            parsed.footer.y = defaultLayoutConfig.footer.y;
+                            localStorage.setItem('global_pdf_layout', JSON.stringify(parsed));
+                            // Also save to database
+                            await saveSetting('global_pdf_layout', parsed);
+                        }
                         setPdfLayout(parsed);
                     }
                 } catch (e) {
