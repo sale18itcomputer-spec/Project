@@ -126,10 +126,10 @@ export const defaultLayoutConfig: PDFLayoutConfig = {
         contentFontSize: 9,
     },
     footer: {
-        y: 255, // Positioned near bottom but visible on A4 page
-        preparedBy: { x: 35 },
+        y: 220, // Moved much higher to ensure all signature elements are visible
+        preparedBy: { x: 50 },
         middlePosition: { x: 105 },
-        approvedBy: { x: 175 },
+        approvedBy: { x: 160 },
     }
 };
 
@@ -587,8 +587,8 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
 
     // --- Signatures ---
     // Dynamic positioning: use footer.y if content is short, otherwise add spacing after content
-    // Ensure signatures stay near bottom while maintaining minimum 25mm spacing from content
-    const minSpacingFromContent = 25;
+    // Ensure signatures stay near bottom while maintaining minimum spacing from content
+    const minSpacingFromContent = 5; // Reduced to 5mm to move signature block closer
     const contentEndY = currentY + minSpacingFromContent;
     currentY = Math.max(contentEndY, layout.footer.y);
 
@@ -609,12 +609,12 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
     if (label2) doc.text(label2, layout.footer.middlePosition?.x || 105, currentY, { align: 'center' });
     doc.text(label3, layout.footer.approvedBy.x, currentY, { align: 'center' });
 
-    currentY += 25;
+    currentY += 30; // Bigger space for signature
     doc.line(layout.footer.preparedBy.x - 25, currentY, layout.footer.preparedBy.x + 25, currentY);
     if (label2) doc.line((layout.footer.middlePosition?.x || 105) - 25, currentY, (layout.footer.middlePosition?.x || 105) + 25, currentY);
     doc.line(layout.footer.approvedBy.x - 25, currentY, layout.footer.approvedBy.x + 25, currentY);
 
-    currentY += 5;
+    currentY += 10; // Bigger space between signature line and name/position
     if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'normal');
     else doc.setFont('times', 'normal');
 
