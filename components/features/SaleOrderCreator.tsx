@@ -516,7 +516,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                         modelName: pricelistItem.Model,
                         description: pricelistItem.Description || '',
                         unitPrice: unitPrice,
-                        amount: ((typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * unitPrice) + (parseFloat(String(item.commission)) || 0),
+                        amount: (typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * (unitPrice + (parseFloat(String(item.commission)) || 0)),
                         commission: item.commission, // preserve commission
                     };
                 }
@@ -535,7 +535,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     const q = parseFloat(String(updatedItem.qty)) || 0;
                     const p = parseFloat(String(updatedItem.unitPrice)) || 0;
                     const c = parseFloat(String(updatedItem.commission)) || 0;
-                    updatedItem.amount = (q * p) + c;
+                    updatedItem.amount = q * (p + c);
                     return updatedItem;
                 }
                 return item;
