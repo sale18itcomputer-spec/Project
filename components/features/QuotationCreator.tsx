@@ -573,13 +573,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             const newItems = currentItems.map(item => {
                 if (item.id === lineItem.id) {
                     const unitPrice = parseSheetValue(pricelistItem['End User Price']);
+                    const qty = typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0;
+                    const c = parseFloat(String(item.commission)) || 0;
                     return {
                         ...item,
                         itemCode: pricelistItem.Code,
                         modelName: pricelistItem.Model,
                         description: pricelistItem.Description || '',
                         unitPrice: unitPrice,
-                        amount: (typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * (unitPrice + (parseFloat(String(item.commission)) || 0)),
+                        amount: qty * (unitPrice + c),
                         commission: item.commission, // preserve commission
                     };
                 }
@@ -626,8 +628,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     };
 
     const totals = useMemo(() => {
+        // subTotal = sum of item.amount, where each amount already includes commission (qty * (unitPrice + commission))
         const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
-        const commission = items.reduce((sum, item) => sum + (parseFloat(String(item.commission)) || 0), 0);
+        // commission is informational: sum of (qty * commissionPerUnit) across all items
+        const commission = items.reduce((sum, item) => {
+            const qty = parseFloat(String(item.qty)) || 0;
+            const c = parseFloat(String(item.commission)) || 0;
+            return sum + (qty * c);
+        }, 0);
+        // VAT and Grand Total are based on subTotal (which already includes commission)
         const vat = quote['Tax Type'] === 'NON-VAT' ? 0 : subTotal * 0.1;
         const grandTotal = subTotal + vat;
         return { subTotal, vat, grandTotal, commission };
@@ -1399,9 +1408,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                         <td className="px-4 py-3 text-right whitespace-nowrap">
                                                             <div className="flex flex-col items-end">
                                                                 <span className="text-sm font-black text-foreground tracking-tight">
-                                                                    {typeof item['End User Price'] === 'number' ?
-                                                                        item['End User Price'].toLocaleString('en-US', { style: 'currency', currency: 'USD' }) :
-                                                                        item['End User Price']}
+                                                                    {parseSheetValue(item['End User Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                                                                 </span>
                                                                 <span className="text-[9px] text-muted-foreground font-bold uppercase">Unit Price</span>
                                                             </div>
@@ -1449,7 +1456,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                         let currentNo = 1;
                                                                         return newItems.map(it => {
                                                                             if (it.itemCode || it.modelName || it.qty || it.unitPrice || it.description) {
-                                                                                return { ...it, no: it.qty > 0 ? currentNo++ : 0 };
+                                                                                return { ...it, no: (parseFloat(String(it.qty)) || 0) > 0 ? currentNo++ : 0 };
                                                                             }
                                                                             return { ...it, no: 0 };
                                                                         });
@@ -1723,10 +1730,17 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                             onBack();
                         }
                     }}
-                    secondaryActionText={successInfo.isWin ? "Later" : undefined}
-                    onSecondaryAction={() => { setSuccessInfo(null); onBack(); }}
+                    extraActions={successInfo.isWin ? (
+                        <button
+                            onClick={() => { setSuccessInfo(null); onBack(); }}
+                            className="w-full h-10 rounded-xl font-semibold text-sm text-muted-foreground hover:bg-muted transition-all"
+                        >
+                            Later
+                        </button>
+                    ) : undefined}
                 />
-            )}
+            )
+            }
             <PDFConfigModal
                 isOpen={showPdfConfig}
                 onClose={() => setShowPdfConfig(false)}
