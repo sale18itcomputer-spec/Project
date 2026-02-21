@@ -183,14 +183,8 @@ const VendorPricelistDashboard: React.FC = () => {
             },
         ];
 
-        // Filter out sensitive columns for Sales roles
-        if (currentUser?.Role === 'Sales' || currentUser?.Role === 'Senior Corporate Sales') {
-            const sensitiveKeys = ['dealer_price', 'promotion'];
-            return columns.filter(col => !sensitiveKeys.includes(col.accessorKey as string));
-        }
-
         return columns;
-    }, [currentUser]);
+    }, []);
 
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {

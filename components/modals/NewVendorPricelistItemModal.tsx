@@ -159,10 +159,8 @@ const NewVendorPricelistItemModal: React.FC<NewVendorPricelistItemModalProps> = 
 
                     <FormSection title="Pricing & Promotion">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* Dealer Price - Hidden for Sales roles */}
-                            {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
-                                isReadOnly ? <FormDisplay label="Dealer Price" value={formData.dealer_price?.toLocaleString()} /> : <FormInput name="dealer_price" label="Dealer Price" value={formData.dealer_price?.toString()} onChange={handleChange} type="number" step="0.01" required />
-                            )}
+                            {/* Dealer Price - Visible for all roles */}
+                            {isReadOnly ? <FormDisplay label="Dealer Price" value={formData.dealer_price?.toLocaleString()} /> : <FormInput name="dealer_price" label="Dealer Price" value={formData.dealer_price?.toString()} onChange={handleChange} type="number" step="0.01" required />}
                             {isReadOnly ? <FormDisplay label="User Price" value={formData.user_price?.toLocaleString()} /> : <FormInput name="user_price" label="User Price" value={formData.user_price?.toString()} onChange={handleChange} type="number" step="0.01" />}
                             {isReadOnly ? (
                                 <FormDisplay label="Currency" value={formData.currency} />
@@ -188,10 +186,8 @@ const NewVendorPricelistItemModal: React.FC<NewVendorPricelistItemModalProps> = 
                                 </div>
                             )}
                         </div>
-                        {/* Promotion - Hidden for Sales roles */}
-                        {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
-                            isReadOnly ? <FormDisplay label="Promotion" value={formData.promotion} /> : <FormInput name="promotion" label="Promotion / Special Offer" value={formData.promotion} onChange={handleChange} placeholder="e.g. 10% Off, Buy 1 Get 1" />
-                        )}
+                        {/* Promotion - Visible for all roles */}
+                        {isReadOnly ? <FormDisplay label="Promotion" value={formData.promotion} /> : <FormInput name="promotion" label="Promotion / Special Offer" value={formData.promotion} onChange={handleChange} placeholder="e.g. 10% Off, Buy 1 Get 1" />}
                     </FormSection>
 
                     <FormSection title="Remarks">

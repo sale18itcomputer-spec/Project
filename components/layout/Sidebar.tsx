@@ -197,16 +197,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   isCollapsed={isCollapsed}
                 />
 
-                {/* Vendor Master - Now under Products (Admin/Procurement Only) */}
-                {currentUser?.Role !== 'Sales' && currentUser?.Role !== 'Senior Corporate Sales' && (
-                  <NavItem
-                    icon={<Truck size={20} />}
-                    label="Vendor Master"
-                    isActive={navigation.view === 'vendors'}
-                    onClick={() => onNavigate({ view: 'vendors' })}
-                    isCollapsed={isCollapsed}
-                  />
-                )}
+                {/* Vendor Master - Open for all roles */}
+                <NavItem
+                  icon={<Truck size={20} />}
+                  label="Vendor Master"
+                  isActive={navigation.view === 'vendors'}
+                  onClick={() => onNavigate({ view: 'vendors' })}
+                  isCollapsed={isCollapsed}
+                />
               </ul>
             </div>
 
