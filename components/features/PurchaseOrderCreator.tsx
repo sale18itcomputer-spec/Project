@@ -400,6 +400,33 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
             if (itemsError) throw itemsError;
 
+            // If PO is Completed, push items to vendor_pricelist
+            if (formData.status === 'Completed') {
+                try {
+                    const pricelistPayload = items
+                        .filter(item => item.item_number || item.description)
+                        .map(item => ({
+                            vendor_id: formData.vendor_id,
+                            brand: '', // To be added by user later
+                            model_name: item.item_number || STRIP_HTML(item.description).substring(0, 50) || 'N/A',
+                            specification: STRIP_HTML(item.description),
+                            dealer_price: item.unit_price,
+                            currency: formData.currency || 'USD',
+                            status: 'Available' as const,
+                            created_by: currentUser?.Name || 'System'
+                        }));
+
+                    if (pricelistPayload.length > 0) {
+                        const { error: priceError } = await supabase.from('vendor_pricelist').insert(pricelistPayload);
+                        if (priceError) throw priceError;
+                        addToast('Items automatically added to Vendor Pricelist!', 'success');
+                    }
+                } catch (pe: any) {
+                    console.error("Pricelist sync error:", pe);
+                    addToast(`PO saved, but pricelist sync failed: ${pe.message}`, 'info');
+                }
+            }
+
             addToast('Purchase Order saved successfully!', 'success');
             onBack();
         } catch (err: any) {
