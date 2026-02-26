@@ -5,8 +5,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, Plus, Trash2, Save, Printer, Package, User, Building2, Calendar, CreditCard, ShoppingCart, CheckCircle, PanelRight, Download, SlidersHorizontal, Loader2 } from 'lucide-react';
-import { FormSection, FormInput, FormTextarea } from "../common/FormControls";
+import { FormSection, FormInput, FormTextarea, FormSelect } from "../common/FormControls";
 import { formatCurrencySmartly } from "../../utils/formatters";
+import { formatToInputDate } from "../../utils/time";
 import { getSetting, saveSetting } from "../../services/api";
 import DocumentEditorContainer from "../layout/DocumentEditorContainer";
 import PDFConfigModal from "../modals/PDFConfigModal";
@@ -124,6 +125,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         ordered_by_name: currentUser?.Name || '',
         ordered_by_phone: currentUser?.['Phone 1'] || '',
         currency: 'USD',
+        tax_type: 'VAT',
         status: 'Draft',
         remarks: '',
         prepared_by: currentUser?.Name || '',
@@ -211,10 +213,11 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
     const totals = useMemo(() => {
         const sub_total = items.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
-        const vat_amount = sub_total * 0.1; // 10% VAT
+        const isVAT = formData.tax_type === 'VAT';
+        const vat_amount = isVAT ? sub_total * 0.1 : 0; // 10% VAT
         const grand_total = sub_total + vat_amount;
         return { sub_total, vat_amount, grand_total };
-    }, [items]);
+    }, [items, formData.tax_type]);
 
     useEffect(() => {
         const updatePreview = async () => {
@@ -269,7 +272,11 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
     useEffect(() => {
         if (existingPO) {
-            setFormData(existingPO);
+            setFormData({
+                ...existingPO,
+                order_date: formatToInputDate(existingPO.order_date),
+                delivery_date: formatToInputDate(existingPO.delivery_date)
+            });
             loadPOItems(existingPO.id!);
         } else {
             generatePONumber();
@@ -350,13 +357,19 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
         setIsSaving(true);
         try {
-            const poPayload = {
-                ...formData,
-                ...totals,
-                created_by: currentUser?.Name || 'System',
-            };
+            // Clean up payload by removing fields that shouldn't be in the update/insert object
+            const { items: _, id: __, created_at: ___, updated_at: ____, ...cleanFormData } = formData as any;
 
-            delete poPayload.items; // Don't send virtual items field
+            const poPayload = {
+                ...cleanFormData,
+                ...totals,
+                // Ensure dates and UUIDs are sent as null if empty to avoid Postgres errors
+                order_date: cleanFormData.order_date || null,
+                delivery_date: cleanFormData.delivery_date || null,
+                vendor_id: cleanFormData.vendor_id || null,
+                created_by: cleanFormData.created_by || currentUser?.Name || 'System',
+                updated_at: new Date().toISOString()
+            };
 
             let poId = formData.id;
 
@@ -691,7 +704,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                         ))}
                                     </select>
                                 </div>
-                                <FormInput name="vendor_name" label="Vendor Name *" value={formData.vendor_name || ''} onChange={handleInputChange} required />
+                                <FormInput name="vendor_name" label="Vendor Name" value={formData.vendor_name || ''} onChange={handleInputChange} required />
                                 <FormInput name="vendor_contact" label="Contact Name" value={formData.vendor_contact || ''} onChange={handleInputChange} />
                                 <FormInput name="vendor_phone" label="Phone Number" value={formData.vendor_phone || ''} onChange={handleInputChange} />
                                 <FormInput name="vendor_email" label="Email Address" value={formData.vendor_email || ''} onChange={handleInputChange} type="email" />
@@ -701,12 +714,28 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             </FormSection>
 
                             <FormSection title="Order Details">
-                                <FormInput name="po_number" label="PO Number #" value={formData.po_number} onChange={handleInputChange} readOnly />
-                                <FormInput name="order_date" label="Order Date" value={formData.order_date} onChange={handleInputChange} type="date" />
-                                <FormInput name="delivery_date" label="Delivery Date" value={formData.delivery_date} onChange={handleInputChange} type="date" />
-                                <FormInput name="payment_term" label="Payment Term" value={formData.payment_term} onChange={handleInputChange} placeholder="e.g. Net 30" />
-                                <FormInput name="ordered_by_name" label="Order By Name" value={formData.ordered_by_name} onChange={handleInputChange} />
-                                <FormInput name="ordered_by_phone" label="Order By Phone" value={formData.ordered_by_phone} onChange={handleInputChange} />
+                                <FormInput name="po_number" label="PO Number #" value={formData.po_number || ''} onChange={handleInputChange} readOnly />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormSelect
+                                        name="status"
+                                        label="Status"
+                                        value={formData.status || 'Draft'}
+                                        onChange={handleInputChange}
+                                        options={['Draft', 'Approved', 'Sent', 'Completed', 'Cancelled']}
+                                    />
+                                    <FormSelect
+                                        name="tax_type"
+                                        label="Tax Type"
+                                        value={formData.tax_type || 'VAT'}
+                                        onChange={handleInputChange}
+                                        options={['VAT', 'NON-VAT']}
+                                    />
+                                </div>
+                                <FormInput name="order_date" label="Order Date" value={formData.order_date || ''} onChange={handleInputChange} type="date" />
+                                <FormInput name="delivery_date" label="Delivery Date" value={formData.delivery_date || ''} onChange={handleInputChange} type="date" />
+                                <FormInput name="payment_term" label="Payment Term" value={formData.payment_term || ''} onChange={handleInputChange} placeholder="e.g. Net 30" />
+                                <FormInput name="ordered_by_name" label="Order By Name" value={formData.ordered_by_name || ''} onChange={handleInputChange} />
+                                <FormInput name="ordered_by_phone" label="Order By Phone" value={formData.ordered_by_phone || ''} onChange={handleInputChange} />
                                 <div className="md:col-span-2 mt-2">
                                     <FormTextarea name="ship_to_address" label="Ship To Address" value={formData.ship_to_address || ''} onChange={handleInputChange} rows={2} />
                                 </div>
@@ -800,8 +829,8 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                         <span className="font-semibold">{formatCurrencySmartly(totals.sub_total, formData.currency)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm py-1">
-                                        <span className="text-muted-foreground font-medium">VAT (10%):</span>
-                                        <span className="font-semibold">{formatCurrencySmartly(totals.vat_amount, formData.currency)}</span>
+                                        <span className="text-muted-foreground font-medium">{formData.tax_type === 'VAT' ? 'VAT (10%):' : 'Tax (0%):'}</span>
+                                        <span className="font-semibold text-rose-600">{formatCurrencySmartly(totals.vat_amount, formData.currency)}</span>
                                     </div>
                                     <div className="flex justify-between text-lg py-3 border-t border-border mt-2">
                                         <span className="font-bold text-foreground">Grand Total:</span>

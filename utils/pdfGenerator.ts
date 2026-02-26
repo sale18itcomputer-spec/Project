@@ -373,7 +373,8 @@ const generatePurchaseOrderPDF = async (doc: jsPDF, options: GeneratePDFOptions,
     };
 
     drawTotalRow("Sub Total:", totals.subTotal);
-    drawTotalRow("VAT (10%):", totals.tax || totals.vat || 0);
+    const taxLabel = headerData['tax_type'] === 'NON-VAT' ? "Tax (0%):" : "VAT (10%):";
+    drawTotalRow(taxLabel, totals.tax || totals.vat || 0);
     drawTotalRow("Grand Total:", totals.grandTotal, true);
 
     currentY += 20;

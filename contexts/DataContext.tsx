@@ -328,10 +328,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const currentVendors = vendorsRes.data
             ? normalize<Vendor>(vendorsRes.data, VENDOR_HEADERS)
             : (vendors || []);
-          const pos = normalize<PurchaseOrder>(poData, PURCHASE_ORDER_HEADERS).map(po => ({
-            ...po,
-            vendor_name: currentVendors.find(v => v.id === po.vendor_id)?.vendor_name || ''
-          }));
+          const pos = normalize<PurchaseOrder>(poData, PURCHASE_ORDER_HEADERS).map(po => {
+            const vendor = currentVendors.find(v => v.id === po.vendor_id);
+            return {
+              ...po,
+              vendor_name: po.vendor_name || vendor?.vendor_name || ''
+            };
+          });
           setPurchaseOrders(pos);
           db.batchSetStoreData({ purchaseOrders: pos });
         }
