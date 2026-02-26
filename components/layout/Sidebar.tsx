@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package } from 'lucide-react';
+import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList } from 'lucide-react';
 import { useNavigation, NavigationState } from "../../contexts/NavigationContext";
 import { useB2B } from "../../contexts/B2BContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -207,6 +207,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                 />
               </ul>
             </div>
+
+            {/* Procurement Section */}
+            {currentUser?.Role === 'Admin' && (
+              <div>
+                {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Procurement</h3>}
+                <ul className="mt-2 space-y-1">
+                  <NavItem
+                    icon={<ClipboardList size={20} />}
+                    label="Purchase Orders"
+                    isActive={navigation.view === 'purchase-orders'}
+                    onClick={() => onNavigate({ view: 'purchase-orders' })}
+                    isCollapsed={isCollapsed}
+                  />
+                </ul>
+              </div>
+            )}
 
             {/* Logs Section */}
             <div>

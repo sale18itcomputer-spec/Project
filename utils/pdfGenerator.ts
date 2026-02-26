@@ -140,7 +140,7 @@ interface GeneratePDFOptions {
     totals: PDFTotals;
     currency: 'USD' | 'KHR';
     filename: string;
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Delivery Order';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Delivery Order' | 'Purchase Order';
     layout?: PDFLayoutConfig;
     previewMode?: boolean;
 }
@@ -201,6 +201,229 @@ async function loadKhmerFont(doc: jsPDF) {
     return false;
 }
 
+const generatePurchaseOrderPDF = async (doc: jsPDF, options: GeneratePDFOptions, layout: PDFLayoutConfig, isKHR: boolean, primaryColor: number[], black: number[]): Promise<string | void> => {
+    const { headerData, items, totals, currency, filename, previewMode } = options;
+
+    // Title
+    doc.setFontSize(14);
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'bold');
+    else doc.setFont('times', 'bold');
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    const titleText = "PURCHASE ORDER";
+    const titleWidth = doc.getTextWidth(titleText);
+    const titleX = (210 - titleWidth) / 2;
+    doc.text(titleText, titleX, 20);
+
+    // Block 1 Header
+    let y = 30;
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(10, y, 190, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.text("Vendor Name:", 12, y + 4);
+    doc.text("Address:", 70, y + 4);
+    doc.text("Order Date:", 130, y + 4);
+    doc.text("PO Number # :", 165, y + 4);
+
+    // Block 1 Data
+    y += 10;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'normal');
+    else doc.setFont('times', 'normal');
+
+    let currentVendorY = y;
+    doc.text(headerData['Vendor Name'] || '', 12, currentVendorY);
+    if (headerData['Vendor Contact']) {
+        currentVendorY += 5;
+        doc.text(headerData['Vendor Contact'] || '', 12, currentVendorY);
+    }
+    if (headerData['Vendor Phone']) {
+        currentVendorY += 5;
+        doc.text(headerData['Vendor Phone'] || '', 12, currentVendorY);
+    }
+
+    const vAddress = doc.splitTextToSize(headerData['Vendor Address'] || '', 55);
+    doc.text(vAddress, 70, y);
+    doc.text(formatDate(headerData['Order Date']), 130, y);
+    doc.text(String(headerData['PO Number'] || ''), 165, y);
+
+    let maxBlock1Y = Math.max(currentVendorY, y + (vAddress.length - 1) * 5) + 8;
+    if (maxBlock1Y < y + 15) maxBlock1Y = y + 15;
+    y = maxBlock1Y;
+
+    // Block 2 Header
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(10, y, 190, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'bold');
+    else doc.setFont('times', 'bold');
+    doc.text("Order by:", 12, y + 4);
+    doc.text("Ship to:", 70, y + 4);
+    doc.text("Delivery Date:", 130, y + 4);
+    doc.text("Payment Term:", 165, y + 4);
+
+    // Block 2 Data
+    y += 10;
+    doc.setTextColor(0, 0, 0);
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'normal');
+    else doc.setFont('times', 'normal');
+
+    let currentOrderY = y;
+    doc.text(headerData['ordered_by_name'] || '', 12, currentOrderY);
+    if (headerData['ordered_by_phone']) {
+        currentOrderY += 5;
+        doc.text(headerData['ordered_by_phone'] || '', 12, currentOrderY);
+    }
+
+    const sAddress = doc.splitTextToSize(headerData['Ship To'] || '', 55);
+    doc.text(sAddress, 70, y);
+    doc.text(formatDate(headerData['Delivery Date']), 130, y);
+    doc.text(String(headerData['Payment Term'] || ''), 165, y);
+
+    let maxBlock2Y = Math.max(currentOrderY, y + (sAddress.length - 1) * 5) + 12;
+
+    // Table
+    const head = [['No.', 'Item #', 'Description', 'Qty', 'Unit Price', 'Total']];
+    const tableData: any[] = [];
+    items.forEach(item => {
+        if (!item.itemCode && !item.description && !item.modelName) return;
+
+        const qty = typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0;
+        const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+        const uPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
+
+        const unitPriceStr = uPrice.toLocaleString('en-US', { minimumFractionDigits: 2 });
+        const amountStr = amt.toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+        tableData.push([
+            item.no,
+            item.itemCode,
+            item.description || item.modelName || "",
+            item.qty,
+            unitPriceStr,
+            amountStr
+        ]);
+    });
+
+    autoTable(doc, {
+        startY: maxBlock2Y,
+        head: head,
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+            fillColor: primaryColor as [number, number, number],
+            textColor: [255, 255, 255],
+            halign: 'center',
+            valign: 'middle',
+            font: (isKHR && isKhmerFontActive) ? 'KhmerOS' : 'times',
+            fontSize: 9,
+            lineWidth: 0.1,
+            lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+            font: (isKHR && isKhmerFontActive) ? 'KhmerOS' : 'times',
+            fontSize: 9,
+            textColor: [0, 0, 0],
+            lineWidth: 0.1,
+            lineColor: [0, 0, 0],
+            minCellHeight: 8,
+            valign: 'middle'
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { halign: 'center', cellWidth: 35 },
+            2: { halign: 'left', cellWidth: 'auto' },
+            3: { halign: 'center', cellWidth: 15 },
+            4: { halign: 'right', cellWidth: 25 },
+            5: { halign: 'right', cellWidth: 25 },
+        },
+        margin: { left: 10, right: 10 },
+    });
+
+    let currentY = (doc as any).lastAutoTable?.finalY || maxBlock2Y + 20;
+
+    const drawTotalRow = (label: string, value: number, isLast: boolean = false) => {
+        const leftMargin = 10;
+        const tableWidth = 190;
+        const totalColWidth = 25;
+        const unitPriceColWidth = 25;
+
+        const rectX = leftMargin;
+        const labelEndX = leftMargin + tableWidth - totalColWidth;
+        const valueEndX = leftMargin + tableWidth;
+        const labelStartX = labelEndX - unitPriceColWidth;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.1);
+        doc.rect(rectX, currentY, tableWidth, 7);
+        doc.line(labelEndX, currentY, labelEndX, currentY + 7);
+        doc.line(labelStartX, currentY, labelStartX, currentY + 7);
+
+        if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'bold');
+        else doc.setFont('times', 'bold');
+        doc.setFontSize(9);
+        doc.text(label, labelEndX - 2, currentY + 4.5, { align: 'right' });
+
+        const symbol = currency === 'KHR' ? 'R' : '$';
+        doc.text(symbol, labelEndX + 2, currentY + 4.5, { align: 'left' });
+        doc.text(value.toLocaleString('en-US', { minimumFractionDigits: 2 }), valueEndX - 2, currentY + 4.5, { align: 'right' });
+
+        currentY += 7;
+    };
+
+    drawTotalRow("Sub Total:", totals.subTotal);
+    drawTotalRow("VAT (10%):", totals.tax || totals.vat || 0);
+    drawTotalRow("Grand Total:", totals.grandTotal, true);
+
+    currentY += 20;
+
+    if (currentY > 260) {
+        doc.addPage();
+        currentY = 20;
+    }
+
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'bold');
+    else doc.setFont('times', 'bold');
+
+    const label1 = "PREPARED BY";
+    const label3 = "APPROVED BY";
+
+    doc.text(label1, layout.footer.preparedBy.x, currentY, { align: 'center' });
+    doc.text(label3, layout.footer.approvedBy.x, currentY, { align: 'center' });
+
+    currentY += 30;
+    doc.line(layout.footer.preparedBy.x - 25, currentY, layout.footer.preparedBy.x + 25, currentY);
+    doc.line(layout.footer.approvedBy.x - 25, currentY, layout.footer.approvedBy.x + 25, currentY);
+
+    currentY += 6;
+    if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'normal');
+    else doc.setFont('times', 'normal');
+
+    const preparedByName = headerData['Prepared By'] || "";
+    const preparedByPos = headerData['Prepared By Position'] || "";
+    if (preparedByName) {
+        doc.text(preparedByName, layout.footer.preparedBy.x, currentY, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text(preparedByPos, layout.footer.preparedBy.x, currentY + 4, { align: 'center' });
+    }
+
+    const approvedByName = headerData['Approved By'] || "";
+    const approvedByPos = headerData['Approved By Position'] || "";
+    if (approvedByName) {
+        doc.setFontSize(9);
+        doc.text(approvedByName, layout.footer.approvedBy.x, currentY, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text(approvedByPos, layout.footer.approvedBy.x, currentY + 4, { align: 'center' });
+    }
+
+    if (previewMode) {
+        return doc.output('datauristring');
+    }
+    doc.save(filename || 'PurchaseOrder.pdf');
+    return;
+}
+
 export const generatePDF = async (options: GeneratePDFOptions): Promise<string | void> => {
     const { type, title, headerData, items, totals, currency, filename, layout: userLayout, previewMode = false } = options;
     const doc = new jsPDF();
@@ -233,6 +456,12 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
 
     const primaryColor = [0, 74, 173]; // #004aad
     const black = [0, 0, 0];
+
+    // Delegate Purchase Order to specialized generator
+    if (type === 'Purchase Order') {
+        const poPrimaryColor = [0, 84, 166];
+        return generatePurchaseOrderPDF(doc, options, layout, isKHR, poPrimaryColor, black);
+    }
 
     // --- Header Logo ---
     // Only show header for non-Sale Order documents

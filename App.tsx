@@ -35,6 +35,7 @@ const InvoiceDODashboard = lazy(() => import('./components/dashboards/InvoiceDOD
 const UserManagementDashboard = lazy(() => import('./components/dashboards/UserManagementDashboard'));
 const VendorDashboard = lazy(() => import('./components/dashboards/VendorDashboard'));
 const VendorPricelistDashboard = lazy(() => import('./components/dashboards/VendorPricelistDashboard'));
+const PurchaseOrderDashboard = lazy(() => import('./components/dashboards/PurchaseOrderDashboard'));
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 
@@ -158,6 +159,8 @@ const AuthenticatedLayout: React.FC = () => {
         return <VendorDashboard />;
       case 'vendor-pricelist':
         return <VendorPricelistDashboard />;
+      case 'purchase-orders':
+        return <PurchaseOrderDashboard initialPayload={navigation.payload} />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -167,7 +170,7 @@ const AuthenticatedLayout: React.FC = () => {
   const customLayoutViews = [
     'projects', 'companies', 'contacts', 'contact-logs',
     'site-surveys', 'meetings', 'pricelist', 'b2b-pricelist', 'quotations', 'sale-orders', 'invoice-do', 'users',
-    'vendors', 'vendor-pricelist'
+    'vendors', 'vendor-pricelist', 'purchase-orders'
   ];
 
   const useDefaultLayout = !customLayoutViews.includes(navigation.view);

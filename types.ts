@@ -325,3 +325,46 @@ export interface Invoice {
   'ItemsJSON'?: any;
   [key: string]: any;
 }
+
+export interface PurchaseOrderItem {
+  id?: string;
+  po_id?: string;
+  line_number: number;
+  item_number: string;
+  description: string;
+  qty: number;
+  unit_price: number;
+  total?: number; // computed: qty * unit_price
+}
+
+export interface PurchaseOrder {
+  id?: string;
+  po_number: string;
+  order_date: string;
+  delivery_date?: string;
+  payment_term?: string;
+  vendor_id?: string;
+  vendor_name?: string;
+  vendor_address?: string;
+  vendor_contact?: string;
+  vendor_phone?: string;
+  vendor_email?: string;
+  ship_to_address?: string;
+  ordered_by_name?: string;
+  ordered_by_phone?: string;
+  sub_total?: number;
+  vat_amount?: number;
+  grand_total?: number;
+  currency?: 'USD' | 'KHR';
+  status?: 'Draft' | 'Approved' | 'Sent' | 'Completed' | 'Cancelled';
+  prepared_by?: string;
+  approved_by?: string;
+  prepared_by_position?: string;
+  approved_by_position?: string;
+  remarks?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  items?: PurchaseOrderItem[]; // virtual - loaded separately
+  [key: string]: any;
+}

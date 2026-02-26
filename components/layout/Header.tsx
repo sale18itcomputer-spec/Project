@@ -86,6 +86,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       case 'invoice-do': current = 'Invoice & DO'; break;
       case 'vendors': current = 'Vendors'; break;
       case 'vendor-pricelist': current = 'Vendor Pricelist'; break;
+      case 'purchase-orders': current = 'Purchase Orders'; break;
       case 'users': current = 'Users'; break;
       case 'dashboard': default: current = 'Dashboard'; break;
     }

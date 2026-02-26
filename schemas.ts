@@ -286,3 +286,39 @@ export const VENDOR_PRICELIST_HEADERS = [
   'updated_at',
   'created_by'
 ] as const;
+
+export const PURCHASE_ORDER_HEADERS = [
+  'id',
+  'po_number',
+  'order_date',
+  'delivery_date',
+  'payment_term',
+  'vendor_id',
+  'ship_to_address',
+  'ordered_by_name',
+  'ordered_by_phone',
+  'sub_total',
+  'vat_amount',
+  'grand_total',
+  'currency',
+  'status',
+  'prepared_by',
+  'approved_by',
+  'prepared_by_position',
+  'approved_by_position',
+  'remarks',
+  'created_by',
+  'created_at',
+  'updated_at'
+] as const;
+
+export const PURCHASE_ORDER_ITEM_HEADERS = [
+  'id',
+  'po_id',
+  'line_number',
+  'item_number',
+  'description',
+  'qty',
+  'unit_price',
+  'total'
+] as const;

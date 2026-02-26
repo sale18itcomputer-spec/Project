@@ -14,7 +14,8 @@ import {
   PricelistItem,
   Invoice,
   Vendor,
-  VendorPricelistItem
+  VendorPricelistItem,
+  PurchaseOrder
 } from '../types';
 import {
   PIPELINE_HEADERS,
@@ -28,7 +29,8 @@ import {
   PRICELIST_HEADERS,
   INVOICE_HEADERS,
   VENDOR_HEADERS,
-  VENDOR_PRICELIST_HEADERS
+  VENDOR_PRICELIST_HEADERS,
+  PURCHASE_ORDER_HEADERS
 } from '../schemas';
 import { useAuth } from './AuthContext';
 import * as db from '../utils/db';
@@ -58,6 +60,8 @@ interface DataContextProps {
   setVendors: React.Dispatch<React.SetStateAction<Vendor[] | null>>;
   vendorPricelist: VendorPricelistItem[] | null;
   setVendorPricelist: React.Dispatch<React.SetStateAction<VendorPricelistItem[] | null>>;
+  purchaseOrders: PurchaseOrder[] | null;
+  setPurchaseOrders: React.Dispatch<React.SetStateAction<PurchaseOrder[] | null>>;
   loading: boolean;
   error: string | null;
   activeCompanyNames: Set<string>;
@@ -98,7 +102,8 @@ const storeToSheetMap: Record<db.StoreName, string> = {
   pricelist: 'Raw',
   invoices: 'Invoices',
   vendors: 'Vendors',
-  vendorPricelist: 'Vendor Pricelist'
+  vendorPricelist: 'Vendor Pricelist',
+  purchaseOrders: '' // Supabase-only, not a Google Sheet
 };
 
 const sheetToStoreMap = Object.fromEntries(Object.entries(storeToSheetMap).map(([k, v]) => [v, k]));
@@ -138,6 +143,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
 
   const stateSetters: Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>> = useMemo(() => ({
     projects: setProjects,
@@ -151,8 +157,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pricelist: setPricelist,
     invoices: setInvoices,
     vendors: setVendors,
-    vendorPricelist: setVendorPricelist
-  }), [setProjects, setCompanies, setContacts, setContactLogs, setSiteSurveys, setMeetings, setQuotations, setSaleOrders, setPricelist, setInvoices, setVendors, setVendorPricelist]); // Added dependencies for useMemo
+    vendorPricelist: setVendorPricelist,
+    purchaseOrders: setPurchaseOrders
+  }), [setProjects, setCompanies, setContacts, setContactLogs, setSiteSurveys, setMeetings, setQuotations, setSaleOrders, setPricelist, setInvoices, setVendors, setVendorPricelist, setPurchaseOrders]);
 
   // Real-time subscription setup
   useEffect(() => {
@@ -178,6 +185,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'invoices': { setter: setInvoices, headers: INVOICE_HEADERS, primaryKey: 'Inv No.' },
       'vendors': { setter: setVendors, headers: VENDOR_HEADERS, primaryKey: 'id' },
       'vendor_pricelist': { setter: setVendorPricelist, headers: VENDOR_PRICELIST_HEADERS, primaryKey: 'id' },
+      'purchase_orders': { setter: setPurchaseOrders, headers: PURCHASE_ORDER_HEADERS, primaryKey: 'id' },
     };
 
     const channel = supabase.channel('db_changes_channel')
@@ -310,6 +318,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           db.batchSetStoreData({ vendorPricelist: itemsWithVendorName });
         }
 
+        // Fetch Purchase Orders and join vendor names
+        const { data: poData } = await supabase
+          .from('purchase_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (poData) {
+          const currentVendors = vendorsRes.data
+            ? normalize<Vendor>(vendorsRes.data, VENDOR_HEADERS)
+            : (vendors || []);
+          const pos = normalize<PurchaseOrder>(poData, PURCHASE_ORDER_HEADERS).map(po => ({
+            ...po,
+            vendor_name: currentVendors.find(v => v.id === po.vendor_id)?.vendor_name || ''
+          }));
+          setPurchaseOrders(pos);
+          db.batchSetStoreData({ purchaseOrders: pos });
+        }
+
 
 
       } catch (networkError: any) {
@@ -358,6 +384,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     invoices, setInvoices,
     vendors, setVendors,
     vendorPricelist, setVendorPricelist,
+    purchaseOrders, setPurchaseOrders,
     loading,
     error: error || null,
     activeCompanyNames,
