@@ -60,6 +60,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return (target.getTime() - now.getTime()) / (1000 * 60 * 60);
         };
 
+        // Helper to generate a realistic timestamp for notifications based on string ID and a target date
+        const getSimulatedTimestamp = (baseDate: Date, id: string): Date => {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = ((hash << 5) - hash) + id.charCodeAt(i);
+                hash |= 0;
+            }
+            const rand = Math.abs(hash) / 2147483648; // 0 to 1
+
+            const simulated = new Date(baseDate);
+            // working hours 8 AM to 5 PM
+            simulated.setHours(8 + Math.floor(rand * 9), Math.floor(rand * 60), 0, 0);
+
+            // if simulated is in the future, fall back to somewhere in the last hour
+            if (simulated > now) {
+                return new Date(now.getTime() - Math.floor(rand * 60 * 60 * 1000));
+            }
+            return simulated;
+        };
+
         // Helper to check if user should see item
         const shouldShow = (itemUser?: string, itemPreparer?: string) => {
             if (currentUser.Role === 'Admin') return true;
@@ -92,7 +112,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                         subtype: cond.subtype,
                         title: `Quotation Expiry`,
                         description: `Quote #${q['Quote No.']} (${q['Company Name']}) ${cond.msg}.`,
-                        timestamp: now,
+                        timestamp: getSimulatedTimestamp(today, id),
                         severity: cond.severity,
                         link: { view: 'quotations', filter: q['Quote No.'] }
                     });
@@ -124,7 +144,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                         subtype: 'delivery',
                         title: `Order Delivery`,
                         description: `SO #${so['SO No.']} (${so['Company Name']}) ${cond.msg}.`,
-                        timestamp: now,
+                        timestamp: getSimulatedTimestamp(today, id),
                         severity: cond.severity,
                         link: { view: 'sale-orders', filter: so['SO No.'] }
                     });
@@ -155,7 +175,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                             subtype: 'due_date',
                             title: `Project Due`,
                             description: `Pipeline #${p['Pipeline No.']} (${p['Company Name']}) ${cond.msg}.`,
-                            timestamp: now,
+                            timestamp: getSimulatedTimestamp(today, id),
                             severity: cond.severity,
                             link: { view: 'projects', filter: p['Pipeline No.'] }
                         });
@@ -169,13 +189,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 const daysOpen = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
                 if (daysOpen > 7) {
                     const id = `proj-stuck-${p['Pipeline No.']}-7plus`;
+                    const thresholdDate = new Date(createdDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                     newNotifications.push({
                         id,
                         type: 'project',
                         subtype: 'stuck',
                         title: `Pipeline Stuck`,
                         description: `Pipeline #${p['Pipeline No.']} has been ${p.Status} for over 7 days.`,
-                        timestamp: now,
+                        timestamp: getSimulatedTimestamp(thresholdDate, id),
                         severity: 'medium',
                         link: { view: 'projects', filter: p['Pipeline No.'] }
                     });
@@ -194,13 +215,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (inv.Status === 'Draft' && daysSince > 3) {
                 const id = `inv-${inv['Inv No.']}-draft-3`;
+                const thresholdDate = new Date(invDate.getTime() + 3 * 24 * 60 * 60 * 1000);
                 newNotifications.push({
                     id,
                     type: 'invoice',
                     subtype: 'stuck',
                     title: `Invoice Draft`,
                     description: `Invoice #${inv['Inv No.']} has been in Draft for > 3 days.`,
-                    timestamp: now,
+                    timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
                     link: { view: 'invoice-do', filter: inv['Inv No.'] }
                 });
@@ -208,13 +230,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (inv.Status === 'Processing' && daysSince > 7) {
                 const id = `inv-${inv['Inv No.']}-processing-7`;
+                const thresholdDate = new Date(invDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                 newNotifications.push({
                     id,
                     type: 'invoice',
                     subtype: 'stuck',
                     title: `Invoice Processing`,
                     description: `Invoice #${inv['Inv No.']} has been Processing for > 7 days.`,
-                    timestamp: now,
+                    timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
                     link: { view: 'invoice-do', filter: inv['Inv No.'] }
                 });
@@ -259,7 +282,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                         subtype: 'upcoming',
                         title: `Upcoming ${title}`,
                         description: `${title} is tomorrow at ${timeStr || 'requested time'}.`,
-                        timestamp: now,
+                        timestamp: getSimulatedTimestamp(today, id),
                         severity: 'medium',
                         link: { view, filter: idStr }
                     });
@@ -269,6 +292,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // 3 Hours before: 0 < diff <= 3
             if (hoursDiff > 0 && hoursDiff <= 3) {
                 const id = `${type}-${idStr}-3hours`;
+                const thresholdDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
                 if (!readIds.has(id)) {
                     newNotifications.push({
                         id,
@@ -276,7 +300,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                         subtype: 'upcoming',
                         title: `Upcoming ${title}`,
                         description: `${title} in ${Math.ceil(hoursDiff)} hours.`,
-                        timestamp: now,
+                        timestamp: getSimulatedTimestamp(thresholdDate, id),
                         severity: 'high',
                         link: { view, filter: idStr }
                     });
@@ -286,7 +310,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         meetings?.forEach(m => {
             if (currentUser.Role !== 'Admin' && m['Responsible By'] !== currentUser.Name) return;
-            if (m.Status === 'Completed' || m.Status === 'Cancel') return;
+            if (m.Status === 'Close' || m.Status === 'Cancelled') return;
             checkActivity('meeting', m['Meeting Date'], m['Start Time'], m['Meeting ID'] || m['id'], `Meeting with ${m['Company Name']}`, 'meetings');
         });
 
@@ -309,7 +333,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return (
         <NotificationContext.Provider value={{
-            notifications: notifications.map(n => ({ ...n, read: readIds.has(n.id) })),
+            // Filter out notifications that are already marked as read
+            notifications: notifications.filter(n => !readIds.has(n.id)),
             unreadCount: notifications.filter(n => !readIds.has(n.id)).length,
             markAsRead,
             markAllAsRead
