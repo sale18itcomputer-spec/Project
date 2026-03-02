@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { useB2BData } from "../../hooks/useB2BData";
 import { useNavigation } from "../../contexts/NavigationContext";
@@ -382,3 +384,4 @@ const PendingWorks: React.FC = () => {
 };
 
 export default PendingWorks;
+

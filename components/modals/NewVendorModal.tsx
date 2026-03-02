@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Vendor } from "../../types";
 import { VENDOR_HEADERS } from "../../schemas";
@@ -158,3 +160,4 @@ const NewVendorModal: React.FC<NewVendorModalProps> = ({ isOpen, onClose, existi
 };
 
 export default NewVendorModal;
+

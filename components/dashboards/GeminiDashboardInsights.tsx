@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { ProjectStatusData } from "../../types";

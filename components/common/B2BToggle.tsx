@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { useB2B } from "../../contexts/B2BContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -71,3 +73,4 @@ const B2BToggle: React.FC = () => {
 };
 
 export default B2BToggle;
+

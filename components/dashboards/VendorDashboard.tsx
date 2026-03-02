@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import { Vendor } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -6,6 +8,7 @@ import DataTable, { ColumnDef } from "../common/DataTable";
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import NewVendorModal from "../modals/NewVendorModal";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 
@@ -63,7 +66,7 @@ const VendorDashboard: React.FC = () => {
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(VENDOR_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(VENDOR_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 return new Set(parsed);
@@ -82,7 +85,7 @@ const VendorDashboard: React.FC = () => {
             } else {
                 newSet.add(columnKey);
             }
-            localStorage.setItem(VENDOR_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+            localStorageSet(VENDOR_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             return newSet;
         });
     };
@@ -177,3 +180,4 @@ const VendorDashboard: React.FC = () => {
 };
 
 export default React.memo(VendorDashboard);
+

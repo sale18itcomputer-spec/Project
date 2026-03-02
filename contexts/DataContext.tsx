@@ -1,3 +1,5 @@
+'use client';
+
 
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { batchReadRecords } from '../services/api';

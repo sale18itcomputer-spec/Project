@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Meeting, Company } from "../../types";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";

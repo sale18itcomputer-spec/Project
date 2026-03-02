@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 // Import UnifiedActivity, EmptyState and other types for the new Activities tab.

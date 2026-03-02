@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Lock, Delete, ArrowLeft, X, ShieldCheck, Key, LogOut, Smile } from 'lucide-react';
 import { Button } from "../ui/button";
@@ -302,3 +304,4 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
 };
 
 export default PasscodeLock;
+

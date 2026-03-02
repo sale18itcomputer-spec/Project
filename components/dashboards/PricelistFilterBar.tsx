@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Filter, ListTree, Tag, X } from 'lucide-react';
 import MultiSelectFilter from "../common/MultiSelectFilter";
@@ -87,3 +89,4 @@ const PricelistFilterBar: React.FC<PricelistFilterBarProps> = ({ categories, bra
 };
 
 export default PricelistFilterBar;
+

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PurchaseOrder, PurchaseOrderItem, Vendor } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -890,3 +892,4 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 };
 
 export default PurchaseOrderCreator;
+

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { PricelistItem } from "../../types";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";

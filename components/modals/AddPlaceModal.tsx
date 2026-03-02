@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import InteractiveMap, { MapLocation } from "../views/InteractiveMap";
@@ -110,3 +112,4 @@ const AddPlaceModal: React.FC<AddPlaceModalProps> = ({ isOpen, onClose, onPlaceS
 };
 
 export default AddPlaceModal;
+

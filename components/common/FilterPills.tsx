@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { useFilter, FilterState } from "../../contexts/FilterContext";
 import { X } from 'lucide-react';

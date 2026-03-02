@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useRef, useEffect, useId, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SaleOrder } from "../../types";
@@ -153,3 +155,4 @@ const SaleOrderDetailModal: React.FC<SaleOrderDetailModalProps> = ({ saleOrder, 
   );
 };
 export default React.memo(SaleOrderDetailModal);
+

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useState, useEffect, useContext, ReactNode, useRef } from 'react';
 import { useToast } from './ToastContext';
 
@@ -45,3 +47,4 @@ export const ConnectivityProvider: React.FC<{ children: ReactNode }> = ({ childr
 export const useConnectivity = () => {
   return useContext(ConnectivityContext);
 };
+

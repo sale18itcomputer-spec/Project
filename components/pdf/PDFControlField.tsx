@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Plus, Minus } from 'lucide-react';
 
@@ -145,3 +147,4 @@ const PDFControlField: React.FC<PDFControlFieldProps> = ({
 };
 
 export default PDFControlField;
+

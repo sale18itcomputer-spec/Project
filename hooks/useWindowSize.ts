@@ -1,24 +1,21 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 
-// Hook to get window size
-export function useWindowSize() {
-  const [windowSize, setWindowSize] = useState<{width: number; height: number;}>({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+type Size = { width: number; height: number };
+
+// SSR-safe hook — starts with 0×0 on server, updates on client mount
+export function useWindowSize(): Size {
+  const [size, setSize] = useState<Size>({ width: 0, height: 0 });
 
   useEffect(() => {
-    function handleResize() {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    }
-    
-    window.addEventListener("resize", handleResize);
-    
-    return () => window.removeEventListener("resize", handleResize);
+    const update = () =>
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+
+    update(); // immediate read on mount
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
-  return windowSize;
+  return size;
 }

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, X, Lock, Key, Trash2, Clock, Smartphone, ArrowRight, ChevronRight, Monitor } from 'lucide-react';
 import { Button } from "../ui/button";
@@ -288,3 +290,4 @@ const SecurityModal: React.FC = () => {
 };
 
 export default SecurityModal;
+

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 
 interface ViewToggleProps<T extends string> {
@@ -31,3 +33,4 @@ function ViewToggle<T extends string>({ views, activeView, onViewChange }: ViewT
 }
 
 export default ViewToggle;
+

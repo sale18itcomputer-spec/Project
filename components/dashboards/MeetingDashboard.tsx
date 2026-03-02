@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Meeting } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -13,6 +15,7 @@ import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
 import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
@@ -207,7 +210,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(MEETING_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(MEETING_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -221,7 +224,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(MEETING_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(MEETING_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -238,7 +241,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(MEETING_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(MEETING_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

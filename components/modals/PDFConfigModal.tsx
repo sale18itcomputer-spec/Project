@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, SlidersHorizontal, Layout, Type, Image as ImageIcon, Ruler, ScrollText, RotateCcw, PanelRight, Download, Printer, Eye, FileText } from 'lucide-react';
 import PDFControlField from "../pdf/PDFControlField";
@@ -681,3 +683,4 @@ const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGene
 };
 
 export default PDFConfigModal;
+

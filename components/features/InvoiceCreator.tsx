@@ -1,3 +1,5 @@
+'use client';
+
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, Company, Contact, SaleOrder } from "../../types";
@@ -1123,3 +1125,4 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 };
 
 export default InvoiceCreator;
+

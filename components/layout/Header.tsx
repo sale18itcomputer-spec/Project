@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Bell, Search, LogOut, Info, CheckCircle, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
-import { useNavigation } from "../../contexts/NavigationContext";
 
 import { useNotification } from "../../contexts/NotificationContext";
 import { Notification, User } from "../../types";
@@ -47,7 +49,8 @@ const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) =>
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile }) => {
-  const { navigation, handleNavigation } = useNavigation();
+  const pathname = usePathname();
+  const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   const { currentUser, logout } = useAuth();
   const { isOnline } = useConnectivity();
@@ -64,34 +67,38 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
-    handleNavigation(notification.link);
+    if (notification.link && typeof notification.link === 'object' && 'view' in notification.link) {
+      // Legacy link format - map view to path
+      const viewToPath: Record<string, string> = {
+        'dashboard': '/', 'projects': '/projects', 'companies': '/companies',
+        'contacts': '/contacts', 'contact-logs': '/contact-logs', 'site-surveys': '/site-surveys',
+        'meetings': '/meetings', 'quotations': '/quotations', 'sale-orders': '/sale-orders',
+        'pricelist': '/pricelist', 'b2b-pricelist': '/b2b-pricelist', 'invoice-do': '/invoice-do',
+        'users': '/users', 'vendors': '/vendors', 'vendor-pricelist': '/vendor-pricelist',
+        'purchase-orders': '/purchase-orders',
+      };
+      const view = (notification.link as any).view || 'dashboard';
+      router.push(viewToPath[view] || '/');
+    } else if (typeof notification.link === 'string') {
+      router.push(notification.link);
+    }
   };
 
   const getBreadcrumbs = () => {
-    const root = <span className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors" onClick={() => handleNavigation({ view: 'dashboard' })}>Home</span>;
+    const root = <span className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors" onClick={() => router.push('/')}>Home</span>;
     const separator = <span className="text-muted-foreground/40 mx-2">/</span>;
 
-    let current = '';
-    switch (navigation.view) {
-      case 'projects': current = 'Pipelines'; break;
-      case 'companies': current = 'Companies'; break;
-      case 'contacts': current = 'Contacts'; break;
-      case 'contact-logs': current = 'Contact Logs'; break;
-      case 'site-surveys': current = 'Site Surveys'; break;
-      case 'meetings': current = 'Meetings'; break;
-      case 'quotations': current = 'Quotations'; break;
-      case 'sale-orders': current = 'Sale Orders'; break;
-      case 'pricelist': current = 'Pricelist'; break;
-      case 'b2b-pricelist': current = 'B2B Pricelist'; break;
-      case 'invoice-do': current = 'Invoice & DO'; break;
-      case 'vendors': current = 'Vendors'; break;
-      case 'vendor-pricelist': current = 'Vendor Pricelist'; break;
-      case 'purchase-orders': current = 'Purchase Orders'; break;
-      case 'users': current = 'Users'; break;
-      case 'dashboard': default: current = 'Dashboard'; break;
-    }
+    const pathMap: Record<string, string> = {
+      '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
+      '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
+      '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
+      '/b2b-pricelist': 'B2B Pricelist', '/invoice-do': 'Invoice & DO', '/vendors': 'Vendors',
+      '/vendor-pricelist': 'Vendor Pricelist', '/purchase-orders': 'Purchase Orders',
+      '/users': 'Users', '/': 'Dashboard',
+    };
+    const current = pathMap[pathname] || 'Dashboard';
 
-    if (navigation.view === 'dashboard') return root;
+    if (pathname === '/') return root;
 
     return (
       <div className="flex items-center text-sm font-medium">
@@ -104,29 +111,20 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   const avatarUrl = currentUser ? transformToDirectImageUrl(currentUser.Picture) : '';
 
-  const isDashboard = navigation.view === 'dashboard';
+  const isDashboard = pathname === '/';
 
   /* Removed getTitle function as we are now using breadcrumbs for desktop and only simplified title for mobile, handled inline or via separate logic if needed. 
      Wait, getTitle was used for mobile. Let's bringing it back or alternative. */
 
   const getMobileTitle = () => {
-    switch (navigation.view) {
-      case 'projects': return 'Pipelines';
-      case 'companies': return 'Companies';
-      case 'contacts': return 'Contacts';
-      case 'contact-logs': return 'Contact Logs';
-      case 'site-surveys': return 'Site Surveys';
-      case 'meetings': return 'Meetings';
-      case 'quotations': return 'Quotations';
-      case 'sale-orders': return 'Sale Orders';
-      case 'pricelist': return 'Pricelist';
-      case 'b2b-pricelist': return 'B2B Pricelist';
-      case 'invoice-do': return 'Invoice & DO';
-      case 'vendors': return 'Vendors';
-      case 'vendor-pricelist': return 'Vendor Price';
-      case 'users': return 'Users';
-      case 'dashboard': default: return 'Dashboard';
-    }
+    const pathMap: Record<string, string> = {
+      '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
+      '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
+      '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
+      '/b2b-pricelist': 'B2B Pricelist', '/invoice-do': 'Invoice & DO', '/vendors': 'Vendors',
+      '/vendor-pricelist': 'Vendor Price', '/users': 'Users', '/purchase-orders': 'Purchase Orders',
+    };
+    return pathMap[pathname] || 'Dashboard';
   };
 
   const headerClasses = isMobile

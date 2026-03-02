@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect, useId } from 'react';
 import { PricelistItem } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -10,6 +12,7 @@ import ViewToggle from "../common/ViewToggle";
 import ItemActionsMenu from "../common/ItemActionsMenu";
 import NewPricelistItemModal from "../modals/NewPricelistItemModal";
 import { ShieldCheck, TrendingUp, Info } from 'lucide-react';
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -34,6 +37,7 @@ const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] 
 };
 
 const DealerPriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
+
     const num = parseSheetValue(value);
     if (num === 0 && String(value || '').trim() === '') {
         return <span className="text-muted-foreground/40 text-right block w-full">-</span>;
@@ -341,7 +345,7 @@ const B2BPricelistDashboard: React.FC = () => {
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -355,7 +359,7 @@ const B2BPricelistDashboard: React.FC = () => {
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
+        const saved = localStorageGet(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY);
         if (!saved && allColumns.length > 0) {
             setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
         }
@@ -372,7 +376,7 @@ const B2BPricelistDashboard: React.FC = () => {
                 newSet.add(columnKey);
             }
             try {
-                localStorage.setItem(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+                localStorageSet(B2B_PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             } catch (e) {
                 console.error("Failed to save visible columns to storage", e);
             }
@@ -614,3 +618,4 @@ const B2BPricelistDashboard: React.FC = () => {
 };
 
 export default B2BPricelistDashboard;
+

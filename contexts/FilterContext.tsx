@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
 export interface FilterState {

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { PurchaseOrder } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -15,6 +17,7 @@ import { supabase } from "../../lib/supabase";
 import ConfirmationModal from "../modals/ConfirmationModal";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { Badge } from "../ui/badge";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-visibility';
 
@@ -147,7 +150,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY);
             if (saved) return new Set(JSON.parse(saved));
         } catch (e) { }
         return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
@@ -161,7 +164,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
             } else {
                 newSet.add(columnKey);
             }
-            localStorage.setItem(PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+            localStorageSet(PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             return newSet;
         });
     };
@@ -279,3 +282,4 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
 };
 
 export default PurchaseOrderDashboard;
+

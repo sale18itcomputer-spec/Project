@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useState, useEffect } from 'react';
 import MetricCard from "../common/MetricCard";
 import ProjectOutcomeChart from "../charts/ProjectOutcomeChart";

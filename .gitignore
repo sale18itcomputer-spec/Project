@@ -8,9 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+.next
 dist-ssr
 *.local
+next-env.d.ts
 
 # Editor directories and files
 .vscode/*
@@ -24,3 +25,9 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+tmp/
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/

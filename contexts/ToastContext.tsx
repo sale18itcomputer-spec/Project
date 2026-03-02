@@ -1,3 +1,5 @@
+'use client';
+
 import { toast } from 'sonner';
 import { useCallback } from 'react';
 
@@ -28,3 +30,4 @@ export const useToast = () => {
 
   return { addToast };
 };
+

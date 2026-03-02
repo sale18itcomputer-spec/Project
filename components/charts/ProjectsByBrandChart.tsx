@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useRef, useEffect, useState, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useWindowSize } from "../../hooks/useWindowSize";

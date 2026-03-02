@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
@@ -225,3 +227,4 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+

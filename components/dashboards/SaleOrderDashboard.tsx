@@ -1,3 +1,5 @@
+'use client';
+
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { SaleOrder, Quotation } from "../../types";
@@ -19,6 +21,7 @@ import EmptyState from "../common/EmptyState";
 import { useToast } from "../../contexts/ToastContext";
 import { deleteRecord } from "../../services/api";
 import ConfirmationModal from "../modals/ConfirmationModal";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 interface SaleOrderDashboardProps {
     initialPayload?: any; // Can be Quotation or a pipeline data object
@@ -283,7 +286,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(SALE_ORDER_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(SALE_ORDER_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -297,7 +300,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem(SALE_ORDER_COLUMNS_VISIBILITY_KEY);
+        const saved = localStorageGet(SALE_ORDER_COLUMNS_VISIBILITY_KEY);
         if (!saved && allColumns.length > 0) {
             setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
         }
@@ -314,7 +317,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                 newSet.add(columnKey);
             }
             try {
-                localStorage.setItem(SALE_ORDER_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+                localStorageSet(SALE_ORDER_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             } catch (e) {
                 console.error("Failed to save visible columns to storage", e);
             }

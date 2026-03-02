@@ -1,3 +1,5 @@
+'use client';
+
 // Add ambient type declarations for the Google Maps API to resolve type errors without requiring @types/google.maps.
 declare namespace google.maps {
     type Map = any;

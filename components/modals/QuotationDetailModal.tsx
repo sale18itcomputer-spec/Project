@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Quotation } from "../../types";
@@ -182,3 +184,4 @@ const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({ quotation, 
   );
 };
 export default React.memo(QuotationDetailModal);
+

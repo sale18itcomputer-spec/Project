@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 
 // A more professional, modern card-based section for forms.

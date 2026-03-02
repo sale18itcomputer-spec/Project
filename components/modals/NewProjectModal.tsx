@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PipelineProject, Meeting, ContactLog, UnifiedActivity, Company, Contact } from "../../types";
 import { insertRecord, updateRecord, deleteRecord } from "../../utils/b2bDb";

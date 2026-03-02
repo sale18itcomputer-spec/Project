@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useMemo, useId } from 'react';
 
 // This is a generic MultiSelectFilter component.

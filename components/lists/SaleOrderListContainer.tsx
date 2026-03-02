@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { SaleOrder } from "../../types";
 import Spinner from "../common/Spinner";
@@ -73,3 +75,4 @@ const SaleOrderListContainer: React.FC<SaleOrderListContainerProps> = ({ saleOrd
 };
 
 export default SaleOrderListContainer;
+

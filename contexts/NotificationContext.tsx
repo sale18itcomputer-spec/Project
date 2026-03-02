@@ -1,8 +1,12 @@
+'use client';
+
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useB2BData } from '../hooks/useB2BData';
 import { parseDate } from '../utils/time';
 import { Notification } from '../types';
 import { useAuth } from './AuthContext';
+import { localStorageGet, localStorageSet } from '../utils/storage';
+
 
 interface NotificationContextType {
     notifications: Notification[];
@@ -17,14 +21,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { quotations, saleOrders, projects, invoices, meetings, siteSurveys } = useB2BData();
     const { currentUser } = useAuth();
     const [readIds, setReadIds] = useState<Set<string>>(() => {
-        const saved = localStorage.getItem('read_notifications');
-        return saved ? new Set(JSON.parse(saved)) : new Set();
+        try {
+            const saved = localStorageGet('read_notifications');
+            return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+        } catch { return new Set<string>(); }
     });
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
     useEffect(() => {
-        localStorage.setItem('read_notifications', JSON.stringify(Array.from(readIds)));
+        try {
+            localStorageSet('read_notifications', JSON.stringify(Array.from(readIds)));
+        } catch { /* ignore */ }
     }, [readIds]);
 
     const markAsRead = (id: string) => {
@@ -351,3 +359,4 @@ export const useNotification = () => {
     }
     return context;
 };
+

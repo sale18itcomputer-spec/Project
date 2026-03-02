@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { SiteSurveyLog } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -13,6 +15,7 @@ import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
 import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -137,7 +140,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -151,7 +154,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(SITE_SURVEY_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -168,7 +171,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(SITE_SURVEY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(SITE_SURVEY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

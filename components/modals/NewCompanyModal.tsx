@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Company, PipelineProject, Contact, Quotation, SaleOrder } from "../../types";
 import { COMPANY_HEADERS } from "../../schemas";

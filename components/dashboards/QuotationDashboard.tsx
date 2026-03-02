@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Quotation } from "../../types";
 import { useB2BData } from "../../hooks/useB2BData";
@@ -21,6 +23,7 @@ import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -368,7 +371,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(QUOTATION_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(QUOTATION_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -382,7 +385,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(QUOTATION_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(QUOTATION_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -399,7 +402,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(QUOTATION_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(QUOTATION_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

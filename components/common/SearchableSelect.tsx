@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect, useId, useMemo } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { ScrollArea } from "../ui/scroll-area";

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect, useId } from 'react';
 import { PricelistItem } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -9,6 +11,7 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from "../common/ViewToggle";
 import ItemActionsMenu from "../common/ItemActionsMenu";
 import NewPricelistItemModal from "../modals/NewPricelistItemModal";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -288,7 +291,7 @@ const PricelistDashboard: React.FC = () => {
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(PRICELIST_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -302,7 +305,7 @@ const PricelistDashboard: React.FC = () => {
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem(PRICELIST_COLUMNS_VISIBILITY_KEY);
+        const saved = localStorageGet(PRICELIST_COLUMNS_VISIBILITY_KEY);
         if (!saved && allColumns.length > 0) {
             setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
         }
@@ -319,7 +322,7 @@ const PricelistDashboard: React.FC = () => {
                 newSet.add(columnKey);
             }
             try {
-                localStorage.setItem(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+                localStorageSet(PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             } catch (e) {
                 console.error("Failed to save visible columns to storage", e);
             }

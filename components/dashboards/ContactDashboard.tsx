@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact, PipelineProject } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -16,6 +18,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -273,7 +276,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(CONTACT_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(CONTACT_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -287,7 +290,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(CONTACT_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(CONTACT_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -304,7 +307,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(CONTACT_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(CONTACT_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

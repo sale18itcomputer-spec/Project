@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Company, PipelineProject, SaleOrder } from "../../types";
 import { useB2BData } from "../../hooks/useB2BData";
@@ -13,6 +15,7 @@ import { formatDateAsMDY, parseDate } from "../../utils/time";
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 
 interface CompanyDashboardProps {
@@ -200,7 +203,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(COMPANY_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(COMPANY_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -214,7 +217,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(COMPANY_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(COMPANY_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -231,7 +234,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(COMPANY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(COMPANY_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PipelineProject } from "../../types";
 import { useB2BData } from "../../hooks/useB2BData";
@@ -20,6 +22,7 @@ import Avatar from "../common/Avatar";
 import ViewToggle from "../common/ViewToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import PipelineListContainer from "../lists/PipelineListContainer";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 type ProcessedProject = PipelineProject & {
   calculatedDueDate: Date | null;
@@ -514,7 +517,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(PIPELINE_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(PIPELINE_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -529,7 +532,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(PIPELINE_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(PIPELINE_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -546,7 +549,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(PIPELINE_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(PIPELINE_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

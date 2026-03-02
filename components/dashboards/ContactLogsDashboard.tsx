@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { ContactLog } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -18,6 +20,7 @@ import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";
 import EmptyState from "../common/EmptyState";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 // FIX: Imported the Spinner component to resolve a "Cannot find name 'Spinner'" error.
 import Spinner from "../common/Spinner";
 
@@ -29,6 +32,7 @@ interface ContactLogsDashboardProps {
 }
 
 type ViewMode = 'table' | 'board';
+
 
 const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
   { id: 'table', label: 'Table', icon: <Table /> },
@@ -202,7 +206,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+      const saved = localStorageGet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
@@ -216,7 +220,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+    const saved = localStorageGet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
     if (!saved && allColumns.length > 0) {
       setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
     }
@@ -233,7 +237,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
         newSet.add(columnKey);
       }
       try {
-        localStorage.setItem(CONTACT_LOG_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+        localStorageSet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
       } catch (e) {
         console.error("Failed to save visible columns to storage", e);
       }

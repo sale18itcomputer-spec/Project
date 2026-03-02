@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -267,3 +269,4 @@ const UserManagementDashboard: React.FC = () => {
 };
 
 export default UserManagementDashboard;
+

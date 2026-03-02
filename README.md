@@ -1,20 +1,58 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Limperial Project Dashboard
 
-# Run and deploy your AI Studio app
+A full-featured internal CRM, sales, and project management dashboard built with **Next.js 15**, **React 19**, **TypeScript**, **Tailwind CSS v4**, and **Supabase**.
 
-This contains everything you need to run your app locally.
+## Tech Stack
 
-View your app in AI Studio: https://ai.studio/apps/drive/10u6_pVUIkysGfGnggk1fQjDIeoINdcyl
+- **Framework**: Next.js 15 (App Router, Turbopack)
+- **UI**: React 19 + TypeScript
+- **Styling**: Tailwind CSS v4 + Radix UI
+- **Database**: Supabase (PostgreSQL)
+- **Charts**: ECharts, ApexCharts
+- **PDF**: jsPDF, pdfmake
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js 18+
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+
+2. Copy `.env` and set your environment variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000)
+
+## Available Routes
+
+| Route | Description |
+|---|---|
+| `/` | Main dashboard |
+| `/projects` | Pipeline / Kanban |
+| `/companies` | Company CRM |
+| `/contacts` | Contacts |
+| `/quotations` | Quotation management |
+| `/sale-orders` | Sale orders |
+| `/invoice-do` | Invoices & Delivery Orders |
+| `/pricelist` | Product pricelist |
+| `/vendors` | Vendor master |
+| `/purchase-orders` | Purchase orders |
+
+## Scripts
+
+```bash
+npm run dev      # Start dev server (Turbopack)
+npm run build    # Production build
+npm run start    # Start production server
+npm run lint     # Run ESLint
+```

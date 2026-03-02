@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import { VendorPricelistItem, Vendor } from "../../types";
 import { useData } from "../../contexts/DataContext";
@@ -11,6 +13,7 @@ import * as XLSX from 'xlsx';
 import { useToast } from "../../contexts/ToastContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { insertRecord } from "../../utils/b2bDb";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
 
@@ -190,7 +193,7 @@ const VendorPricelistDashboard: React.FC = () => {
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         const defaultVisible = new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
         try {
-            const saved = localStorage.getItem(VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY);
             if (saved) {
                 const savedSet = new Set<string>(JSON.parse(saved));
                 // Add vendor_name if it's missing (helps users with stale cache)
@@ -211,7 +214,7 @@ const VendorPricelistDashboard: React.FC = () => {
             } else {
                 newSet.add(columnKey);
             }
-            localStorage.setItem(VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+            localStorageSet(VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             return newSet;
         });
     };
@@ -333,3 +336,4 @@ const VendorPricelistDashboard: React.FC = () => {
 };
 
 export default React.memo(VendorPricelistDashboard);
+

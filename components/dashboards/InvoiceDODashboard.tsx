@@ -1,3 +1,5 @@
+'use client';
+
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice } from "../../types";
@@ -18,6 +20,7 @@ import { useWindowSize } from "../../hooks/useWindowSize";
 import { deleteRecord } from "../../services/api";
 import ConfirmationModal from "../modals/ConfirmationModal";
 import { useToast } from "../../contexts/ToastContext";
+import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 interface InvoiceDODashboardProps {
     initialPayload?: any;
@@ -191,7 +194,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
-            const saved = localStorage.getItem(INVOICE_COLUMNS_VISIBILITY_KEY);
+            const saved = localStorageGet(INVOICE_COLUMNS_VISIBILITY_KEY);
             if (saved) return new Set(JSON.parse(saved));
         } catch (e) { }
         return new Set(allColumns.map(c => c.accessorKey || (c as any).id).filter(Boolean));
@@ -205,7 +208,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
             } else {
                 newSet.add(columnKey);
             }
-            localStorage.setItem(INVOICE_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+            localStorageSet(INVOICE_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
             return newSet;
         });
     };
@@ -511,3 +514,4 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 };
 
 export default InvoiceDODashboard;
+

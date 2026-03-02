@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { PricelistItem } from "../../types";

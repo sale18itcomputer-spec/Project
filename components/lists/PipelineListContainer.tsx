@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { PipelineProject } from "../../types";
 import Spinner from "../common/Spinner";
@@ -90,3 +92,4 @@ const PipelineListContainer: React.FC<PipelineListContainerProps> = ({ projects,
 };
 
 export default PipelineListContainer;
+

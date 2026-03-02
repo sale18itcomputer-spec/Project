@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { VendorPricelistItem, Vendor } from "../../types";
 import { insertRecord, updateRecord, deleteRecord } from "../../utils/b2bDb";
@@ -204,3 +206,4 @@ const NewVendorPricelistItemModal: React.FC<NewVendorPricelistItemModalProps> = 
 };
 
 export default NewVendorPricelistItemModal;
+
