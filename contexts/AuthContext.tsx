@@ -5,6 +5,20 @@ import { User } from '../types';
 import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove } from '../utils/storage';
 
+// ── Cookie helpers (middleware reads this cookie for server-side auth) ───────
+function setAuthCookie(userId: string) {
+  if (typeof document === 'undefined') return;
+  // 7-day expiry; SameSite=Lax works for same-origin navigations
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `limperial_auth_user=${encodeURIComponent(userId)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function removeAuthCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'limperial_auth_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
 // Set NEXT_PUBLIC_DEV_AUTO_LOGIN=sale18itcomputer@gmail.com in .env.local to skip login in dev
 const DEV_AUTO_LOGIN_EMAIL = process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN ?? '';
@@ -76,6 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (String(user.Password) === String(password).trim()) {
       setCurrentUser(user);
       localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+      setAuthCookie(user.UserID);
       return { success: true, message: 'Login successful!' };
     }
 
@@ -95,12 +110,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setCurrentUser(user);
     localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+    setAuthCookie(user.UserID);
     return { success: true, message: 'Login successful!' };
   }, [users]);
 
   const logout = useCallback(() => {
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
+    removeAuthCookie();
   }, []);
 
   return (
