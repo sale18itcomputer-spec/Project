@@ -47,7 +47,7 @@ const LoginPage: React.FC = () => {
         }
         setIsLoggingIn(false);
     };
-    
+
     const handleGoogleSignIn = async (response: any) => {
         setIsLoggingIn(true);
         setError('');
@@ -64,7 +64,7 @@ const LoginPage: React.FC = () => {
         }
         setIsLoggingIn(false);
     };
-    
+
     useEffect(() => {
         if (window.google?.accounts?.id && googleSignInButtonRef.current) {
             const googleClientId = "501794043534-tsm5tvj16lf1hmmdhfp2t5koq252pctb.apps.googleusercontent.com";
@@ -79,11 +79,11 @@ const LoginPage: React.FC = () => {
 
             window.google.accounts.id.renderButton(
                 googleSignInButtonRef.current,
-                { 
-                    theme: "outline", 
-                    size: "large", 
-                    type: "standard", 
-                    shape: "rectangular", 
+                {
+                    theme: "outline",
+                    size: "large",
+                    type: "standard",
+                    shape: "rectangular",
                     logo_alignment: "left"
                 }
             );
@@ -94,17 +94,17 @@ const LoginPage: React.FC = () => {
     const isLoading = isDataLoading || isLoggingIn;
 
     return (
-       <div className="w-full min-h-screen bg-background lg:grid lg:grid-cols-2">
+        <div className="w-full min-h-screen bg-background lg:grid lg:grid-cols-2">
             <div className="flex items-center justify-center p-6 sm:p-12">
                 <div className="w-full max-w-md">
                     <div className="lg:hidden mb-10 flex justify-center">
-                        <img 
-                            src="https://i.imgur.com/Hur36Vc.png" 
-                            alt="Limperial Company Logo" 
+                        <img
+                            src="https://i.imgur.com/Hur36Vc.png"
+                            alt="Limperial Company Logo"
                             className="h-12 w-auto"
                         />
                     </div>
-                    
+
                     <div className="text-left">
                         <h1 className="text-3xl font-bold tracking-tight text-gray-900">Sign in</h1>
                         <p className="mt-2 text-sm text-slate-600">to continue to Limperial Dashboard</p>
@@ -138,7 +138,7 @@ const LoginPage: React.FC = () => {
                                 </a>
                             </div>
                             <div className="relative">
-                                 <Lock className="h-4 w-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                                <Lock className="h-4 w-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                                 <Input
                                     id="password"
                                     name="password"
@@ -185,7 +185,7 @@ const LoginPage: React.FC = () => {
                             </Button>
                         </div>
                     </form>
-                    
+
                     <div className="relative my-8">
                         <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t" />
@@ -202,17 +202,17 @@ const LoginPage: React.FC = () => {
             <div className="hidden lg:flex flex-col justify-between bg-brand-800 p-8 xl:p-12 text-white relative overflow-hidden">
                 <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-96 h-96 bg-white/5 rounded-full" />
                 <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[500px] h-[500px] bg-white/5 rounded-full" />
-                
+
                 <div className="relative flex items-center gap-3 z-10">
-                    <img 
-                        src="https://i.imgur.com/Hur36Vc.png" 
-                        alt="Limperial Company Logo" 
+                    <img
+                        src="https://i.imgur.com/Hur36Vc.png"
+                        alt="Limperial Company Logo"
                         className="h-12 w-auto brightness-0 invert"
                     />
                 </div>
                 <div className="relative my-auto z-10">
                     <h2 className="text-4xl xl:text-5xl font-bold leading-tight tracking-tight">
-                        Empowering Your<br/>Projects. Simplified.
+                        Empowering Your<br />Projects. Simplified.
                     </h2>
                     <p className="mt-4 text-brand-200 text-lg max-w-xl">
                         The command center for your tech initiatives, bringing clarity and control to every stage of your work.
