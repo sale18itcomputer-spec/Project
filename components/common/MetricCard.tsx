@@ -33,7 +33,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, subValue, onClick
 
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
         <CardTitle className="text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-200">{title}</CardTitle>
-        {isCompact && icon && React.cloneElement(icon, { className: 'h-4 w-4 text-muted-foreground group-hover:text-primary/70 transition-colors duration-200' })}
+        {isCompact && icon && React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { className: 'h-4 w-4 text-muted-foreground group-hover:text-primary/70 transition-colors duration-200' })}
       </CardHeader>
       <CardContent className="relative z-10">
         <div className="text-2xl font-bold text-foreground transition-transform duration-200 group-hover:translate-x-0.5">{value}</div>
