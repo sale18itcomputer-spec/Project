@@ -105,7 +105,7 @@ const storeToSheetMap: Record<db.StoreName, string> = {
   invoices: 'Invoices',
   vendors: 'Vendors',
   vendorPricelist: 'Vendor Pricelist',
-  purchaseOrders: '' // Supabase-only, not a Google Sheet
+  purchaseOrders: 'Purchase Orders',
 };
 
 const sheetToStoreMap = Object.fromEntries(Object.entries(storeToSheetMap).map(([k, v]) => [v, k]));
@@ -120,7 +120,10 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
   'Quotations': QUOTATION_HEADERS,
   'Sale Orders': SALE_ORDER_HEADERS,
   'Raw': PRICELIST_HEADERS,
-  'Invoices': INVOICE_HEADERS
+  'Invoices': INVOICE_HEADERS,
+  'Vendors': VENDOR_HEADERS,
+  'Vendor Pricelist': VENDOR_PRICELIST_HEADERS,
+  'Purchase Orders': PURCHASE_ORDER_HEADERS,
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -147,7 +150,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
 
-  const stateSetters: Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>> = useMemo(() => ({
+  // dispatch setters are stable references — no useMemo needed
+  const stateSetters: Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>> = {
     projects: setProjects,
     companies: setCompanies,
     contacts: setContacts,
@@ -161,7 +165,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     vendors: setVendors,
     vendorPricelist: setVendorPricelist,
     purchaseOrders: setPurchaseOrders
-  }), [setProjects, setCompanies, setContacts, setContactLogs, setSiteSurveys, setMeetings, setQuotations, setSaleOrders, setPricelist, setInvoices, setVendors, setVendorPricelist, setPurchaseOrders]);
+  };
 
   // Real-time subscription setup
   useEffect(() => {
@@ -263,9 +267,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
+        // All stores go through the same unified batch-fetch pipeline.
+        // storeToSheetMap maps every store to its logical sheet name;
+        // sheetToHeadersMap drives normalization for all of them.
         const sheetNames = db.STORE_NAMES
           .map(s => storeToSheetMap[s])
           .filter(name => !!sheetToHeadersMap[name]);
+
         const freshData = await batchReadRecords<Record<string, any[]>>(sheetNames);
         const normalizedData: Partial<Record<db.StoreName, any[]>> = {};
 
@@ -275,74 +283,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const headers = sheetToHeadersMap[sheetName];
           if (data && headers && storeName && stateSetters[storeName]) {
             const normalized = normalize(data, headers);
-            stateSetters[storeName](normalized);
-            normalizedData[storeName] = normalized;
+
+            // After normalizing vendor_pricelist, join vendor_name from vendors
+            if (storeName === 'vendorPricelist') {
+              const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) || [];
+              const withNames = (normalized as VendorPricelistItem[]).map(item => {
+                const vendor = currentVendors.find(
+                  v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase()
+                );
+                return { ...item, vendor_name: vendor?.vendor_name ?? 'Unknown Vendor' };
+              });
+              stateSetters[storeName](withNames);
+              normalizedData[storeName] = withNames;
+            } else if (storeName === 'purchaseOrders') {
+              // Join vendor_name for purchase orders
+              const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) || [];
+              const pos = (normalized as PurchaseOrder[]).map(po => {
+                const vendor = currentVendors.find(v => v.id === po.vendor_id);
+                return { ...po, vendor_name: po.vendor_name || vendor?.vendor_name || '' };
+              });
+              stateSetters[storeName](pos);
+              normalizedData[storeName] = pos;
+            } else {
+              stateSetters[storeName](normalized);
+              normalizedData[storeName] = normalized;
+            }
           }
         }
+
         db.batchSetStoreData(normalizedData);
-      } catch (error) {
-        console.error("Failed to fetch fresh data from sheets:", error);
-      }
-
-      try {
-        // Fetch Supabase-only tables
-        const [vendorsRes, vendorPricelistRes] = await Promise.all([
-          supabase.from('vendors').select('*'),
-          supabase.from('vendor_pricelist').select('*')
-        ]);
-
-        if (vendorsRes.data) {
-          const rawVendors = vendorsRes.data;
-          const normalizedVendors = normalize<Vendor>(rawVendors, VENDOR_HEADERS);
-          setVendors(normalizedVendors);
-          db.batchSetStoreData({ vendors: normalizedVendors });
-        }
-
-        if (vendorPricelistRes.data) {
-          const rawItems = vendorPricelistRes.data;
-          const normalizedItems = normalize<VendorPricelistItem>(rawItems, VENDOR_PRICELIST_HEADERS);
-
-          // Get the current vendors value (either from fresh fetch or state)
-          const currentVendors = vendorsRes.data
-            ? normalize<Vendor>(vendorsRes.data, VENDOR_HEADERS)
-            : (vendors || []);
-
-          // Join vendor_name using ID matching
-          const itemsWithVendorName = normalizedItems.map(item => {
-            const vendor = currentVendors.find(v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase());
-            return {
-              ...item,
-              vendor_name: vendor ? vendor.vendor_name : 'Unknown Vendor'
-            };
-          });
-
-          setVendorPricelist(itemsWithVendorName);
-          db.batchSetStoreData({ vendorPricelist: itemsWithVendorName });
-        }
-
-        // Fetch Purchase Orders and join vendor names
-        const { data: poData } = await supabase
-          .from('purchase_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (poData) {
-          const currentVendors = vendorsRes.data
-            ? normalize<Vendor>(vendorsRes.data, VENDOR_HEADERS)
-            : (vendors || []);
-          const pos = normalize<PurchaseOrder>(poData, PURCHASE_ORDER_HEADERS).map(po => {
-            const vendor = currentVendors.find(v => v.id === po.vendor_id);
-            return {
-              ...po,
-              vendor_name: po.vendor_name || vendor?.vendor_name || ''
-            };
-          });
-          setPurchaseOrders(pos);
-          db.batchSetStoreData({ purchaseOrders: pos });
-        }
-
-
-
       } catch (networkError: any) {
         console.error("Failed to fetch data from network:", networkError);
         if (!isDataLoadedFromCache) {
@@ -356,7 +325,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadData();
-  }, [isAuthenticated, refetchCounter, stateSetters]);
+    // stateSetters is a plain object literal of stable dispatch refs — excluding to avoid infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, refetchCounter]);
 
 
   const { activeCompanyNames, activeContactNames, activePipelineIds } = useMemo(() => {

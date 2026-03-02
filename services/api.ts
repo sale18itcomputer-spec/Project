@@ -14,6 +14,10 @@ const TABLE_MAP: { [key: string]: string } = {
     'Sale Orders': 'sale_orders',
     'Raw': 'pricelist',
     'Invoices': 'invoices',
+    // Procurement / Vendor tables
+    'Vendors': 'vendors',
+    'Vendor Pricelist': 'vendor_pricelist',
+    'Purchase Orders': 'purchase_orders',
     // B2B Mappings
     'b2b_pipelines': 'b2b_pipelines',
     'b2b_companies': 'b2b_companies',
@@ -35,6 +39,10 @@ const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
     'Sale Orders': { primaryKey: '"SO No."' },
     'Raw': { primaryKey: '"Code"' },
     'Invoices': { primaryKey: '"Inv No."' },
+    // Procurement / Vendor tables
+    'Vendors': { primaryKey: 'id' },
+    'Vendor Pricelist': { primaryKey: 'id' },
+    'Purchase Orders': { primaryKey: 'id' },
     // B2B Config
     'b2b_pipelines': { primaryKey: '"Pipeline No."' },
     'b2b_companies': { primaryKey: '"Company ID"' },
