@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Vendor } from "../../types";
 import { VENDOR_HEADERS } from "../../schemas";
-import { insertRecord, updateRecord, deleteRecord } from "../../utils/b2bDb";
+import { insertRecord, updateRecord, deleteRecord } from "../../services/b2bDb";
 import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";

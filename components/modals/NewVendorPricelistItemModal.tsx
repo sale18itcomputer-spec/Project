@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { VendorPricelistItem, Vendor } from "../../types";
-import { insertRecord, updateRecord, deleteRecord } from "../../utils/b2bDb";
+import { insertRecord, updateRecord, deleteRecord } from "../../services/b2bDb";
 import { useData } from "../../contexts/DataContext";
 import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";

@@ -9,7 +9,7 @@ import { ExternalLink, Table, CalendarDays, Clock, Users, Search, ArrowRightToLi
 import { parseDate, formatDateAsMDY } from "../../utils/time";
 import NewMeetingModal from "../modals/NewMeetingModal";
 import ViewToggle from "../common/ViewToggle";
-import AgendaView, { AgendaItem } from "../views/AgendaView";
+import AgendaView, { AgendaItem } from "./views/AgendaView";
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { ScrollArea } from "../ui/scroll-area";

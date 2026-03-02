@@ -67,7 +67,7 @@ const { companies, projects, quotations } = useB2BData();
 
 ### Utilities
 
-#### b2bDb (`utils/b2bDb.ts`)
+#### b2bDb (`services/b2bDb.ts`)
 - CRUD operations for B2B tables
 - Generic functions that work with both B2C and B2B tables
 - Helper functions for mode-aware table name resolution
@@ -92,7 +92,7 @@ const { companies, projects, quotations } = useB2BData();
 
 #### 2. Creating Records with Mode Awareness
 
-Use the utility functions from `utils/b2bDb.ts`:
+Use the utility functions from `services/b2bDb.ts`:
 
 ```typescript
 import { insertRecord } from '../utils/b2bDb';

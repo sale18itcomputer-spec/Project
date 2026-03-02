@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import CloseIcon from "../icons/CloseIcon";
-import { Expand } from 'lucide-react';
+import { Expand, X } from 'lucide-react';
 
 
 
@@ -156,7 +155,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
         <div className="flex-shrink-0 bg-card/80 backdrop-blur-md p-6 border-b border-border flex justify-between items-center z-10 rounded-t-xl">
           <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-foreground truncate">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200" aria-label="Close form">
-            <CloseIcon />
+            <X size={24} />
           </button>
         </div>
 

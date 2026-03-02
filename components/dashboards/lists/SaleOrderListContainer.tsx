@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { SaleOrder } from "../../types";
-import Spinner from "../common/Spinner";
-import EmptyState from "../common/EmptyState";
+import { SaleOrder } from "../../../types";
+import Spinner from "../../common/Spinner";
+import EmptyState from "../../common/EmptyState";
 import { ShoppingCart } from 'lucide-react';
-import { formatCurrencySmartly } from "../../utils/formatters";
+import { formatCurrencySmartly } from "../../../utils/formatters";
 
 interface SaleOrderListContainerProps {
     saleOrders: SaleOrder[];
@@ -39,15 +39,15 @@ const SaleOrderListContainer: React.FC<SaleOrderListContainerProps> = ({ saleOrd
                         <button
                             onClick={() => onSelectSaleOrder(so['SO No.'])}
                             className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedSaleOrderId === so['SO No.']
-                                    ? 'bg-brand-500/10 border-brand-500'
-                                    : 'border-transparent hover:bg-muted'
+                                ? 'bg-brand-500/10 border-brand-500'
+                                : 'border-transparent hover:bg-muted'
                                 }`}
                         >
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0">
                                     <h3 className={`truncate text-base ${selectedSaleOrderId === so['SO No.']
-                                            ? 'font-bold text-brand-500'
-                                            : 'font-semibold text-foreground'
+                                        ? 'font-bold text-brand-500'
+                                        : 'font-semibold text-foreground'
                                         }`}>
                                         {so['Company Name']}
                                     </h3>

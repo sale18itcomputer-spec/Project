@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Filter, ListTree, Tag, X } from 'lucide-react';
-import MultiSelectFilter from "../common/MultiSelectFilter";
+import MultiSelectFilter from "../../common/MultiSelectFilter";
 
 interface PricelistFilterBarProps {
     categories: string[];

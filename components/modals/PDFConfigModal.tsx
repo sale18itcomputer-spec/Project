@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, SlidersHorizontal, Layout, Type, Image as ImageIcon, Ruler, ScrollText, RotateCcw, PanelRight, Download, Printer, Eye, FileText } from 'lucide-react';
 import PDFControlField from "../pdf/PDFControlField";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../utils/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../pdf/pdfGenerator";
 
 interface PDFConfigModalProps {
     isOpen: boolean;

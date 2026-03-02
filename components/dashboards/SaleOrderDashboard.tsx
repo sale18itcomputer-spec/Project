@@ -14,8 +14,8 @@ import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../..
 import { ShoppingCart, DollarSign, CheckCircle, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText } from 'lucide-react';
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import ViewToggle from "../common/ViewToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
-import SaleOrderListContainer from "../lists/SaleOrderListContainer";
+import KanbanView, { KanbanColumn } from "./views/KanbanView";
+import SaleOrderListContainer from "./lists/SaleOrderListContainer";
 import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
 import { useToast } from "../../contexts/ToastContext";

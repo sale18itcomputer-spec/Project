@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, ComponentProps } from 'react';
-import { useFilter, FilterState } from "../../contexts/FilterContext";
+import { useFilter, FilterState } from "../../../contexts/FilterContext";
 import { Filter, Calendar, Tag, User, Building, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { formatToInputDate, parseDate } from "../../utils/time";
-import MultiSelectFilter from "../common/MultiSelectFilter";
+import { formatToInputDate, parseDate } from "../../../utils/time";
+import MultiSelectFilter from "../../common/MultiSelectFilter";
 
 interface DashboardFilterBarProps {
     statuses: string[];

@@ -16,7 +16,7 @@ import { localStorageGet, localStorageSet, localStorageRemove } from '../../util
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
-import PricelistFilterBar from "./PricelistFilterBar";
+import PricelistFilterBar from "./components/PricelistFilterBar";
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {

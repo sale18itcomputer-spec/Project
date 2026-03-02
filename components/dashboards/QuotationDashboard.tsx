@@ -13,12 +13,12 @@ import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../..
 import { FileText, DollarSign, CheckCircle, ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import ViewToggle from "../common/ViewToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
+import KanbanView, { KanbanColumn } from "./views/KanbanView";
 import { useToast } from "../../contexts/ToastContext";
 import { deleteRecord, updateRecord } from "../../services/api";
 import ConfirmationModal from "../modals/ConfirmationModal";
 import ItemActionsMenu from "../common/ItemActionsMenu";
-import QuotationListContainer from "../lists/QuotationListContainer";
+import QuotationListContainer from "./lists/QuotationListContainer";
 import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
 import { useWindowSize } from "../../hooks/useWindowSize";

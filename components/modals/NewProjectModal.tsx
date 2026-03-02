@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PipelineProject, Meeting, ContactLog, UnifiedActivity, Company, Contact } from "../../types";
-import { insertRecord, updateRecord, deleteRecord } from "../../utils/b2bDb";
+import { insertRecord, updateRecord, deleteRecord } from "../../services/b2bDb";
 import { FormSection, FormInput, FormSelect, FormTextarea, FormDisplay } from "../common/FormControls";
 import { formatToSheetDate, formatToInputDate, parseDate, formatDateAsMDY } from "../../utils/time";
 import { useB2BData } from "../../hooks/useB2BData";

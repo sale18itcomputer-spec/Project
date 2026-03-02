@@ -20,13 +20,11 @@ import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../..
 import NewProjectModal from "../modals/NewProjectModal";
 import Avatar from "../common/Avatar";
 import ViewToggle from "../common/ViewToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
-import PipelineListContainer from "../lists/PipelineListContainer";
+import KanbanView, { KanbanColumn } from "./views/KanbanView";
+import PipelineListContainer from "./lists/PipelineListContainer";
 import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
-type ProcessedProject = PipelineProject & {
-  calculatedDueDate: Date | null;
-};
+type ProcessedProject = PipelineProject & { calculatedDueDate: Date | null };
 
 const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }) => {
   const statusConfig: Record<string, { label: string; color: string }> = {

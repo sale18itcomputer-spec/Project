@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import InteractiveMap, { MapLocation } from "../views/InteractiveMap";
-import CloseIcon from "../icons/CloseIcon";
+import InteractiveMap, { MapLocation } from "../dashboards/views/InteractiveMap";
+import { X } from 'lucide-react';
 
 interface AddPlaceModalProps {
   isOpen: boolean;
@@ -17,15 +17,15 @@ const AddPlaceModal: React.FC<AddPlaceModalProps> = ({ isOpen, onClose, onPlaceS
 
   useEffect(() => {
     if (selectedLocation) {
-        setEditableName(selectedLocation.name);
+      setEditableName(selectedLocation.name);
     }
   }, [selectedLocation]);
-  
+
   // Reset state when modal is closed
   useEffect(() => {
     if (!isOpen) {
-        setSelectedLocation(null);
-        setEditableName('');
+      setSelectedLocation(null);
+      setEditableName('');
     }
   }, [isOpen]);
 
@@ -60,11 +60,11 @@ const AddPlaceModal: React.FC<AddPlaceModalProps> = ({ isOpen, onClose, onPlaceS
             className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors"
             aria-label="Close"
           >
-            <CloseIcon />
+            <X size={24} />
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <InteractiveMap onLocationChange={setSelectedLocation} initialData={{name: editableName}}/>
+          <InteractiveMap onLocationChange={setSelectedLocation} initialData={{ name: editableName }} />
           <div>
             <label htmlFor="place-name" className="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
             <input

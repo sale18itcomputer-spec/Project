@@ -12,7 +12,7 @@ import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../..
 import { FileText, DollarSign, CheckCircle, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../common/DataTableColumnToggle";
 import ViewToggle from "../common/ViewToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
+import KanbanView, { KanbanColumn } from "./views/KanbanView";
 import Spinner from "../common/Spinner";
 import EmptyState from "../common/EmptyState";
 import InvoiceCreator from "../features/InvoiceCreator";

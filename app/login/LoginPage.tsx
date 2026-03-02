@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { Lock, Eye, EyeOff, AlertCircle, Mail, Loader2 } from 'lucide-react';
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { decodeJwt } from "../../utils/formatters";
 
 declare global {

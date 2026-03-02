@@ -11,7 +11,7 @@ import SalesByBrandChart from "../charts/ProjectsByBrandChart";
 import WinRateChart from "../charts/WinRateChart";
 import { useNavigation } from "../../contexts/NavigationContext";
 import { FilterProvider, useFilter } from "../../contexts/FilterContext";
-import DashboardFilterBar from "./DashboardFilterBar";
+import DashboardFilterBar from "./components/DashboardFilterBar";
 import { calculateDueDate, parseDate } from "../../utils/time";
 import { parseSheetValue } from "../../utils/formatters";
 import AnalyticsDashboard from "./AnalyticsDashboard";

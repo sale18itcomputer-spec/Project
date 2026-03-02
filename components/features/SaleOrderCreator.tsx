@@ -15,7 +15,7 @@ import DocumentEditorContainer from "../layout/DocumentEditorContainer";
 import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, AlertTriangle, List, Loader2 } from 'lucide-react';
 import Spinner from "../common/Spinner";
 import SuccessModal from "../modals/SuccessModal";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../utils/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../pdf/pdfGenerator";
 import PDFConfigModal from "../modals/PDFConfigModal";
 import PDFControlField from "../pdf/PDFControlField";
 import { useToast } from "../../contexts/ToastContext";

@@ -14,7 +14,7 @@ import { getSetting, saveSetting } from "../../services/api";
 import DocumentEditorContainer from "../layout/DocumentEditorContainer";
 import PDFConfigModal from "../modals/PDFConfigModal";
 import PDFControlField from "../pdf/PDFControlField";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../utils/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../pdf/pdfGenerator";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 

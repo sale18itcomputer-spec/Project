@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Quotation } from "../../types";
-import Spinner from "../common/Spinner";
-import EmptyState from "../common/EmptyState";
+import { Quotation } from "../../../types";
+import Spinner from "../../common/Spinner";
+import EmptyState from "../../common/EmptyState";
 import { FileText } from 'lucide-react';
-import { formatCurrencySmartly } from "../../utils/formatters";
+import { formatCurrencySmartly } from "../../../utils/formatters";
 
 interface QuotationListContainerProps {
     quotations: Quotation[];

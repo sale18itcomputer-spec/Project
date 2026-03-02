@@ -14,7 +14,7 @@ import SuccessModal from "../modals/SuccessModal";
 import Spinner from "../common/Spinner";
 import DocumentEditorContainer from "../layout/DocumentEditorContainer";
 import { Trash2, X, Upload, Printer, FileText, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Plus, Minus } from 'lucide-react';
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../utils/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../pdf/pdfGenerator";
 import { useToast } from "../../contexts/ToastContext";
 import SearchableSelect from "../common/SearchableSelect";
 import { ScrollArea } from "../ui/scroll-area";

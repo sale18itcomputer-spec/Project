@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import Spinner from "../common/Spinner";
-import EmptyState from "../common/EmptyState";
+import Spinner from "../../common/Spinner";
+import EmptyState from "../../common/EmptyState";
 import { ClipboardList } from 'lucide-react';
 
 export interface KanbanColumn<T> {

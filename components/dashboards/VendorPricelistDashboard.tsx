@@ -12,7 +12,8 @@ import { Badge } from "../ui/badge";
 import * as XLSX from 'xlsx';
 import { useToast } from "../../contexts/ToastContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { insertRecord } from "../../utils/b2bDb";
+import { insertRecord } from "../../services/b2bDb";
+
 import { localStorageGet, localStorageSet, localStorageRemove } from '../../utils/storage';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
