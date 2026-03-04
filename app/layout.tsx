@@ -16,12 +16,11 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <head>
                 <link rel="preconnect" href="https://rsms.me/" crossOrigin="anonymous" />
                 <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" />
                 <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-                <script src="https://accounts.google.com/gsi/client" async defer />
             </head>
             <body className="bg-background text-foreground antialiased">
                 {/* Suspense required for useSearchParams used inside NavigationProvider */}

@@ -16,6 +16,8 @@ import PDFControlField from "../../pdf/PDFControlField";
 import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import PurchaseOrderSpreadsheet from './PurchaseOrderSpreadsheet';
+import { Table as TableIcon } from 'lucide-react';
 
 const STRIP_HTML = (html: string) => {
     if (!html) return '';
@@ -140,6 +142,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
     ]);
 
     const [isSaving, setIsSaving] = useState(false);
+    const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
 
     // PDF Configuration State
     const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
@@ -774,9 +777,14 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                             <div className="bg-muted/30 px-4 py-3 border-b border-border flex justify-between items-center">
                                 <h3 className="font-bold flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-brand-500" /> Line Items</h3>
-                                <button onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
-                                    <Plus className="w-4 h-4" /> Add Item
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <button onClick={() => setIsSpreadsheetOpen(true)} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition">
+                                        <TableIcon className="w-4 h-4" /> Spreadsheet Editor
+                                    </button>
+                                    <button onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
+                                        <Plus className="w-4 h-4" /> Add Item
+                                    </button>
+                                </div>
                             </div>
                             {/* Global Sticky Toolbar */}
                             <div className="border-b border-border sticky top-0 z-10 w-full overflow-x-auto bg-slate-50 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:!px-2 [&_.ql-toolbar]:!py-1.5 [&_.ql-toolbar]:w-full [&_.ql-picker]:font-sans">
@@ -886,6 +894,16 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     </div>
                 </div>
             </div>
+            {isSpreadsheetOpen && (
+                <PurchaseOrderSpreadsheet
+                    isOpen={isSpreadsheetOpen}
+                    onClose={() => setIsSpreadsheetOpen(false)}
+                    initialItems={items}
+                    formData={formData}
+                    totals={totals}
+                    onSave={(newItems) => setItems(newItems)}
+                />
+            )}
         </DocumentEditorContainer>
     );
 };

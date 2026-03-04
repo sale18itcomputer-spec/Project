@@ -1,26 +1,12 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove } from '../utils/storage';
 
-// ── Cookie helpers (middleware reads this cookie for server-side auth) ───────
-function setAuthCookie(userId: string) {
-  if (typeof document === 'undefined') return;
-  // 7-day expiry; SameSite=Lax works for same-origin navigations
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-  document.cookie = `limperial_auth_user=${encodeURIComponent(userId)}; expires=${expires}; path=/; SameSite=Lax`;
-}
-
-function removeAuthCookie() {
-  if (typeof document === 'undefined') return;
-  document.cookie = 'limperial_auth_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-}
-// ────────────────────────────────────────────────────────────────────────────
-
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
-// Set NEXT_PUBLIC_DEV_AUTO_LOGIN=sale18itcomputer@gmail.com in .env.local to skip login in dev
 const DEV_AUTO_LOGIN_EMAIL = process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN ?? '';
 
 interface AuthContextType {
@@ -29,96 +15,145 @@ interface AuthContextType {
   currentUser: User | null;
   users: User[] | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  loginWithGoogle: (email: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const supabase = createClient();
   const [users, setUsers] = useState<User[] | null>(null);
+  const usersRef = React.useRef<User[] | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  // Keep ref in sync for callbacks
   useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  // Sync Supabase user with our custom Users table
+  const syncUser = useCallback((email: string, allUsers: User[]) => {
+    const user = allUsers.find(
+      u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+    if (user && user.Status === 'Active') {
+      setCurrentUser(user);
+      localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+      return user;
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const bootstrapAuth = async () => {
       try {
         const fetchedUsers = await readRecords<User>('Users');
+        if (!isMounted) return;
         setUsers(fetchedUsers);
 
-        // ── Dev auto-login bypass ───────────────────────────────────────
-        if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL && fetchedUsers) {
-          const devUser = fetchedUsers.find(
-            u => u.Email?.trim().toLowerCase() === DEV_AUTO_LOGIN_EMAIL.trim().toLowerCase()
-          );
-          if (devUser) {
-            setCurrentUser(devUser);
-            setIsAuthLoading(false);
-            return; // skip normal session restore
-          }
-        }
-        // ───────────────────────────────────────────────────────────────
+        // 1. Check for active Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
 
-        // Restore session from localStorage
-        const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
-        if (savedUserId && fetchedUsers) {
-          const user = fetchedUsers.find(u => u.UserID === savedUserId);
-          if (user) setCurrentUser(user);
+        if (session?.user?.email) {
+          syncUser(session.user.email, fetchedUsers);
+        }
+        // 2. Dev auto-login bypass (if no session)
+        else if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL) {
+          syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
+        }
+        // 3. Last resort: Restore from localStorage (for non-Supabase sessions)
+        else {
+          const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
+          if (savedUserId) {
+            const user = fetchedUsers.find(u => u.UserID === savedUserId);
+            if (user) setCurrentUser(user);
+          }
         }
       } catch (error) {
         console.error('Failed to load user data for authentication', error);
       } finally {
-        setIsAuthLoading(false);
+        if (isMounted) setIsAuthLoading(false);
       }
     };
 
     bootstrapAuth();
-  }, []);
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user?.email) {
+        // Use ref to get latest users or fetch if empty
+        let currentUsersList = usersRef.current;
+        if (!currentUsersList) {
+          currentUsersList = await readRecords<User>('Users');
+          if (isMounted) setUsers(currentUsersList);
+        }
+        syncUser(session.user.email, currentUsersList);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        localStorageRemove(AUTH_STORAGE_KEY);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+    // supabase and syncUser are stable. users is omitted to prevent loop.
+  }, [supabase, syncUser]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    if (!users) {
-      return { success: false, message: 'Authentication service is temporarily unavailable. Please try again later.' };
-    }
+    try {
+      // First, attempt Supabase Auth
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
+      if (error) {
+        // Fallback to custom table check for legacy support
+        if (!users) return { success: false, message: 'Auth service unavailable.' };
 
-    if (!user) return { success: false, message: 'Invalid Email or Password.' };
-    if (user.Status !== 'Active') return { success: false, message: 'This account is inactive. Please contact an administrator.' };
+        const trimmedEmail = email.trim().toLowerCase();
+        const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
 
-    // Compare passwords as strings (handles numeric passwords stored as numbers)
-    if (String(user.Password) === String(password).trim()) {
-      setCurrentUser(user);
-      localStorageSet(AUTH_STORAGE_KEY, user.UserID);
-      setAuthCookie(user.UserID);
+        if (user && String(user.Password) === String(password).trim()) {
+          if (user.Status !== 'Active') return { success: false, message: 'Account inactive.' };
+          setCurrentUser(user);
+          localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+          return { success: true, message: 'Login successful (Legacy)!' };
+        }
+
+        return { success: false, message: error.message };
+      }
+
       return { success: true, message: 'Login successful!' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
+  }, [supabase, users]);
 
-    return { success: false, message: 'Invalid Email or Password.' };
-  }, [users]);
+  const loginWithGoogle = useCallback(async () => {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const callbackUrl = `${siteUrl}/auth/callback`;
 
-  const loginWithGoogle = useCallback(async (email: string): Promise<{ success: boolean; message: string }> => {
-    if (!users) {
-      return { success: false, message: 'Authentication service is temporarily unavailable. Please try again later.' };
-    }
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: callbackUrl,
+      },
+    });
+  }, [supabase]);
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
-
-    if (!user) return { success: false, message: 'No user found with this Google account.' };
-    if (user.Status !== 'Active') return { success: false, message: 'This account is inactive. Please contact an administrator.' };
-
-    setCurrentUser(user);
-    localStorageSet(AUTH_STORAGE_KEY, user.UserID);
-    setAuthCookie(user.UserID);
-    return { success: true, message: 'Login successful!' };
-  }, [users]);
-
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
-    removeAuthCookie();
-  }, []);
+  }, [supabase]);
 
   return (
     <AuthContext.Provider value={{
