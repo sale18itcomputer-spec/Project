@@ -7,7 +7,7 @@ const PUBLIC_ROUTES = ['/login'];
 // Next.js internals and static assets — always allowed
 const ALWAYS_ALLOW = ['/_next', '/favicon.ico', '/api/', '/public/'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Allow Next.js internals and static assets
