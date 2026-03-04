@@ -46,36 +46,52 @@ type ViewMode = 'table' | 'board' | 'detail';
 const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload }) => {
     const { invoices = [], setInvoices, loading, error } = useData();
     const { addToast } = useToast();
-    const [isCreating, setIsCreating] = useState(!!initialPayload);
-    const [selectedInvoiceToEdit, setSelectedInvoiceToEdit] = useState<Invoice | null>(null);
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [initialData, setInitialData] = useState<any>(initialPayload);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-    const { handleNavigation } = useNavigation();
+    const { handleNavigation, navigation } = useNavigation();
     const { width } = useWindowSize();
     const isMobile = width < 768;
 
+    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
+
+    const selectedInvoiceId = useMemo(() => {
+        if (navigation.action === 'view') return navigation.id || null;
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['Inv No.']) return initialPayload.data['Inv No.'];
+        return null;
+    }, [navigation.action, navigation.id, initialPayload]);
+
+    const selectedInvoiceToEdit = useMemo(() => {
+        if (navigation.action === 'edit' && navigation.id && invoices) {
+            return invoices.find(inv => inv['Inv No.'] === navigation.id) || null;
+        }
+        return null;
+    }, [navigation.action, navigation.id, invoices]);
+
+    useEffect(() => {
+        if (navigation.action === 'view') {
+            setViewMode('detail');
+        }
+    }, [navigation.action]);
+
     const handleNewInvoice = () => {
         setInitialData(null);
-        setSelectedInvoiceToEdit(null);
-        setIsCreating(true);
+        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'create' });
     };
 
     const handleEditInvoice = (invoice: Invoice) => {
-        setSelectedInvoiceToEdit(invoice);
-        setIsCreating(true);
+        setInitialData(null);
+        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'edit', id: invoice['Inv No.'] });
     };
 
     const handleViewInvoice = (invoice: Invoice) => {
         if (isMobile) {
             handleEditInvoice(invoice);
         } else {
-            setSelectedInvoiceId(invoice['Inv No.']);
-            setViewMode('detail');
+            handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: invoice['Inv No.'] });
         }
     };
 
@@ -99,20 +115,9 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
     };
 
     const handleBackToDashboard = () => {
-        setIsCreating(false);
-        setSelectedInvoiceToEdit(null);
         setInitialData(null);
-        if (initialPayload) {
-            handleNavigation({ view: 'invoice-do' }); // Clear payload
-        }
+        handleNavigation({ view: 'invoice-do', filter: navigation.filter });
     };
-
-    useEffect(() => {
-        if (initialPayload?.action === 'view' && initialPayload?.data?.['Inv No.']) {
-            setSelectedInvoiceId(initialPayload.data['Inv No.']);
-            setViewMode('detail');
-        }
-    }, [initialPayload]);
 
     const filteredData = useMemo(() => {
         let dataToFilter = invoices || [];
@@ -367,7 +372,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                             {filteredData.map(inv => (
                                 <button
                                     key={inv['Inv No.']}
-                                    onClick={() => setSelectedInvoiceId(inv['Inv No.'])}
+                                    onClick={() => handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: inv['Inv No.'] })}
                                     className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No.'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">

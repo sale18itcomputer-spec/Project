@@ -6,6 +6,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 export interface NavigationState {
   view: string;
   filter?: string;
+  action?: string;
+  id?: string;
   payload?: any;
 }
 
@@ -47,6 +49,8 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   // Derive view, filter, and payload from the current URL
   const currentView = PATH_TO_VIEW[pathname] || 'dashboard';
   const currentFilter = searchParams.get('filter') ?? undefined;
+  const currentAction = searchParams.get('action') ?? undefined;
+  const currentId = searchParams.get('id') ?? undefined;
   const currentPayloadRaw = searchParams.get('payload');
   let currentPayload: any = undefined;
   if (currentPayloadRaw) {
@@ -56,6 +60,8 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const navigation: NavigationState = {
     view: currentView,
     filter: currentFilter,
+    action: currentAction,
+    id: currentId,
     payload: currentPayload,
   };
 
@@ -64,6 +70,8 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const params = new URLSearchParams();
     if (nav.filter) params.set('filter', nav.filter);
+    if (nav.action) params.set('action', nav.action);
+    if (nav.id) params.set('id', nav.id);
     if (nav.payload !== undefined) {
       try { params.set('payload', JSON.stringify(nav.payload)); } catch { /* ignore */ }
     }

@@ -22,11 +22,21 @@ const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-
 
 const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPayload }) => {
     const { purchaseOrders, setPurchaseOrders, loading, error, vendors, refetchData } = useData();
-    const [isCreating, setIsCreating] = useState(false);
-    const [selectedPOToEdit, setSelectedPOToEdit] = useState<PurchaseOrder | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
-    const { handleNavigation } = useNavigation();
+    const { handleNavigation, navigation } = useNavigation();
+
+    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
+
+    const selectedPOToEdit = useMemo(() => {
+        if (navigation.action === 'edit' && navigation.id && purchaseOrders) {
+            return purchaseOrders.find(po => po.id === navigation.id) || null;
+        }
+        if (initialPayload?.action === 'edit' && initialPayload?.data) {
+            return initialPayload.data;
+        }
+        return null;
+    }, [navigation.action, navigation.id, purchaseOrders, initialPayload]);
     const { addToast } = useToast();
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
@@ -34,26 +44,12 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
     const isMobile = width < 1024;
     const { currentUser } = useAuth();
 
-    useEffect(() => {
-        if (!initialPayload) return;
-
-        if (initialPayload.action === 'create') {
-            setIsCreating(true);
-            setSelectedPOToEdit(null);
-        } else if (initialPayload.action === 'edit' && initialPayload.data) {
-            setSelectedPOToEdit(initialPayload.data);
-            setIsCreating(true);
-        }
-    }, [initialPayload]);
-
     const handleNewPO = () => {
-        setSelectedPOToEdit(null);
-        setIsCreating(true);
+        handleNavigation({ view: 'purchase-orders', filter: navigation.filter, action: 'create' });
     };
 
     const handleEditPO = (po: PurchaseOrder) => {
-        setSelectedPOToEdit(po);
-        setIsCreating(true);
+        handleNavigation({ view: 'purchase-orders', filter: navigation.filter, action: 'edit', id: po.id });
     };
 
     const handleDeleteRequest = (po: PurchaseOrder) => {
@@ -186,7 +182,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         return (
             <PurchaseOrderCreator
                 onBack={() => {
-                    setIsCreating(false);
+                    handleNavigation({ view: 'purchase-orders', filter: navigation.filter });
                     refetchData();
                 }}
                 existingPO={selectedPOToEdit}

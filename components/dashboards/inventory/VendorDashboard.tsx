@@ -8,24 +8,29 @@ import DataTable, { ColumnDef } from "../../common/DataTable";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import NewVendorModal from "../../modals/NewVendorModal";
+import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 
 const VendorDashboard: React.FC = () => {
     const { vendors, loading, error } = useData();
-    const [modalConfig, setModalConfig] = useState<{ vendor: Vendor | null, isReadOnly: boolean, isOpen: boolean }>({ vendor: null, isReadOnly: false, isOpen: false });
-    // Initialize isOpen to false, I just saw I put true by mistake in the line above. 
-    // Fixing it in the actual implementation below.
     const [searchQuery, setSearchQuery] = useState('');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const { width } = useWindowSize();
+    const { handleNavigation, navigation } = useNavigation();
 
-    const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-    const handleOpenNewVendor = () => setModalConfig({ vendor: null, isReadOnly: false, isOpen: true });
-    const handleViewVendor = (vendor: Vendor) => {
-        setModalConfig({ vendor, isReadOnly: true, isOpen: true });
-    };
+    const modalConfig = useMemo(() => {
+        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+        const isReadOnly = navigation.action === 'view';
+        const vendor = navigation.id && vendors ? vendors.find(v => v.id === navigation.id) || null : null;
+        return { vendor, isReadOnly, isOpen };
+    }, [navigation.action, navigation.id, vendors]);
+
+    const handleCloseModal = () => handleNavigation({ view: 'vendors', filter: navigation.filter });
+    const handleOpenNewVendor = () => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'create' });
+    const handleViewVendor = (vendor: Vendor) => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'view', id: vendor.id });
+    const handleEditVendor = (vendor: Vendor) => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'edit', id: vendor.id });
 
     const filteredData = useMemo(() => {
         if (!vendors) return [];
@@ -159,7 +164,7 @@ const VendorDashboard: React.FC = () => {
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setModalConfig({ vendor: row, isReadOnly: false, isOpen: true });
+                                handleEditVendor(row);
                             }}
                             className="p-2 text-muted-foreground hover:text-brand-500 transition"
                         >

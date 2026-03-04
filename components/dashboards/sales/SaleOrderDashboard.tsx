@@ -58,8 +58,6 @@ type ViewMode = 'table' | 'board' | 'detail';
 const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload }) => {
     const { saleOrders, setSaleOrders, loading, error } = useData();
     const { addToast } = useToast();
-    const [isCreating, setIsCreating] = useState(!!initialPayload);
-    const [selectedSaleOrderToEdit, setSelectedSaleOrderToEdit] = useState<SaleOrder | null>(null);
     const [saleOrderToDelete, setSaleOrderToDelete] = useState<SaleOrder | null>(null);
     const [initialData, setInitialData] = useState<Partial<SaleOrder> | undefined>(() => {
         if (!initialPayload) return undefined;
@@ -96,26 +94,44 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
         return undefined;
     });
+
+    const { handleNavigation, navigation } = useNavigation();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-    const [selectedSaleOrderId, setSelectedSaleOrderId] = useState<string | null>(null);
-    const { handleNavigation } = useNavigation();
+
+    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
+
+    const selectedSaleOrderId = useMemo(() => {
+        if (navigation.action === 'view') return navigation.id || null;
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['SO No.']) return initialPayload.data['SO No.'];
+        return null;
+    }, [navigation.action, navigation.id, initialPayload]);
+
+    const selectedSaleOrderToEdit = useMemo(() => {
+        if (navigation.action === 'edit' && navigation.id && saleOrders) {
+            return saleOrders.find(so => so['SO No.'] === navigation.id) || null;
+        }
+        return null;
+    }, [navigation.action, navigation.id, saleOrders]);
+
+    useEffect(() => {
+        if (navigation.action === 'view') {
+            setViewMode('detail');
+        }
+    }, [navigation.action]);
 
     const handleNewSaleOrder = () => {
-        setSelectedSaleOrderToEdit(null);
-        setIsCreating(true);
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'create' });
     };
 
     const handleEditSaleOrder = (saleOrder: SaleOrder) => {
-        setSelectedSaleOrderToEdit(saleOrder);
-        setIsCreating(true);
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'edit', id: saleOrder['SO No.'] });
     };
 
     const handleViewSaleOrder = (saleOrder: SaleOrder) => {
-        setViewMode('detail');
-        setSelectedSaleOrderId(saleOrder['SO No.']);
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id: saleOrder['SO No.'] });
     };
 
     const handleDeleteRequest = (saleOrder: SaleOrder) => {
@@ -138,12 +154,8 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     };
 
     const handleBackToDashboard = () => {
-        setIsCreating(false);
-        setSelectedSaleOrderToEdit(null);
         setInitialData(undefined);
-        if (initialPayload) {
-            handleNavigation({ view: 'sale-orders' }); // Clear the payload
-        }
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter });
     };
 
     const handleConvertToInvoice = (so: SaleOrder) => {
@@ -204,21 +216,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     }, [saleOrders, searchQuery, statusFilter]);
 
     const selectedSaleOrder = useMemo(() => {
-        if (!selectedSaleOrderId) return null;
-        return filteredData.find(so => so['SO No.'] === selectedSaleOrderId) || null;
-    }, [selectedSaleOrderId, filteredData]);
-
-    useEffect(() => {
-        if (viewMode === 'detail' && !selectedSaleOrderId && filteredData.length > 0) {
-            setSelectedSaleOrderId(filteredData[0]['SO No.']);
+        let targetId = selectedSaleOrderId;
+        if (viewMode === 'detail' && !targetId && filteredData.length > 0) {
+            targetId = filteredData[0]['SO No.'];
         }
-
-        // Handle direct view action from payload
-        if (initialPayload?.action === 'view' && initialPayload?.data?.['SO No.']) {
-            setSelectedSaleOrderId(initialPayload.data['SO No.']);
-            setViewMode('detail');
-        }
-    }, [viewMode, selectedSaleOrderId, filteredData, initialPayload]);
+        if (!targetId) return null;
+        return filteredData.find(so => so['SO No.'] === targetId) || null;
+    }, [selectedSaleOrderId, filteredData, viewMode]);
 
     const allColumns = useMemo<ColumnDef<SaleOrder>[]>(() => [
         {
@@ -407,8 +411,8 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
                 <SaleOrderListContainer
                     saleOrders={filteredData}
-                    selectedSaleOrderId={selectedSaleOrderId}
-                    onSelectSaleOrder={setSelectedSaleOrderId}
+                    selectedSaleOrderId={selectedSaleOrder?.['SO No.'] || null}
+                    onSelectSaleOrder={(id) => handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id })}
                     loading={loading && !saleOrders}
                 />
             </aside>

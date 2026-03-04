@@ -9,6 +9,7 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
+import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
@@ -179,8 +180,7 @@ const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility
 
 const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
-
-    const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
+    const { handleNavigation, navigation } = useNavigation();
     const [statusFilter, setStatusFilter] = useState<string | null>('Available');
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
@@ -196,13 +196,18 @@ const PricelistDashboard: React.FC = () => {
         }
     }, [loading]);
 
-    const handleCloseModal = () => setModalConfig({ item: null, isReadOnly: false, isOpen: false });
-    const handleViewItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
-    const handleEditItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
-    const handleNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
-    const handleDeleteItem = (item: ProcessedPricelistItem) => {
-        setModalConfig({ item, isReadOnly: true, isOpen: true });
-    };
+    const modalConfig = useMemo(() => {
+        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+        const isReadOnly = navigation.action === 'view';
+        const item = navigation.id && pricelist ? pricelist.find(i => i.Code === navigation.id) || null : null;
+        return { item, isReadOnly, isOpen };
+    }, [navigation.action, navigation.id, pricelist]);
+
+    const handleCloseModal = () => handleNavigation({ view: 'pricelist', filter: navigation.filter });
+    const handleViewItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'view', id: item.Code });
+    const handleEditItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'edit', id: item.Code });
+    const handleNewItem = () => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'create' });
+    const handleDeleteItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'view', id: item.Code });
 
     const filterOptions = useMemo(() => {
         if (!pricelist) return { categories: [], brands: [] };

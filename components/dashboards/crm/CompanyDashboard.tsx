@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Company } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
+import { useNavigation } from "../../../contexts/NavigationContext";
 import NewCompanyModal from "../../modals/NewCompanyModal";
 import { ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import { parseSheetValue, formatMixedCurrency, determineCurrency } from "../../../utils/formatters";
@@ -56,16 +57,10 @@ const CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => voi
 
 const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) => {
   const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useB2BData();
-  const [modalConfig, setModalConfig] = useState<{ company: ProcessedCompany | null, isReadOnly: boolean, isOpen: boolean }>({ company: null, isReadOnly: false, isOpen: false });
+  const { navigation, handleNavigation } = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const { width } = useWindowSize();
-
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewCompany = () => setModalConfig({ company: null, isReadOnly: false, isOpen: true });
-  const handleViewCompany = (company: ProcessedCompany) => {
-    setModalConfig({ company, isReadOnly: true, isOpen: true });
-  };
 
   const validCompanies = useMemo(() => {
     if (!companyData) return [];
@@ -134,12 +129,25 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     );
   }, [processedData, searchQuery]);
 
+  // Derive modal config from URL navigation state
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const company = navigation.id ? processedData.find(c => c['Company ID'] === navigation.id) || null : null;
+    return { company, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, processedData]);
+
+  const handleCloseModal = () => handleNavigation({ view: 'companies', filter: navigation.filter });
+  const handleOpenNewCompany = () => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'create' });
+  const handleViewCompany = (company: ProcessedCompany) => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'view', id: company['Company ID'] });
+  const handleEditCompany = (company: ProcessedCompany) => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'edit', id: company['Company ID'] });
+
   // Handle initial filter by opening modal if a match is found
   useEffect(() => {
     if (initialFilter && filteredData.length > 0) {
       const found = filteredData.find(c => c['Company Name'] === initialFilter || c['Company ID'] === initialFilter);
       if (found) {
-        setModalConfig({ company: found, isReadOnly: true, isOpen: true });
+        handleViewCompany(found);
       }
     }
   }, [initialFilter, filteredData]);
@@ -321,7 +329,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setModalConfig({ company: row, isReadOnly: false, isOpen: true });
+                  handleEditCompany(row);
                 }}
                 className="p-2 text-muted-foreground hover:text-brand-500 transition"
               >

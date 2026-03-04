@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
+import { useNavigation } from "../../../contexts/NavigationContext";
 import NewContactModal from "../../modals/NewContactModal";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
@@ -98,18 +99,14 @@ const ContactCard: React.FC<{
 
 const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) => {
   const { contacts, setContacts, projects, contactLogs, meetings, quotations, saleOrders, loading, error, companies } = useData();
+  const { navigation, handleNavigation } = useNavigation();
   const { addToast } = useToast();
-  const [modalConfig, setModalConfig] = useState<{ contact: Contact | null, isReadOnly: boolean, isOpen: boolean }>({ contact: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
 
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewContact = () => setModalConfig({ contact: null, isReadOnly: false, isOpen: true });
-  const handleViewContact = (contact: ProcessedContact) => setModalConfig({ contact, isReadOnly: true, isOpen: true });
-  const handleEditContact = (contact: ProcessedContact) => setModalConfig({ contact, isReadOnly: false, isOpen: true });
   const handleDeleteRequest = (contact: ProcessedContact) => setContactToDelete(contact);
 
   const handleConfirmDelete = async () => {
@@ -181,6 +178,18 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       };
     });
   }, [validContacts, projects, saleOrders]);
+
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const contact = navigation.id ? processedData.find(c => c['Customer ID'] === navigation.id) || null : null;
+    return { contact, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, processedData]);
+
+  const handleCloseModal = () => handleNavigation({ view: 'contacts', filter: navigation.filter });
+  const handleOpenNewContact = () => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'create' });
+  const handleViewContact = (contact: ProcessedContact) => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'view', id: contact['Customer ID'] });
+  const handleEditContact = (contact: ProcessedContact) => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'edit', id: contact['Customer ID'] });
 
   const companyOptions = useMemo(() => {
     if (!companies) return ['All Companies'];

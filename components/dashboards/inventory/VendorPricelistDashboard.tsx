@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { insertRecord } from "../../../services/b2bDb";
+import { useNavigation } from "../../../contexts/NavigationContext";
 
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
@@ -23,18 +24,25 @@ const VendorPricelistDashboard: React.FC = () => {
 
     const { addToast } = useToast();
     const { currentUser } = useAuth();
-    const [modalConfig, setModalConfig] = useState<{ item: VendorPricelistItem | null, isReadOnly: boolean, isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
+    const { handleNavigation, navigation } = useNavigation();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [vendorFilter, setVendorFilter] = useState<string>('all');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [isUploading, setIsUploading] = useState(false);
     const { width } = useWindowSize();
 
-    const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-    const handleOpenNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
-    const handleViewItem = (item: VendorPricelistItem) => {
-        setModalConfig({ item, isReadOnly: true, isOpen: true });
-    };
+    const modalConfig = useMemo(() => {
+        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+        const isReadOnly = navigation.action === 'view';
+        const item = navigation.id && vendorPricelist ? vendorPricelist.find(i => i.id === navigation.id) || null : null;
+        return { item, isReadOnly, isOpen };
+    }, [navigation.action, navigation.id, vendorPricelist]);
+
+    const handleCloseModal = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter });
+    const handleOpenNewItem = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'create' });
+    const handleViewItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'view', id: item.id });
+    const handleEditItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'edit', id: item.id });
 
     const handleDownloadTemplate = () => {
         const headers = [
@@ -315,7 +323,7 @@ const VendorPricelistDashboard: React.FC = () => {
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setModalConfig({ item: row, isReadOnly: false, isOpen: true });
+                                handleEditItem(row);
                             }}
                             className="p-2 text-muted-foreground hover:text-brand-500 transition"
                         >

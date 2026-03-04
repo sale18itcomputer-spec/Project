@@ -11,6 +11,7 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
+import { useNavigation } from "../../../contexts/NavigationContext";
 import { ShieldCheck, TrendingUp, Info } from 'lucide-react';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
@@ -236,7 +237,7 @@ const B2BPricelistDashboard: React.FC = () => {
         );
     }
 
-    const [modalConfig, setModalConfig] = useState<{ item: PricelistItem | null; isReadOnly: boolean; isOpen: boolean }>({ item: null, isReadOnly: false, isOpen: false });
+    const { handleNavigation, navigation } = useNavigation();
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
@@ -251,13 +252,18 @@ const B2BPricelistDashboard: React.FC = () => {
         }
     }, [loading]);
 
-    const handleCloseModal = () => setModalConfig({ item: null, isReadOnly: false, isOpen: false });
-    const handleViewItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: true, isOpen: true });
-    const handleEditItem = (item: ProcessedPricelistItem) => setModalConfig({ item, isReadOnly: false, isOpen: true });
-    const handleNewItem = () => setModalConfig({ item: null, isReadOnly: false, isOpen: true });
-    const handleDeleteItem = (item: ProcessedPricelistItem) => {
-        setModalConfig({ item, isReadOnly: true, isOpen: true });
-    };
+    const modalConfig = useMemo(() => {
+        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+        const isReadOnly = navigation.action === 'view';
+        const item = navigation.id && pricelist ? pricelist.find(i => i.Code === navigation.id) || null : null;
+        return { item, isReadOnly, isOpen };
+    }, [navigation.action, navigation.id, pricelist]);
+
+    const handleCloseModal = () => handleNavigation({ view: 'b2b-pricelist', filter: navigation.filter });
+    const handleViewItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'b2b-pricelist', filter: navigation.filter, action: 'view', id: item.Code });
+    const handleEditItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'b2b-pricelist', filter: navigation.filter, action: 'edit', id: item.Code });
+    const handleNewItem = () => handleNavigation({ view: 'b2b-pricelist', filter: navigation.filter, action: 'create' });
+    const handleDeleteItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'b2b-pricelist', filter: navigation.filter, action: 'view', id: item.Code });
 
     const filterOptions = useMemo(() => {
         if (!pricelist) return { categories: [], brands: [] };

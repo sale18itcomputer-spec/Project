@@ -50,17 +50,24 @@ const SiteSurveyMobileCard: React.FC<{ survey: SiteSurveyLog, onView: () => void
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
   const { siteSurveys: surveyData, loading, error } = useData();
-  const [modalConfig, setModalConfig] = useState<{ survey: SiteSurveyLog | null, isReadOnly: boolean, isOpen: boolean }>({ survey: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-  const { handleNavigation } = useNavigation();
+  const { handleNavigation, navigation } = useNavigation();
   const { width } = useWindowSize();
   const isMobile = width < 1024;
 
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewSurvey = () => setModalConfig({ survey: null, isReadOnly: false, isOpen: true });
-  const handleViewSurvey = (survey: SiteSurveyLog) => setModalConfig({ survey, isReadOnly: true, isOpen: true });
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const survey = navigation.id && surveyData ? surveyData.find(s => s['Site ID'] === navigation.id) || null : null;
+    return { survey, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, surveyData]);
+
+  const handleCloseModal = () => handleNavigation({ view: 'site-surveys', filter: navigation.filter });
+  const handleOpenNewSurvey = () => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'create' });
+  const handleViewSurvey = (survey: SiteSurveyLog) => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'view', id: survey['Site ID'] });
+  const handleEditSurvey = (survey: SiteSurveyLog) => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'edit', id: survey['Site ID'] });
 
   const filteredData = useMemo(() => {
     let dataToFilter = surveyData ?? [];
@@ -282,7 +289,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setModalConfig({ survey: row, isReadOnly: false, isOpen: true });
+                    handleEditSurvey(row);
                   }}
                   className="p-2 text-slate-400 hover:text-brand-600 transition"
                 >

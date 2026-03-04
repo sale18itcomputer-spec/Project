@@ -95,12 +95,9 @@ interface QuotationDashboardProps {
 
 const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload }) => {
   const { quotations, setQuotations, loading, error, isB2B } = useB2BData();
-  const [isCreating, setIsCreating] = useState(false);
-  const [selectedQuotationToEdit, setSelectedQuotationToEdit] = useState<Quotation | null>(null);
-  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>('Quote Pending');
-  const { handleNavigation } = useNavigation();
+  const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
@@ -108,30 +105,32 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
 
-  useEffect(() => {
-    if (!initialPayload) return;
+  const isCreating = navigation.action === 'create' || navigation.action === 'edit';
 
-    // Handle the case where initialPayload is directly a Quotation object
-    if ('Quote No.' in (initialPayload as any)) {
-      const quote = initialPayload as Quotation;
-      setSelectedQuotationToEdit(quote);
-      setIsCreating(true);
-      return;
+  const selectedQuotationId = useMemo(() => {
+    if (navigation.action === 'view') return navigation.id || null;
+    if (initialPayload && (initialPayload as any).action === 'view' && (initialPayload as any).data) return (initialPayload as any).data['Quote No.'];
+    return null;
+  }, [navigation.action, navigation.id, initialPayload]);
+
+  const selectedQuotationToEdit = useMemo(() => {
+    if (navigation.action === 'edit' && navigation.id && quotations) {
+      return quotations.find(q => q['Quote No.'] === navigation.id) || null;
     }
+    if (initialPayload && 'Quote No.' in (initialPayload as any)) {
+      return initialPayload as Quotation; // backward compatibility
+    }
+    if (initialPayload && (initialPayload as any).action === 'edit' && (initialPayload as any).data) {
+      return (initialPayload as any).data;
+    }
+    return null;
+  }, [navigation.action, navigation.id, quotations, initialPayload]);
 
-    const payload = initialPayload as { action: string, initialData?: any, data?: Quotation };
-
-    if (payload.action === 'create') {
-      setIsCreating(true);
-      setSelectedQuotationToEdit(null);
-    } else if (payload.action === 'edit' && payload.data) {
-      setSelectedQuotationToEdit(payload.data);
-      setIsCreating(true);
-    } else if (payload.action === 'view' && payload.data) {
-      setSelectedQuotationId(payload.data['Quote No.']);
+  useEffect(() => {
+    if (navigation.action === 'view') {
       setViewMode('detail');
     }
-  }, [initialPayload]);
+  }, [navigation.action]);
 
 
   const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
@@ -141,21 +140,18 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   ];
 
   const handleNewQuotation = () => {
-    setSelectedQuotationToEdit(null);
-    setIsCreating(true);
+    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'create' });
   };
 
   const handleEditQuotation = (quotation: Quotation) => {
-    setSelectedQuotationToEdit(quotation);
-    setIsCreating(true);
+    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'edit', id: quotation['Quote No.'] });
   };
 
   const handleViewQuotation = (quotation: Quotation) => {
     if (isMobile) {
       handleEditQuotation(quotation); // On mobile, viewing is editing
     } else {
-      setSelectedQuotationId(quotation['Quote No.']);
-      setViewMode('detail');
+      handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id: quotation['Quote No.'] });
     }
   };
 
@@ -206,15 +202,11 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   };
 
   const handleCreateSaleOrder = (quotation: Quotation) => {
-    handleNavigation({ view: 'sale-orders', payload: quotation });
+    handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': quotation['Company Name'] }, quote: quotation } });
   };
 
   const handleBackToDashboard = () => {
-    setIsCreating(false);
-    setSelectedQuotationToEdit(null);
-    if (initialPayload) {
-      handleNavigation({ view: 'quotations' });
-    }
+    handleNavigation({ view: 'quotations', filter: navigation.filter });
   };
 
   const metrics = useMemo(() => {
@@ -266,15 +258,13 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }, [quotations, searchQuery, statusFilter]);
 
   const selectedQuotationForDetail = useMemo(() => {
-    if (!selectedQuotationId) return null;
-    return filteredData.find(q => q['Quote No.'] === selectedQuotationId) || null;
-  }, [selectedQuotationId, filteredData]);
-
-  useEffect(() => {
-    if (viewMode === 'detail' && !selectedQuotationId && filteredData.length > 0) {
-      setSelectedQuotationId(filteredData[0]['Quote No.']);
+    let targetId = selectedQuotationId;
+    if (viewMode === 'detail' && !targetId && filteredData.length > 0) {
+      targetId = filteredData[0]['Quote No.'];
     }
-  }, [viewMode, selectedQuotationId, filteredData]);
+    if (!targetId) return null;
+    return filteredData.find(q => q['Quote No.'] === targetId) || null;
+  }, [selectedQuotationId, filteredData, viewMode]);
 
   const allColumns = useMemo<ColumnDef<Quotation>[]>(() => [
     {
@@ -505,8 +495,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
         <QuotationListContainer
           quotations={filteredData}
-          selectedQuotationId={selectedQuotationId}
-          onSelectQuotation={setSelectedQuotationId}
+          selectedQuotationId={selectedQuotationForDetail?.['Quote No.'] || null}
+          onSelectQuotation={(id) => handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id })}
           loading={loading && !quotations}
         />
       </aside>

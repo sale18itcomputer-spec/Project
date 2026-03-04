@@ -93,28 +93,35 @@ const MeetingMobileCard: React.FC<{ meeting: Meeting, onView: () => void }> = ({
 
 const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) => {
   const { meetings: meetingData, loading, error } = useData();
-  const [modalConfig, setModalConfig] = useState<{ meeting: Meeting | null, isReadOnly: boolean, isOpen: boolean }>({ meeting: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-  const { handleNavigation } = useNavigation();
+  const { handleNavigation, navigation } = useNavigation();
   const { width } = useWindowSize();
   const isMobile = width < 1024;
+
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const meeting = navigation.id && meetingData ? meetingData.find(m => m['Meeting ID'] === navigation.id) || null : null;
+    return { meeting, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, meetingData]);
+
+  const handleCloseModal = () => handleNavigation({ view: 'meetings', filter: navigation.filter });
+  const handleOpenNewMeeting = () => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'create' });
+  const handleViewMeeting = (meeting: Meeting) => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'view', id: meeting['Meeting ID'] });
+  const handleEditMeeting = (meeting: Meeting) => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'edit', id: meeting['Meeting ID'] });
 
   useEffect(() => {
     if (initialFilter) {
       setSearchQuery(initialFilter);
       // Auto-open meeting if direct ID match
       const match = meetingData?.find(m => m['Meeting ID'] === initialFilter);
-      if (match) {
+      if (match && !navigation.action) {
         handleViewMeeting(match);
       }
     }
-  }, [initialFilter, meetingData]);
-
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewMeeting = () => setModalConfig({ meeting: null, isReadOnly: false, isOpen: true });
-  const handleViewMeeting = (meeting: Meeting) => setModalConfig({ meeting, isReadOnly: true, isOpen: true });
+  }, [initialFilter, meetingData, navigation.action]);
 
   const [statusFilter, setStatusFilter] = useState<string | null>('Open');
 
@@ -356,7 +363,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setModalConfig({ meeting: row, isReadOnly: false, isOpen: true });
+                    handleEditMeeting(row);
                   }}
                   className="p-2 text-slate-400 hover:text-brand-600 transition"
                 >

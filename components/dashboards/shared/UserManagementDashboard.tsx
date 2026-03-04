@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { createRecord, updateRecord, deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { User as UserType } from "../../../types";
+import { useNavigation } from "../../../contexts/NavigationContext";
+import { useEffect } from 'react';
 
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
     const isActive = status === 'Active';
@@ -27,12 +29,29 @@ const UserManagementDashboard: React.FC = () => {
     const { users: allUsers, isAuthLoading: loading } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isDeleting, setIsDeleting] = useState<UserType | null>(null);
-    const [isEditing, setIsEditing] = useState<UserType | null>(null);
-    const [isAdding, setIsAdding] = useState(false);
     const { addToast } = useToast();
+    const { handleNavigation, navigation } = useNavigation();
+
+    const isAdding = navigation.action === 'create';
+    const isEditingUser = useMemo(() => {
+        if (navigation.action === 'edit' && navigation.id && allUsers) {
+            return allUsers.find(u => u.UserID === navigation.id) || null;
+        }
+        return null;
+    }, [navigation.action, navigation.id, allUsers]);
 
     // Form states
     const [formData, setFormData] = useState<Partial<UserType>>({});
+
+    useEffect(() => {
+        if (isEditingUser) setFormData(isEditingUser);
+        else if (isAdding && !formData.Role) setFormData({ Role: 'User', Status: 'Active' });
+    }, [isEditingUser, isAdding]);
+
+    const handleCloseModal = () => {
+        setFormData({});
+        handleNavigation({ view: 'users', filter: navigation.filter });
+    };
 
     const filteredUsers = useMemo(() => {
         if (!allUsers) return [];
@@ -53,13 +72,12 @@ const UserManagementDashboard: React.FC = () => {
                     Status: 'Active'
                 });
                 addToast("User created successfully", "success");
-            } else if (isEditing) {
-                await updateRecord('Users', isEditing.UserID, formData);
+            } else if (isEditingUser) {
+                await updateRecord('Users', isEditingUser.UserID, formData);
                 addToast("User updated successfully", "success");
             }
             window.location.reload();
-            setIsAdding(false);
-            setIsEditing(null);
+            handleCloseModal();
         } catch (err) {
             addToast("Failed to save user", "error");
         }
@@ -79,12 +97,12 @@ const UserManagementDashboard: React.FC = () => {
 
     const openEdit = (user: UserType) => {
         setFormData(user);
-        setIsEditing(user);
+        handleNavigation({ view: 'users', filter: navigation.filter, action: 'edit', id: user.UserID });
     };
 
     const openAdd = () => {
         setFormData({ Role: 'User', Status: 'Active' });
-        setIsAdding(true);
+        handleNavigation({ view: 'users', filter: navigation.filter, action: 'create' });
     };
 
     if (loading) return <div className="p-8 text-center text-muted-foreground">Loading users...</div>;
@@ -191,7 +209,7 @@ const UserManagementDashboard: React.FC = () => {
                 </ConfirmationModal>
             )}
 
-            {(isEditing || isAdding) && (
+            {(isEditingUser || isAdding) && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-card border w-full max-w-md rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-3 border-b pb-4 -mx-2">
@@ -255,7 +273,7 @@ const UserManagementDashboard: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4 border-t">
-                            <Button variant="ghost" onClick={() => { setIsEditing(null); setIsAdding(false); }}>Cancel</Button>
+                            <Button variant="ghost" onClick={handleCloseModal}>Cancel</Button>
                             <Button className="bg-brand-600 hover:bg-brand-700 min-w-[100px]" onClick={handleSave}>
                                 {isAdding ? 'Create User' : 'Save Changes'}
                             </Button>

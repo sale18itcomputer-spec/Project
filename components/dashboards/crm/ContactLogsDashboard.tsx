@@ -67,7 +67,6 @@ const ContactLogMobileCard: React.FC<{ log: ContactLog, onView: () => void }> = 
 const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
   const { contactLogs, setContactLogs, loading, error } = useData();
   const { users } = useAuth();
-  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -75,15 +74,22 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
   const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
-  const { handleNavigation } = useNavigation();
+  const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
 
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewLog = () => setModalConfig({ log: null, isReadOnly: false, isOpen: true });
-  const handleViewLog = (log: ContactLog) => setModalConfig({ log, isReadOnly: true, isOpen: true });
-  const handleEditLog = (log: ContactLog) => setModalConfig({ log, isReadOnly: false, isOpen: true });
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const log = navigation.id && contactLogs ? contactLogs.find(l => l['Log ID'] === navigation.id) || null : null;
+    return { log, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, contactLogs]);
+
+  const handleCloseModal = () => handleNavigation({ view: 'contact-logs', filter: navigation.filter });
+  const handleOpenNewLog = () => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'create' });
+  const handleViewLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'view', id: log['Log ID'] });
+  const handleEditLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'edit', id: log['Log ID'] });
   const handleDeleteRequest = (log: ContactLog) => setLogToDelete(log);
 
   const handleConfirmDelete = async () => {

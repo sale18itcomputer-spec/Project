@@ -688,38 +688,45 @@ const DashboardContent: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Keep Project Outcome Chart in both modes */}
-        {renderStep >= 6 && (
-          <div className={`${transitionClass(6)} h-[350px] lg:h-[420px] chart-container min-w-0`}>
-            <ProjectOutcomeChart data={projectOutcomeData} />
-          </div>
-        )}
+      {/* Vercel stack layout: 2x2 grid approach for matched heights and scrollbars */}
+      <div className="flex flex-col gap-6">
+        {/* Row 1: Pipeline Status & Pending Works */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Keep Project Outcome Chart (Pipeline Status) */}
+          {renderStep >= 6 && (
+            <div className={`lg:col-span-2 ${transitionClass(6)} h-[350px] lg:h-[420px] chart-container min-w-0`}>
+              <ProjectOutcomeChart data={projectOutcomeData} />
+            </div>
+          )}
 
-        {/* Pending Works Section */}
-        {renderStep >= 6 && (
-          <div className={`${transitionClass(6)} h-[350px] lg:h-[420px] chart-container min-w-0`}>
-            <PendingWorks />
-          </div>
-        )}
-      </div>
+          {/* Right Column: Pending Works matches pipeline height to trigger its internal scroll */}
+          {renderStep >= 6 && (
+            <div className={`lg:col-span-1 ${transitionClass(6)} min-w-0 h-[600px] lg:h-[420px]`}>
+              <PendingWorks />
+            </div>
+          )}
+        </div>
 
-      {/* Show Top Customers and Projects by Brand charts in both modes */}
-      <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-6`}>
-        {renderStep >= 7 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-2'} ${transitionClass(7)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
-            <TopCustomersChart
-              data={topCustomersData}
-              totalWinValue={totalWinValue}
-              currency={currencyFilter}
-            />
-          </div>
-        )}
-        {renderStep >= 8 && (
-          <div className={`${isMobile ? '' : 'lg:col-span-1'} ${transitionClass(8)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
-            <SalesByBrandChart data={salesByBrandData} currency={currencyFilter} />
-          </div>
-        )}
+        {/* Row 2: Top Customers & Sales by Brand */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Show Top Customers chart */}
+          {renderStep >= 7 && (
+            <div className={`lg:col-span-2 ${transitionClass(7)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
+              <TopCustomersChart
+                data={topCustomersData}
+                totalWinValue={totalWinValue}
+                currency={currencyFilter}
+              />
+            </div>
+          )}
+
+          {/* Show Projects by Brand chart */}
+          {renderStep >= 8 && (
+            <div className={`lg:col-span-1 ${transitionClass(8)} h-[320px] lg:h-[400px] chart-container min-w-0`}>
+              <SalesByBrandChart data={salesByBrandData} currency={currencyFilter} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -221,13 +221,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error, isB2B } = useB2BData();
   const { addToast } = useToast();
   const { currentUser } = useAuth();
-  const [modalConfig, setModalConfig] = useState<{ project: ProcessedProject | null, isReadOnly: boolean, isOpen: boolean }>({ project: null, isReadOnly: false, isOpen: false });
+  const { handleNavigation, navigation } = useNavigation();
   const [projectToDelete, setProjectToDelete] = useState<PipelineProject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedPipelineNo, setSelectedPipelineNo] = useState<string | null>(null);
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-  const { handleNavigation } = useNavigation();
 
   useEffect(() => {
     if (initialFilter) {
@@ -245,13 +244,13 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }
   }, [initialFilter]);
 
-  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
-  const handleOpenNewProject = () => setModalConfig({ project: null, isReadOnly: false, isOpen: true });
+  const handleCloseModal = () => handleNavigation({ view: 'projects', filter: navigation.filter });
+  const handleOpenNewProject = () => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'create' });
   const handleViewProject = (project: ProcessedProject) => {
     setSelectedPipelineNo(project['Pipeline No.']);
     setViewMode('detail');
   };
-  const handleEditProject = (project: ProcessedProject) => setModalConfig({ project, isReadOnly: false, isOpen: true });
+  const handleEditProject = (project: ProcessedProject) => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'edit', id: project['Pipeline No.'] });
 
   const handleDeleteRequest = (project: PipelineProject) => {
     setProjectToDelete(project);
@@ -312,6 +311,13 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       calculatedDueDate: calculateDueDate(project['Created Date'], project['Time Frame'])
     }));
   }, [validPipelineData]);
+
+  const modalConfig = useMemo(() => {
+    const isOpen = !!navigation.action && ['create', 'edit'].includes(navigation.action);
+    const isReadOnly = navigation.action === 'view';
+    const project = navigation.id && processedData ? processedData.find(p => p['Pipeline No.'] === navigation.id) || null : null;
+    return { project, isReadOnly, isOpen };
+  }, [navigation.action, navigation.id, processedData]);
 
   const filteredData = useMemo(() => {
     let dataToFilter = processedData;
@@ -643,7 +649,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                 </div>
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setModalConfig({ project: selectedProject, isReadOnly: false, isOpen: true })}
+                    onClick={() => handleEditProject(selectedProject)}
                     className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
                   >
                     <Pencil className="w-4 h-4" /> Edit
