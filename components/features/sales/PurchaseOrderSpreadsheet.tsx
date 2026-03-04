@@ -7,7 +7,7 @@ import { Upload, Download, Save, X } from "lucide-react";
 import * as xlsx from 'xlsx';
 import LuckyExcel from 'luckyexcel';
 import { saveAs } from 'file-saver';
-import ExcelJS from 'exceljs';
+import * as ExcelJS from 'exceljs';
 import { transformFortuneToExcel } from '@corbe30/fortune-excel';
 
 interface PurchaseOrderSpreadsheetProps {
@@ -21,6 +21,7 @@ interface PurchaseOrderSpreadsheetProps {
 
 const stripHtml = (html: string) => {
     if (!html) return '';
+    if (typeof document === 'undefined') return html.replace(/<[^>]+>/g, '');
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html;
     return tempDiv.textContent || tempDiv.innerText || "";
