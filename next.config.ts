@@ -1,6 +1,15 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
+    // Exclude browser-only packages from server-side bundling
+    serverExternalPackages: [
+        '@fortune-sheet/react',
+        '@fortune-sheet/core',
+        'luckyexcel',
+        'exceljs',
+        '@corbe30/fortune-excel',
+    ],
     async headers() {
         return [
             {
@@ -27,7 +36,7 @@ const nextConfig: NextConfig = {
             },
         ],
     },
-    outputFileTracingRoot: __dirname,
+    outputFileTracingRoot: path.resolve('.'),
 };
 
 export default nextConfig;
