@@ -31,3 +31,4 @@ tmp/
 .agent/
 _agents/
 _agent/
+*.tsbuildinfo

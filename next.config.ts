@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
+    outputFileTracingRoot: path.resolve(__dirname),
     // Exclude browser-only packages from server-side bundling
     serverExternalPackages: [
         '@fortune-sheet/react',
@@ -36,7 +37,6 @@ const nextConfig: NextConfig = {
             },
         ],
     },
-    outputFileTracingRoot: path.resolve('.'),
 };
 
 export default nextConfig;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { PurchaseOrder, PurchaseOrderItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -14,9 +15,11 @@ import { getSetting, saveSetting } from "../../../services/api";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import PDFControlField from "../../pdf/PDFControlField";
 import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
-import ReactQuill from 'react-quill';
+// Dynamically import browser-only libraries
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+const PurchaseOrderSpreadsheet = dynamic(() => import('./PurchaseOrderSpreadsheet'), { ssr: false });
 import 'react-quill/dist/quill.snow.css';
-import PurchaseOrderSpreadsheet from './PurchaseOrderSpreadsheet';
+
 import { Table as TableIcon } from 'lucide-react';
 
 const STRIP_HTML = (html: string) => {
