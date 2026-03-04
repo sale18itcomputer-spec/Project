@@ -32,7 +32,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     const isMobile = width < 1024;
-    const isLoginPage = pathname === '/login';
 
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -55,12 +54,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // Auth redirect
     useEffect(() => {
         if (isAuthLoading) return;
-        if (!isAuthenticated && !isLoginPage) {
+        if (!isAuthenticated) {
             router.replace('/login');
-        } else if (isAuthenticated && isLoginPage) {
-            router.replace('/');
         }
-    }, [isAuthenticated, isAuthLoading, isLoginPage, router]);
+    }, [isAuthenticated, isAuthLoading, router]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -114,8 +111,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return <BrandedLoader />;
     }
 
-    // Login page — no shell chrome
-    if (isLoginPage || !isAuthenticated) {
+    // Not authenticated — don't show shell while redirecting
+    if (!isAuthenticated) {
         return <>{children}</>;
     }
 

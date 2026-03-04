@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { PipelineProject } from "../../../types";
-import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { Briefcase } from 'lucide-react';
 import { formatCurrencySmartly } from "../../../utils/formatters";

@@ -1,0 +1,427 @@
+'use client';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { ContactLog } from "../../../types";
+import { useData } from "../../../contexts/DataContext";
+import { parseDate, formatDisplayDate } from "../../../utils/time";
+import NewContactLogModal from "../../modals/NewContactLogModal";
+import KanbanView, { KanbanColumn } from "../views/KanbanView";
+import Avatar from "../../common/Avatar";
+import DataTable, { ColumnDef } from "../../common/DataTable";
+import { useNavigation } from "../../../contexts/NavigationContext";
+import { ExternalLink, Table, LayoutGrid, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import ViewToggle from "../../common/ViewToggle";
+import ItemActionsMenu from "../../common/ItemActionsMenu";
+import ConfirmationModal from "../../modals/ConfirmationModal";
+import { deleteRecord } from "../../../services/api";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useToast } from "../../../contexts/ToastContext";
+import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
+import { useWindowSize } from "../../../hooks/useWindowSize";
+import { localStorageGet, localStorageSet } from '../../../utils/storage';
+// FIX: Imported the Spinner component to resolve a "Cannot find name 'Spinner'" error.
+
+const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
+type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
+
+interface ContactLogsDashboardProps {
+  initialFilter?: string;
+}
+
+type ViewMode = 'table' | 'board';
+
+
+const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
+  { id: 'table', label: 'Table', icon: <Table /> },
+  { id: 'board', label: 'Board', icon: <LayoutGrid /> },
+];
+
+const CONTACT_LOG_COLUMNS_VISIBILITY_KEY = 'limperial-contact-log-columns-visibility';
+
+const ContactLogMobileCard: React.FC<{ log: ContactLog, onView: () => void }> = ({ log, onView }) => (
+  <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
+    <div className="mobile-card-header">
+      <div>
+        <div className="mobile-card-title">{log['Company Name']}</div>
+        <div className="mobile-card-subtitle">{log['Contact Name']}</div>
+      </div>
+      <span className="mobile-status mobile-status-info">
+        <span className="mobile-status-dot"></span>
+        {log.Type}
+      </span>
+    </div>
+    <div className="mobile-card-body">
+      <div className="mobile-card-row">
+        <span className="mobile-card-label">Date</span>
+        <span className="mobile-card-value text-slate-500 font-medium">{formatDisplayDate(log['Contact Date'])}</span>
+      </div>
+      <div className="mobile-card-row">
+        <span className="mobile-card-label">Logged By</span>
+        <span className="mobile-card-value">{log['Responsible By']}</span>
+      </div>
+    </div>
+  </div>
+);
+
+
+const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
+  const { contactLogs, setContactLogs, loading, error } = useData();
+  const { users } = useAuth();
+  const [modalConfig, setModalConfig] = useState<{ log: ContactLog | null, isReadOnly: boolean, isOpen: boolean }>({ log: null, isReadOnly: false, isOpen: false });
+  const [searchQuery, setSearchQuery] = useState(initialFilter || '');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [logTypeFilter, setLogTypeFilter] = useState('All Types');
+  const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
+  const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
+  const { handleNavigation } = useNavigation();
+  const { addToast } = useToast();
+  const { width } = useWindowSize();
+  const isMobile = width < 1024; // lg breakpoint
+
+  const handleCloseModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+  const handleOpenNewLog = () => setModalConfig({ log: null, isReadOnly: false, isOpen: true });
+  const handleViewLog = (log: ContactLog) => setModalConfig({ log, isReadOnly: true, isOpen: true });
+  const handleEditLog = (log: ContactLog) => setModalConfig({ log, isReadOnly: false, isOpen: true });
+  const handleDeleteRequest = (log: ContactLog) => setLogToDelete(log);
+
+  const handleConfirmDelete = async () => {
+    if (!logToDelete || !logToDelete['Log ID']) return;
+
+    const originalLogs = contactLogs ? [...contactLogs] : [];
+    const logToDeleteId = logToDelete['Log ID'];
+
+    setLogToDelete(null);
+
+    // Optimistic UI update
+    setContactLogs(current => current ? current.filter(l => l['Log ID'] !== logToDeleteId) : null);
+
+    try {
+      const response: { deletedId: string } = await deleteRecord('Contact_Logs', logToDeleteId);
+      if (response.deletedId === logToDeleteId) {
+        addToast('Contact log deleted!', 'success');
+      } else {
+        throw new Error("Backend did not confirm deletion.");
+      }
+    } catch (err: any) {
+      addToast(`Failed to delete log: ${err.message}`, 'error');
+      setContactLogs(originalLogs); // Revert on failure
+    }
+  };
+
+  const logTypeOptions = useMemo(() => ['All Types', ...KANBAN_COLUMN_IDS], []);
+  const userOptions = useMemo(() => {
+    if (!users) return ['All Users'];
+    const userNames = new Set(users.map(u => u.Name).filter(Boolean));
+    return ['All Users', ...Array.from(userNames).sort()];
+  }, [users]);
+
+  const filteredData = useMemo(() => {
+    let data = contactLogs || [];
+
+    if (statusFilter) {
+      data = data.filter(log => log.Type === statusFilter);
+    }
+
+    if (logTypeFilter !== 'All Types') {
+      data = data.filter(log => log.Type === logTypeFilter);
+    }
+    if (responsibleUserFilter !== 'All Users') {
+      data = data.filter(log => log['Responsible By'] === responsibleUserFilter);
+    }
+
+    if (searchQuery) {
+      data = data.filter(log => Object.values(log).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase())));
+    }
+    // Sort by date descending
+    return data.sort((a, b) => (parseDate(b['Contact Date'])?.getTime() ?? 0) - (parseDate(a['Contact Date'])?.getTime() ?? 0));
+  }, [contactLogs, searchQuery, logTypeFilter, responsibleUserFilter, statusFilter]);
+
+  const kanbanColumns = useMemo<KanbanColumn<ContactLog>[]>(() => {
+    const statusColors: Record<KanbanColumnId, string> = {
+      'Call': 'sky',
+      'Message': 'violet',
+      'Email': 'amber'
+    };
+
+    return KANBAN_COLUMN_IDS.map(status => ({
+      id: status,
+      title: status,
+      color: statusColors[status] as any,
+      items: filteredData.filter(p => p.Type === status)
+    }));
+  }, [filteredData]);
+
+  const allColumns = useMemo<ColumnDef<ContactLog>[]>(() => [
+    {
+      accessorKey: 'Log ID',
+      header: 'Log ID',
+      isSortable: true,
+      cell: (value: string) => <div className="text-slate-600">{value}</div>,
+    },
+    {
+      accessorKey: 'Contact Date',
+      header: 'Date',
+      isSortable: true,
+      cell: (value: string) => formatDisplayDate(value),
+    },
+    {
+      accessorKey: 'Company Name',
+      header: 'Company',
+      cell: (value: string) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'companies', filter: value }); }}
+          className="group font-semibold text-slate-800 hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+        >
+          {value} <ExternalLink className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+      ),
+    },
+    {
+      accessorKey: 'Contact Name',
+      header: 'Contact',
+      cell: (value: string) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'contacts', filter: value }); }}
+          className="group font-medium text-slate-800 hover:underline text-left transition-colors"
+        >
+          {value}
+        </button>
+      ),
+    },
+    { accessorKey: 'Position', header: 'Position', isSortable: true },
+    { accessorKey: 'Phone Number', header: 'Phone Number', isSortable: true },
+    { accessorKey: 'Type', header: 'Type', isSortable: true },
+    { accessorKey: 'Responsible By', header: 'Logged By', isSortable: true },
+    {
+      accessorKey: 'Remarks',
+      header: 'Remarks',
+      cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-1 max-w-[200px] sm:max-w-sm md:max-w-md">{value}</p>,
+    },
+  ], [handleNavigation]);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorageGet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+          return new Set(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load visible columns from storage", e);
+    }
+    return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
+  });
+
+  useEffect(() => {
+    const saved = localStorageGet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY);
+    if (!saved && allColumns.length > 0) {
+      setVisibleColumns(new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean)));
+    }
+  }, [allColumns]);
+
+  const handleColumnToggle = (columnKey: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnKey)) {
+        if (newSet.size > 1) { // Prevent hiding the last column
+          newSet.delete(columnKey);
+        }
+      } else {
+        newSet.add(columnKey);
+      }
+      try {
+        localStorageSet(CONTACT_LOG_COLUMNS_VISIBILITY_KEY, JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.error("Failed to save visible columns to storage", e);
+      }
+      return newSet;
+    });
+  };
+
+  const displayedColumns = useMemo(() => {
+    return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
+  }, [allColumns, visibleColumns]);
+
+
+  if (error) {
+    return (
+      <div className="p-6 md:p-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
+          <p className="font-bold">Error</p>
+          <p>Could not load contact logs: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const renderKanbanCard = (log: ContactLog) => (
+    <>
+      <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ItemActionsMenu
+          onView={() => handleViewLog(log)}
+          onEdit={() => handleEditLog(log)}
+          onDelete={() => handleDeleteRequest(log)}
+        />
+      </div>
+      <div className="flex-grow">
+        <h4 className="font-bold text-slate-800 pr-10">{log['Company Name']}</h4>
+        <p className="text-sm text-slate-500">{log['Contact Name']}</p>
+        {log.Remarks && <p className="text-sm text-slate-600 mt-2 leading-snug line-clamp-3">{log.Remarks}</p>}
+      </div>
+      <div className="flex justify-between items-end mt-4 pt-2">
+        <span className="text-sm font-medium text-slate-500">{formatDisplayDate(log['Contact Date'])}</span>
+        {log['Responsible By'] && (
+          <Avatar name={log['Responsible By']} showName={false} className="w-8 h-8 text-sm" />
+        )}
+      </div>
+    </>
+  );
+
+
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-white border-b border-slate-200 flex-shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <p className="text-base text-slate-500">
+            <span className="font-bold text-slate-800">{filteredData.length}</span> logs
+          </p>
+
+          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
+            <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
+              <div className="relative w-full lg:w-56 flex-shrink-0">
+                <label htmlFor="log-search" className="sr-only">Search</label>
+                <input
+                  id="log-search"
+                  type="text"
+                  placeholder="Search logs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                />
+                <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+
+              <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+                {logTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+
+              <select value={responsibleUserFilter} onChange={e => setResponsibleUserFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+                {userOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+              {viewMode === 'table' && (
+                <>
+                  <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                      <ArrowRightToLine className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                      <WrapText className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                      <Scissors className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                  />
+                </>
+              )}
+              <button
+                onClick={handleOpenNewLog}
+                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+              >
+                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                <span className="hidden sm:inline">New Log</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'board' ? (
+        <KanbanView<ContactLog>
+          columns={kanbanColumns}
+          onCardClick={handleViewLog}
+          renderCardContent={renderKanbanCard}
+          loading={loading}
+          getItemId={(item) => item['Log ID'] || ''}
+        />
+      ) : (
+        <div className="flex-1 min-h-0 overflow-hidden bg-slate-50 p-4">
+          <DataTable
+            tableId="contact-logs-table"
+            data={filteredData}
+            columns={displayedColumns}
+            loading={loading}
+            onRowClick={handleViewLog}
+            initialSort={{ key: 'Contact Date', direction: 'descending' }}
+            mobilePrimaryColumns={['Contact Date', 'Company Name', 'Type']}
+            cellWrapStyle={cellWrapStyle}
+            renderRowActions={(row) => (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditLog(row);
+                }}
+                className="p-2 text-slate-400 hover:text-brand-600 transition"
+              >
+                <Pencil size={16} />
+              </button>
+            )}
+          />
+        </div>
+      )}
+
+      <NewContactLogModal
+        isOpen={modalConfig.isOpen}
+        onClose={handleCloseModal}
+        existingData={modalConfig.log}
+        initialReadOnly={modalConfig.isReadOnly}
+      />
+      <ConfirmationModal
+        isOpen={!!logToDelete}
+        onClose={() => setLogToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Contact Log"
+        confirmText="Delete"
+      >
+        Are you sure you want to delete this contact log? This action cannot be undone.
+      </ConfirmationModal>
+      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Call' ? null : 'Call')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Call' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Call
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Message' ? null : 'Message')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Message' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Message
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'Email' ? null : 'Email')}
+            className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Email' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+          >
+            Email
+          </button>
+        </div>
+      </footer>
+    </div >
+  );
+};
+
+export default React.memo(ContactLogsDashboard);

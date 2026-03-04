@@ -4,7 +4,6 @@ import React, { useRef, useEffect, useId, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { Target } from 'lucide-react';
-import { useWindowSize } from "../../hooks/useWindowSize";
 import { useDebouncedCallback } from 'use-debounce';
 import { limperialTheme } from "../charts/echartsTheme";
 

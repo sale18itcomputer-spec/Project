@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Contact, PipelineProject, ContactLog, Meeting, UnifiedActivity, Quotation, Company } from "../../types";
+import { Contact, PipelineProject, ContactLog, Meeting, UnifiedActivity, Quotation } from "../../types";
 import { CONTACT_HEADERS } from "../../schemas";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
 import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from "../common/FormControls";
@@ -9,7 +9,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { useNavigation } from "../../contexts/NavigationContext";
 import { formatToSheetDate, formatToInputDate, parseDate, formatDateAsMDY, formatDisplayDate } from "../../utils/time";
-import { Check, Pencil, Trash2, Calendar, MessageSquare } from 'lucide-react';
+import { Check, Trash2, Calendar, MessageSquare } from 'lucide-react';
 import { Button } from "../ui/button";
 import ConfirmationModal from "./ConfirmationModal";
 import EmptyState from "../common/EmptyState";

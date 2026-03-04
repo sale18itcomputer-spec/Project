@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SiteSurveyLog } from "../../types";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
-import { FormSection, FormInput, FormTextarea, FormDisplay, FormSelect } from "../common/FormControls";
+import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { formatToSheetDate, formatToInputDate } from "../../utils/time";

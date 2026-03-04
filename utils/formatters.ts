@@ -1,4 +1,3 @@
-import { PipelineProject } from "../types";
 
 /**
  * Safely evaluates simple mathematical formulas from a Google Sheet string (e.g., "=50*0.7").

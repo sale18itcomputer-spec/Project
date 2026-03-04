@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, X, Lock, Key, Trash2, Clock, Smartphone, ArrowRight, ChevronRight, Monitor } from 'lucide-react';
+import { X, Lock, Trash2, Clock, ArrowRight, ChevronRight } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";

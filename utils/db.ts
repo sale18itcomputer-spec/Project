@@ -1,8 +1,5 @@
 import { openDB, IDBPDatabase } from 'idb';
-import {
-    PipelineProject, Company, Contact, ContactLog, SiteSurveyLog, Meeting,
-    Quotation, SaleOrder, PricelistItem
-} from '../types';
+
 
 const DB_NAME = 'limperial-db';
 const DB_VERSION = 6; // Added purchaseOrders

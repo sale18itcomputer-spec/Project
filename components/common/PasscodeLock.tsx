@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Lock, Delete, ArrowLeft, X, ShieldCheck, Key, LogOut, Smile } from 'lucide-react';
+import { Lock, ArrowLeft, Smile } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAuth } from "../../contexts/AuthContext";
-import { readRecords, createRecord, updateRecord } from "../../services/api";
+import { readRecords, createRecord } from "../../services/api";
 import Spinner from "./Spinner";
 
 interface PasscodeLockProps {

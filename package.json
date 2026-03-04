@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean:imports": "eslint . --fix",
+    "clean:files": "knip"
   },
   "dependencies": {
     "@google/genai": "latest",
@@ -53,9 +55,14 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "autoprefixer": "^10.4.27",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "knip": "^5.85.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
+    "ts-prune": "^0.10.3",
     "typescript": "~5.8.2"
   }
 }

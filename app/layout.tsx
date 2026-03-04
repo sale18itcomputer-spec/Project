@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import './globals.css';
 import AppProviders from '@/components/providers/AppProviders';
-import AppShell from '@/components/layout/AppShell';
 import { Toaster } from '@/components/ui/sonner';
 import SecurityModal from '@/components/modals/SecurityModal';
 
@@ -28,9 +27,7 @@ export default function RootLayout({
                 {/* Suspense required for useSearchParams used inside NavigationProvider */}
                 <Suspense>
                     <AppProviders>
-                        <AppShell>
-                            {children}
-                        </AppShell>
+                        {children}
                         <SecurityModal />
                         <Toaster />
                     </AppProviders>

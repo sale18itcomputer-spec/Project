@@ -12,7 +12,7 @@ import { useB2B } from "../../contexts/B2BContext";
 import { useNavigation } from "../../contexts/NavigationContext";
 import { formatToSheetDate, formatToInputDate, formatDisplayDate } from "../../utils/time";
 // FIX: Replaced non-modular local icon imports with icons from the 'lucide-react' library.
-import { Check, Pencil, Trash2, X, ExternalLink } from 'lucide-react';
+import { Check, Trash2, X, ExternalLink } from 'lucide-react';
 import { Button } from "../ui/button";
 import ConfirmationModal from "./ConfirmationModal";
 import EmptyState from "../common/EmptyState";

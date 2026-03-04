@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Vendor } from "../../types";
-import { VENDOR_HEADERS } from "../../schemas";
 import { insertRecord, updateRecord, deleteRecord } from "../../services/b2bDb";
 import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Trash2 } from 'lucide-react';
 import ConfirmationModal from "./ConfirmationModal";
 import { useToast } from "../../contexts/ToastContext";
 import ResizableModal from "./ResizableModal";

@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Bell, Search, LogOut, Info, CheckCircle, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
+import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
 
 import { useNotification } from "../../contexts/NotificationContext";
-import { Notification, User } from "../../types";
+import { Notification } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 import { transformToDirectImageUrl } from "../../utils/imageUrl";
 import { useConnectivity } from "../../contexts/ConnectivityContext";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { formatRelativeTime } from "../../utils/time";
 import { getInitials } from "../../utils/formatters";
