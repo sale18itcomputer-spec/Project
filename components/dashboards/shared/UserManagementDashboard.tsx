@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
-import { UserPlus, Search, Edit2, Trash2, Users } from 'lucide-react';
+import { UserPlus, Search, Edit2, Trash2, Users, KeyRound, Loader2 } from 'lucide-react';
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
@@ -29,6 +29,9 @@ const UserManagementDashboard: React.FC = () => {
     const { users: allUsers, isAuthLoading: loading } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isDeleting, setIsDeleting] = useState<UserType | null>(null);
+    const [isSettingPassword, setIsSettingPassword] = useState<UserType | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
     const { addToast } = useToast();
     const { handleNavigation, navigation } = useNavigation();
 
@@ -71,7 +74,24 @@ const UserManagementDashboard: React.FC = () => {
                     UserID: newUserId,
                     Status: 'Active'
                 });
-                addToast("User created successfully", "success");
+
+                // Also register in Supabase Auth so they can log in with email/password
+                if (formData.Email && formData.Password) {
+                    const res = await fetch('/api/admin/create-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: formData.Email, password: formData.Password }),
+                    });
+                    if (!res.ok) {
+                        const body = await res.json();
+                        // Non-fatal: user is in DB but may not be in Supabase Auth yet
+                        addToast(`User saved, but Supabase Auth error: ${body.error}`, "info");
+                    } else {
+                        addToast("User created successfully with login access", "success");
+                    }
+                } else {
+                    addToast("User created (no password set — they can use Google Sign-In or set a password later)", "success");
+                }
             } else if (isEditingUser) {
                 await updateRecord('Users', isEditingUser.UserID, formData);
                 addToast("User updated successfully", "success");
@@ -80,6 +100,35 @@ const UserManagementDashboard: React.FC = () => {
             handleCloseModal();
         } catch (err) {
             addToast("Failed to save user", "error");
+        }
+    };
+
+    const handleSetPassword = async () => {
+        if (!isSettingPassword?.Email || !newPassword) {
+            addToast("Email and new password are required.", "error");
+            return;
+        }
+        setIsSavingPassword(true);
+        try {
+            const res = await fetch('/api/admin/update-user-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: isSettingPassword.Email, password: newPassword }),
+            });
+            const body = await res.json();
+            if (!res.ok) {
+                addToast(`Failed: ${body.error}`, "error");
+            } else {
+                addToast(body.created
+                    ? `Supabase Auth account created for ${isSettingPassword.Name}`
+                    : `Password updated for ${isSettingPassword.Name}`, "success");
+                setIsSettingPassword(null);
+                setNewPassword('');
+            }
+        } catch (err) {
+            addToast("Network error setting password", "error");
+        } finally {
+            setIsSavingPassword(false);
         }
     };
 
@@ -173,10 +222,13 @@ const UserManagementDashboard: React.FC = () => {
                                         </TableCell>
                                         <TableCell className="text-right pr-4 sm:pr-6 py-3 sm:py-4">
                                             <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-brand-600">
+                                                <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-brand-600" title="Edit user">
                                                     <Edit2 className="w-4 h-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-rose-600" onClick={() => setIsDeleting(user)}>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-amber-600" onClick={() => { setIsSettingPassword(user); setNewPassword(''); }} title="Set password">
+                                                    <KeyRound className="w-4 h-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-rose-600" onClick={() => setIsDeleting(user)} title="Delete user">
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
                                             </div>
@@ -207,6 +259,46 @@ const UserManagementDashboard: React.FC = () => {
                 >
                     Are you sure you want to delete {isDeleting.Name}? This action cannot be undone and will remove their access to the dashboard.
                 </ConfirmationModal>
+            )}
+
+            {isSettingPassword && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-card border w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 border-b pb-4">
+                            <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                                <KeyRound className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold">Set Password</h2>
+                                <p className="text-sm text-muted-foreground">{isSettingPassword.Name} &mdash; {isSettingPassword.Email}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-semibold ml-1">New Password</label>
+                            <Input
+                                type="password"
+                                placeholder="Enter new password (min. 6 characters)"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSetPassword()}
+                                autoFocus
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                            This will create or update the user's Supabase Auth account so they can sign in with email and password.
+                        </p>
+                        <div className="flex justify-end gap-3 pt-2 border-t">
+                            <Button variant="ghost" onClick={() => { setIsSettingPassword(null); setNewPassword(''); }} disabled={isSavingPassword}>Cancel</Button>
+                            <Button
+                                className="bg-amber-500 hover:bg-amber-600 text-white min-w-[120px]"
+                                onClick={handleSetPassword}
+                                disabled={isSavingPassword || newPassword.length < 6}
+                            >
+                                {isSavingPassword ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Saving...</> : 'Set Password'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {(isEditingUser || isAdding) && (
