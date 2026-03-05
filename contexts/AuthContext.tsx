@@ -4,7 +4,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
-import { localStorageGet, localStorageSet, localStorageRemove } from '../utils/storage';
+import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
 const DEV_AUTO_LOGIN_EMAIL = process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN ?? '';
@@ -125,6 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (user.Status !== 'Active') return { success: false, message: 'Account inactive.' };
           setCurrentUser(user);
           localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+          setCookie('limperial_legacy_session', user.UserID, 7); // Set cookie for middleware
           return { success: true, message: 'Login successful (Legacy)!' };
         }
 
@@ -153,6 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.auth.signOut();
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
+    deleteCookie('limperial_legacy_session');
   }, [supabase]);
 
   return (

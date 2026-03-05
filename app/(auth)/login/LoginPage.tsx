@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "../../../contexts/AuthContext";
 import { useData } from "../../../contexts/DataContext";
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Eye, EyeOff, AlertCircle, Mail, Loader2 } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -17,13 +18,24 @@ import { Label } from "../../../components/ui/label";
 // ---
 
 const LoginPage: React.FC = () => {
-    const { login, loginWithGoogle } = useAuth();
+    const { login, loginWithGoogle, isAuthenticated } = useAuth();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const { loading: isDataLoading } = useData();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+    // Get the redirect path from URL or default to root
+    const redirectPath = searchParams.get('redirect') || '/';
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.push(redirectPath);
+        }
+    }, [isAuthenticated, router, redirectPath]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

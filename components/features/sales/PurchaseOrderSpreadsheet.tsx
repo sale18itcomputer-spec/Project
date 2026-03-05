@@ -5,10 +5,6 @@ import { Button } from "../../ui/button";
 import { PurchaseOrderItem } from "../../../types";
 import { Upload, Download, Save, X } from "lucide-react";
 import * as xlsx from 'xlsx';
-import LuckyExcel from 'luckyexcel';
-import { saveAs } from 'file-saver';
-import * as ExcelJS from 'exceljs';
-import { transformFortuneToExcel } from '@corbe30/fortune-excel';
 
 interface PurchaseOrderSpreadsheetProps {
     isOpen: boolean;
@@ -235,122 +231,94 @@ export default function PurchaseOrderSpreadsheet({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        LuckyExcel.transformExcelToLucky(file, (exportJson: any) => {
-            if (exportJson.sheets && exportJson.sheets.length > 0) {
-                setSheetData(exportJson.sheets);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const workbook = xlsx.read(data, { type: 'array' });
+
+            const sheets: any[] = [];
+            workbook.SheetNames.forEach((name, index) => {
+                const worksheet = workbook.Sheets[name];
+                const json = xlsx.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+                const celldata: any[] = [];
+                (json as any[][]).forEach((row: any[], rIndex: number) => {
+                    row.forEach((cellValue: any, cIndex: number) => {
+                        if (cellValue !== null && cellValue !== undefined && cellValue !== "") {
+                            celldata.push({
+                                r: rIndex,
+                                c: cIndex,
+                                v: {
+                                    v: cellValue,
+                                    m: String(cellValue)
+                                }
+                            });
+                        }
+                    });
+                });
+
+                sheets.push({
+                    name,
+                    id: `sheet_${index}`,
+                    celldata,
+                    status: index === 0 ? 1 : 0
+                });
+            });
+
+            if (sheets.length > 0) {
+                setSheetData(sheets);
             }
             e.target.value = ''; // Reset file input
-        });
+        };
+        reader.readAsArrayBuffer(file);
     };
 
     const handleExportXlsx = async () => {
-        // Get latest edited data from workbook instance or fallback to state
         const allSheets = workbookRef.current?.getAllSheets?.() || sheetData;
+        const wb = xlsx.utils.book_new();
 
-        try {
-            // FIX: The plugin expects a workbook instance/ref with a .getAllSheets() method.
-            // Wrapping our captured data in this mock object satisfies the requirement.
-            const blob = await transformFortuneToExcel({
-                getAllSheets: () => allSheets
-            });
-            saveAs(blob, `${formData?.po_number || 'PurchaseOrder'}.xlsx`);
-        } catch (error) {
-            console.error("High-fidelity plugin export failed, falling back to manual engine:", error);
-
-            // Fallback: Manual ExcelJS construction
-            const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Purchase Order');
-
-            const sheet = allSheets[0];
+        allSheets.forEach((sheet: any) => {
             const data = sheet.data || [];
-            const config = sheet.config || {};
+            if (!data.length) return;
 
-            // 1. Dynamic Column Widths
-            if (config.columnlen) {
-                Object.keys(config.columnlen).forEach((colIdx) => {
-                    const width = config.columnlen[colIdx];
-                    // Fortune-sheet width to exceljs width conversion (approximate)
-                    ws.getColumn(parseInt(colIdx) + 1).width = width / 7.5;
-                });
-            }
-
-            // 2. Dynamic Merges
-            if (config.merge) {
-                Object.values(config.merge).forEach((merge: any) => {
-                    ws.mergeCells(merge.r + 1, merge.c + 1, merge.r + merge.rs, merge.c + merge.cs);
-                });
-            }
-
-            // 3. Dynamic Data & Styles
+            const rows: any[][] = [];
             data.forEach((row: any[], rIdx: number) => {
-                if (config.rowlen && config.rowlen[rIdx]) {
-                    ws.getRow(rIdx + 1).height = config.rowlen[rIdx] * 0.75;
-                }
-
+                rows[rIdx] = [];
                 row.forEach((cell: any, cIdx: number) => {
-                    if (!cell) return;
-                    const excelCell = ws.getCell(rIdx + 1, cIdx + 1);
-
-                    // Value & Formulas
-                    if (cell.f) {
-                        excelCell.value = { formula: cell.f.startsWith('=') ? cell.f.substring(1) : cell.f };
+                    if (cell && cell.v !== undefined && cell.v !== null) {
+                        rows[rIdx][cIdx] = cell.v;
+                    } else if (cell && cell.m) {
+                        rows[rIdx][cIdx] = cell.m;
                     } else {
-                        excelCell.value = cell.v !== undefined ? cell.v : (cell.m || '');
+                        rows[rIdx][cIdx] = null;
                     }
-
-                    // Styles
-                    const style: Partial<ExcelJS.Style> = {};
-
-                    // Font (Size, Bold, Italic, Color)
-                    const font: Partial<ExcelJS.Font> = { name: 'Arial' };
-                    if (cell.fs) font.size = cell.fs;
-                    if (cell.bl) font.bold = true;
-                    if (cell.it) font.italic = true;
-                    if (cell.fc) {
-                        const color = cell.fc.replace('#', '');
-                        font.color = { argb: color.length === 6 ? 'FF' + color : color };
-                    }
-                    style.font = font;
-
-                    // Fill (Background Color)
-                    if (cell.bg) {
-                        const color = cell.bg.replace('#', '');
-                        style.fill = {
-                            type: 'pattern',
-                            pattern: 'solid',
-                            fgColor: { argb: color.length === 6 ? 'FF' + color : color }
-                        };
-                    }
-
-                    // Alignment
-                    const alignment: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
-                    if (cell.ht === 0) alignment.horizontal = 'center';
-                    else if (cell.ht === 2) alignment.horizontal = 'right';
-                    else alignment.horizontal = 'left';
-
-                    if (cell.tb === 2) alignment.wrapText = true;
-                    style.alignment = alignment;
-
-                    // Number Format
-                    if (cell.ct && cell.ct.fa) {
-                        style.numFmt = cell.ct.fa;
-                    }
-
-                    // Borders (Simplified: applying thin borders where detected)
-                    style.border = {
-                        top: { style: 'thin' },
-                        left: { style: 'thin' },
-                        bottom: { style: 'thin' },
-                        right: { style: 'thin' }
-                    };
-
-                    excelCell.style = style;
                 });
             });
 
-            const buffer = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), `${formData?.po_number || 'PurchaseOrder'}.xlsx`);
-        }
+            const ws = xlsx.utils.aoa_to_sheet(rows);
+
+            // Add merges if present in config
+            if (sheet.config?.merge) {
+                const merges = Object.values(sheet.config.merge).map((m: any) => ({
+                    s: { r: m.r, c: m.c },
+                    e: { r: m.r + m.rs - 1, c: m.c + m.cs - 1 }
+                }));
+                ws['!merges'] = merges;
+            }
+
+            xlsx.utils.book_append_sheet(wb, ws, sheet.name || 'Sheet1');
+        });
+
+        const workbookBuffer = xlsx.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([workbookBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${formData?.po_number || 'PurchaseOrder'}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     const handleSave = () => {
@@ -439,7 +407,7 @@ export default function PurchaseOrderSpreadsheet({
                         </Button>
                         <Button variant="outline" onClick={handleExportXlsx}>
                             <Download className="w-4 h-4 mr-2" />
-                            Export XLSX (Download Formatted PDF)
+                            Export XLSX
                         </Button>
                         <Button onClick={handleSave} className="bg-primary text-white hover:bg-primary/90">
                             <Save className="w-4 h-4 mr-2" />

@@ -74,7 +74,9 @@ export async function updateSession(request: NextRequest) {
         return response
     }
 
-    if (!user) {
+    const legacySession = request.cookies.get('limperial_legacy_session')?.value
+
+    if (!user && !legacySession) {
         const loginUrl = new URL('/login', request.url)
         loginUrl.searchParams.set('redirect', pathname)
         return NextResponse.redirect(loginUrl)
