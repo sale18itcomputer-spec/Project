@@ -2,7 +2,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 let client: ReturnType<typeof createSupabaseClient> | undefined;
 
-export function getSupabaseBrowserClient() {
+export function getSupabaseBrowserClient(): any {
     if (!client) {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
