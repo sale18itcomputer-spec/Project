@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Workbook } from '@fortune-sheet/react';
-import '@fortune-sheet/react/dist/index.css';
+// import { Workbook } from '@fortune-sheet/react';
+// import '@fortune-sheet/react/dist/index.css';
 import { Button } from "../../ui/button";
 import { PurchaseOrderItem } from "../../../types";
 import { Upload, Download, Save, X } from "lucide-react";
@@ -420,7 +420,7 @@ export default function PurchaseOrderSpreadsheet({
                 </div>
 
                 <div className="flex-1 w-full bg-slate-100 relative mt-4 border rounded-md overflow-hidden min-h-[500px]">
-                    {sheetData.length > 0 && (
+                    {/* {sheetData.length > 0 && (
                         <Workbook
                             ref={workbookRef}
                             data={sheetData}
@@ -428,7 +428,7 @@ export default function PurchaseOrderSpreadsheet({
                                 // optional tracking
                             }}
                         />
-                    )}
+                    )} */}
                 </div>
             </div>
         </div>

@@ -17,7 +17,7 @@ import PDFControlField from "../../pdf/PDFControlField";
 import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
 // Dynamically import browser-only libraries
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-const PurchaseOrderSpreadsheet = dynamic(() => import('./PurchaseOrderSpreadsheet'), { ssr: false });
+// const PurchaseOrderSpreadsheet = dynamic(() => import('./PurchaseOrderSpreadsheet'), { ssr: false });
 import 'react-quill/dist/quill.snow.css';
 
 import { Table as TableIcon } from 'lucide-react';
@@ -781,9 +781,9 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             <div className="bg-muted/30 px-4 py-3 border-b border-border flex justify-between items-center">
                                 <h3 className="font-bold flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-brand-500" /> Line Items</h3>
                                 <div className="flex items-center gap-4">
-                                    <button onClick={() => setIsSpreadsheetOpen(true)} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition">
+                                    {/* <button onClick={() => setIsSpreadsheetOpen(true)} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition">
                                         <TableIcon className="w-4 h-4" /> Spreadsheet Editor
-                                    </button>
+                                    </button> */}
                                     <button onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
                                         <Plus className="w-4 h-4" /> Add Item
                                     </button>
@@ -897,7 +897,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     </div>
                 </div>
             </div>
-            {isSpreadsheetOpen && (
+            {/* {isSpreadsheetOpen && (
                 <PurchaseOrderSpreadsheet
                     isOpen={isSpreadsheetOpen}
                     onClose={() => setIsSpreadsheetOpen(false)}
@@ -906,7 +906,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     totals={totals}
                     onSave={(newItems) => setItems(newItems)}
                 />
-            )}
+            )} */}
         </DocumentEditorContainer>
     );
 };
