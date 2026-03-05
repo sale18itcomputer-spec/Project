@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user && user.Status === 'Active') {
       setCurrentUser(user);
       localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+      setCookie('limperial_legacy_session', user.UserID, 7); // Ensure middleware sees active session
       return user;
     }
     return null;
@@ -123,9 +124,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (user && String(user.Password) === String(password).trim()) {
           if (user.Status !== 'Active') return { success: false, message: 'Account inactive.' };
-          setCurrentUser(user);
-          localStorageSet(AUTH_STORAGE_KEY, user.UserID);
-          setCookie('limperial_legacy_session', user.UserID, 7); // Set cookie for middleware
+          syncUser(user.Email || '', users); // This handles setting the cookie and state
           return { success: true, message: 'Login successful (Legacy)!' };
         }
 
@@ -139,13 +138,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [supabase, users]);
 
   const loginWithGoogle = useCallback(async () => {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-    const callbackUrl = `${siteUrl}/auth/callback`;
+    const siteUrl = window.location.origin;
 
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: callbackUrl,
+        redirectTo: siteUrl,
       },
     });
   }, [supabase]);
