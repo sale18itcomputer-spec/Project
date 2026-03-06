@@ -150,8 +150,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
 
-  // dispatch setters are stable references — no useMemo needed
-  const stateSetters: Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>> = {
+  // dispatch setters are stable references — no useMemo needed for their functions, but the object itself needs to be stable
+  const stateSetters = useMemo<Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>>>(() => ({
     projects: setProjects,
     companies: setCompanies,
     contacts: setContacts,
@@ -165,7 +165,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     vendors: setVendors,
     vendorPricelist: setVendorPricelist,
     purchaseOrders: setPurchaseOrders
-  };
+  }), []);
 
   // Real-time subscription setup
   useEffect(() => {

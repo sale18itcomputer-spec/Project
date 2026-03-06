@@ -52,13 +52,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const bootstrapAuth = async () => {
       try {
-        const fetchedUsers = await readRecords<User>('Users');
-        if (!isMounted) return;
-        setUsers(fetchedUsers);
-
-        // 1. Check for active Supabase session
+        // 1. Establish session first to ensure auth tokens are active before fetching data
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
+
+        // 2. Safely read users data now that session is theoretically active
+        const fetchedUsers = await readRecords<User>('Users').catch(err => {
+          console.warn("Failed to read user table (RLS/Permissions):", err);
+          return [];
+        });
+        if (!isMounted) return;
+        setUsers(fetchedUsers);
 
         if (session?.user?.email) {
           syncUser(session.user.email, fetchedUsers);
