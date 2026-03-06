@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList, Calculator } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -163,6 +163,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                     isCollapsed={isCollapsed}
                   />
                 )}
+              </ul>
+            </div>
+
+            {/* Tools Section */}
+            <div>
+              {isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tools</h3>}
+              <ul className="mt-2 space-y-1">
+                <NavItem
+                  icon={<Calculator size={20} />}
+                  label="Pricing Calculator"
+                  isActive={isActive('/pricing-calculator')}
+                  onClick={() => onNavigate('/pricing-calculator')}
+                  isCollapsed={isCollapsed}
+                />
               </ul>
             </div>
 

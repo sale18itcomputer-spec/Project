@@ -32,3 +32,4 @@ tmp/
 _agents/
 _agent/
 *.tsbuildinfo
+.brave-profile/

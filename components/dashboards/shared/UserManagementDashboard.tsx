@@ -58,10 +58,11 @@ const UserManagementDashboard: React.FC = () => {
 
     const filteredUsers = useMemo(() => {
         if (!allUsers) return [];
+        const query = (searchQuery || '').toLowerCase();
         return allUsers.filter(user =>
-            user.Name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.Email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.Role.toLowerCase().includes(searchQuery.toLowerCase())
+            user.Name?.toLowerCase().includes(query) ||
+            user.Email?.toLowerCase().includes(query) ||
+            user.Role?.toLowerCase().includes(query)
         );
     }, [allUsers, searchQuery]);
 
@@ -201,10 +202,10 @@ const UserManagementDashboard: React.FC = () => {
                                         <TableCell className="sticky left-0 z-10 bg-card group-hover:bg-muted/50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] pl-4 sm:pl-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold border border-brand-200 text-sm sm:text-base cursor-default">
-                                                    {user.Name[0]}
+                                                    {user.Name ? user.Name[0].toUpperCase() : '?'}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-slate-800 text-sm sm:text-base leading-tight">{user.Name}</div>
+                                                    <div className="font-bold text-slate-800 text-sm sm:text-base leading-tight">{user.Name || 'Unknown User'}</div>
                                                     <div className="text-[10px] sm:text-xs text-slate-500 font-medium tracking-tight">#{user.UserID}</div>
                                                 </div>
                                             </div>
