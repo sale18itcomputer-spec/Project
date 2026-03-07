@@ -50,51 +50,83 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let isMounted = true;
 
+    // Safety timeout to prevent permanent hang
+    const timeoutId = setTimeout(() => {
+      if (isMounted && isAuthLoading) {
+        console.warn('Auth bootstrap timed out after 10s. Forcing loading state to false.');
+        setIsAuthLoading(false);
+      }
+    }, 10000);
+
     const bootstrapAuth = async () => {
+      console.log('Starting auth bootstrap...');
       try {
         // 1. Establish session first to ensure auth tokens are active before fetching data
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Fetching session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('Supabase session error:', sessionError);
+        }
+
         if (!isMounted) return;
+        console.log('Session fetched:', session ? `User: ${session.user?.email}` : 'No active session');
 
         // 2. Safely read users data now that session is theoretically active
+        console.log('Fetching users table...');
         const fetchedUsers = await readRecords<User>('Users').catch(err => {
           console.warn("Failed to read user table (RLS/Permissions):", err);
           return [];
         });
+
         if (!isMounted) return;
+        console.log(`Users fetched: ${fetchedUsers?.length || 0} records`);
         setUsers(fetchedUsers);
 
         if (session?.user?.email) {
+          console.log('Syncing authenticated user...');
           syncUser(session.user.email, fetchedUsers);
         }
         // 2. Dev auto-login bypass (if no session)
         else if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL) {
+          console.log('Applying dev auto-login...');
           syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
         }
         // 3. Last resort: Restore from localStorage (for non-Supabase sessions)
         else {
+          console.log('Restoring user from localStorage if possible...');
           const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
           if (savedUserId) {
             const user = fetchedUsers.find(u => u.UserID === savedUserId);
-            if (user) setCurrentUser(user);
+            if (user) {
+              console.log(`Restored user: ${user.Email}`);
+              setCurrentUser(user);
+            }
           }
         }
       } catch (error) {
-        console.error('Failed to load user data for authentication', error);
+        console.error('CRITICAL: Failed to load user data for authentication', error);
       } finally {
-        if (isMounted) setIsAuthLoading(false);
+        if (isMounted) {
+          console.log('Auth bootstrap completed, setting loading to false.');
+          setIsAuthLoading(false);
+          clearTimeout(timeoutId);
+        }
       }
     };
 
     bootstrapAuth();
 
     // Listen for auth state changes
+    console.log('Setting up auth state change listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`Auth state change: ${event}`, session ? `User: ${session.user?.email}` : 'No session');
       if (session?.user?.email) {
         // Use ref to get latest users or fetch if empty
         let currentUsersList = usersRef.current;
         if (!currentUsersList) {
-          currentUsersList = await readRecords<User>('Users');
+          console.log('Fetching users for state change sync...');
+          currentUsersList = await readRecords<User>('Users').catch(() => []);
           if (isMounted) setUsers(currentUsersList);
         }
         syncUser(session.user.email, currentUsersList);
@@ -106,10 +138,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
     // supabase and syncUser are stable. users is omitted to prevent loop.
-  }, [supabase, syncUser]);
+  }, [supabase, syncUser, isAuthLoading]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
