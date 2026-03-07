@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
@@ -22,18 +22,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const supabase = createClient();
+  // Stable singleton — created once per component lifetime, not on every render
+  const supabase = useMemo(() => createClient(), []);
+
   const [users, setUsers] = useState<User[] | null>(null);
-  const usersRef = React.useRef<User[] | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Keep ref in sync for callbacks
-  useEffect(() => {
-    usersRef.current = users;
-  }, [users]);
+  // Ref gives the auth-state-change listener access to the latest users list
+  // without creating a new effect dependency that would cause re-runs
+  const usersRef = useRef<User[] | null>(null);
+  useEffect(() => { usersRef.current = users; }, [users]);
 
-  // Sync Supabase user with our custom Users table
+  // Sync a Supabase email to our custom Users table record
   const syncUser = useCallback((email: string, allUsers: User[]) => {
     const user = allUsers.find(
       u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user && user.Status === 'Active') {
       setCurrentUser(user);
       localStorageSet(AUTH_STORAGE_KEY, user.UserID);
-      setCookie('limperial_legacy_session', user.UserID, 7); // Ensure middleware sees active session
+      setCookie('limperial_legacy_session', user.UserID, 7);
       return user;
     }
     return null;
@@ -50,65 +51,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let isMounted = true;
 
-    // Safety timeout to prevent permanent hang
+    // Safety net: if the network never responds, unblock the UI after 10s
     const timeoutId = setTimeout(() => {
-      if (isMounted && isAuthLoading) {
-        console.warn('Auth bootstrap timed out after 10s. Forcing loading state to false.');
+      if (isMounted) {
+        console.warn('[Auth] Bootstrap timed out after 10s — forcing loading state to false.');
         setIsAuthLoading(false);
       }
     }, 10000);
 
     const bootstrapAuth = async () => {
-      console.log('Starting auth bootstrap...');
       try {
-        // 1. Establish session first to ensure auth tokens are active before fetching data
-        console.log('Fetching session...');
+        // Step 1: Get the active session (anon or authenticated)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('Supabase session error:', sessionError);
-        }
-
+        if (sessionError) console.error('[Auth] Session error:', sessionError);
         if (!isMounted) return;
-        console.log('Session fetched:', session ? `User: ${session.user?.email}` : 'No active session');
 
-        // 2. Safely read users data now that session is theoretically active
-        console.log('Fetching users table...');
+        // Step 2: Fetch the Users table exactly ONCE here.
+        // The onAuthStateChange listener reuses this data via usersRef.
         const fetchedUsers = await readRecords<User>('Users').catch(err => {
-          console.warn("Failed to read user table (RLS/Permissions):", err);
-          return [];
+          console.warn('[Auth] Failed to read Users table (RLS/Permissions):', err);
+          return [] as User[];
         });
-
         if (!isMounted) return;
-        console.log(`Users fetched: ${fetchedUsers?.length || 0} records`);
+
         setUsers(fetchedUsers);
 
         if (session?.user?.email) {
-          console.log('Syncing authenticated user...');
           syncUser(session.user.email, fetchedUsers);
-        }
-        // 2. Dev auto-login bypass (if no session)
-        else if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL) {
-          console.log('Applying dev auto-login...');
+        } else if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL) {
           syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
-        }
-        // 3. Last resort: Restore from localStorage (for non-Supabase sessions)
-        else {
-          console.log('Restoring user from localStorage if possible...');
+        } else {
+          // Last resort: restore from localStorage for legacy (non-Supabase) sessions
           const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
           if (savedUserId) {
             const user = fetchedUsers.find(u => u.UserID === savedUserId);
-            if (user) {
-              console.log(`Restored user: ${user.Email}`);
-              setCurrentUser(user);
-            }
+            if (user) setCurrentUser(user);
           }
         }
       } catch (error) {
-        console.error('CRITICAL: Failed to load user data for authentication', error);
+        console.error('[Auth] CRITICAL: Bootstrap failed:', error);
       } finally {
         if (isMounted) {
-          console.log('Auth bootstrap completed, setting loading to false.');
           setIsAuthLoading(false);
           clearTimeout(timeoutId);
         }
@@ -117,19 +100,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     bootstrapAuth();
 
-    // Listen for auth state changes
-    console.log('Setting up auth state change listener...');
+    // Listener handles subsequent sign-in / sign-out events AFTER initial bootstrap.
+    // It reuses usersRef — no duplicate fetch needed.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`Auth state change: ${event}`, session ? `User: ${session.user?.email}` : 'No session');
       if (session?.user?.email) {
-        // Use ref to get latest users or fetch if empty
-        let currentUsersList = usersRef.current;
-        if (!currentUsersList) {
-          console.log('Fetching users for state change sync...');
-          currentUsersList = await readRecords<User>('Users').catch(() => []);
-          if (isMounted) setUsers(currentUsersList);
-        }
-        syncUser(session.user.email, currentUsersList);
+        // Use already-fetched list; only fetch if somehow still null (edge case)
+        const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
+        if (!usersRef.current && isMounted) setUsers(usersList);
+        syncUser(session.user.email, usersList);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         localStorageRemove(AUTH_STORAGE_KEY);
@@ -141,30 +119,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-    // supabase and syncUser are stable. users is omitted to prevent loop.
-  }, [supabase, syncUser, isAuthLoading]);
+    // Intentionally only runs once on mount. syncUser and supabase are stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
-      // First, attempt Supabase Auth
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        // Fallback to custom table check for legacy support
+        // Fallback: legacy plain-text password check against Users table
         if (!users) return { success: false, message: 'Auth service unavailable.' };
-
         const trimmedEmail = email.trim().toLowerCase();
         const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
-
         if (user && String(user.Password) === String(password).trim()) {
           if (user.Status !== 'Active') return { success: false, message: 'Account inactive.' };
-          syncUser(user.Email || '', users); // This handles setting the cookie and state
+          syncUser(user.Email || '', users);
           return { success: true, message: 'Login successful (Legacy)!' };
         }
-
         return { success: false, message: error.message };
       }
 
@@ -172,16 +144,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err: any) {
       return { success: false, message: err.message };
     }
-  }, [supabase, users]);
+  }, [supabase, users, syncUser]);
 
   const loginWithGoogle = useCallback(async () => {
-    const siteUrl = window.location.origin;
-
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: siteUrl,
-      },
+      options: { redirectTo: window.location.origin },
     });
   }, [supabase]);
 
