@@ -18,12 +18,36 @@ interface RowData {
     cogs: number;
     customCosts: Record<string, number>;
     markUp: number;
+    quantity: number;
+}
+
+interface MarginGuideline {
+    id: string;
+    minCogs: number;
+    maxCogs: number | null;
+    margin: number;
 }
 
 export default function PricingCalculatorPage() {
     const [commission, setCommission] = useState<number>(30);
     const [incomeTaxPercent, setIncomeTaxPercent] = useState<number>(20);
     const [operationPercent, setOperationPercent] = useState<number>(50);
+
+    const [marginGuidelines, setMarginGuidelines] = useState<MarginGuideline[]>([
+        { id: '1', minCogs: 50, maxCogs: 100, margin: 25 },
+        { id: '2', minCogs: 101, maxCogs: 200, margin: 20 },
+        { id: '3', minCogs: 201, maxCogs: 300, margin: 10 },
+        { id: '4', minCogs: 301, maxCogs: 400, margin: 7 },
+        { id: '5', minCogs: 401, maxCogs: 500, margin: 7 },
+        { id: '6', minCogs: 501, maxCogs: 600, margin: 7 },
+        { id: '7', minCogs: 601, maxCogs: 700, margin: 6 },
+        { id: '8', minCogs: 701, maxCogs: 800, margin: 5 },
+        { id: '9', minCogs: 801, maxCogs: 900, margin: 5 },
+        { id: '10', minCogs: 901, maxCogs: 1000, margin: 5 },
+        { id: '11', minCogs: 1001, maxCogs: 1500, margin: 5 },
+        { id: '12', minCogs: 1501, maxCogs: 2000, margin: 5 },
+        { id: '13', minCogs: 2001, maxCogs: null, margin: 5 },
+    ]);
 
     const [costColumns, setCostColumns] = useState<CostColumn[]>([
         { id: 'freebies', name: 'Freebies', sign: -1 },
@@ -39,6 +63,7 @@ export default function PricingCalculatorPage() {
                 'rebate': 0
             },
             markUp: 7,
+            quantity: 1,
         }
     ]);
 
@@ -52,6 +77,7 @@ export default function PricingCalculatorPage() {
                 cogs: 0,
                 customCosts: initialCustomCosts,
                 markUp: 0,
+                quantity: 1,
             }
         ]);
     };
@@ -63,7 +89,21 @@ export default function PricingCalculatorPage() {
     };
 
     const updateRow = (id: string, field: keyof RowData, value: number) => {
-        setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
+        setRows(rows.map(r => {
+            if (r.id !== id) return r;
+
+            const updatedRow = { ...r, [field]: value };
+
+            if (field === 'cogs') {
+                const cogs = value;
+                const guideline = marginGuidelines.find(g => cogs >= g.minCogs && (g.maxCogs === null || cogs <= g.maxCogs));
+                if (guideline) {
+                    updatedRow.markUp = guideline.margin;
+                }
+            }
+
+            return updatedRow;
+        }));
     };
 
     const updateCostValue = (rowId: string, colId: string, value: number) => {
@@ -89,6 +129,23 @@ export default function PricingCalculatorPage() {
 
     const toggleColSign = (colId: string) => {
         setCostColumns(costColumns.map(c => c.id === colId ? { ...c, sign: (c.sign === 1 ? -1 : 1) as -1 | 1 } : c));
+    };
+
+    const addGuideline = () => {
+        setMarginGuidelines([...marginGuidelines, {
+            id: Math.random().toString(36).substring(7),
+            minCogs: 0,
+            maxCogs: null,
+            margin: 0
+        }]);
+    };
+
+    const removeGuideline = (id: string) => {
+        setMarginGuidelines(marginGuidelines.filter(g => g.id !== id));
+    };
+
+    const updateGuideline = (id: string, field: keyof MarginGuideline, value: number | null) => {
+        setMarginGuidelines(marginGuidelines.map(g => g.id === id ? { ...g, [field]: value } : g));
     };
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -196,6 +253,7 @@ export default function PricingCalculatorPage() {
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                                     <TableHead className="min-w-[120px] font-semibold text-primary">COGS</TableHead>
+                                    <TableHead className="w-[80px] font-semibold text-primary">QTY</TableHead>
                                     {costColumns.map((col) => (
                                         <TableHead key={col.id} className="min-w-[140px] px-2 py-3">
                                             <div className="flex items-center gap-1 group bg-background rounded-md border border-transparent hover:border-border focus-within:border-input px-1.5 py-1 transition-all shadow-sm">
@@ -259,12 +317,17 @@ export default function PricingCalculatorPage() {
                                     const avgCost = row.cogs + customCostsTotal;
                                     const sellingPR = avgCost * (1 + row.markUp / 100);
                                     const priceWithComm = sellingPR + commission;
-                                    const margin = sellingPR - avgCost;
-                                    const incomeTaxVal = margin * (incomeTaxPercent / 100);
-                                    const profit = margin - incomeTaxVal;
+
+                                    // Total calculations taking quantity into account
+                                    const totalMargin = (sellingPR - avgCost) * row.quantity;
+                                    const incomeTaxVal = totalMargin * (incomeTaxPercent / 100);
+                                    const profit = totalMargin - incomeTaxVal;
                                     const operationVal = profit * (operationPercent / 100);
                                     const trueProfit = profit - operationVal;
-                                    const trueProfitPercent = avgCost > 0 ? (trueProfit / avgCost) * 100 : 0;
+
+                                    const totalCost = avgCost * row.quantity;
+                                    const trueProfitPercent = totalCost > 0 ? (trueProfit / totalCost) * 100 : 0;
+
 
                                     return (
                                         <TableRow key={row.id} className="group hover:bg-muted/30 transition-colors">
@@ -275,6 +338,15 @@ export default function PricingCalculatorPage() {
                                                     onChange={(e) => updateRow(row.id, 'cogs', Number(e.target.value))}
                                                     className="h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20 font-medium"
                                                     step="0.01"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="p-2">
+                                                <Input
+                                                    type="number"
+                                                    value={row.quantity}
+                                                    onChange={(e) => updateRow(row.id, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                                                    className="h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20 font-medium text-center"
+                                                    min="1"
                                                 />
                                             </TableCell>
                                             {costColumns.map((col) => (
@@ -321,8 +393,8 @@ export default function PricingCalculatorPage() {
                                                 {formatCurrency(priceWithComm)}
                                             </TableCell>
                                             <TableCell className="p-2 font-medium border-l">
-                                                <span className={margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                                                    {formatCurrency(margin)}
+                                                <span className={totalMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                                    {formatCurrency(totalMargin)}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="p-2 text-slate-600 text-sm">
@@ -363,6 +435,86 @@ export default function PricingCalculatorPage() {
                             </TableBody>
                         </Table>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card className="mt-6 border-slate-200/60 shadow-md xl:w-1/2">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Purchase Price & Margin Table</CardTitle>
+                        <CardDescription>
+                            General guide for recommended margins based on COGS.
+                        </CardDescription>
+                    </div>
+                    <Button onClick={addGuideline} variant="outline" size="sm" className="h-8 gap-1 shadow-sm">
+                        <Plus className="h-3 w-3" />
+                        Add Rule
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead className="font-semibold text-primary text-center">Min COGS ($)</TableHead>
+                                    <TableHead className="font-semibold text-primary text-center">Max COGS ($)</TableHead>
+                                    <TableHead className="font-semibold text-primary text-center">Margin (%)</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {marginGuidelines.map((row) => (
+                                    <TableRow key={row.id} className="group hover:bg-muted/30">
+                                        <TableCell className="p-2 border-r">
+                                            <Input
+                                                type="number"
+                                                value={row.minCogs}
+                                                onChange={(e) => updateGuideline(row.id, 'minCogs', Number(e.target.value))}
+                                                className="h-8 shadow-sm border-transparent hover:border-border focus-visible:border-primary text-center"
+                                                step="0.01"
+                                            />
+                                        </TableCell>
+                                        <TableCell className="p-2 border-r">
+                                            <Input
+                                                type="number"
+                                                placeholder="No limit"
+                                                value={row.maxCogs === null ? '' : row.maxCogs}
+                                                onChange={(e) => updateGuideline(row.id, 'maxCogs', e.target.value === '' ? null : Number(e.target.value))}
+                                                className="h-8 shadow-sm border-transparent hover:border-border focus-visible:border-primary text-center"
+                                                step="0.01"
+                                            />
+                                        </TableCell>
+                                        <TableCell className="p-2">
+                                            <div className="flex items-center justify-center gap-1 font-semibold">
+                                                <Input
+                                                    type="number"
+                                                    value={row.margin}
+                                                    onChange={(e) => updateGuideline(row.id, 'margin', Number(e.target.value))}
+                                                    className="h-8 shadow-sm border-transparent hover:border-border focus-visible:border-primary font-bold text-center"
+                                                    step="0.01"
+                                                />
+                                                <span className="text-muted-foreground text-sm font-medium">%</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="p-2 text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeGuideline(row.id)}
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/20 opacity-40 hover:opacity-100 transition-all"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-4 italic">
+                        *Note: This table serves as a general guide. Final margins may vary and are not strictly limited to these figures.
+                        Leave &quot;Max COGS ($)&quot; blank for no upper limit.
+                    </p>
                 </CardContent>
             </Card>
         </div>
