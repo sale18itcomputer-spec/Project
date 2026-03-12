@@ -194,6 +194,28 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [successInfo, setSuccessInfo] = useState<{ quoteNo: string; isWin?: boolean } | null>(null);
 
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
+
+    // When duplicating, restore stored items from sessionStorage
+    useEffect(() => {
+        if (!existingQuotation && initialData) {
+            const stored = sessionStorage.getItem('duplicate_quotation_items');
+            if (stored) {
+                try {
+                    const parsedItems = JSON.parse(stored);
+                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                        setItems(parsedItems.map((item: any, idx: number) => ({
+                            ...item,
+                            id: `item-dup-${Date.now()}-${idx}`,
+                        })));
+                    }
+                } catch (e) {
+                    console.error('Failed to parse duplicate items', e);
+                } finally {
+                    sessionStorage.removeItem('duplicate_quotation_items');
+                }
+            }
+        }
+    }, []);
     const [showPdfConfig, setShowPdfConfig] = useState(false);
     const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');

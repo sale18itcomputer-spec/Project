@@ -8,7 +8,7 @@ import { formatDisplayDate } from "../../../utils/time";
 import PurchaseOrderCreator from "../../features/sales/PurchaseOrderCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { ClipboardList, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2 } from 'lucide-react';
+import { ClipboardList, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -40,9 +40,53 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
     const { addToast } = useToast();
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
+    const [isDuplicating, setIsDuplicating] = useState(false);
     const { width } = useWindowSize();
     const isMobile = width < 1024;
     const { currentUser } = useAuth();
+
+    const fetchPOItems = async (poId: string) => {
+        const { data, error } = await supabase
+            .from('purchase_order_items')
+            .select('*')
+            .eq('purchase_order_id', poId)
+            .order('line_number', { ascending: true });
+        if (error) throw error;
+        return data;
+    };
+
+    const handleDuplicatePO = async (po: PurchaseOrder) => {
+        setIsDuplicating(true);
+        try {
+            // Fetch items for this PO
+            const items = await fetchPOItems(po.id);
+            
+            // Store in sessionStorage
+            sessionStorage.setItem('duplicate_purchase_order_items', JSON.stringify(items));
+            
+            // Prepare initial metadata (resetting unique or date fields)
+            const initialData: Partial<PurchaseOrder> = {
+                ...po,
+                id: undefined as any,
+                po_number: '', // Reset to trigger auto-generation (if any) or leave blank for user
+                status: 'Draft',
+                order_date: new Date().toISOString().split('T')[0],
+                delivery_date: '',
+            };
+
+            handleNavigation({
+                view: 'purchase-orders',
+                filter: navigation.filter,
+                action: 'create',
+                payload: { isDuplicate: true, initialData }
+            });
+            addToast('Duplicating purchase order...', 'info');
+        } catch (err: any) {
+            addToast(`Failed to duplicate: ${err.message}`, 'error');
+        } finally {
+            setIsDuplicating(false);
+        }
+    };
 
     const handleNewPO = () => {
         handleNavigation({ view: 'purchase-orders', filter: navigation.filter, action: 'create' });
@@ -179,6 +223,8 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
     }
 
     if (isCreating) {
+        const creatorInitialData = navigation.payload?.initialData;
+        
         return (
             <PurchaseOrderCreator
                 onBack={() => {
@@ -186,6 +232,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
                     refetchData();
                 }}
                 existingPO={selectedPOToEdit}
+                initialData={creatorInitialData}
             />
         );
     }
@@ -249,12 +296,22 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleEditPO(row); }}
                                 className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                                title="Edit"
                             >
                                 <Pencil size={16} />
                             </button>
                             <button
+                                onClick={(e) => { e.stopPropagation(); handleDuplicatePO(row); }}
+                                disabled={isDuplicating}
+                                className="p-2 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
+                                title="Duplicate"
+                            >
+                                {isDuplicating ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+                            </button>
+                            <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteRequest(row); }}
                                 className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                                title="Delete"
                             >
                                 <Trash2 size={16} />
                             </button>

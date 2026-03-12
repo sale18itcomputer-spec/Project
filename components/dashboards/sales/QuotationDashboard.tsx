@@ -8,7 +8,7 @@ import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/ti
 import QuotationCreator from "../../features/sales/QuotationCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
-import { ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2 } from 'lucide-react';
+import { ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import { useToast } from "../../../contexts/ToastContext";
@@ -20,6 +20,7 @@ import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { readQuotationSheetData } from '../../../services/b2bDb';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -102,6 +103,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
 
@@ -203,6 +205,35 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
   const handleCreateSaleOrder = (quotation: Quotation) => {
     handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': quotation['Company Name'] }, quote: quotation } });
+  };
+
+  const handleDuplicateQuotation = async (quotation: Quotation) => {
+    setIsDuplicating(true);
+    try {
+      // Fetch full quotation data (including items) from DB
+      const { items } = await readQuotationSheetData(quotation['Quote No.'], isB2B);
+      // Store items in sessionStorage to pass to creator without URL length limits
+      sessionStorage.setItem('duplicate_quotation_items', JSON.stringify(items));
+      // Navigate to create with header fields as initialData (Quote No. will be auto-generated)
+      const initialData: Partial<Quotation> = {
+        ...quotation,
+        'Quote No.': undefined as any,   // Will be auto-generated
+        'Status': 'Open',
+        'Quote Date': undefined as any,   // Reset to today in creator
+        'Validity Date': undefined as any,
+      };
+      handleNavigation({
+        view: 'quotations',
+        filter: navigation.filter,
+        action: 'create',
+        payload: { isDuplicate: true, initialData },
+      });
+      addToast('Duplicating quotation...', 'info');
+    } catch (err: any) {
+      addToast(`Failed to duplicate: ${err.message}`, 'error');
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -518,6 +549,14 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                       <Pencil className="w-4 h-4" /> Edit
                     </button>
                     <button
+                      onClick={() => handleDuplicateQuotation(selectedQuotationForDetail)}
+                      disabled={isDuplicating}
+                      className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                      Duplicate
+                    </button>
+                    <button
                       onClick={() => handleDeleteRequest(selectedQuotationForDetail)}
                       className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
                     >
@@ -570,11 +609,16 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   );
 
   if (isCreating) {
+    // Resolve initialData: prefer navigation.payload.initialData (duplicate flow), then initialPayload prop
+    const creatorInitialData =
+      navigation.payload?.initialData ||
+      (initialPayload?.action === 'create' ? (initialPayload as any).initialData : undefined);
+
     return (
       <QuotationCreator
         onBack={handleBackToDashboard}
         existingQuotation={selectedQuotationToEdit}
-        initialData={initialPayload?.action === 'create' ? (initialPayload as any).initialData : undefined}
+        initialData={creatorInitialData}
       />
     );
   }
@@ -717,6 +761,17 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                   title="Edit"
                 >
                   <Pencil size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDuplicateQuotation(row);
+                  }}
+                  disabled={isDuplicating}
+                  className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
+                  title="Duplicate"
+                >
+                  <Copy size={16} />
                 </button>
                 <button
                   onClick={(e) => {

@@ -477,6 +477,28 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         }
     }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist, initialData, companies, contacts]);
 
+    // Restore items from sessionStorage when duplicating
+    useEffect(() => {
+        if (!existingSaleOrder && initialData) {
+            const stored = sessionStorage.getItem('duplicate_sale_order_items');
+            if (stored) {
+                try {
+                    const parsedItems = JSON.parse(stored);
+                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                        setItems(parsedItems.map((item: any, idx: number) => ({
+                            ...item,
+                            id: `item-dup-${Date.now()}-${idx}`,
+                        })));
+                    }
+                } catch (e) {
+                    console.error('Failed to parse duplicate sale order items', e);
+                } finally {
+                    sessionStorage.removeItem('duplicate_sale_order_items');
+                }
+            }
+        }
+    }, [existingSaleOrder, initialData]);
+
     useEffect(() => {
         if (existingSaleOrder && existingSaleOrder['Install Software']) {
             setSelectedSoftware(existingSaleOrder['Install Software'].split(',').map(s => s.trim()).filter(Boolean));

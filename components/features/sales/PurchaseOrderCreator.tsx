@@ -115,9 +115,10 @@ const QUILL_MODULES = {
 interface PurchaseOrderCreatorProps {
     onBack: () => void;
     existingPO?: PurchaseOrder | null;
+    initialData?: Partial<PurchaseOrder>;
 }
 
-const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, existingPO }) => {
+const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, existingPO, initialData }) => {
     const { vendors } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
@@ -142,11 +143,36 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         ].filter(Boolean).join(' | ') : '',
         approved_by: '',
         approved_by_position: '',
+        ...initialData
     });
 
     const [items, setItems] = useState<PurchaseOrderItem[]>([
         { line_number: 1, item_number: '', description: '', qty: 1, unit_price: 0 }
     ]);
+
+    // Restore items from sessionStorage when duplicating
+    useEffect(() => {
+        if (!existingPO && initialData) {
+            const stored = sessionStorage.getItem('duplicate_purchase_order_items');
+            if (stored) {
+                try {
+                    const parsedItems = JSON.parse(stored);
+                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                        setItems(parsedItems.map((item: any, idx: number) => ({
+                            ...item,
+                            id: undefined, // Let DB generate new IDs
+                            purchase_order_id: undefined,
+                            line_number: idx + 1
+                        })));
+                    }
+                } catch (e) {
+                    console.error('Failed to parse duplicate purchase order items', e);
+                } finally {
+                    sessionStorage.removeItem('duplicate_purchase_order_items');
+                }
+            }
+        }
+    }, [existingPO, initialData]);
 
     const [isSaving, setIsSaving] = useState(false);
 

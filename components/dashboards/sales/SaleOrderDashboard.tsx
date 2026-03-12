@@ -9,7 +9,7 @@ import { formatDisplayDate } from "../../../utils/time";
 import SaleOrderCreator from "../../features/sales/SaleOrderCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
-import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText } from 'lucide-react';
+import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy, Loader2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import SaleOrderListContainer from "../lists/SaleOrderListContainer";
@@ -59,6 +59,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const { saleOrders, setSaleOrders, loading, error } = useData();
     const { addToast } = useToast();
     const [saleOrderToDelete, setSaleOrderToDelete] = useState<SaleOrder | null>(null);
+    const [isDuplicating, setIsDuplicating] = useState(false);
     const [initialData, setInitialData] = useState<Partial<SaleOrder> | undefined>(() => {
         if (!initialPayload) return undefined;
 
@@ -156,6 +157,38 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const handleBackToDashboard = () => {
         setInitialData(undefined);
         handleNavigation({ view: 'sale-orders', filter: navigation.filter });
+    };
+
+    const handleDuplicateSaleOrder = async (so: SaleOrder) => {
+        setIsDuplicating(true);
+        try {
+            // Items are stored in ItemsJSON in the SO record
+            const items = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : so.ItemsJSON;
+            
+            // Store items in sessionStorage (consistent with Quotation duplication)
+            sessionStorage.setItem('duplicate_sale_order_items', JSON.stringify(items));
+            
+            const initialData: Partial<SaleOrder> = {
+                ...so,
+                'SO No.': undefined as any, // Will be auto-generated
+                'Status': 'Pending',
+                'SO Date': undefined as any, // Reset to today
+                'Delivery Date': undefined as any,
+                'ItemsJSON': undefined, // Handled via sessionStorage
+            };
+
+            handleNavigation({
+                view: 'sale-orders',
+                filter: navigation.filter,
+                action: 'create',
+                payload: { isDuplicate: true, initialData }
+            });
+            addToast('Duplicating sale order...', 'info');
+        } catch (err: any) {
+            addToast(`Failed to duplicate: ${err.message}`, 'error');
+        } finally {
+            setIsDuplicating(false);
+        }
     };
 
     const handleConvertToInvoice = (so: SaleOrder) => {
@@ -442,6 +475,14 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                         <Pencil className="w-4 h-4" /> Edit
                                     </button>
                                     <button
+                                        onClick={() => handleDuplicateSaleOrder(selectedSaleOrder)}
+                                        disabled={isDuplicating}
+                                        className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                                    >
+                                        {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                        Duplicate
+                                    </button>
+                                    <button
                                         onClick={() => handleDeleteRequest(selectedSaleOrder)}
                                         className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
                                     >
@@ -592,6 +633,17 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                     title="Edit"
                                 >
                                     <Pencil size={16} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDuplicateSaleOrder(row);
+                                    }}
+                                    disabled={isDuplicating}
+                                    className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
+                                    title="Duplicate"
+                                >
+                                    <Copy size={16} />
                                 </button>
                                 <button
                                     onClick={(e) => {
