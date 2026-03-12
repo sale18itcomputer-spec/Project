@@ -135,9 +135,13 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         status: 'Draft',
         remarks: '',
         prepared_by: currentUser?.Name || '',
-        prepared_by_position: currentUser?.Role || '',
+        prepared_by_position: currentUser ? [
+            currentUser.Role,
+            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+            currentUser.Email
+        ].filter(Boolean).join(' | ') : '',
         approved_by: '',
-        approved_by_position: 'Manager',
+        approved_by_position: '',
     });
 
     const [items, setItems] = useState<PurchaseOrderItem[]>([

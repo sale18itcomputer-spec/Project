@@ -367,7 +367,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'Quote Date': existingQuotation['Quote Date'] ? formatToInputDate(existingQuotation['Quote Date']) : getTodayDateString(),
                 'Validity Date': existingQuotation['Validity Date'] ? formatToInputDate(existingQuotation['Validity Date']) : getTodayDateString(),
                 'Prepared By': existingQuotation['Prepared By'] || currentUser?.Name || '',
-                'Prepared By Position': existingQuotation['Prepared By Position'] || '',
+                'Prepared By Position': existingQuotation['Prepared By Position'] || (currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ') : ''),
                 'Approved By': existingQuotation['Approved By'] || '',
                 'Approved By Position': existingQuotation['Approved By Position'] || '',
                 'Remark': existingQuotation.Remark || '',
@@ -382,7 +386,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             'Currency': 'USD',
             'Created By': currentUser?.Name || '',
             'Prepared By': currentUser?.Name || '',
-            'Prepared By Position': '',
+            'Prepared By Position': currentUser ? [
+                currentUser.Role,
+                [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                currentUser.Email
+            ].filter(Boolean).join(' | ') : '',
             'Approved By': '',
             'Approved By Position': '',
             'Remark': '',

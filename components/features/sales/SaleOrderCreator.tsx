@@ -385,6 +385,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Payment Term': existingSaleOrder['Payment Term'] || company?.['Payment Term'] || '',
                 'Phone Number': existingSaleOrder['Phone Number'] || contact?.['Tel (1)'] || '',
                 'Email': existingSaleOrder.Email || contact?.Email || '',
+                'Prepared By': existingSaleOrder['Prepared By'] || currentUser?.Name || '',
+                'Prepared By Position': existingSaleOrder['Prepared By Position'] || (currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ') : ''),
+                'Approved By': existingSaleOrder['Approved By'] || '',
+                'Approved By Position': existingSaleOrder['Approved By Position'] || '',
             };
 
             if (!baseData['Bill Invoice']) {
@@ -454,8 +462,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Email': initialData?.['Contact Email'] || initialData?.Email || '',
                 'Company Address': initialData?.['Company Address'] || '',
                 'Payment Term': initialData?.['Payment Term'] || '',
-                'Prepared By': initialData?.['Prepared By'] || '',
+                'Prepared By': initialData?.['Prepared By'] || currentUser?.Name || '',
+                'Prepared By Position': initialData?.['Prepared By Position'] || (currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ') : ''),
                 'Approved By': initialData?.['Approved By'] || '',
+                'Approved By Position': initialData?.['Approved By Position'] || '',
                 'Remark': initialData?.Remark || '',
                 'Terms and Conditions': initialData?.['Terms and Conditions'] || '',
                 ...initialData

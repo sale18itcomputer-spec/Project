@@ -296,8 +296,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Payment Term': so['Payment Term'],
                 'Company Address': company?.['Address (English)'] || '',
                 'Tin No.': company?.['Tin No.'] || company?.['Patent'] || '',
-                'Prepared By': 'Mon Sreyneang (Mrs)',
-                'Prepared By Position': 'Senior Corporate Sale',
+                'Prepared By': currentUser?.Name || 'SREYNEANG MON (Mrs)',
+                'Prepared By Position': currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ') : 'Senior Corporate Sales | 017 594 524 | 010 345 994 | sreyneang@limperialtech.com',
                 'Approved By': '',
                 'Approved By Position': '',
             });
@@ -321,8 +325,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Status': 'Draft',
                 'Currency': 'USD',
                 'Taxable': 'VAT',
-                'Prepared By': 'Mon Sreyneang (Mrs)',
-                'Prepared By Position': 'Senior Corporate Sale',
+                'Prepared By': currentUser?.Name || 'SREYNEANG MON (Mrs)',
+                'Prepared By Position': currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ') : 'Senior Corporate Sales | 017 594 524 | 010 345 994 | sreyneang@limperialtech.com',
                 'Approved By': '',
                 'Approved By Position': '',
             });
