@@ -206,7 +206,7 @@ export default function PricingCalculatorPage() {
                             <span className="text-lg text-muted-foreground">%</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                            Percentage of gross margin
+                            Percentage of profit after operation
                         </p>
                     </CardContent>
                 </Card>
@@ -230,7 +230,7 @@ export default function PricingCalculatorPage() {
                             <span className="text-lg text-muted-foreground">%</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                            Percentage of net profit
+                            Percentage of gross margin
                         </p>
                     </CardContent>
                 </Card>
@@ -299,9 +299,9 @@ export default function PricingCalculatorPage() {
                                     <TableHead className="min-w-[120px] font-semibold text-slate-800 bg-slate-50 border-l">Selling PR</TableHead>
                                     <TableHead className="min-w-[120px] border-l bg-brand-50/30">Commission ({formatCurrency(commission)})</TableHead>
                                     <TableHead className="min-w-[120px] font-semibold border-l">Margin</TableHead>
-                                    <TableHead className="min-w-[110px]">Income Tax ({incomeTaxPercent}%)</TableHead>
-                                    <TableHead className="min-w-[120px] font-semibold">Profit</TableHead>
                                     <TableHead className="min-w-[110px]">Operation ({operationPercent}%)</TableHead>
+                                    <TableHead className="min-w-[120px] font-semibold">Profit</TableHead>
+                                    <TableHead className="min-w-[110px]">Income Tax ({incomeTaxPercent}%)</TableHead>
                                     <TableHead className="min-w-[120px] font-bold text-green-600 border-l bg-green-50/50">True Profit</TableHead>
                                     <TableHead className="min-w-[100px] font-bold text-green-600 bg-green-50/50">True Profit %</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
@@ -320,10 +320,10 @@ export default function PricingCalculatorPage() {
 
                                     // Total calculations taking quantity into account
                                     const totalMargin = (sellingPR - avgCost) * row.quantity;
-                                    const incomeTaxVal = totalMargin * (incomeTaxPercent / 100);
-                                    const profit = totalMargin - incomeTaxVal;
-                                    const operationVal = profit * (operationPercent / 100);
-                                    const trueProfit = profit - operationVal;
+                                    const operationVal = totalMargin * (operationPercent / 100);
+                                    const profit = totalMargin - operationVal;
+                                    const incomeTaxVal = profit * (incomeTaxPercent / 100);
+                                    const trueProfit = profit - incomeTaxVal;
 
                                     const totalCost = avgCost * row.quantity;
                                     const trueProfitPercent = totalCost > 0 ? (trueProfit / totalCost) * 100 : 0;
@@ -398,7 +398,7 @@ export default function PricingCalculatorPage() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="p-2 text-slate-600 text-sm">
-                                                {formatCurrency(incomeTaxVal)}
+                                                {formatCurrency(operationVal)}
                                             </TableCell>
                                             <TableCell className="p-2 font-medium">
                                                 <span className={profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
@@ -406,7 +406,7 @@ export default function PricingCalculatorPage() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="p-2 text-slate-600 text-sm">
-                                                {formatCurrency(operationVal)}
+                                                {formatCurrency(incomeTaxVal)}
                                             </TableCell>
                                             <TableCell className="p-2 font-bold border-l bg-green-50/20 whitespace-nowrap">
                                                 <span className={trueProfit >= 0 ? 'text-green-600' : 'text-red-500'}>
