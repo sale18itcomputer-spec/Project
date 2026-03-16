@@ -386,11 +386,15 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Phone Number': existingSaleOrder['Phone Number'] || contact?.['Tel (1)'] || '',
                 'Email': existingSaleOrder.Email || contact?.Email || '',
                 'Prepared By': existingSaleOrder['Prepared By'] || currentUser?.Name || '',
-                'Prepared By Position': existingSaleOrder['Prepared By Position'] || (currentUser ? [
-                    currentUser.Role,
-                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                    currentUser.Email
-                ].filter(Boolean).join(' | ') : ''),
+                'Prepared By Position': existingSaleOrder['Prepared By Position'] || (currentUser ? (
+                    currentUser.Name?.toLowerCase().includes('sreyneang') 
+                        ? '017 594 524 | 010 345 994'
+                        : [
+                            currentUser.Role,
+                            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                            currentUser.Email
+                        ].filter(Boolean).join(' | ')
+                ) : ''),
                 'Approved By': existingSaleOrder['Approved By'] || '',
                 'Approved By Position': existingSaleOrder['Approved By Position'] || '',
             };
@@ -463,11 +467,15 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Company Address': initialData?.['Company Address'] || '',
                 'Payment Term': initialData?.['Payment Term'] || '',
                 'Prepared By': initialData?.['Prepared By'] || currentUser?.Name || '',
-                'Prepared By Position': initialData?.['Prepared By Position'] || (currentUser ? [
-                    currentUser.Role,
-                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                    currentUser.Email
-                ].filter(Boolean).join(' | ') : ''),
+                'Prepared By Position': initialData?.['Prepared By Position'] || (currentUser ? (
+                    currentUser.Name?.toLowerCase().includes('sreyneang') 
+                        ? '017 594 524 | 010 345 994'
+                        : [
+                            currentUser.Role,
+                            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                            currentUser.Email
+                        ].filter(Boolean).join(' | ')
+                ) : ''),
                 'Approved By': initialData?.['Approved By'] || '',
                 'Approved By Position': initialData?.['Approved By Position'] || '',
                 'Remark': initialData?.Remark || '',

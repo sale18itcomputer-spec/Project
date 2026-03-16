@@ -136,11 +136,15 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         status: 'Draft',
         remarks: '',
         prepared_by: currentUser?.Name || '',
-        prepared_by_position: currentUser ? [
-            currentUser.Role,
-            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-            currentUser.Email
-        ].filter(Boolean).join(' | ') : '',
+        prepared_by_position: currentUser ? (
+            currentUser.Name?.toLowerCase().includes('sreyneang') 
+                ? '017 594 524 | 010 345 994'
+                : [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email
+                ].filter(Boolean).join(' | ')
+        ) : '',
         approved_by: '',
         approved_by_position: '',
         ...initialData

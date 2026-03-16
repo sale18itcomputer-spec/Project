@@ -848,8 +848,8 @@ export const generatePDF = async (options: GeneratePDFOptions): Promise<string |
     if (isKHR && isKhmerFontActive) doc.setFont('KhmerOS', 'normal');
     else doc.setFont('times', 'normal');
 
-    const preparedByName = headerData['Prepared By'] || headerData['Created By'] || "SREYNEANG MON (Mrs)";
-    const preparedByPos = headerData['Prepared By Position'] || "Senior Corporate Sales | 017 594 524 | 010 345 994 | sreyneang@limperialtech.com";
+    const preparedByName = headerData['Prepared By'] || headerData['Created By'] || "";
+    const preparedByPos = headerData['Prepared By Position'] || "";
     doc.text(preparedByName, layout.footer.preparedBy.x, currentY, { align: 'center' });
     doc.setFontSize(layout.table.fontSize - 1);
     doc.text(preparedByPos, layout.footer.preparedBy.x, currentY + 4, { align: 'center' });
