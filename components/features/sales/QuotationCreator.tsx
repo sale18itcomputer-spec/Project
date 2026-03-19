@@ -14,7 +14,8 @@ import Spinner from "../../common/Spinner";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
 import PrintableQuotation from "../../pdf/PrintableQuotation";
 import { Trash2, AlertTriangle, Download, SlidersHorizontal, PanelRight, Send, Save, Plus, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
+import { generatePDF } from "@/lib/pdfClient";
 import PDFConfigModal from "../../modals/PDFConfigModal";
 import PDFControlField from "../../pdf/PDFControlField";
 import SuccessModal from "../../modals/SuccessModal";
@@ -225,7 +226,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [showPdfControls, setShowPdfControls] = useState(false);
     const [showRightPanel, setShowRightPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
     const [pricelistSearch, setPricelistSearch] = useState('');
     const [brandFilter, setBrandFilter] = useState('All');
     const [categoryFilter, setCategoryFilter] = useState('All');
@@ -681,43 +681,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         return { subTotal, vat, grandTotal, commission };
     }, [items, quote['Tax Type']]);
 
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            const headerData = {
-                'Quotation ID': quote['Quote No.'],
-                'Quote Date': quote['Quote Date'],
-                'Validity Date': quote['Validity Date'],
-                'Company Name': quote['Company Name'],
-                'Company Address': quote['Company Address'],
-                'Contact Person': quote['Contact Name'],
-                'Contact Tel': quote['Contact Number'],
-                'Contact Email': quote['Contact Email'],
-                'Payment Term': quote['Payment Term'],
-                'Stock Status': quote['Stock Status'],
-                'Created By': quote['Created By'],
-                'Prepared By': quote['Prepared By'],
-                'Prepared By Position': quote['Prepared By Position'],
-                'Approved By': quote['Approved By'],
-                'Approved By Position': quote['Approved By Position'],
-                'Remark': quote.Remark,
-                'Terms and Conditions': quote['Terms and Conditions'],
-            };
-
-            const url = await generatePDF({
-                title: 'Quotation',
-                headerData,
-                items,
-                totals,
-                currency: quote.Currency || 'USD',
-                filename: 'preview.pdf',
-                type: 'Quotation',
-                layout: pdfLayout,
-                previewMode: true
-            });
-            if (typeof url === 'string') setPdfPreviewUrl(url);
-        }, 800);
-        return () => clearTimeout(timer);
-    }, [quote, items, totals, pdfLayout]);
 
     const handleSave = async () => {
         setIsSubmitting(true);
@@ -822,7 +785,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const handleDownloadPDF = () => {
         generatePDF({
             type: 'Quotation',
-            title: 'Quotation',
             headerData: {
                 ...quote,
                 'Quotation ID': quote['Quote No.'],
@@ -853,7 +815,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             },
             currency: quote.Currency || 'USD',
             filename: `Quotation_${quote['Quote No.']}.pdf`,
-            layout: pdfLayout
         });
     };
 
@@ -862,7 +823,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setShowPdfConfig(false);
         generatePDF({
             type: 'Quotation',
-            title: 'Quotation',
             headerData: {
                 ...quote,
                 'Quotation ID': quote['Quote No.'],
@@ -893,7 +853,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             },
             currency: quote.Currency || 'USD',
             filename: `Quotation_${quote['Quote No.']}.pdf`,
-            layout: layout
         });
     };
 
@@ -1241,19 +1200,32 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
                                     </div>
                                 </div>
-                                <div className="flex-1 flex flex-col items-center justify-center bg-muted/20 relative overflow-hidden p-6">
-                                    {pdfPreviewUrl ? (
-                                        <iframe
-                                            src={pdfPreviewUrl}
-                                            className="w-full h-full border-none shadow-lg rounded-lg bg-white"
-                                            title="PDF Preview"
+                                <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
+                                    <div className="w-[794px] min-h-[1123px] bg-white shadow-lg" style={{ transform: `scale(${previewScale})`, transformOrigin: 'top center' }}>
+                                        <PrintableQuotation
+                                            headerData={{
+                                                'Quotation ID': quote['Quote No.'],
+                                                'Quote Date': quote['Quote Date'],
+                                                'Validity Date': quote['Validity Date'],
+                                                'Company Name': quote['Company Name'],
+                                                'Company Address': quote['Company Address'],
+                                                'Contact Person': quote['Contact Name'],
+                                                'Contact Tel': quote['Contact Number'],
+                                                'Contact Email': quote['Contact Email'],
+                                                'Payment Term': quote['Payment Term'],
+                                                'Stock Status': quote['Stock Status'],
+                                                'Prepared By': quote['Prepared By'],
+                                                'Prepared By Position': quote['Prepared By Position'],
+                                                'Approved By': quote['Approved By'],
+                                                'Approved By Position': quote['Approved By Position'],
+                                                'Remark': quote.Remark,
+                                                'Terms and Conditions': quote['Terms and Conditions'],
+                                            }}
+                                            items={items}
+                                            totals={{ subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal }}
+                                            currency={(quote.Currency as 'USD' | 'KHR') || 'USD'}
                                         />
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-3 text-slate-400">
-                                            <Spinner className="w-8 h-8 text-blue-500" />
-                                            <span>Generating Preview...</span>
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         ) : (

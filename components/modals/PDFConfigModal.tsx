@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, SlidersHorizontal, Layout, Type, Image as ImageIcon, Ruler, ScrollText, RotateCcw, Download, FileText } from 'lucide-react';
 import PDFControlField from "../pdf/PDFControlField";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../pdf/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig } from "../pdf/pdfGenerator";
+import { generatePDF } from "@/lib/pdfClient";
 
 interface PDFConfigModalProps {
     isOpen: boolean;
@@ -74,7 +75,6 @@ const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGene
             // Mock data for preview generation within the modal if real data isn't provided
             await generatePDF({
                 type: 'Quotation',
-                title: 'Quotation',
                 headerData: {
                     'Company Name': 'LIMPERIAL TECHNOLOGY CO., LTD',
                     'Company Address': 'Building #15, Street Ayeaksmaiyean Bo (139), Sangkat Srah Chak, Khan Daun Penh, Phnom Penh, Cambodia.',
@@ -91,8 +91,8 @@ const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGene
                 ],
                 totals: { subTotal: 100, tax: 10, grandTotal: 110 },
                 currency: 'USD',
-                filename: 'Quotation_Config_Preview.pdf',
-                layout: layout
+                previewMode: false,
+                filename: 'Quotation_Config_Preview.pdf'
             });
         }
     };

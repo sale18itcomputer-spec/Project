@@ -14,7 +14,8 @@ import SuccessModal from "../../modals/SuccessModal";
 import Spinner from "../../common/Spinner";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { Trash2, X, Upload, Printer, FileText, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Plus } from 'lucide-react';
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
+import { generatePDF } from "@/lib/pdfClient";
 import { useToast } from "../../../contexts/ToastContext";
 import SearchableSelect from "../../common/SearchableSelect";
 import { ScrollArea } from "../../ui/scroll-area";
@@ -161,7 +162,6 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [showPdfConfig, setShowPdfConfig] = useState(false);
     const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
     const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
@@ -500,70 +500,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         // Removed window.print logic as per instruction
     };
 
-    // PDF Generation Effect
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (!invoice['Company Name']) return;
-
-            try {
-                const isDO = previewMode === 'do';
-                const url = await generatePDF({
-                    type: isDO ? 'Delivery Order' : 'Invoice',
-                    title: isDO ? 'Delivery Order' : 'Invoice',
-                    headerData: {
-                        ...invoice,
-                        'Company Name': invoice['Company Name'],
-                        'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
-                        'Contact Name': invoice['Contact Name'],
-                        'Phone Number': invoice['Phone Number'],
-                        'Email': invoice['Email'],
-                        'Payment Term': invoice['Payment Term'],
-                        'Tin No.': invoice['Tin No.'],
-                        'SO No': invoice['SO No.'],
-                        'Date': invoice['Inv Date'],
-                        'Invoice No': invoice['Inv No.'],
-                        'DO No': invoice['Inv No.'] ? invoice['Inv No.'].replace('INV', 'DO') : '',
-                        'Prepared By': invoice['Prepared By'],
-                        'Prepared By Position': invoice['Prepared By Position'],
-                        'Approved By': invoice['Approved By'],
-                        'Approved By Position': invoice['Approved By Position'],
-                    },
-                    items: items.filter(item => item.no > 0).map(item => ({
-                        no: item.no,
-                        itemCode: item.itemCode,
-                        modelName: item.modelName,
-                        description: item.description,
-                        qty: item.qty,
-                        unitPrice: isDO ? 0 : item.unitPrice,
-                        amount: isDO ? 0 : item.amount
-                    })),
-                    totals: {
-                        subTotal: isDO ? 0 : totals.subTotal,
-                        tax: isDO ? 0 : totals.tax,
-                        grandTotal: isDO ? 0 : totals.grandTotal
-                    },
-                    currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
-                    layout: pdfLayout,
-                    previewMode: true,
-                    filename: `${isDO ? 'DO' : 'Invoice'}_preview.pdf`
-                });
-
-                if (typeof url === 'string') {
-                    setPdfPreviewUrl(url);
-                }
-            } catch (error) {
-                console.error('PDF generation error:', error);
-            }
-        }, 800);
-
-        return () => clearTimeout(timer);
-    }, [invoice, items, totals, pdfLayout, previewMode, companies]);
 
     const handleDownloadPDF = (mode: 'invoice' | 'do') => {
         const isDO = mode === 'do';
         generatePDF({
             type: isDO ? 'Delivery Order' : 'Invoice',
-            title: isDO ? 'Delivery Order' : 'Invoice',
             headerData: {
                 ...invoice,
                 'Company Name': invoice['Company Name'],
@@ -597,7 +538,6 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 grandTotal: isDO ? 0 : totals.grandTotal
             },
             currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
-            layout: pdfLayout,
             previewMode: false,
             filename: `${isDO ? 'DO' : 'Invoice'}_${invoice['Inv No.']}.pdf`
         });
@@ -912,19 +852,22 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex flex-col items-center justify-center bg-slate-100/50 relative overflow-hidden p-6">
-                                {pdfPreviewUrl ? (
-                                    <iframe
-                                        src={pdfPreviewUrl}
-                                        className="w-full h-full border-none shadow-lg rounded-lg bg-white"
-                                        title="PDF Preview"
-                                    />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                                        <Spinner size="sm" />
-                                        <span>Generating {previewMode === 'do' ? 'DO' : 'Invoice'} Preview...</span>
-                                    </div>
-                                )}
+                            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
+                                <div className="w-[794px] min-h-[1123px] bg-white shadow-lg">
+                                    {previewMode === 'do' ? (
+                                        <PrintableDO
+                                            headerData={printableProps.headerData}
+                                            items={items.filter(item => item.no > 0)}
+                                        />
+                                    ) : (
+                                        <PrintableInvoice
+                                            headerData={printableProps.headerData}
+                                            items={items.filter(item => item.no > 0)}
+                                            totals={printableProps.totals}
+                                            currency={printableProps.currency}
+                                        />
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

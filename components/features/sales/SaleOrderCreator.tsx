@@ -15,7 +15,8 @@ import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, List, Loader2 } from 'lucide-react';
 import Spinner from "../../common/Spinner";
 import SuccessModal from "../../modals/SuccessModal";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
+import { generatePDF } from "@/lib/pdfClient";
 import PDFConfigModal from "../../modals/PDFConfigModal";
 import PDFControlField from "../../pdf/PDFControlField";
 import { useToast } from "../../../contexts/ToastContext";
@@ -187,7 +188,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
     const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
@@ -614,53 +614,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         return { subTotal, tax, grandTotal, commission };
     }, [items, saleOrder['Bill Invoice']]);
 
-    useEffect(() => {
-        const updatePreview = async () => {
-            const previewUrl = await generatePDF({
-                title: 'SALE ORDER',
-                headerData: {
-                    ...saleOrder,
-                    'Company Name': saleOrder['Company Name'],
-                    'Company Address': saleOrder['Company Address'] || companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
-                    'Contact Person': saleOrder['Contact Name'],
-                    'Contact Tel': saleOrder['Phone Number'],
-                    'Email': saleOrder['Email'],
-                    'Sale Order ID': saleOrder['SO No.'],
-                    'Order Date': saleOrder['SO Date'],
-                    'Delivery Date': saleOrder['Delivery Date'],
-                    'Bill Invoice': saleOrder['Bill Invoice'],
-                    'Payment Term': saleOrder['Payment Term'],
-                    'Remark': saleOrder['Remark'] || '',
-                },
-                items: items.map(item => ({
-                    no: item.no,
-                    itemCode: item.itemCode,
-                    description: item.description,
-                    modelName: item.modelName,
-                    qty: item.qty,
-                    unitPrice: item.unitPrice,
-                    amount: item.amount,
-                    commission: item.commission
-                })),
-                totals: {
-                    subTotal: totals.subTotal,
-                    tax: totals.tax,
-                    grandTotal: totals.grandTotal
-                },
-                currency: saleOrder.Currency || 'USD',
-                filename: 'preview.pdf',
-                type: 'Sale Order',
-                layout: pdfLayout,
-                previewMode: true
-            });
-            if (previewUrl) {
-                setPdfPreviewUrl(previewUrl as string);
-            }
-        };
 
-        const timer = setTimeout(updatePreview, 500);
-        return () => clearTimeout(timer);
-    }, [saleOrder, items, totals, pdfLayout, companies]);
 
     const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -923,66 +877,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         setPdfLayout(defaultLayoutConfig);
     };
 
-    // PDF Generation Effect
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (!saleOrder['Company Name']) return;
-
-            try {
-                const selectedCompany = companies?.find(c => c['Company Name'] === saleOrder['Company Name']);
-
-                const url = await generatePDF({
-                    type: 'Sale Order',
-                    title: 'Sale Order (B2C)',
-                    headerData: {
-                        ...saleOrder,
-                        'Sale Order ID': saleOrder['SO No.'],
-                        'Order Date': saleOrder['SO Date'],
-                        'Delivery Date': saleOrder['Delivery Date'],
-                        'Company Name': saleOrder['Company Name'],
-                        'Company Address': selectedCompany?.['Address (English)'] || '',
-                        'Contact Person': saleOrder['Contact Name'],
-                        'Contact Tel': saleOrder['Phone Number'],
-                        'Email': saleOrder.Email,
-                        'Payment Term': saleOrder['Payment Term'],
-                        'Bill Invoice': saleOrder['Bill Invoice'],
-                    },
-                    items: items.filter(item => item.no > 0).map(item => ({
-                        no: item.no,
-                        itemCode: item.itemCode,
-                        modelName: item.modelName,
-                        description: item.description,
-                        qty: item.qty,
-                        unitPrice: item.unitPrice,
-                        amount: item.amount,
-                        commission: item.commission
-                    })),
-                    totals: {
-                        subTotal: totals.subTotal,
-                        tax: totals.tax,
-                        grandTotal: totals.grandTotal
-                    },
-                    currency: saleOrder.Currency || 'USD',
-                    layout: pdfLayout,
-                    previewMode: true,
-                    filename: `SaleOrder_${saleOrder['SO No.'] || 'preview'}.pdf`
-                });
-
-                if (typeof url === 'string') {
-                    setPdfPreviewUrl(url);
-                }
-            } catch (error) {
-                console.error('PDF generation error:', error);
-            }
-        }, 800);
-
-        return () => clearTimeout(timer);
-    }, [saleOrder, items, totals, pdfLayout, companies]);
 
     const handleDownloadPDF = () => {
         generatePDF({
             type: 'Sale Order',
-            title: 'Sale Order (B2C)',
             headerData: {
                 ...saleOrder,
                 'Sale Order ID': saleOrder['SO No.'],
@@ -1012,7 +910,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 grandTotal: totals.grandTotal
             },
             currency: saleOrder.Currency || 'USD',
-            layout: pdfLayout,
             previewMode: false,
             filename: `SaleOrder_${saleOrder['SO No.']}.pdf`
         });
@@ -1333,19 +1230,26 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex flex-col items-center justify-center bg-muted/20 relative overflow-hidden p-6">
-                                {pdfPreviewUrl ? (
-                                    <iframe
-                                        src={pdfPreviewUrl}
-                                        className="w-full h-full border-none shadow-lg rounded-lg bg-white"
-                                        title="PDF Preview"
+                            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
+                                <div className="w-[794px] min-h-[1123px] bg-white shadow-lg">
+                                    <PrintableSaleOrder
+                                        headerData={{
+                                            ...saleOrder,
+                                            'Sale Order ID': saleOrder['SO No.'],
+                                            'Order Date': saleOrder['SO Date'],
+                                            'Delivery Date': saleOrder['Delivery Date'],
+                                            'Company Name': saleOrder['Company Name'],
+                                            'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+                                            'Contact Person': saleOrder['Contact Name'],
+                                            'Contact Tel': saleOrder['Phone Number'],
+                                            'Payment Term': saleOrder['Payment Term'],
+                                            'Bill Invoice': saleOrder['Bill Invoice'],
+                                        }}
+                                        items={items.filter(item => item.no > 0)}
+                                        totals={{ subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal }}
+                                        currency={(saleOrder.Currency as 'USD' | 'KHR') || 'USD'}
                                     />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                                        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                                        <span>Generating Preview...</span>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     </div>

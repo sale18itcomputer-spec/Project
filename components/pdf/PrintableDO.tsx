@@ -60,7 +60,7 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
           }
         `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black shadow-lg border border-gray-200" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
@@ -83,26 +83,38 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items }) => {
                 <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>DELIVERY ORDER</h1>
 
                 {/* Info Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '85px 10px 1fr 85px 10px 130px', gap: '8px 0', marginBottom: '20px', fontSize: '12px' }}>
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
-                    <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}><strong>{headerData['Company Name'] || ''}</strong></div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>DO No</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Inv No.'] ? headerData['Inv No.'].replace('INV', 'DO') : ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Inv No.'] ? headerData['Inv No.'].replace('INV', 'DO') : ''}</div>
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>DO Date</div>
-                    <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Inv Date'])}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{formatDate(headerData['Inv Date'])}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Name'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Name'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Ref.</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['SO No.'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['SO No.'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Phone Number'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Phone Number'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Email'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Email'] || ''}</div>
                 </div>
 
                 {/* Items Table */}

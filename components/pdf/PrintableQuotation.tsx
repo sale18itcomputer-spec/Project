@@ -77,7 +77,7 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                     }
                 `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black shadow-lg border border-gray-200" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
@@ -100,31 +100,46 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                 <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>QUOTATION</h1>
 
                 {/* Info Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '85px 10px 1fr 85px 10px 130px', gap: '8px 0', marginBottom: '20px', fontSize: '12px' }}>
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
-                    <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}><strong>{headerData['Company Name'] || ''}</strong></div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Quotation No</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Quotation ID'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Quotation ID'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Quote Date</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Person'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Person'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Validity</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Validity Date'] ? new Date(headerData['Validity Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Validity Date'] ? new Date(headerData['Validity Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Tel'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Tel'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Status</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Stock Status'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Stock Status'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Email'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Email'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Payment Term</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Payment Term'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Payment Term'] || ''}</div>
                 </div>
 
                 {/* Items Table */}

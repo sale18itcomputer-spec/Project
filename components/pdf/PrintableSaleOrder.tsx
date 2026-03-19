@@ -84,7 +84,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
           }
         `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black shadow-lg border border-gray-200" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
 
                 {/* Header removed for Sale Order as per request */}
 
@@ -92,31 +92,46 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                 <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 0 30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER (B2C)</h1>
 
                 {/* Info Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 110px 1fr', gap: '8px 15px', marginBottom: '20px', fontSize: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '85px 10px 1fr 85px 10px 130px', gap: '8px 0', marginBottom: '20px', fontSize: '12px' }}>
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
-                    <div style={{ fontWeight: 'normal' }}>: <strong>{headerData['Company Name'] || ''}</strong></div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}><strong>{headerData['Company Name'] || ''}</strong></div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO No</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Sale Order ID'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Sale Order ID'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>: {headerData['Company Address'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Date</div>
-                    <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Order Date'])}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{formatDate(headerData['Order Date'])}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Name'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Name'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Delivery Date</div>
-                    <div style={{ fontWeight: 'normal' }}>: {formatDate(headerData['Delivery Date'])}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{formatDate(headerData['Delivery Date'])}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Contact Tel'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Tel'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Bill Invoice</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Bill Invoice'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Bill Invoice'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Email'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Email'] || ''}</div>
+                    
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Payment Term</div>
-                    <div style={{ fontWeight: 'normal' }}>: {headerData['Payment Term'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Payment Term'] || ''}</div>
                 </div>
 
                 {/* Items Table */}

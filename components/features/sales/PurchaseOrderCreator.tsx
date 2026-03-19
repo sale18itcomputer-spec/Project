@@ -14,7 +14,8 @@ import { formatToInputDate } from "../../../utils/time";
 import { getSetting, saveSetting } from "../../../services/api";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import PDFControlField from "../../pdf/PDFControlField";
-import { PDFLayoutConfig, defaultLayoutConfig, generatePDF } from "../../pdf/pdfGenerator";
+import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
+import { generatePDF } from "@/lib/pdfClient";
 // Dynamically import browser-only libraries
 // Dynamically import browser-only libraries
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -186,7 +187,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
     const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
     const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
@@ -259,56 +259,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         return { sub_total, vat_amount, grand_total };
     }, [items, formData.tax_type]);
 
-    useEffect(() => {
-        const updatePreview = async () => {
-            const selectedVendor = vendors?.find(v => v.id === formData.vendor_id);
-            const previewUrl = await generatePDF({
-                title: 'PURCHASE ORDER',
-                headerData: {
-                    ...formData,
-                    'Vendor Name': formData.vendor_name || selectedVendor?.vendor_name,
-                    'Vendor Address': formData.vendor_address || selectedVendor?.address,
-                    'Vendor Contact': formData.vendor_contact || '',
-                    'Vendor Phone': formData.vendor_phone || selectedVendor?.phone,
-                    'Vendor Email': formData.vendor_email || selectedVendor?.email,
-                    'PO Number': formData.po_number,
-                    'Order Date': formData.order_date,
-                    'Delivery Date': formData.delivery_date,
-                    'Payment Term': formData.payment_term,
-                    'Ship To': formData.ship_to_address,
-                    'Currency': formData.currency,
-                    'Prepared By': formData.prepared_by,
-                    'Prepared By Position': formData.prepared_by_position,
-                    'Approved By': formData.approved_by,
-                    'Approved By Position': formData.approved_by_position
-                },
-                items: items.map(item => ({
-                    no: item.line_number,
-                    itemCode: item.item_number,
-                    description: STRIP_HTML(item.description),
-                    qty: item.qty,
-                    unitPrice: item.unit_price,
-                    amount: item.qty * item.unit_price
-                })),
-                totals: {
-                    subTotal: totals.sub_total || 0,
-                    vat: totals.vat_amount || 0,
-                    grandTotal: totals.grand_total || 0
-                },
-                currency: (formData.currency as 'USD' | 'KHR') || 'USD',
-                filename: 'preview.pdf',
-                type: 'Purchase Order',
-                layout: pdfLayout,
-                previewMode: true
-            });
-            if (previewUrl) {
-                setPdfPreviewUrl(previewUrl as string);
-            }
-        };
-
-        const timer = setTimeout(updatePreview, 500);
-        return () => clearTimeout(timer);
-    }, [formData, items, totals, pdfLayout, vendors]);
 
     useEffect(() => {
         if (existingPO) {
@@ -481,7 +431,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         try {
             const selectedVendor = vendors?.find(v => v.id === formData.vendor_id);
             await generatePDF({
-                title: 'PURCHASE ORDER',
                 headerData: {
                     ...formData,
                     'Vendor Name': formData.vendor_name || selectedVendor?.vendor_name,
@@ -516,7 +465,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 currency: (formData.currency as 'USD' | 'KHR') || 'USD',
                 filename: `${formData.po_number || 'PO'}.pdf`,
                 type: 'Purchase Order',
-                layout: pdfLayout
             });
         } catch (error: any) {
             console.error("PDF Download Error", error);
@@ -734,19 +682,16 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             </div>
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center bg-muted/20 relative overflow-hidden p-6">
-                            {pdfPreviewUrl ? (
-                                <iframe
-                                    src={pdfPreviewUrl}
-                                    className="w-full h-full border-none shadow-lg rounded-lg bg-white"
-                                    title="PDF Preview"
-                                />
-                            ) : (
-                                <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                                    <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                                    <span>Generating Preview...</span>
-                                </div>
-                            )}
+                        <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 p-8 text-center gap-4">
+                            <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center">
+                                <Download className="w-8 h-8 text-brand-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground">Live Preview Unavailable</h3>
+                                <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                                    Click <strong>Download PDF</strong> above to generate the final Puppeteer-rendered PDF.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

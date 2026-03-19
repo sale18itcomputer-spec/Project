@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
         'luckyexcel',
         'exceljs',
         '@corbe30/fortune-excel',
+        'puppeteer-core',
     ],
     async headers() {
         return [
