@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
         'exceljs',
         '@corbe30/fortune-excel',
         'puppeteer-core',
+        '@sparticuz/chromium',
     ],
     async headers() {
         return [
