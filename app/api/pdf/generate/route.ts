@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
                 '--disable-gpu',
                 '--font-render-hinting=none',
             ],
-            headless: isVercel ? true : true, // Use boolean true for simplicity/compatibility
+            headless: true,
             defaultViewport: { width: 1200, height: 800 },
         });
 
