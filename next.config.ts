@@ -20,12 +20,17 @@ const nextConfig: NextConfig = {
             'node_modules/puppeteer-core/**',
         ],
     },
-    turbopack: {
-        resolveExternal: [
-            'puppeteer-core',
-            '@sparticuz/chromium',
-        ],
+    webpack: (config: any, { isServer }: { isServer: boolean }) => {
+        if (isServer) {
+            config.externals = [
+                ...(Array.isArray(config.externals) ? config.externals : [config.externals]),
+                'puppeteer-core',
+                '@sparticuz/chromium',
+            ];
+        }
+        return config;
     },
+
     async headers() {
         return [
             {
