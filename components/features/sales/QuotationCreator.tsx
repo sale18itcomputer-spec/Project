@@ -338,17 +338,18 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     useEffect(() => {
         const updateScale = () => {
             if (containerRef.current) {
-                const padding = 32;
-                const availableWidth = containerRef.current.offsetWidth - padding;
-                const availableHeight = containerRef.current.offsetHeight - padding;
+                const toolbarH = 52; // preview toolbar height
+                const padding = 64; // top+bottom padding inside scroll area
+                const availableWidth = containerRef.current.offsetWidth - 32;
+                const availableHeight = containerRef.current.offsetHeight - toolbarH - padding;
 
-                const pageWidth = 210 * 3;
-                const pageHeight = 297 * 3;
+                const pageWidth = 794;  // px (A4 at 96dpi)
+                const pageHeight = 1123; // px
 
                 const scaleX = availableWidth / pageWidth;
                 const scaleY = availableHeight / pageHeight;
 
-                setPreviewScale(Math.min(scaleX, scaleY));
+                setPreviewScale(Math.min(scaleX, scaleY, 1));
             }
         };
 
@@ -1187,44 +1188,54 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
                         {/* Center: PDF Preview OR Pricelist (B2B Only) */}
                         {showPdfPreview || !isB2B ? (
-                            <div ref={containerRef} className="flex-1 flex flex-col bg-background relative overflow-hidden">
-                                <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
+                            <div ref={containerRef} className="flex-1 flex flex-col bg-muted/20 relative overflow-hidden">
+                                {/* Preview toolbar */}
+                                <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border shrink-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
+                                        <div className="w-1.5 h-5 bg-brand-500 rounded-full"></div>
                                         <div>
                                             <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
                                             <p className="text-[10px] text-muted-foreground">{quote['Quote No.']} • {quote['Company Name'] || 'No Company'}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                            <span className="text-[10px] text-muted-foreground font-medium">Live Preview</span>
+                                        </div>
+                                        <div className="text-[10px] font-mono text-muted-foreground/60 bg-muted px-2 py-0.5 rounded-md border border-border">
+                                            {Math.round(previewScale * 100)}%
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
-                                    <div className="w-[794px] min-h-[1123px] bg-white shadow-lg" style={{ transform: `scale(${previewScale})`, transformOrigin: 'top center' }}>
-                                        <PrintableQuotation
-                                            headerData={{
-                                                'Quotation ID': quote['Quote No.'],
-                                                'Quote Date': quote['Quote Date'],
-                                                'Validity Date': quote['Validity Date'],
-                                                'Company Name': quote['Company Name'],
-                                                'Company Address': quote['Company Address'],
-                                                'Contact Person': quote['Contact Name'],
-                                                'Contact Tel': quote['Contact Number'],
-                                                'Contact Email': quote['Contact Email'],
-                                                'Payment Term': quote['Payment Term'],
-                                                'Stock Status': quote['Stock Status'],
-                                                'Prepared By': quote['Prepared By'],
-                                                'Prepared By Position': quote['Prepared By Position'],
-                                                'Approved By': quote['Approved By'],
-                                                'Approved By Position': quote['Approved By Position'],
-                                                'Remark': quote.Remark,
-                                                'Terms and Conditions': quote['Terms and Conditions'],
-                                            }}
-                                            items={items}
-                                            totals={{ subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal }}
-                                            currency={(quote.Currency as 'USD' | 'KHR') || 'USD'}
-                                        />
+                                {/* Scrollable preview area */}
+                                <div className="flex-1 overflow-auto">
+                                    <div className="min-h-full flex items-start justify-center py-6 px-4">
+                                        <div className="shadow-[0_2px_16px_rgba(0,0,0,0.10)]">
+                                            <PrintableQuotation
+                                                headerData={{
+                                                    'Quotation ID': quote['Quote No.'],
+                                                    'Quote Date': quote['Quote Date'],
+                                                    'Validity Date': quote['Validity Date'],
+                                                    'Company Name': quote['Company Name'],
+                                                    'Company Address': quote['Company Address'],
+                                                    'Contact Person': quote['Contact Name'],
+                                                    'Contact Tel': quote['Contact Number'],
+                                                    'Contact Email': quote['Contact Email'],
+                                                    'Payment Term': quote['Payment Term'],
+                                                    'Stock Status': quote['Stock Status'],
+                                                    'Prepared By': quote['Prepared By'],
+                                                    'Prepared By Position': quote['Prepared By Position'],
+                                                    'Approved By': quote['Approved By'],
+                                                    'Approved By Position': quote['Approved By Position'],
+                                                    'Remark': quote.Remark,
+                                                    'Terms and Conditions': quote['Terms and Conditions'],
+                                                }}
+                                                items={items}
+                                                totals={{ subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal }}
+                                                currency={(quote.Currency as 'USD' | 'KHR') || 'USD'}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

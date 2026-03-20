@@ -47,8 +47,8 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                 {`
                     @media print {
                         @page {
-                            margin: 0;
-                            size: auto;
+                            margin: 20mm;
+                            size: A4;
                         }
                         body {
                             margin: 0;
@@ -67,7 +67,7 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                             top: 0;
                             width: 100% !important;
                             margin: 0 !important;
-                            padding: 20mm !important;
+                            padding: 0 !important;
                             box-sizing: border-box;
                             max-width: none !important;
                             box-shadow: none !important;
@@ -75,9 +75,24 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                             background: white;
                         }
                     }
+                    @media screen {
+                        .printable-area {
+                            /* A4 at 96dpi = 794px wide, 1123px tall */
+                            width: 794px !important;
+                            min-height: 1123px;
+                            padding: 38px 42px !important;
+                            box-sizing: border-box;
+                            background: white;
+                            /* Repeat background to simulate page breaks */
+                            background-image:
+                                linear-gradient(to bottom, transparent calc(1123px - 1px), #cbd5e1 calc(1123px - 1px), #cbd5e1 1123px, white 1123px);
+                            background-size: 100% 1123px;
+                            background-repeat: repeat-y;
+                        }
+                    }
                 `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area font-[serif] text-sm text-black" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', margin: '0 auto', minHeight: '277mm', display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
@@ -223,14 +238,14 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
                 </table>
 
                 {/* Remarks */}
-                <div style={{ clear: 'both', marginTop: '10px', fontSize: '10px', lineHeight: 1.4, pageBreakInside: 'avoid' }}>
+                <div style={{ clear: 'both', marginTop: '10px', fontSize: '10px', lineHeight: 1.4, pageBreakInside: 'avoid', flex: '1' }}>
                     <h4 style={{ fontWeight: 'bold', textDecoration: 'underline', fontSize: '11px', marginBottom: '3px' }}>Terms and Conditions</h4>
                     <div style={{ whiteSpace: 'pre-wrap', marginTop: '3px' }}>
                         {headerData['Terms and Conditions']}
                     </div>
                 </div>
                 {/* Signatures - Positioned near bottom of page */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '80px', gap: '40px', pageBreakInside: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '40px', gap: '40px', pageBreakInside: 'avoid', pageBreakBefore: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
                     <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
