@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
             'node_modules/puppeteer-core/**',
         ],
     },
+    turbopack: {},
     webpack: (config: any, { isServer }: { isServer: boolean }) => {
         if (isServer) {
             config.externals = [
