@@ -33,9 +33,10 @@ export async function POST(req: NextRequest) {
     try {
         const html = buildHtml(opts);
 
-        // Dynamically require to prevent bundler from resolving at build time
-        const chromium = (await import('@sparticuz/chromium')).default;
-        const puppeteer = (await import('puppeteer-core')).default;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+        const chromium = require('@sparticuz/chromium').default as any;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+        const puppeteer = require('puppeteer-core') as any;
 
         // Configure browser for Vercel/Serverless or Local
         const isVercel = !!process.env.VERCEL;
