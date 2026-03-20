@@ -116,7 +116,7 @@ function baseStyle(fontB64: string): string {
         src: url('data:font/truetype;base64,${fontB64}') format('truetype');
         font-weight: normal; font-style: normal;
       }
-      @page { size: A4; margin: 0; }
+      @page { size: A4; }
       html, body { margin: 0; padding: 0; }
       body {
         font-family: 'Times New Roman', 'KhmerOS', serif;
@@ -124,14 +124,10 @@ function baseStyle(fontB64: string): string {
         color: #000; background: #fff;
         -webkit-font-smoothing: antialiased;
       }
-      .page { width: 210mm; height: 297mm; margin: 0; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; }
+      .page { margin: 0; padding: 0; box-sizing: border-box; }
       /* ── Page margins ── */
       .page-inner {
-        padding: ${mm(L.margins.top)} ${mm(L.margins.right)} ${mm(L.margins.bottom)} ${mm(L.margins.left)};
         box-sizing: border-box;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
       }
       /* ── Header ── */
       .hdr {
@@ -186,9 +182,8 @@ function baseStyle(fontB64: string): string {
       /* ── Signatures ── */
       .sigs {
         display: flex; justify-content: space-between;
-        margin-top: auto;
+        margin-top: 50px;
         padding: 0 ${L.signatures.padding}px;
-        padding-bottom: ${mm(L.margins.bottom)};
         page-break-inside: avoid;
       }
       .sig-box   { text-align: center; flex: 0 0 160px; }
@@ -203,7 +198,7 @@ function baseStyle(fontB64: string): string {
       .checklist { display: flex; flex-wrap: wrap; gap: 10px; margin: 5px 0 12px; }
       .check-item { display: flex; align-items: center; gap: 4px; font-size: 9pt; }
       .check-box  { width: 11px; height: 11px; border: 1px solid #000; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-      @media print { @page { size: A4; margin: 0; } body { margin: 0; } }
+      @media print { @page { size: A4; } body { margin: 0; } }
     </style>`;
 }
 

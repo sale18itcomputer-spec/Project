@@ -10,8 +10,6 @@ const nextConfig: NextConfig = {
         'luckyexcel',
         'exceljs',
         '@corbe30/fortune-excel',
-        'puppeteer-core',
-        '@sparticuz/chromium',
     ],
 
 

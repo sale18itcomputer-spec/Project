@@ -3,19 +3,25 @@
  * Body: PdfTemplateOptions (JSON)
  * Returns: application/pdf bytes
  *
- * Uses puppeteer-core + the locally installed Chrome to
- * render the invoice HTML and print it to PDF.
- * Khmer text is shaped by Chrome's built-in HarfBuzz engine.
+ * Uses Browserless.io (cloud Chrome) to render the HTML template and
+ * return a PDF. No local Chromium needed — works on Vercel Hobby.
+ *
+ * Setup:
+ *  1. Sign up free at https://www.browserless.io/
+ *  2. Copy your API token from the dashboard.
+ *  3. Add to .env.local:   BROWSERLESS_TOKEN=your_token_here
+ *  4. Add to Vercel env:   BROWSERLESS_TOKEN=your_token_here
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { buildHtml, PdfTemplateOptions } from '@/lib/pdfTemplate';
 
-// Vercel deployment requirements
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Executable path: Vercel uses @sparticuz/chromium, local uses installed Chrome
-const LOCAL_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+// ── Browserless.io config ─────────────────────────────────────────────────────
+// Default endpoint is Browserless v2 SFO region. Override via env if needed.
+const BROWSERLESS_ENDPOINT =
+    process.env.BROWSERLESS_ENDPOINT || 'https://production-sfo.browserless.io';
 
 export async function POST(req: NextRequest) {
     let opts: PdfTemplateOptions;
@@ -29,76 +35,69 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    let browser: any = null;
+    const token = process.env.BROWSERLESS_TOKEN;
+    if (!token) {
+        console.error('[PDF API] Missing BROWSERLESS_TOKEN environment variable.');
+        return NextResponse.json(
+            { error: 'PDF service not configured. Set BROWSERLESS_TOKEN in environment variables.' },
+            { status: 503 }
+        );
+    }
+
     try {
+        // Build the full HTML string using the existing template
         const html = buildHtml(opts);
 
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-        const chromiumModule = require('@sparticuz/chromium');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-        const puppeteerModule = require('puppeteer-core');
+        // POST to Browserless /pdf endpoint
+        // Docs: https://docs.browserless.io/HTTP-APIs/pdf
+        const browserlessRes = await fetch(
+            `${BROWSERLESS_ENDPOINT}/pdf?token=${token}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    html,
+                    options: {
+                        format:          'A4',
+                        printBackground: true,
+                        margin: { top: '10mm', right: '11mm', bottom: '10mm', left: '11mm' },
+                    },
+                    // Wait for fonts and the logo image to load before printing
+                    gotoOptions: {
+                        waitUntil: 'networkidle0',
+                        timeout: 30000,
+                    },
+                }),
+            }
+        );
 
-        const chromium = (chromiumModule.default ?? chromiumModule) as any;
-        const puppeteer = (puppeteerModule.default ?? puppeteerModule) as any;
+        if (!browserlessRes.ok) {
+            const errText = await browserlessRes.text().catch(() => browserlessRes.statusText);
+            console.error('[PDF API] Browserless error:', browserlessRes.status, errText);
+            return NextResponse.json(
+                { error: 'PDF generation failed', detail: errText },
+                { status: 502 }
+            );
+        }
 
-        console.log('[PDF API] chromium loaded:', typeof chromium?.executablePath);
-        console.log('[PDF API] puppeteer loaded:', typeof puppeteer?.launch);
+        const pdfBuffer = Buffer.from(await browserlessRes.arrayBuffer());
 
-        // Configure browser for Vercel/Serverless or Local
-        const isVercel = !!process.env.VERCEL;
-        const executablePath = isVercel 
-            ? await chromium.executablePath() 
-            : (process.env.CHROME_EXECUTABLE_PATH || LOCAL_CHROME);
-
-        browser = await puppeteer.launch({
-            executablePath,
-            args: isVercel ? chromium.args : [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--font-render-hinting=none',
-            ],
-            headless: true,
-            defaultViewport: { width: 1200, height: 800 },
-        });
-
-        const page = await browser.newPage();
-
-        // Set content and wait for fonts + the logo image to load
-        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
-
-        // Wait for @font-face to finish
-        await page.evaluateHandle('document.fonts.ready');
-
-        // page.pdf() returns Uint8Array in newer puppeteer-core types;
-        // convert to Node Buffer so NextResponse accepts it as BodyInit.
-        const pdfBuffer = Buffer.from(await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-        }));
-
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(pdfBuffer as unknown as BodyInit, {
             status: 200,
             headers: {
-                'Content-Type': 'application/pdf',
+                'Content-Type':        'application/pdf',
                 'Content-Disposition': `attachment; filename="${sanitizeFilename(opts)}"`,
-                'Cache-Control': 'no-store',
+                'Cache-Control':       'no-store',
             },
         });
+
     } catch (err: any) {
-        console.error('[PDF API] Error name:', err?.name);
-        console.error('[PDF API] Error message:', err?.message);
-        console.error('[PDF API] Error stack:', err?.stack);
-        return NextResponse.json({ 
-            error: 'PDF generation failed', 
-            detail: String(err),
-            message: err?.message,
-            stack: err?.stack,
-        }, { status: 500 });
-    } finally {
-        if (browser) await browser.close();
+        console.error('[PDF API] Error:', err?.message || err);
+        console.error('[PDF API] Stack:', err?.stack);
+        return NextResponse.json(
+            { error: 'PDF generation failed', message: err?.message || String(err) },
+            { status: 500 }
+        );
     }
 }
 
