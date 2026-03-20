@@ -13,24 +13,7 @@ const nextConfig: NextConfig = {
         'puppeteer-core',
         '@sparticuz/chromium',
     ],
-    // Prevent Vercel from trying to bundle these large native packages
-    outputFileTracingExcludes: {
-        '*': [
-            'node_modules/@sparticuz/chromium/**',
-            'node_modules/puppeteer-core/**',
-        ],
-    },
-    turbopack: {},
-    webpack: (config: any, { isServer }: { isServer: boolean }) => {
-        if (isServer) {
-            config.externals = [
-                ...(Array.isArray(config.externals) ? config.externals : [config.externals]),
-                'puppeteer-core',
-                '@sparticuz/chromium',
-            ];
-        }
-        return config;
-    },
+
 
     async headers() {
         return [
