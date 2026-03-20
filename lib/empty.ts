@@ -1,4 +1,3 @@
-// Empty stub — used by Turbopack to satisfy build-time resolution
-// of server-only packages like puppeteer-core and @sparticuz/chromium.
-// These are loaded at runtime via require() inside the API route.
+// This file is intentionally empty.
+// It exists only as a placeholder and is no longer used.
 export default {};

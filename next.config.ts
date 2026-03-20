@@ -21,10 +21,10 @@ const nextConfig: NextConfig = {
         ],
     },
     turbopack: {
-        resolveAlias: {
-            'puppeteer-core': { browser: './lib/empty.ts', default: './lib/empty.ts' },
-            '@sparticuz/chromium': { browser: './lib/empty.ts', default: './lib/empty.ts' },
-        },
+        resolveExternal: [
+            'puppeteer-core',
+            '@sparticuz/chromium',
+        ],
     },
     async headers() {
         return [
