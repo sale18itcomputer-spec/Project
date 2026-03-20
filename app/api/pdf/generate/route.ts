@@ -34,9 +34,15 @@ export async function POST(req: NextRequest) {
         const html = buildHtml(opts);
 
         // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-        const chromium = require('@sparticuz/chromium').default as any;
+        const chromiumModule = require('@sparticuz/chromium');
         // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-        const puppeteer = require('puppeteer-core') as any;
+        const puppeteerModule = require('puppeteer-core');
+
+        const chromium = (chromiumModule.default ?? chromiumModule) as any;
+        const puppeteer = (puppeteerModule.default ?? puppeteerModule) as any;
+
+        console.log('[PDF API] chromium loaded:', typeof chromium?.executablePath);
+        console.log('[PDF API] puppeteer loaded:', typeof puppeteer?.launch);
 
         // Configure browser for Vercel/Serverless or Local
         const isVercel = !!process.env.VERCEL;
@@ -81,9 +87,16 @@ export async function POST(req: NextRequest) {
                 'Cache-Control': 'no-store',
             },
         });
-    } catch (err) {
-        console.error('[PDF API] Puppeteer error:', err);
-        return NextResponse.json({ error: 'PDF generation failed', detail: String(err) }, { status: 500 });
+    } catch (err: any) {
+        console.error('[PDF API] Error name:', err?.name);
+        console.error('[PDF API] Error message:', err?.message);
+        console.error('[PDF API] Error stack:', err?.stack);
+        return NextResponse.json({ 
+            error: 'PDF generation failed', 
+            detail: String(err),
+            message: err?.message,
+            stack: err?.stack,
+        }, { status: 500 });
     } finally {
         if (browser) await browser.close();
     }
