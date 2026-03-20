@@ -20,15 +20,11 @@ const nextConfig: NextConfig = {
             'node_modules/puppeteer-core/**',
         ],
     },
-    webpack: (config: any, { isServer }: { isServer: boolean }) => {
-        if (isServer) {
-            config.externals = [
-                ...(config.externals || []),
-                'puppeteer-core',
-                '@sparticuz/chromium',
-            ];
-        }
-        return config;
+    turbopack: {
+        resolveAlias: {
+            'puppeteer-core': { browser: './lib/empty.ts', default: './lib/empty.ts' },
+            '@sparticuz/chromium': { browser: './lib/empty.ts', default: './lib/empty.ts' },
+        },
     },
     async headers() {
         return [
