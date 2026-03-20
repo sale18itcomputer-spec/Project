@@ -8,8 +8,6 @@
  * Khmer text is shaped by Chrome's built-in HarfBuzz engine.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
 import { buildHtml, PdfTemplateOptions } from '@/lib/pdfTemplate';
 
 // Vercel deployment requirements
@@ -34,6 +32,10 @@ export async function POST(req: NextRequest) {
     let browser: any = null;
     try {
         const html = buildHtml(opts);
+
+        // Dynamically require to prevent bundler from resolving at build time
+        const chromium = (await import('@sparticuz/chromium')).default;
+        const puppeteer = (await import('puppeteer-core')).default;
 
         // Configure browser for Vercel/Serverless or Local
         const isVercel = !!process.env.VERCEL;
