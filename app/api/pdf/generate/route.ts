@@ -16,7 +16,7 @@ import { buildHtml, PdfTemplateOptions } from '@/lib/pdfTemplate';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Vercel path vs Local path
+// Executable path: Vercel uses @sparticuz/chromium, local uses installed Chrome
 const LOCAL_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
 export async function POST(req: NextRequest) {
