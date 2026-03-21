@@ -53,8 +53,8 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 {`
           @media print {
             @page {
-              margin: 0;
-              size: auto;
+              margin: 20mm;
+              size: A4;
             }
             body {
               margin: 0;
@@ -73,7 +73,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
               top: 0;
               width: 100% !important;
               margin: 0 !important;
-              padding: 20mm !important;
+              padding: 0 !important;
               box-sizing: border-box;
               max-width: none !important;
               box-shadow: none !important;
@@ -83,7 +83,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
           }
         `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto', minHeight: '277mm', display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
@@ -113,7 +113,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                     
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Inv No</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Inv No.'] || ''}</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Inv No'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
@@ -129,15 +129,15 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                     
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Ref.</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['SO No.'] || ''}</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['SO No'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
                     <div style={{ fontWeight: 'normal' }}>{headerData['Phone Number'] || ''}</div>
                     
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tin No.</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tin No</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Tin No.'] || ''}</div>
+                    <div style={{ fontWeight: 'normal' }}>{headerData['Tin No'] || ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
@@ -229,7 +229,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 </table>
 
                 {/* Signatures - Positioned near bottom of page */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '80px', gap: '40px', pageBreakInside: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '40px', gap: '40px', pageBreakInside: 'avoid', pageBreakBefore: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
                     <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>

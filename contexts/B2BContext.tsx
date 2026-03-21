@@ -168,7 +168,7 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         console.log('🔵 [B2BContext] Setting up global real-time subscription...');
 
-        const channel = supabase.channel('b2b_global_changes') // Unique name for the context
+        const channel = supabase.channel(`b2b_global_changes_${crypto.randomUUID()}`) // Namespaced per tab to avoid multi-tab conflicts
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'b2b_companies' },
@@ -207,15 +207,15 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         const item = normalize<PipelineProject>([newRecord], PIPELINE_HEADERS)[0];
                         setProjects(prev => {
                             if (!prev) return [item];
-                            const exists = prev.some(i => i['Pipeline No.'] === item['Pipeline No.']);
-                            return exists ? prev.map(i => i['Pipeline No.'] === item['Pipeline No.'] ? item : i) : [item, ...prev];
+                            const exists = prev.some(i => i['Pipeline No'] === item['Pipeline No']);
+                            return exists ? prev.map(i => i['Pipeline No'] === item['Pipeline No'] ? item : i) : [item, ...prev];
                         });
                     } else if (eventType === 'UPDATE') {
                         const item = normalize<PipelineProject>([newRecord], PIPELINE_HEADERS)[0];
-                        setProjects(prev => prev ? prev.map(i => i['Pipeline No.'] === item['Pipeline No.'] ? item : i) : [item]);
+                        setProjects(prev => prev ? prev.map(i => i['Pipeline No'] === item['Pipeline No'] ? item : i) : [item]);
                     } else if (eventType === 'DELETE') {
-                        if (oldRecord && oldRecord['Pipeline No.']) {
-                            setProjects(prev => prev ? prev.filter(i => i['Pipeline No.'] !== oldRecord['Pipeline No.']) : prev);
+                        if (oldRecord && oldRecord['Pipeline No']) {
+                            setProjects(prev => prev ? prev.filter(i => i['Pipeline No'] !== oldRecord['Pipeline No']) : prev);
                         }
                     }
                 }
@@ -230,15 +230,15 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         const item = normalize<Quotation>([newRecord], QUOTATION_HEADERS)[0];
                         setQuotations(prev => {
                             if (!prev) return [item];
-                            const exists = prev.some(i => i['Quote No.'] === item['Quote No.']);
-                            return exists ? prev.map(i => i['Quote No.'] === item['Quote No.'] ? item : i) : [item, ...prev];
+                            const exists = prev.some(i => i['Quote No'] === item['Quote No']);
+                            return exists ? prev.map(i => i['Quote No'] === item['Quote No'] ? item : i) : [item, ...prev];
                         });
                     } else if (eventType === 'UPDATE') {
                         const item = normalize<Quotation>([newRecord], QUOTATION_HEADERS)[0];
-                        setQuotations(prev => prev ? prev.map(i => i['Quote No.'] === item['Quote No.'] ? item : i) : [item]);
+                        setQuotations(prev => prev ? prev.map(i => i['Quote No'] === item['Quote No'] ? item : i) : [item]);
                     } else if (eventType === 'DELETE') {
-                        if (oldRecord && oldRecord['Quote No.']) {
-                            setQuotations(prev => prev ? prev.filter(i => i['Quote No.'] !== oldRecord['Quote No.']) : prev);
+                        if (oldRecord && oldRecord['Quote No']) {
+                            setQuotations(prev => prev ? prev.filter(i => i['Quote No'] !== oldRecord['Quote No']) : prev);
                         }
                     }
                 }

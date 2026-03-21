@@ -17,7 +17,7 @@ const VendorDashboard: React.FC = () => {
     const { vendors, loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-    const { width } = useWindowSize();
+    useWindowSize();
     const { handleNavigation, navigation } = useNavigation();
 
     const modalConfig = useMemo(() => {

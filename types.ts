@@ -48,7 +48,7 @@ export interface User {
 }
 
 export interface PipelineProject {
-  'Pipeline No.': string;
+  'Pipeline No': string;
   'Company Name': string;
   'Contact Name': string;
   'Contact Number': string;
@@ -64,10 +64,10 @@ export interface PipelineProject {
   'Due Date': string;
   'Inv Date': string;
   'Quote': string;
-  'Quote No.'?: string;
+  'Quote No'?: string;
   'Bid Value': string;
-  'Invoice No.': string;
-  'SO No.'?: string;
+  'Invoice No': string;
+  'SO No'?: string;
   'Remarks': string;
   'Conditional': string;
   'Currency'?: 'USD' | 'KHR';
@@ -194,7 +194,7 @@ export interface Notification {
 }
 
 export interface Quotation {
-  'Quote No.': string;
+  'Quote No': string;
   'File': string;
   'Quote Date': string;
   'Validity Date'?: string;
@@ -223,10 +223,10 @@ export interface Quotation {
 }
 
 export interface SaleOrder {
-  'SO No.': string;
+  'SO No': string;
   'SO Date': string;
   'File': string;
-  'Quote No.': string;
+  'Quote No': string;
   'Company Name': string;
   'Contact Name': string;
   'Phone Number': string;
@@ -235,6 +235,7 @@ export interface SaleOrder {
   'Total Amount': string;
   'Commission': string;
   'Status': 'Pending' | 'Completed' | 'Cancel';
+  // Note: 'SO No' column renamed from 'SO No.' in Supabase
   'Delivery Date'?: string;
   'Payment Term'?: string;
   'Bill Invoice'?: 'VAT' | 'NON-VAT';
@@ -305,10 +306,10 @@ export interface PricelistItem {
 }
 
 export interface Invoice {
-  'Inv No.': string;
+  'Inv No': string;
   'Inv Date': string;
   'File': string;
-  'SO No.': string;
+  'SO No': string;
   'Company Name': string;
   'Contact Name': string;
   'Phone Number': string;
@@ -321,7 +322,7 @@ export interface Invoice {
   'Attachment'?: string;
   'Company Address'?: string;
   'Payment Term'?: string;
-  'Tin No.'?: string;
+  'Tin No'?: string;
   'ItemsJSON'?: any;
   [key: string]: any;
 }

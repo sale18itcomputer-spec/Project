@@ -6,12 +6,11 @@ import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { ExternalLink, Table, CalendarDays, Clock, Users, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
-import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
+import { parseDate, formatDateAsMDY } from "../../../utils/time";
 import NewMeetingModal from "../../modals/NewMeetingModal";
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -54,41 +53,6 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const MEETING_COLUMNS_VISIBILITY_KEY = 'limperial-meeting-columns-visibility';
 
-const MeetingMobileCard: React.FC<{ meeting: Meeting, onView: () => void }> = ({ meeting, onView }) => {
-  let statusClass = 'mobile-status-default';
-  if (meeting.Status === 'Open') statusClass = 'mobile-status-info';
-  if (meeting.Status === 'Close') statusClass = 'mobile-status-success';
-  if (meeting.Status === 'Cancelled') statusClass = 'mobile-status-danger';
-
-  return (
-    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-      <div className="mobile-card-header">
-        <div>
-          <div className="mobile-card-title">{meeting['Company Name']}</div>
-          <div className="mobile-card-subtitle">{meeting.Type} Meeting</div>
-        </div>
-        <span className={`mobile-status ${statusClass}`}>
-          <span className="mobile-status-dot"></span>
-          {meeting.Status}
-        </span>
-      </div>
-      <div className="mobile-card-body">
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Date</span>
-          <span className="mobile-card-value text-slate-500 font-medium">{formatDisplayDate(meeting['Meeting Date'])}</span>
-        </div>
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Participants</span>
-          <span className="mobile-card-value">{meeting.Participants}</span>
-        </div>
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Time</span>
-          <span className="mobile-card-value">{meeting['Start Time']} - {meeting['End Time']}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 
 const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) => {
@@ -97,8 +61,6 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const { handleNavigation, navigation } = useNavigation();
-  const { width } = useWindowSize();
-  const isMobile = width < 1024;
 
   const modalConfig = useMemo(() => {
     const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);

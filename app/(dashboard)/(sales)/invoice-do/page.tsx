@@ -1,9 +1,10 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
+import { useData } from '@/contexts/DataContext';
 
 const InvoiceDODashboard = dynamic(() => import('@/components/dashboards/sales/InvoiceDODashboard'), {
     loading: () => <ContentSkeleton />,
@@ -12,6 +13,10 @@ const InvoiceDODashboard = dynamic(() => import('@/components/dashboards/sales/I
 function InvoiceDOContent() {
     const searchParams = useSearchParams();
     const payloadRaw = searchParams.get('payload');
+    const { fetchModule } = useData();
+
+    useEffect(() => { fetchModule('Invoices'); }, [fetchModule]);
+
     let payload: any;
     if (payloadRaw) {
         try { payload = JSON.parse(payloadRaw); } catch { /* ignore */ }

@@ -54,8 +54,8 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                 {`
           @media print {
             @page {
-              margin: 0;
-              size: auto;
+              margin: 20mm;
+              size: A4;
             }
             body {
               margin: 0;
@@ -74,7 +74,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
               top: 0;
               width: 100% !important;
               margin: 0 !important;
-              padding: 20mm !important;
+              padding: 0 !important;
               box-sizing: border-box;
               max-width: none !important;
               box-shadow: none !important;
@@ -84,7 +84,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
           }
         `}
             </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black h-full relative" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto' }}>
+            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto', minHeight: '277mm', display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header removed for Sale Order as per request */}
 
@@ -251,7 +251,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                 </div>
 
                 {/* Signatures */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: 'avoid' }}>
                     <div style={{ textAlign: 'center', width: '35%' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>ORDERED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>

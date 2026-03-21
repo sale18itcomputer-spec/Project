@@ -1,9 +1,10 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
+import { useData } from '@/contexts/DataContext';
 
 const QuotationDashboard = dynamic(() => import('@/components/dashboards/sales/QuotationDashboard'), {
     loading: () => <ContentSkeleton />,
@@ -12,6 +13,10 @@ const QuotationDashboard = dynamic(() => import('@/components/dashboards/sales/Q
 function QuotationsContent() {
     const searchParams = useSearchParams();
     const payloadRaw = searchParams.get('payload');
+    const { fetchModule } = useData();
+
+    useEffect(() => { fetchModule('Quotations'); }, [fetchModule]);
+
     let payload: any;
     if (payloadRaw) {
         try { payload = JSON.parse(payloadRaw); } catch { /* ignore */ }

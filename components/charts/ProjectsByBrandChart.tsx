@@ -207,9 +207,12 @@ const SalesByBrandChart: React.FC<SalesByBrandChartProps> = ({ data, currency = 
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center gap-2">
           <PieChart className="w-12 h-12 text-gray-300" />
-          <p className="mt-4 text-sm font-medium">No brand data to display.</p>
+          <p className="mt-2 text-sm font-medium">No brand data to display.</p>
+          <p className="text-xs text-muted-foreground max-w-[180px]">
+            Brand data is extracted from sale order line items.
+          </p>
         </div>
       )}
     </div>

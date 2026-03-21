@@ -173,7 +173,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const { isB2B } = useB2B();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState('');
     const [successInfo, setSuccessInfo] = useState<{ soNo: string } | null>(null);
     const [itemsLoading, setItemsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -300,14 +299,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         }
     };
 
-    const isFromQuote = useMemo(() => !!existingSaleOrder?.['Quote No.'], [existingSaleOrder]);
+    const isFromQuote = useMemo(() => !!existingSaleOrder?.['Quote No'], [existingSaleOrder]);
 
     const nextSaleOrderNumber = useMemo(() => {
         if (!saleOrders || saleOrders.length === 0) return 'SO-0000001';
 
         const maxNum = saleOrders.reduce((max, so) => {
             // Match trailing digits regardless of prefix format (S, S-, SO-)
-            const numPartMatch = so['SO No.'].match(/\d+$/);
+            const numPartMatch = so['SO No'].match(/\d+$/);
             if (!numPartMatch) return max;
             const numPart = parseInt(numPartMatch[0], 10);
             return isNaN(numPart) ? max : Math.max(max, numPart);
@@ -322,34 +321,25 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const fetchQuoteItems = React.useCallback(async (quoteId: string) => {
         setItemsLoading(true);
-        setError('');
         try {
             const { items: fetchedItems } = await readQuotationSheetData(quoteId);
             if (fetchedItems && fetchedItems.length > 0) {
                 const newItems: LineItem[] = fetchedItems.map((item: any, index: number) => {
-                    let description = '';
-                    // Find the corresponding item in the main pricelist using the itemCode.
+                    // Resolve description: prefer pricelist entry, fall back to item fields
                     const pricelistEntry = pricelist?.find(p => p.Code === item.itemCode);
-
-                    if (pricelistEntry) {
-                        // If found, use the Description from the pricelist.
-                        description = pricelistEntry.Description || '';
-                    } else {
-                        // Fallback to the original logic if not found in the pricelist.
-                        const modelName = (item.modelName || '').trim();
-                        const itemDescription = (item.description || '').trim();
-                        const descriptionParts = [];
-                        if (modelName) descriptionParts.push(modelName);
-                        if (itemDescription) descriptionParts.push(itemDescription);
-                        description = descriptionParts.join('\n');
-                    }
+                    const resolvedDescription = pricelistEntry
+                        ? (pricelistEntry.Description || '')
+                        : [
+                            (item.modelName || '').trim(),
+                            (item.description || '').trim()
+                          ].filter(Boolean).join('\n');
 
                     return {
                         id: `item-${Date.now()}-${index}`,
                         no: item.no || index + 1,
                         itemCode: item.itemCode || '',
                         modelName: item.modelName || '',
-                        description: item.description || '',
+                        description: resolvedDescription,
                         qty: item.qty || 1,
                         unitPrice: item.unitPrice || 0,
                         commission: 0, // Default commission to 0
@@ -359,7 +349,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 setItems(newItems);
             }
         } catch (err: any) {
-            setError(`Failed to fetch items from quote: ${err.message}`);
             addToast(`Failed to fetch items from quote: ${err.message}`, 'error');
             setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
         } finally {
@@ -376,7 +365,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
             const baseData = {
                 ...existingSaleOrder,
-                'SO No.': existingSaleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO No': existingSaleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
                 'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
                 'Currency': (existingSaleOrder.Currency === 'KHR' ? 'KHR' : 'USD') as ('USD' | 'KHR'),
@@ -424,8 +413,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 } catch (e) {
                     console.error("Failed to parse ItemsJSON", e);
                 }
-            } else if (existingSaleOrder['Quote No.']) {
-                fetchQuoteItems(existingSaleOrder['Quote No.']);
+            } else if (existingSaleOrder['Quote No']) {
+                fetchQuoteItems(existingSaleOrder['Quote No']);
             }
         } else {
             // Check for ItemsJSON in initialData
@@ -447,14 +436,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     console.error("Failed to parse initial ItemsJSON", e);
                     setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
                 }
-            } else if (initialData?.['Quote No.']) {
-                fetchQuoteItems(initialData['Quote No.']);
+            } else if (initialData?.['Quote No']) {
+                fetchQuoteItems(initialData['Quote No']);
             } else {
                 setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
             }
 
             setSaleOrder({
-                'SO No.': nextSaleOrderNumber,
+                'SO No': nextSaleOrderNumber,
                 'SO Date': getTodayDateString(),
                 'Delivery Date': getTodayDateString(),
                 'Status': 'Pending',
@@ -630,7 +619,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             'Contact Name': '',
             'Phone Number': '',
             'Email': '',
-            'Quote No.': '',
+            'Quote No': '',
             'Payment Term': company?.['Payment Term'] || ''
         }));
     }
@@ -651,11 +640,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const handleQuoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const quoteId = e.target.value;
-        const quote = quotations?.find(q => q['Quote No.'] === quoteId);
+        const quote = quotations?.find(q => q['Quote No'] === quoteId);
         if (quote) {
             setSaleOrder(prev => ({
                 ...prev,
-                'Quote No.': quoteId,
+                'Quote No': quoteId,
                 'Company Name': quote['Company Name'],
                 'Company Address': quote['Company Address'] || '',
                 'Contact Name': quote['Contact Name'],
@@ -700,13 +689,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const handleSave = async () => {
         setIsSubmitting(true);
-        setError('');
         try {
             const masterSheetData: SaleOrder = {
-                'SO No.': saleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': saleOrder['SO Date'] || null,
                 'File': '',
-                'Quote No.': saleOrder['Quote No.'] || '',
+                'Quote No': saleOrder['Quote No'] || '',
                 'Company Name': saleOrder['Company Name'] || '',
                 'Contact Name': saleOrder['Contact Name'] || '',
                 'Phone Number': saleOrder['Phone Number'] || '',
@@ -732,8 +720,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Terms and Conditions': saleOrder['Terms and Conditions'] || '',
             };
 
-            const companyDetails = companies?.find(c => c['Company Name'] === masterSheetData['Company Name']);
-
             // Combine master data with line items for Supabase storage
             const payload = {
                 ...masterSheetData,
@@ -741,17 +727,16 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             };
 
             // Database write handled by createSaleOrderSheet (upsert)
-            await createSaleOrderSheet(masterSheetData['SO No.'], payload);
+            await createSaleOrderSheet(masterSheetData['SO No'], payload);
 
-            if (existingSaleOrder && existingSaleOrder['SO No.']) {
-                const originalSaleOrders = saleOrders ? [...saleOrders] : [];
+            if (existingSaleOrder && existingSaleOrder['SO No']) {
                 // Optimistic update
-                setSaleOrders(current => current ? current.map(so => so['SO No.'] === masterSheetData['SO No.'] ? masterSheetData : so) : [masterSheetData]);
-                setSuccessInfo({ soNo: masterSheetData['SO No.'] });
+                setSaleOrders(current => current ? current.map(so => so['SO No'] === masterSheetData['SO No'] ? masterSheetData : so) : [masterSheetData]);
+                setSuccessInfo({ soNo: masterSheetData['SO No'] });
             } else { // Create
                 // Optimistic update
                 setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
-                setSuccessInfo({ soNo: masterSheetData['SO No.'] });
+                setSuccessInfo({ soNo: masterSheetData['SO No'] });
             }
 
         } finally {
@@ -760,12 +745,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     };
 
     const handleViewQuote = () => {
-        if (saleOrder['Quote No.']) {
-            const quote = quotations?.find(q => q['Quote No.'] === saleOrder['Quote No.']);
+        if (saleOrder['Quote No']) {
+            const quote = quotations?.find(q => q['Quote No'] === saleOrder['Quote No']);
             if (quote) {
                 handleNavigation({ view: 'quotations', payload: { action: 'edit', data: quote } });
             } else {
-                handleNavigation({ view: 'quotations', filter: saleOrder['Quote No.'] });
+                handleNavigation({ view: 'quotations', filter: saleOrder['Quote No'] });
             }
         } else {
             addToast('No linked quotation found for this order.', 'info');
@@ -774,7 +759,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const handleConvertToInvoice = async () => {
         setIsSubmitting(true);
-        setError('');
         try {
             // Update status to Completed for the Sale Order
             const updatedSO = {
@@ -785,10 +769,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             setSaleOrder(updatedSO);
 
             const masterSheetData: SaleOrder = {
-                'SO No.': saleOrder['SO No.'] || nextSaleOrderNumber,
+                'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': saleOrder['SO Date'] || null,
                 'File': '',
-                'Quote No.': saleOrder['Quote No.'] || '',
+                'Quote No': saleOrder['Quote No'] || '',
                 'Company Name': saleOrder['Company Name'] || '',
                 'Contact Name': saleOrder['Contact Name'] || '',
                 'Phone Number': saleOrder['Phone Number'] || '',
@@ -819,11 +803,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             };
 
             // Save the sale order with updated status
-            await createSaleOrderSheet(masterSheetData['SO No.'], payload);
+            await createSaleOrderSheet(masterSheetData['SO No'], payload);
 
             if (setSaleOrders) {
                 setSaleOrders(prev => {
-                    const base = prev ? prev.filter(so => so['SO No.'] !== masterSheetData['SO No.']) : [];
+                    const base = prev ? prev.filter(so => so['SO No'] !== masterSheetData['SO No']) : [];
                     return [masterSheetData as any, ...base];
                 });
             }
@@ -842,20 +826,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
             addToast('Sale Order marked as Completed and converted to Invoice.', 'success');
         } catch (err: any) {
-            setError(err.message || 'Failed to convert to invoice');
             addToast('Error during conversion: ' + err.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleRequestApprove = async () => {
-        setIsSubmitting(true);
-        try {
-            await handleSave();
-            addToast('Approval request for Sale Order has been saved.', 'info');
-        } catch (err: any) {
-            setError(err.message || 'Failed to request approval.');
         } finally {
             setIsSubmitting(false);
         }
@@ -863,7 +834,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
     const contactOptions = useMemo(() => contacts?.filter(c => c['Company Name'] === saleOrder['Company Name']).map(c => c.Name) || [], [contacts, saleOrder]);
-    const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No.']) || [], [quotations, saleOrder]);
+    const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No']) || [], [quotations, saleOrder]);
     const currencySymbol = getCurrencySymbol(saleOrder.Currency);
 
     // FIX: Define formatCurrency function to correctly format numeric values as currency strings.
@@ -873,9 +844,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     };
 
 
-    const resetLayout = () => {
-        setPdfLayout(defaultLayoutConfig);
-    };
 
 
     const handleDownloadPDF = () => {
@@ -883,7 +851,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             type: 'Sale Order',
             headerData: {
                 ...saleOrder,
-                'Sale Order ID': saleOrder['SO No.'],
+                'Sale Order ID': saleOrder['SO No'],
                 'Order Date': saleOrder['SO Date'],
                 'Delivery Date': saleOrder['Delivery Date'],
                 'Company Name': saleOrder['Company Name'],
@@ -911,13 +879,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             },
             currency: saleOrder.Currency || 'USD',
             previewMode: false,
-            filename: `SaleOrder_${saleOrder['SO No.']}.pdf`
+            filename: `SaleOrder_${saleOrder['SO No']}.pdf`
         });
     };
 
     const printableProps = {
         headerData: {
-            'Sale Order ID': saleOrder['SO No.'],
+            'Sale Order ID': saleOrder['SO No'],
             'Order Date': saleOrder['SO Date'],
             'Delivery Date': saleOrder['Delivery Date'],
             'Company Name': saleOrder['Company Name'],
@@ -1000,7 +968,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     return (
         <>
             <DocumentEditorContainer
-                title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No.']}` : "Create New Sale Order"}
+                title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No']}` : "Create New Sale Order"}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
@@ -1222,7 +1190,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
                                     <div>
                                         <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
-                                        <p className="text-[10px] text-muted-foreground">{saleOrder['SO No.'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
+                                        <p className="text-[10px] text-muted-foreground">{saleOrder['SO No'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1235,7 +1203,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <PrintableSaleOrder
                                         headerData={{
                                             ...saleOrder,
-                                            'Sale Order ID': saleOrder['SO No.'],
+                                            'Sale Order ID': saleOrder['SO No'],
                                             'Order Date': saleOrder['SO Date'],
                                             'Delivery Date': saleOrder['Delivery Date'],
                                             'Company Name': saleOrder['Company Name'],
@@ -1299,15 +1267,15 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                 </FormSection>
 
                                 <FormSection title="Order Info">
-                                    <FormInput name="SO No." label="Sale Order No." value={saleOrder['SO No.']} onChange={handleHeaderChange} readOnly required />
-                                    <FormInput name="Pipeline No." label="Pipeline No." value={saleOrder['Pipeline No.']} onChange={handleHeaderChange} readOnly />
+                                    <FormInput name="SO No" label="Sale Order No." value={saleOrder['SO No']} onChange={handleHeaderChange} readOnly required />
+                                    <FormInput name="Pipeline No" label="Pipeline No" value={saleOrder['Pipeline No']} onChange={handleHeaderChange} readOnly />
                                     <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
                                     <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
                                     <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
                                     <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
                                     <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
                                     <FormSelect name="Status" label="Status" value={saleOrder.Status} onChange={handleHeaderChange} options={STATUS_OPTIONS} />
-                                    <FormSelect name="Quote No." label="From Quotation" value={saleOrder['Quote No.']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
+                                    <FormSelect name="Quote No" label="From Quotation" value={saleOrder['Quote No']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
                                 </FormSection>
 
                                 <FormSection title="Signatures & Remarks">

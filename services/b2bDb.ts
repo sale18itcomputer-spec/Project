@@ -22,7 +22,7 @@ export const updateB2BCompany = async (companyId: string, updates: Partial<Compa
     const { data, error } = await supabase
         .from('b2b_companies')
         .update(updates)
-        .eq('"Company ID"', companyId)
+        .eq('Company ID', companyId)
         .select();
 
     if (error) throw error;
@@ -33,7 +33,7 @@ export const deleteB2BCompany = async (companyId: string) => {
     const { error } = await supabase
         .from('b2b_companies')
         .delete()
-        .eq('"Company ID"', companyId);
+        .eq('Company ID', companyId);
 
     if (error) throw error;
 };
@@ -64,7 +64,7 @@ export const updateB2BPipeline = async (pipelineNo: string, updates: Partial<Pip
     const { data, error } = await supabase
         .from('b2b_pipelines')
         .update(updates)
-        .eq('"Pipeline No."', pipelineNo)
+        .eq('Pipeline No', pipelineNo)
         .select();
 
     if (error) throw error;
@@ -75,7 +75,7 @@ export const deleteB2BPipeline = async (pipelineNo: string) => {
     const { error } = await supabase
         .from('b2b_pipelines')
         .delete()
-        .eq('"Pipeline No."', pipelineNo);
+        .eq('Pipeline No', pipelineNo);
 
     if (error) throw error;
 };
@@ -106,7 +106,7 @@ export const updateB2BQuotation = async (quoteNo: string, updates: Partial<Quota
     const { data, error } = await supabase
         .from('b2b_quotations')
         .update(updates)
-        .eq('"Quote No."', quoteNo)
+        .eq('Quote No', quoteNo)
         .select();
 
     if (error) throw error;
@@ -117,7 +117,7 @@ export const deleteB2BQuotation = async (quoteNo: string) => {
     const { error } = await supabase
         .from('b2b_quotations')
         .delete()
-        .eq('"Quote No."', quoteNo);
+        .eq('Quote No', quoteNo);
 
     if (error) throw error;
 };
@@ -179,7 +179,7 @@ export const updateRecord = async (
     const { data, error } = await supabase
         .from(tableName)
         .update(updates)
-        .eq(primaryKey.includes(' ') && !primaryKey.startsWith('"') ? `"${primaryKey}"` : primaryKey, primaryValue)
+        .eq(primaryKey, primaryValue)
         .select();
 
     if (error) throw error;
@@ -199,7 +199,7 @@ export const deleteRecord = async (
     const { error } = await supabase
         .from(tableName)
         .delete()
-        .eq(primaryKey.includes(' ') && !primaryKey.startsWith('"') ? `"${primaryKey}"` : primaryKey, primaryValue);
+        .eq(primaryKey, primaryValue);
 
     if (error) throw error;
 };
@@ -215,19 +215,15 @@ export const createQuotationSheet = async (
 ): Promise<{ message: string; url?: string }> => {
     const tableName = getTableName('quotations', isB2B);
 
-    // Check if quotation exists
-    const { data: existing } = await supabase
+    // Use upsert — avoids a separate existence check and the PostgREST
+    // "failed to parse tree path" error caused by .select('Quote No.')
+    const { error } = await supabase
         .from(tableName)
-        .select('"Quote No."')
-        .eq('"Quote No."', quoteNo)
-        .maybeSingle();
+        .upsert(data, { onConflict: 'Quote No' });
 
-    if (existing) {
-        // Update existing
-        await updateRecord('quotations', '"Quote No."', quoteNo, data, isB2B);
-    } else {
-        // Create new
-        await insertRecord('quotations', data, isB2B);
+    if (error) {
+        console.error('Supabase Upsert (B2B Quotation) Error:', error);
+        throw error;
     }
 
     return { message: 'Quotation saved successfully', url: '#' };
@@ -246,7 +242,7 @@ export const readQuotationSheetData = async (
     const { data, error } = await supabase
         .from(tableName)
         .select('*')
-        .eq('"Quote No."', quoteNo)
+        .eq('Quote No', quoteNo)
         .single();
 
     if (error) throw error;

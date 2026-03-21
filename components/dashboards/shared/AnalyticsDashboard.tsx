@@ -8,12 +8,17 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useDebouncedCallback } from 'use-debounce';
 
 const AnalyticsDashboard: React.FC = () => {
-    const { quotations, saleOrders, projects, invoices } = useB2BData();
+    const { quotations, saleOrders, projects, invoices, fetchModule } = useB2BData();
     const { currentUser } = useAuth();
     const chartRef1 = useRef<any>(null);
     const chartRef2 = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [shouldRender, setShouldRender] = useState(false);
+
+    // Ensure needed lazy modules are loaded for analytics charts
+    useEffect(() => {
+        fetchModule('Quotations', 'Sale Orders', 'Invoices');
+    }, [fetchModule]);
 
     const handleResize = useDebouncedCallback(() => {
         chartRef1.current?.getEchartsInstance().resize();
@@ -38,9 +43,6 @@ const AnalyticsDashboard: React.FC = () => {
 
     // --- Data Preparation ---
     const data = useMemo(() => {
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
         // Filter Function relying on Role
         const canView = (itemUser?: string, itemPreparer?: string) => {
             if (currentUser?.Role === 'Admin') return true;

@@ -11,15 +11,13 @@ import SalesByBrandChart from "../../charts/ProjectsByBrandChart";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { FilterProvider, useFilter } from "../../../contexts/FilterContext";
 import DashboardFilterBar from "../components/DashboardFilterBar";
-import { calculateDueDate, parseDate } from "../../../utils/time";
+import { parseDate } from "../../../utils/time";
 import { parseSheetValue } from "../../../utils/formatters";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import PendingWorks from "./PendingWorks";
 
-import { useAuth } from "../../../contexts/AuthContext";
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
 import { useB2B } from "../../../contexts/B2BContext";
-
 import { useWindowSize } from "../../../hooks/useWindowSize";
 
 const DashboardContentSkeleton = () => (
@@ -64,16 +62,19 @@ const DashboardContentSkeleton = () => (
 );
 
 const DashboardContent: React.FC = () => {
-  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders, quotations, pricelist } = useB2BData();
+  const { projects, companies, contacts, contactLogs, siteSurveys, meetings, loading, error, saleOrders, pricelist, fetchModule } = useB2BData();
   const { handleNavigation } = useNavigation();
-  const { currentUser } = useAuth();
   const { filters } = useFilter();
   const { isB2B } = useB2B();
   const [renderStep, setRenderStep] = useState(0);
   const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [isFilterMenuOpen, setFilterMenuOpen] = useState(false);
-  const { width } = useWindowSize();
-  const isMobile = width < 768;
+  useWindowSize();
+
+  // Ensure lazy modules needed by dashboard charts are loaded
+  useEffect(() => {
+    fetchModule('Sale Orders', 'Raw', 'Quotations', 'Invoices');
+  }, [fetchModule]);
 
   useEffect(() => {
     if (!loading) {
@@ -96,7 +97,6 @@ const DashboardContent: React.FC = () => {
     return projects.filter(p => {
       const hasYearFilter = filters.year?.length && filters.year.length > 0;
       const hasDateRange = !!(filters.startDate || filters.endDate);
-      const currentYear = new Date().getFullYear();
 
       // Default to Current Year if no explicit Year or valid Date Range is provided.
       // This applies even if 'Month' is filtered (e.g. "January" defaults to "January of Current Year").
@@ -205,13 +205,6 @@ const DashboardContent: React.FC = () => {
     };
   }, [projects, saleOrders]);
 
-  const processedFilteredProjects = useMemo(() => {
-    return filteredProjects.map(project => ({
-      ...project,
-      calculatedDueDate: calculateDueDate(project['Created Date'], project['Time Frame'])
-    }));
-  }, [filteredProjects]);
-
   const totalWinValue = useMemo(() => {
     return filteredProjects
       .filter(p => {
@@ -224,15 +217,6 @@ const DashboardContent: React.FC = () => {
         return acc + value;
       }, 0);
   }, [filteredProjects, currencyFilter]);
-
-  const winRateData = useMemo(() => {
-    const wonCount = filteredProjects.filter(p => p.Status === 'Close (win)').length;
-    const lostCount = filteredProjects.filter(p => p.Status === 'Close (lose)').length;
-    const total = wonCount + lostCount;
-    const winRate = total > 0 ? (wonCount / total) * 100 : 0;
-    return { winRate, won: wonCount, total };
-  }, [filteredProjects]);
-
 
   const validContactsCount = useMemo(() => {
     if (!contacts) return 0;
@@ -338,9 +322,30 @@ const DashboardContent: React.FC = () => {
     if (filters.year?.length) {
       yearsToDisplay.push(...filters.year.map(Number));
     } else if (!filters.startDate && !filters.endDate) {
-      // DEFAULT: If no specific date filter is set, show only the current year.
-      // This fulfills the "monthly of current year" requirement.
-      yearsToDisplay.push(currentYear);
+      // DEFAULT: Show current year. But if current year has no data, fall back to all available years.
+      const currentYearHasData = relevantItems.some(item => {
+        const itemAny = item as any;
+        const ds = isB2B ? (itemAny['Inv Date'] || itemAny['Created Date']) : itemAny['SO Date'];
+        const d = parseDate(ds);
+        return d?.getFullYear() === currentYear;
+      });
+      if (currentYearHasData) {
+        yearsToDisplay.push(currentYear);
+      } else {
+        // Fall back: show all years that actually have data
+        const availableYears = new Set<number>();
+        relevantItems.forEach(item => {
+          const itemAny = item as any;
+          const ds = isB2B ? (itemAny['Inv Date'] || itemAny['Created Date']) : itemAny['SO Date'];
+          const d = parseDate(ds);
+          if (d) availableYears.add(d.getFullYear());
+        });
+        if (availableYears.size > 0) {
+          yearsToDisplay.push(...Array.from(availableYears).sort());
+        } else {
+          yearsToDisplay.push(currentYear); // still show current year skeleton
+        }
+      }
     } else {
       // If date range exists, determine all years covered by the range
       const startYear = filters.startDate ? parseDate(filters.startDate)?.getFullYear() : null;
@@ -458,7 +463,7 @@ const DashboardContent: React.FC = () => {
     return { chartData };
   }, [saleOrders, projects, isB2B, revenuePeriod, currencyFilter, filters]);
 
-  const [customerPeriod, setCustomerPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
+  const [customerPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
 
   const topCustomersData = useMemo(() => {
     if (!saleOrders) return [];
@@ -483,21 +488,17 @@ const DashboardContent: React.FC = () => {
       const date = parseDate(so['SO Date']);
       if (!date) return false;
 
-      // 4. Period Scoping (relative to now)
-      // Only apply if NO global date range/year/month filter is active
+      // 4. Period Scoping - only apply if NO global date filters are active
       const hasDateFilter = !!(filters.startDate || filters.endDate || filters.year?.length || filters.month?.length);
-
-      if (!hasDateFilter) {
+      if (!hasDateFilter && customerPeriod === 'monthly') {
         const itemYear = date.getFullYear();
-        if (customerPeriod === 'yearly') {
-          if (itemYear !== currentYear) return false;
-        } else if (customerPeriod === 'monthly') {
-          if (itemYear !== currentYear || date.getMonth() !== currentMonth) return false;
-        } else if (customerPeriod === 'quarterly') {
-          const itemQuarter = Math.floor(date.getMonth() / 3);
-          if (itemYear !== currentYear || itemQuarter !== currentQuarter) return false;
-        }
+        if (itemYear !== currentYear || date.getMonth() !== currentMonth) return false;
+      } else if (!hasDateFilter && customerPeriod === 'quarterly') {
+        const itemYear = date.getFullYear();
+        const itemQuarter = Math.floor(date.getMonth() / 3);
+        if (itemYear !== currentYear || itemQuarter !== currentQuarter) return false;
       }
+      // For 'yearly' with no date filter: show all-time data so chart is never empty
 
       // 5. Global Dashboard Filters (if active)
       if (filters.startDate) {
@@ -540,10 +541,10 @@ const DashboardContent: React.FC = () => {
   }, [saleOrders, filters, currencyFilter, customerPeriod]);
 
   const salesByBrandData = useMemo(() => {
-    if (!saleOrders || !pricelist) return [];
+    if (!saleOrders) return [];
 
     const brandMap = new Map<string, string>();
-    pricelist.forEach(item => {
+    pricelist?.forEach(item => {
       if (item.Code && item.Brand) {
         brandMap.set(item.Code.trim(), item.Brand.trim());
       }
@@ -586,7 +587,7 @@ const DashboardContent: React.FC = () => {
       let items: any[] = [];
       try {
         items = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : (so.ItemsJSON || []);
-      } catch (e) {
+      } catch {
         // ignore parse errors
       }
 

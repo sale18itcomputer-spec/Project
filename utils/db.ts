@@ -30,20 +30,20 @@ const initDB = () => {
         return dbPromise;
     }
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-        upgrade(db, oldVersion, newVersion, transaction) {
+        upgrade(db, _oldVersion, _newVersion, transaction) {
             STORE_NAMES.forEach(storeName => {
-                // If the store exists from a previous version, we need to check if it has a keyPath.
-                // If it does, we must delete and recreate it to switch to out-of-line keys.
                 if (db.objectStoreNames.contains(storeName)) {
-                    // This is a simple migration: if upgrading from a version that had keyPaths,
-                    // we just rebuild the store. transaction.objectStore() is needed to inspect.
+                    // Only rebuild if the existing store uses an inline keyPath.
+                    // Rebuilding unnecessarily wipes cached data, so we skip it when
+                    // the store is already out-of-line (keyPath === null).
                     const store = transaction.objectStore(storeName);
-                    if (store.keyPath) {
+                    if (store.keyPath !== null) {
                         db.deleteObjectStore(storeName);
-                        db.createObjectStore(storeName); // Recreate without keyPath
+                        db.createObjectStore(storeName); // Recreate with out-of-line keys
                     }
+                    // Already correct — leave it alone.
                 } else {
-                    // If the store doesn't exist, create it fresh without a keyPath.
+                    // Store doesn't exist yet — create it fresh with out-of-line keys.
                     db.createObjectStore(storeName);
                 }
             });

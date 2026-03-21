@@ -8,7 +8,7 @@ import DataTable, { ColumnDef } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import SaleOrderCreator from "../../features/sales/SaleOrderCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
+import { formatCurrencySmartly } from "../../../utils/formatters";
 import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy, Loader2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
@@ -64,10 +64,10 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         if (!initialPayload) return undefined;
 
         // Case 1: From Quotation
-        if (initialPayload['Quote No.'] && !initialPayload.isPipeline) {
+        if (initialPayload['Quote No'] && !initialPayload.isPipeline) {
             const quotation = initialPayload as Quotation;
             return {
-                'Quote No.': quotation['Quote No.'],
+                'Quote No': quotation['Quote No'],
                 'Company Name': quotation['Company Name'],
                 'Contact Name': quotation['Contact Name'],
                 'Phone Number': quotation['Contact Number'],
@@ -84,7 +84,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         // Case 2: From Pipeline
         if (initialPayload.isPipeline) {
             return {
-                'Quote No.': initialPayload['Quote No.'] || '',
+                'Quote No': initialPayload['Quote No'] || '',
                 'Company Name': initialPayload['Company Name'] || '',
                 'Contact Name': initialPayload['Contact Name'] || '',
                 'Status': 'Pending',
@@ -106,13 +106,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     const selectedSaleOrderId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
-        if (initialPayload?.action === 'view' && initialPayload?.data?.['SO No.']) return initialPayload.data['SO No.'];
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['SO No']) return initialPayload.data['SO No'];
         return null;
     }, [navigation.action, navigation.id, initialPayload]);
 
     const selectedSaleOrderToEdit = useMemo(() => {
         if (navigation.action === 'edit' && navigation.id && saleOrders) {
-            return saleOrders.find(so => so['SO No.'] === navigation.id) || null;
+            return saleOrders.find(so => so['SO No'] === navigation.id) || null;
         }
         return null;
     }, [navigation.action, navigation.id, saleOrders]);
@@ -128,11 +128,11 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     };
 
     const handleEditSaleOrder = (saleOrder: SaleOrder) => {
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'edit', id: saleOrder['SO No.'] });
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'edit', id: saleOrder['SO No'] });
     };
 
     const handleViewSaleOrder = (saleOrder: SaleOrder) => {
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id: saleOrder['SO No.'] });
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id: saleOrder['SO No'] });
     };
 
     const handleDeleteRequest = (saleOrder: SaleOrder) => {
@@ -142,13 +142,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const handleConfirmDelete = async () => {
         if (!saleOrderToDelete) return;
         const originalOrders = saleOrders ? [...saleOrders] : [];
-        const orderId = saleOrderToDelete['SO No.'];
+        const orderId = saleOrderToDelete['SO No'];
         setSaleOrderToDelete(null);
-        setSaleOrders(prev => prev ? prev.filter(so => so['SO No.'] !== orderId) : null);
+        setSaleOrders(prev => prev ? prev.filter(so => so['SO No'] !== orderId) : null);
         try {
             await deleteRecord('Sale Orders', orderId);
             addToast('Sale Order deleted!', 'success');
-        } catch (err: any) {
+        } catch {
             addToast('Failed to delete sale order.', 'error');
             setSaleOrders(originalOrders);
         }
@@ -170,7 +170,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             
             const initialData: Partial<SaleOrder> = {
                 ...so,
-                'SO No.': undefined as any, // Will be auto-generated
+                'SO No': undefined as any, // Will be auto-generated
                 'Status': 'Pending',
                 'SO Date': undefined as any, // Reset to today
                 'Delivery Date': undefined as any,
@@ -201,32 +201,6 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         });
     };
 
-    const metrics = useMemo(() => {
-        if (!saleOrders) return { total: 0, totalValueUSD: 0, totalValueKHR: 0, completionRate: 0 };
-
-        const { totalValueUSD, totalValueKHR } = saleOrders.reduce((acc, so) => {
-            const value = parseSheetValue(so['Total Amount']);
-            const determinedCurrency = determineCurrency(value, so.Currency);
-            if (determinedCurrency === 'KHR') {
-                acc.totalValueKHR += value;
-            } else {
-                acc.totalValueUSD += value;
-            }
-            return acc;
-        }, { totalValueUSD: 0, totalValueKHR: 0 });
-
-        const completedCount = saleOrders.filter(so => so.Status === 'Completed').length;
-        const totalConsidered = saleOrders.filter(so => ['Completed', 'Cancel'].includes(so.Status)).length;
-        const completionRate = totalConsidered > 0 ? (completedCount / totalConsidered) * 100 : 0;
-
-        return {
-            total: saleOrders.length,
-            totalValueUSD,
-            totalValueKHR,
-            completionRate,
-        };
-    }, [saleOrders]);
-
     const filteredData = useMemo(() => {
         let dataToFilter = saleOrders || [];
 
@@ -242,7 +216,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         if (!searchQuery) return dataToFilter;
 
         return dataToFilter.filter(item =>
-            ['SO No.', 'Company Name', 'Contact Name', 'Status', 'Quote No.'].some(key =>
+            ['SO No', 'Company Name', 'Contact Name', 'Status', 'Quote No'].some(key =>
                 String(item[key as keyof SaleOrder] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
             )
         );
@@ -251,18 +225,18 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const selectedSaleOrder = useMemo(() => {
         let targetId = selectedSaleOrderId;
         if (viewMode === 'detail' && !targetId && filteredData.length > 0) {
-            targetId = filteredData[0]['SO No.'];
+            targetId = filteredData[0]['SO No'];
         }
         if (!targetId) return null;
-        return filteredData.find(so => so['SO No.'] === targetId) || null;
+        return filteredData.find(so => so['SO No'] === targetId) || null;
     }, [selectedSaleOrderId, filteredData, viewMode]);
 
     const allColumns = useMemo<ColumnDef<SaleOrder>[]>(() => [
         {
-            accessorKey: 'SO No.',
-            header: 'SO No.',
+            accessorKey: 'SO No',
+            header: 'SO No',
             isSortable: true,
-            cell: (value: string, row) => (
+            cell: (value: string) => (
                 <div className="font-semibold text-muted-foreground/80">
                     {value}
                 </div>
@@ -393,7 +367,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         return (
             <>
                 <h4 className="font-bold text-foreground text-base">{item['Company Name']}</h4>
-                <p className="text-sm text-muted-foreground font-mono">{item['SO No.']}</p>
+                <p className="text-sm text-muted-foreground font-mono">{item['SO No']}</p>
                 <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-2">{formattedValue}</p>
                 <p className="text-sm text-muted-foreground mt-2">By {item['Created By']}</p>
             </>
@@ -422,29 +396,12 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         );
     }
 
-    const usdStr = metrics.totalValueUSD > 0 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueUSD) : '';
-    const khrStr = metrics.totalValueKHR > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueKHR)}` : '';
-
-    let mainValue: string;
-    let subValue: string | undefined;
-
-    if (usdStr && khrStr) {
-        mainValue = usdStr;
-        subValue = khrStr;
-    } else if (usdStr) {
-        mainValue = usdStr;
-    } else if (khrStr) {
-        mainValue = khrStr;
-    } else {
-        mainValue = '$0';
-    }
-
     const renderDetailView = () => (
         <div className="flex flex-col md:flex-row h-full">
             <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
                 <SaleOrderListContainer
                     saleOrders={filteredData}
-                    selectedSaleOrderId={selectedSaleOrder?.['SO No.'] || null}
+                    selectedSaleOrderId={selectedSaleOrder?.['SO No'] || null}
                     onSelectSaleOrder={(id) => handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id })}
                     loading={loading && !saleOrders}
                 />
@@ -456,7 +413,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h1 className="text-2xl font-bold text-foreground">{selectedSaleOrder['Company Name']}</h1>
-                                    <p className="text-muted-foreground font-mono mt-1">{selectedSaleOrder['SO No.']}</p>
+                                    <p className="text-muted-foreground font-mono mt-1">{selectedSaleOrder['SO No']}</p>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     {selectedSaleOrder.Status === 'Completed' && (
@@ -505,7 +462,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                             <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                 <DetailItem label="SO Date" value={formatDisplayDate(selectedSaleOrder['SO Date'])} />
                                 <DetailItem label="Delivery Date" value={formatDisplayDate(selectedSaleOrder['Delivery Date'])} />
-                                <DetailItem label="Quote Ref." value={selectedSaleOrder['Quote No.']} />
+                                <DetailItem label="Quote Ref." value={selectedSaleOrder['Quote No']} />
                                 <DetailItem label="Payment Term" value={selectedSaleOrder['Payment Term']} />
                                 <DetailItem label="Contact Person" value={selectedSaleOrder['Contact Name']} />
                                 <DetailItem label="Phone Number" value={selectedSaleOrder['Phone Number']} />
@@ -608,7 +565,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         loading={loading}
                         onRowClick={handleViewSaleOrder}
                         initialSort={{ key: 'SO Date', direction: 'descending' }}
-                        mobilePrimaryColumns={['SO No.', 'Company Name', 'Total Amount', 'Status']}
+                        mobilePrimaryColumns={['SO No', 'Company Name', 'Total Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
                         renderRowActions={(row) => (
                             <div className="flex items-center justify-center gap-3">
@@ -664,7 +621,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         onCardClick={handleViewSaleOrder}
                         renderCardContent={renderKanbanCard}
                         loading={loading}
-                        getItemId={(item) => item['SO No.']}
+                        getItemId={(item) => item['SO No']}
                     />
                 ) : (
                     renderDetailView()
@@ -703,7 +660,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                 confirmText="Delete"
                 variant="danger"
             >
-                Are you sure you want to delete sale order {saleOrderToDelete?.['SO No.']}? This action cannot be undone.
+                Are you sure you want to delete sale order {saleOrderToDelete?.['SO No']}? This action cannot be undone.
             </ConfirmationModal>
         </div >
     );

@@ -113,16 +113,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             conditions.forEach(cond => {
                 if (diff === cond.days) {
-                    const id = `quote-${q['Quote No.']}-${cond.days}`;
+                    const id = `quote-${q['Quote No']}-${cond.days}`;
                     newNotifications.push({
                         id,
                         type: 'quotation',
                         subtype: cond.subtype,
                         title: `Quotation Expiry`,
-                        description: `Quote #${q['Quote No.']} (${q['Company Name']}) ${cond.msg}.`,
+                        description: `Quote #${q['Quote No']} (${q['Company Name']}) ${cond.msg}.`,
                         timestamp: getSimulatedTimestamp(today, id),
                         severity: cond.severity,
-                        link: { view: 'quotations', filter: q['Quote No.'] }
+                        link: { view: 'quotations', filter: q['Quote No'] }
                     });
                 }
             });
@@ -145,16 +145,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             conditions.forEach(cond => {
                 if (diff === cond.days) {
-                    const id = `so-${so['SO No.']}-${cond.days}`;
+                    const id = `so-${so['SO No']}-${cond.days}`;
                     newNotifications.push({
                         id,
                         type: 'sale_order',
                         subtype: 'delivery',
                         title: `Order Delivery`,
-                        description: `SO #${so['SO No.']} (${so['Company Name']}) ${cond.msg}.`,
+                        description: `SO #${so['SO No']} (${so['Company Name']}) ${cond.msg}.`,
                         timestamp: getSimulatedTimestamp(today, id),
                         severity: cond.severity,
-                        link: { view: 'sale-orders', filter: so['SO No.'] }
+                        link: { view: 'sale-orders', filter: so['SO No'] }
                     });
                 }
             });
@@ -176,16 +176,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
                 conditions.forEach(cond => {
                     if (diff === cond.days) {
-                        const id = `proj-due-${p['Pipeline No.']}-${cond.days}`;
+                        const id = `proj-due-${p['Pipeline No']}-${cond.days}`;
                         newNotifications.push({
                             id,
                             type: 'project',
                             subtype: 'due_date',
                             title: `Project Due`,
-                            description: `Pipeline #${p['Pipeline No.']} (${p['Company Name']}) ${cond.msg}.`,
+                            description: `Pipeline #${p['Pipeline No']} (${p['Company Name']}) ${cond.msg}.`,
                             timestamp: getSimulatedTimestamp(today, id),
                             severity: cond.severity,
-                            link: { view: 'projects', filter: p['Pipeline No.'] }
+                            link: { view: 'projects', filter: p['Pipeline No'] }
                         });
                     }
                 });
@@ -196,17 +196,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             if (createdDate) {
                 const daysOpen = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
                 if (daysOpen > 7) {
-                    const id = `proj-stuck-${p['Pipeline No.']}-7plus`;
+                    const id = `proj-stuck-${p['Pipeline No']}-7plus`;
                     const thresholdDate = new Date(createdDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                     newNotifications.push({
                         id,
                         type: 'project',
                         subtype: 'stuck',
                         title: `Pipeline Stuck`,
-                        description: `Pipeline #${p['Pipeline No.']} has been ${p.Status} for over 7 days.`,
+                        description: `Pipeline #${p['Pipeline No']} has been ${p.Status} for over 7 days.`,
                         timestamp: getSimulatedTimestamp(thresholdDate, id),
                         severity: 'medium',
-                        link: { view: 'projects', filter: p['Pipeline No.'] }
+                        link: { view: 'projects', filter: p['Pipeline No'] }
                     });
                 }
             }
@@ -222,32 +222,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const daysSince = Math.floor((now.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24));
 
             if (inv.Status === 'Draft' && daysSince > 3) {
-                const id = `inv-${inv['Inv No.']}-draft-3`;
+                const id = `inv-${inv['Inv No']}-draft-3`;
                 const thresholdDate = new Date(invDate.getTime() + 3 * 24 * 60 * 60 * 1000);
                 newNotifications.push({
                     id,
                     type: 'invoice',
                     subtype: 'stuck',
                     title: `Invoice Draft`,
-                    description: `Invoice #${inv['Inv No.']} has been in Draft for > 3 days.`,
+                    description: `Invoice #${inv['Inv No']} has been in Draft for > 3 days.`,
                     timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
-                    link: { view: 'invoice-do', filter: inv['Inv No.'] }
+                    link: { view: 'invoice-do', filter: inv['Inv No'] }
                 });
             }
 
             if (inv.Status === 'Processing' && daysSince > 7) {
-                const id = `inv-${inv['Inv No.']}-processing-7`;
+                const id = `inv-${inv['Inv No']}-processing-7`;
                 const thresholdDate = new Date(invDate.getTime() + 7 * 24 * 60 * 60 * 1000);
                 newNotifications.push({
                     id,
                     type: 'invoice',
                     subtype: 'stuck',
                     title: `Invoice Processing`,
-                    description: `Invoice #${inv['Inv No.']} has been Processing for > 7 days.`,
+                    description: `Invoice #${inv['Inv No']} has been Processing for > 7 days.`,
                     timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
-                    link: { view: 'invoice-do', filter: inv['Inv No.'] }
+                    link: { view: 'invoice-do', filter: inv['Inv No'] }
                 });
             }
         });
@@ -283,36 +283,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // "1 day before" usually means "Tomorrow". Calendar day check.
             if (daysDiff === 1) {
                 const id = `${type}-${idStr}-1day`;
-                if (!readIds.has(id)) {
-                    newNotifications.push({
-                        id,
-                        type,
-                        subtype: 'upcoming',
-                        title: `Upcoming ${title}`,
-                        description: `${title} is tomorrow at ${timeStr || 'requested time'}.`,
-                        timestamp: getSimulatedTimestamp(today, id),
-                        severity: 'medium',
-                        link: { view, filter: idStr }
-                    });
-                }
+                newNotifications.push({
+                    id,
+                    type,
+                    subtype: 'upcoming',
+                    title: `Upcoming ${title}`,
+                    description: `${title} is tomorrow at ${timeStr || 'requested time'}.`,
+                    timestamp: getSimulatedTimestamp(today, id),
+                    severity: 'medium',
+                    link: { view, filter: idStr }
+                });
             }
 
             // 3 Hours before: 0 < diff <= 3
             if (hoursDiff > 0 && hoursDiff <= 3) {
                 const id = `${type}-${idStr}-3hours`;
                 const thresholdDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
-                if (!readIds.has(id)) {
-                    newNotifications.push({
-                        id,
-                        type,
-                        subtype: 'upcoming',
-                        title: `Upcoming ${title}`,
-                        description: `${title} in ${Math.ceil(hoursDiff)} hours.`,
-                        timestamp: getSimulatedTimestamp(thresholdDate, id),
-                        severity: 'high',
-                        link: { view, filter: idStr }
-                    });
-                }
+                newNotifications.push({
+                    id,
+                    type,
+                    subtype: 'upcoming',
+                    title: `Upcoming ${title}`,
+                    description: `${title} in ${Math.ceil(hoursDiff)} hours.`,
+                    timestamp: getSimulatedTimestamp(thresholdDate, id),
+                    severity: 'high',
+                    link: { view, filter: idStr }
+                });
             }
         };
 
@@ -333,7 +329,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Or just push order. 
         setNotifications(newNotifications);
 
-    }, [quotations, saleOrders, projects, invoices, meetings, siteSurveys, currentUser, readIds]);
+    // readIds is intentionally excluded from deps — read state is handled at render time
+    // by filtering in the context value. Including it would cause an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quotations, saleOrders, projects, invoices, meetings, siteSurveys, currentUser]);
 
 
 

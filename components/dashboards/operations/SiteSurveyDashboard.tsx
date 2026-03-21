@@ -4,14 +4,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SiteSurveyLog } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
-import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
+import { parseDate, formatDateAsMDY } from "../../../utils/time";
 import NewSiteSurveyModal from "../../modals/NewSiteSurveyModal";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { Table, CalendarDays, MapPin, Clock, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 interface SiteSurveyDashboardProps {
@@ -27,26 +26,6 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const SITE_SURVEY_COLUMNS_VISIBILITY_KEY = 'limperial-site-survey-columns-visibility';
 
-const SiteSurveyMobileCard: React.FC<{ survey: SiteSurveyLog, onView: () => void }> = ({ survey, onView }) => (
-  <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-    <div className="mobile-card-header">
-      <div>
-        <div className="mobile-card-title">{survey.Location}</div>
-        <div className="mobile-card-subtitle">{formatDisplayDate(survey.Date)}</div>
-      </div>
-    </div>
-    <div className="mobile-card-body">
-      <div className="mobile-card-row">
-        <span className="mobile-card-label">Time</span>
-        <span className="mobile-card-value">{survey['Start Time']} - {survey['End Time']}</span>
-      </div>
-      <div className="mobile-card-row">
-        <span className="mobile-card-label">Responsible By</span>
-        <span className="mobile-card-value">{survey['Responsible By']}</span>
-      </div>
-    </div>
-  </div>
-);
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
   const { siteSurveys: surveyData, loading, error } = useData();
@@ -54,8 +33,6 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const { handleNavigation, navigation } = useNavigation();
-  const { width } = useWindowSize();
-  const isMobile = width < 1024;
 
   const modalConfig = useMemo(() => {
     const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);

@@ -53,38 +53,6 @@ const QUOTATION_COLUMNS_VISIBILITY_KEY = 'limperial-quotation-columns-visibility
 
 type ViewMode = 'table' | 'board' | 'detail';
 
-const QuotationMobileCard: React.FC<{ quotation: Quotation, onView: () => void }> = ({ quotation, onView }) => {
-  let statusClass = 'mobile-status-default';
-  if (quotation.Status === 'Open') statusClass = 'mobile-status-info';
-  if (quotation.Status === 'Close (Win)') statusClass = 'mobile-status-success';
-  if (quotation.Status === 'Close (Lose)') statusClass = 'mobile-status-danger';
-  if (quotation.Status === 'Cancel') statusClass = 'mobile-status-default';
-
-  return (
-    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-      <div className="mobile-card-header">
-        <div>
-          <div className="mobile-card-title">{quotation['Company Name']}</div>
-          <div className="mobile-card-subtitle">{quotation['Quote No.']}</div>
-        </div>
-        <span className={`mobile-status ${statusClass}`}>
-          <span className="mobile-status-dot"></span>
-          {quotation.Status.replace('(Win)', '').replace('(Lose)', '')}
-        </span>
-      </div>
-      <div className="mobile-card-body">
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Amount</span>
-          <span className="mobile-card-value">{formatCurrencySmartly(quotation.Amount, quotation.Currency)}</span>
-        </div>
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Date</span>
-          <span className="mobile-card-value">{formatDisplayDate(quotation['Quote Date'])}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 interface QuotationDashboardProps {
   initialPayload?: {
@@ -111,15 +79,15 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
   const selectedQuotationId = useMemo(() => {
     if (navigation.action === 'view') return navigation.id || null;
-    if (initialPayload && (initialPayload as any).action === 'view' && (initialPayload as any).data) return (initialPayload as any).data['Quote No.'];
+    if (initialPayload && (initialPayload as any).action === 'view' && (initialPayload as any).data) return (initialPayload as any).data['Quote No'];
     return null;
   }, [navigation.action, navigation.id, initialPayload]);
 
   const selectedQuotationToEdit = useMemo(() => {
     if (navigation.action === 'edit' && navigation.id && quotations) {
-      return quotations.find(q => q['Quote No.'] === navigation.id) || null;
+      return quotations.find(q => q['Quote No'] === navigation.id) || null;
     }
-    if (initialPayload && 'Quote No.' in (initialPayload as any)) {
+    if (initialPayload && 'Quote No' in (initialPayload as any)) {
       return initialPayload as Quotation; // backward compatibility
     }
     if (initialPayload && (initialPayload as any).action === 'edit' && (initialPayload as any).data) {
@@ -135,25 +103,19 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }, [navigation.action]);
 
 
-  const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'table', label: 'Table', icon: <Table /> },
-    { id: 'board', label: 'Board', icon: <LayoutGrid /> },
-    { id: 'detail', label: 'Detail', icon: <Columns /> },
-  ];
-
   const handleNewQuotation = () => {
     handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'create' });
   };
 
   const handleEditQuotation = (quotation: Quotation) => {
-    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'edit', id: quotation['Quote No.'] });
+    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'edit', id: quotation['Quote No'] });
   };
 
   const handleViewQuotation = (quotation: Quotation) => {
     if (isMobile) {
       handleEditQuotation(quotation); // On mobile, viewing is editing
     } else {
-      handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id: quotation['Quote No.'] });
+      handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id: quotation['Quote No'] });
     }
   };
 
@@ -165,22 +127,22 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     if (!quotationToDelete) return;
 
     const originalQuotations = quotations ? [...quotations] : [];
-    const quoteToDeleteId = quotationToDelete['Quote No.'];
+    const quoteToDeleteId = quotationToDelete['Quote No'];
     setQuotationToDelete(null);
-    setQuotations(current => current ? current.filter(q => q['Quote No.'] !== quoteToDeleteId) : null);
+    setQuotations(current => current ? current.filter(q => q['Quote No'] !== quoteToDeleteId) : null);
 
     try {
       const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
-      await deleteRecord(tableName, quoteToDeleteId);
+      await deleteRecord(tableName, quoteToDeleteId); // primaryKey is now 'Quote No' (no dot)
       addToast('Quotation deleted!', 'success');
-    } catch (err: any) {
+    } catch {
       addToast('Failed to delete quotation.', 'error');
       setQuotations(originalQuotations);
     }
   };
 
   const handleItemMove = async (item: Quotation, newStatus: string) => {
-    const quoteNo = item['Quote No.'];
+    const quoteNo = item['Quote No'];
     if (!quoteNo) return;
 
     const originalQuotations = quotations ? [...quotations] : [];
@@ -188,7 +150,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     setQuotations(current => {
       if (!current) return null;
       return current.map(q =>
-        q['Quote No.'] === quoteNo ? { ...q, Status: newStatus as Quotation['Status'] } : q
+        q['Quote No'] === quoteNo ? { ...q, Status: newStatus as Quotation['Status'] } : q
       );
     });
 
@@ -211,13 +173,13 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     setIsDuplicating(true);
     try {
       // Fetch full quotation data (including items) from DB
-      const { items } = await readQuotationSheetData(quotation['Quote No.'], isB2B);
+      const { items } = await readQuotationSheetData(quotation['Quote No'], isB2B);
       // Store items in sessionStorage to pass to creator without URL length limits
       sessionStorage.setItem('duplicate_quotation_items', JSON.stringify(items));
       // Navigate to create with header fields as initialData (Quote No. will be auto-generated)
       const initialData: Partial<Quotation> = {
         ...quotation,
-        'Quote No.': undefined as any,   // Will be auto-generated
+        'Quote No': undefined as any,   // Will be auto-generated
         'Status': 'Open',
         'Quote Date': undefined as any,   // Reset to today in creator
         'Validity Date': undefined as any,
@@ -240,32 +202,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     handleNavigation({ view: 'quotations', filter: navigation.filter });
   };
 
-  const metrics = useMemo(() => {
-    if (!quotations) return { total: 0, totalValueUSD: 0, totalValueKHR: 0, approvalRate: 0 };
-
-    const { totalValueUSD, totalValueKHR } = quotations.reduce((acc, q) => {
-      const value = parseSheetValue(q.Amount);
-      const determinedCurrency = determineCurrency(value, q.Currency);
-      if (determinedCurrency === 'KHR') {
-        acc.totalValueKHR += value;
-      } else {
-        acc.totalValueUSD += value;
-      }
-      return acc;
-    }, { totalValueUSD: 0, totalValueKHR: 0 });
-
-    const approvedCount = quotations.filter(q => q.Status === 'Close (Win)').length;
-    const consideredQuotes = quotations.filter(q => ['Close (Win)', 'Close (Lose)', 'Cancel'].includes(q.Status)).length;
-    const approvalRate = consideredQuotes > 0 ? (approvedCount / consideredQuotes) * 100 : 0;
-
-    return {
-      total: quotations.length,
-      totalValueUSD,
-      totalValueKHR,
-      approvalRate,
-    };
-  }, [quotations]);
-
   const filteredData = useMemo(() => {
     let dataToFilter = quotations || [];
 
@@ -282,27 +218,28 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     if (!searchQuery) return dataToFilter;
 
     return dataToFilter.filter(item =>
-      ['Quote No.', 'Company Name', 'Contact Name', 'Status', 'Reason'].some(key =>
+      ['Quote No', 'Company Name', 'Contact Name', 'Status', 'Reason'].some(key =>
         String(item[key as keyof Quotation] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     );
   }, [quotations, searchQuery, statusFilter]);
 
+  // Note: accessorKey uses 'Quote No' (no dot) to match DB column name
   const selectedQuotationForDetail = useMemo(() => {
     let targetId = selectedQuotationId;
     if (viewMode === 'detail' && !targetId && filteredData.length > 0) {
-      targetId = filteredData[0]['Quote No.'];
+      targetId = filteredData[0]['Quote No'];
     }
     if (!targetId) return null;
-    return filteredData.find(q => q['Quote No.'] === targetId) || null;
+    return filteredData.find(q => q['Quote No'] === targetId) || null;
   }, [selectedQuotationId, filteredData, viewMode]);
 
   const allColumns = useMemo<ColumnDef<Quotation>[]>(() => [
     {
-      accessorKey: 'Quote No.',
+      accessorKey: 'Quote No',
       header: 'Quote No.',
       isSortable: true,
-      cell: (value: string, row) => (
+      cell: (value: string) => (
         <div className="font-semibold text-muted-foreground/80">
           {value}
         </div>
@@ -501,7 +438,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
           />
         </div>
         <h4 className="font-bold text-foreground pr-8 text-base group-hover:text-brand-600 transition-colors">{item['Company Name']}</h4>
-        <p className="text-sm text-muted-foreground font-mono">{item['Quote No.']}</p>
+        <p className="text-sm text-muted-foreground font-mono">{item['Quote No']}</p>
 
         <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-2">
           {formattedValue}
@@ -526,7 +463,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
         <QuotationListContainer
           quotations={filteredData}
-          selectedQuotationId={selectedQuotationForDetail?.['Quote No.'] || null}
+          selectedQuotationId={selectedQuotationForDetail?.['Quote No'] || null}
           onSelectQuotation={(id) => handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id })}
           loading={loading && !quotations}
         />
@@ -538,7 +475,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">{selectedQuotationForDetail['Company Name']}</h1>
-                  <p className="text-muted-foreground font-mono mt-1">{selectedQuotationForDetail['Quote No.']}</p>
+                  <p className="text-muted-foreground font-mono mt-1">{selectedQuotationForDetail['Quote No']}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-3">
@@ -633,25 +570,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       </div>
     );
   }
-
-  const usdStr = metrics.totalValueUSD > 0 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueUSD) : '';
-  const khrStr = metrics.totalValueKHR > 0 ? `៛${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(metrics.totalValueKHR)}` : '';
-
-  let mainValue: string;
-  let subValue: string | undefined;
-
-  if (usdStr && khrStr) {
-    mainValue = usdStr;
-    subValue = khrStr;
-  } else if (usdStr) {
-    mainValue = usdStr;
-  } else if (khrStr) {
-    mainValue = khrStr;
-  } else {
-    mainValue = '$0';
-  }
-
-
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -748,7 +666,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             loading={loading}
             onRowClick={handleViewQuotation}
             initialSort={{ key: 'Quote Date', direction: 'descending' }}
-            mobilePrimaryColumns={['Quote No.', 'Company Name', 'Amount', 'Status']}
+            mobilePrimaryColumns={['Quote No', 'Company Name', 'Amount', 'Status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
               <div className="flex items-center justify-center gap-3">
@@ -793,7 +711,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             renderCardContent={renderKanbanCard}
             loading={loading}
             onItemMove={handleItemMove}
-            getItemId={(item) => item['Quote No.']}
+            getItemId={(item) => item['Quote No']}
           />
         ) : (
           renderDetailView()
@@ -837,7 +755,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         confirmText="Delete"
         variant="danger"
       >
-        Are you sure you want to delete quotation "{quotationToDelete?.['Quote No.']}"? This action cannot be undone.
+        Are you sure you want to delete quotation "{quotationToDelete?.['Quote No']}"? This action cannot be undone.
       </ConfirmationModal>
     </div>
   );

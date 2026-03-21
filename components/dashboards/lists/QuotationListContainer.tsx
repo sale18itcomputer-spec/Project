@@ -35,26 +35,26 @@ const QuotationListContainer: React.FC<QuotationListContainerProps> = ({ quotati
         return (
             <ul>
                 {quotations.map(q => (
-                    <li key={q['Quote No.']}>
+                    <li key={q['Quote No']}>
                         <button
-                            onClick={() => onSelectQuotation(q['Quote No.'])}
-                            className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedQuotationId === q['Quote No.']
+                            onClick={() => onSelectQuotation(q['Quote No'])}
+                            className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedQuotationId === q['Quote No']
                                 ? 'bg-brand-500/10 border-brand-500'
                                 : 'border-transparent hover:bg-muted'
                                 }`}
                         >
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className={`truncate text-base ${selectedQuotationId === q['Quote No.']
+                                    <h3 className={`truncate text-base ${selectedQuotationId === q['Quote No']
                                         ? 'font-bold text-brand-500'
                                         : 'font-semibold text-foreground'
                                         }`}>
                                         {q['Company Name']}
                                     </h3>
-                                    <p className="text-sm text-muted-foreground truncate mt-0.5 font-mono">{q['Quote No.']}</p>
+                                    <p className="text-sm text-muted-foreground truncate mt-0.5 font-mono">{q['Quote No']}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-2">
-                                    <p className={`text-sm font-semibold ${selectedQuotationId === q['Quote No.'] ? 'text-brand-500' : 'text-foreground'
+                                    <p className={`text-sm font-semibold ${selectedQuotationId === q['Quote No'] ? 'text-brand-500' : 'text-foreground'
                                         }`}>
                                         {formatCurrencySmartly(q.Amount, q.Currency)}
                                     </p>

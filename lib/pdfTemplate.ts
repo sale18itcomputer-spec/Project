@@ -219,10 +219,6 @@ function fmtNum(v: number | string): string {
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function fmtMoney(v: number | string, sym: string): string {
-    return `${sym} ${fmtNum(v)}`;
-}
-
 // Inner content for a money cell: $ left, number right, no wrap
 function moneyInner(v: number | string, sym: string): string {
     const n = fmtNum(v);

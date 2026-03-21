@@ -26,7 +26,7 @@ type ProcessedCompany = Company & {
   status: 'Active' | 'Inactive';
 };
 
-const CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => void }> = ({ company, onView }) => (
+const _CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => void }> = ({ company, onView }) => (
   <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
     <div className="mobile-card-header">
       <div>
@@ -60,7 +60,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
   const { navigation, handleNavigation } = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-  const { width } = useWindowSize();
+  const { width: _width } = useWindowSize();
 
   const validCompanies = useMemo(() => {
     if (!companyData) return [];

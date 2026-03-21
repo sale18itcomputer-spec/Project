@@ -35,26 +35,26 @@ const SaleOrderListContainer: React.FC<SaleOrderListContainerProps> = ({ saleOrd
         return (
             <ul>
                 {saleOrders.map(so => (
-                    <li key={so['SO No.']}>
+                    <li key={so['SO No']}>
                         <button
-                            onClick={() => onSelectSaleOrder(so['SO No.'])}
-                            className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedSaleOrderId === so['SO No.']
+                            onClick={() => onSelectSaleOrder(so['SO No'])}
+                            className={`w-full text-left px-4 py-3.5 border-b border-border border-l-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 z-10 relative ${selectedSaleOrderId === so['SO No']
                                 ? 'bg-brand-500/10 border-brand-500'
                                 : 'border-transparent hover:bg-muted'
                                 }`}
                         >
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className={`truncate text-base ${selectedSaleOrderId === so['SO No.']
+                                    <h3 className={`truncate text-base ${selectedSaleOrderId === so['SO No']
                                         ? 'font-bold text-brand-500'
                                         : 'font-semibold text-foreground'
                                         }`}>
                                         {so['Company Name']}
                                     </h3>
-                                    <p className="text-sm text-muted-foreground truncate mt-0.5 font-mono">{so['SO No.']}</p>
+                                    <p className="text-sm text-muted-foreground truncate mt-0.5 font-mono">{so['SO No']}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-2">
-                                    <p className={`text-sm font-semibold ${selectedSaleOrderId === so['SO No.'] ? 'text-brand-500' : 'text-foreground'
+                                    <p className={`text-sm font-semibold ${selectedSaleOrderId === so['SO No'] ? 'text-brand-500' : 'text-foreground'
                                         }`}>
                                         {formatCurrencySmartly(so['Total Amount'], so.Currency)}
                                     </p>

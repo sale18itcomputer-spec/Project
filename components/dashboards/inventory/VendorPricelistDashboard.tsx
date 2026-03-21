@@ -30,7 +30,7 @@ const VendorPricelistDashboard: React.FC = () => {
     const [vendorFilter, setVendorFilter] = useState<string>('all');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [isUploading, setIsUploading] = useState(false);
-    const { width } = useWindowSize();
+    useWindowSize();
 
     const modalConfig = useMemo(() => {
         const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
@@ -211,7 +211,7 @@ const VendorPricelistDashboard: React.FC = () => {
                 }
                 return savedSet;
             }
-        } catch (e) { }
+        } catch { }
         return defaultVisible;
     });
 

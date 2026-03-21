@@ -116,7 +116,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         };
 
         // Prepare submission data - exclude computed fields like 'fullDescription'
-        const { fullDescription, ...cleanFormData } = formData as any;
+        const { fullDescription: _fullDescription, ...cleanFormData } = formData as any;
 
         const submissionData = {
             ...cleanFormData,

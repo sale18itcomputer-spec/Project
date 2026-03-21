@@ -67,9 +67,9 @@ const PendingWorks: React.FC = () => {
                     const dueDate = parseDate(q['Validity Date']) || today;
                     const diff = Math.ceil((dueDate.getTime() - todayTime) / MS_PER_DAY);
                     items.push({
-                        id: q['Quote No.'],
+                        id: q['Quote No'],
                         type: 'quotation',
-                        title: `Quotation ${q['Quote No.']}`,
+                        title: `Quotation ${q['Quote No']}`,
                         subtitle: q['Company Name'],
                         dueDate,
                         date: q['Quote Date'],
@@ -92,9 +92,9 @@ const PendingWorks: React.FC = () => {
                     const dueDate = parseDate(so['Delivery Date']) || today;
                     const diff = Math.ceil((dueDate.getTime() - todayTime) / MS_PER_DAY);
                     items.push({
-                        id: so['SO No.'],
+                        id: so['SO No'],
                         type: 'saleOrder',
-                        title: `Order ${so['SO No.']}`,
+                        title: `Order ${so['SO No']}`,
                         subtitle: so['Company Name'],
                         dueDate,
                         date: so['SO Date'],
@@ -118,9 +118,9 @@ const PendingWorks: React.FC = () => {
                     const dueDate = parseDate(p['Due Date']) || today;
                     const diff = Math.ceil((dueDate.getTime() - todayTime) / MS_PER_DAY);
                     items.push({
-                        id: p['Pipeline No.'],
+                        id: p['Pipeline No'],
                         type: 'pipeline',
-                        title: `Project ${p['Pipeline No.']}`,
+                        title: `Project ${p['Pipeline No']}`,
                         subtitle: p['Company Name'],
                         dueDate,
                         date: p['Created Date'],
@@ -141,9 +141,9 @@ const PendingWorks: React.FC = () => {
                 const inv = invoices[i];
                 if ((inv.Status === 'Draft' || inv.Status === 'Processing') && canView(inv['Created By'])) {
                     items.push({
-                        id: inv['Inv No.'],
+                        id: inv['Inv No'],
                         type: 'invoice',
-                        title: `Invoice ${inv['Inv No.']}`,
+                        title: `Invoice ${inv['Inv No']}`,
                         subtitle: inv['Company Name'],
                         dueDate: today,
                         date: inv['Inv Date'],
@@ -167,7 +167,7 @@ const PendingWorks: React.FC = () => {
                     if (mDate >= today) {
                         const diff = Math.ceil((mDate.getTime() - todayTime) / MS_PER_DAY);
                         items.push({
-                            id: m['Meeting ID'] || Math.random().toString(),
+                            id: m['Meeting ID'] || `meeting-${i}`,
                             type: 'meeting',
                             title: `Meeting: ${m['Company Name']}`,
                             subtitle: m.Participants,
@@ -248,13 +248,14 @@ const PendingWorks: React.FC = () => {
             case 'quotation':
                 handleNavigation({
                     view: 'quotations',
-                    payload: { action: 'view', data: { 'Quote No.': item.id } }
+                    action: 'view',
+                    id: item.id
                 });
                 break;
             case 'saleOrder':
                 handleNavigation({
                     view: 'sale-orders',
-                    payload: { action: 'view', data: { 'SO No.': item.id } }
+                    payload: { action: 'view', data: { 'SO No': item.id } }
                 });
                 break;
             case 'pipeline':
@@ -266,7 +267,7 @@ const PendingWorks: React.FC = () => {
             case 'invoice':
                 handleNavigation({
                     view: 'invoice-do',
-                    payload: { action: 'view', data: { 'Inv No.': item.id } }
+                    payload: { action: 'view', data: { 'Inv No': item.id } }
                 });
                 break;
             case 'meeting':
@@ -282,7 +283,6 @@ const PendingWorks: React.FC = () => {
 
     const renderItem = (item: PendingWorkItem) => (
         <button
-            key={`${item.type}-${item.id}`}
             onClick={() => handleItemClick(item)}
             className="w-full text-left p-4 hover:bg-muted/30 transition-all flex items-start gap-4 group relative border-b last:border-b-0"
         >
@@ -432,7 +432,7 @@ const PendingWorks: React.FC = () => {
                                     <AlertCircle className="h-3 w-3" />
                                     Overdue Items
                                 </div>
-                                {groupedItems.overdue.map(renderItem)}
+                                {groupedItems.overdue.map(item => <React.Fragment key={`${item.type}-${item.id}`}>{renderItem(item)}</React.Fragment>)}
                             </div>
                         )}
                         {(activeFilter === 'all' || activeFilter === 'today') && groupedItems.today.length > 0 && (
@@ -441,7 +441,7 @@ const PendingWorks: React.FC = () => {
                                     <Clock className="h-3 w-3" />
                                     Due Today
                                 </div>
-                                {groupedItems.today.map(renderItem)}
+                                {groupedItems.today.map(item => <React.Fragment key={`${item.type}-${item.id}`}>{renderItem(item)}</React.Fragment>)}
                             </div>
                         )}
                         {(activeFilter === 'all' || activeFilter === 'upcoming') && groupedItems.upcoming.length > 0 && (
@@ -450,7 +450,7 @@ const PendingWorks: React.FC = () => {
                                     <Calendar className="h-3 w-3" />
                                     Upcoming Tasks
                                 </div>
-                                {groupedItems.upcoming.map(renderItem)}
+                                {groupedItems.upcoming.map(item => <React.Fragment key={`${item.type}-${item.id}`}>{renderItem(item)}</React.Fragment>)}
                             </div>
                         )}
                     </div>

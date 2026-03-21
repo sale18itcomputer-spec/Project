@@ -21,7 +21,6 @@ import { generatePDF } from "@/lib/pdfClient";
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 import 'react-quill/dist/quill.snow.css';
 
-import { Table as TableIcon } from 'lucide-react';
 
 const STRIP_HTML = (html: string) => {
     if (!html) return '';
@@ -73,7 +72,7 @@ const STRIP_HTML = (html: string) => {
         doc.body.childNodes.forEach(processNode);
 
         return text.replace(/\n{3,}/g, '\n\n').trim();
-    } catch (e) {
+    } catch {
         let fallback = html.replace(/<br\s*[\/]?>/gi, '\n');
         fallback = fallback.replace(/<\/p><p>/gi, '\n');
         fallback = fallback.replace(/<li[^>]*>/gi, '  - ');
@@ -183,9 +182,8 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
     // PDF Configuration State
     const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
-    const [showPdfConfig, setShowPdfConfig] = useState(false);
     const [showLayoutControls, setShowLayoutControls] = useState(false);
-    const [showFormPanel, setShowFormPanel] = useState(true);
+    const [showFormPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
     const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
     const [hoveredPath, setHoveredPath] = useState<string | null>(null);
@@ -236,7 +234,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     if (parsed && typeof parsed === 'object') {
                         setPdfLayout(parsed);
                     }
-                } catch (e) { }
+                } catch { }
             }
         };
         loadGlobalLayout();
@@ -292,7 +290,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
     };
 
     const loadPOItems = async (poId: string) => {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('purchase_order_items')
             .select('*')
             .eq('po_id', poId)
@@ -369,7 +367,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             } else {
                 const { data, error } = await supabase.from('purchase_orders').insert([poPayload]).select();
                 if (error) throw error;
-                poId = data[0].id;
+                poId = (data as any)[0].id;
             }
 
             // Upsert Items

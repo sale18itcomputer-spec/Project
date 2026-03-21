@@ -67,7 +67,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         const selectedCompany = formData['Company Name'].trim().toLowerCase();
         return quotations
             .filter(q => q['Company Name']?.trim().toLowerCase() === selectedCompany)
-            .map(q => q['Quote No.']);
+            .map(q => q['Quote No']);
     }, [quotations, formData['Company Name']]);
 
     const invoiceOptions = useMemo(() => {
@@ -83,7 +83,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         const selectedCompany = formData['Company Name'].trim().toLowerCase();
         return saleOrders
             .filter(s => s['Company Name']?.trim().toLowerCase() === selectedCompany)
-            .map(s => s['SO No.']);
+            .map(s => s['SO No']);
     }, [saleOrders, formData['Company Name']]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
@@ -104,7 +104,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
 
         if (projects && projects.length > 0) {
             const pipelineNumbers = projects
-                .map(p => p['Pipeline No.'])
+                .map(p => p['Pipeline No'])
                 .filter(pNo => pNo && typeof pNo === 'string' && pNo.startsWith(prefix))
                 .map(pNo => parseInt(pNo.substring(prefix.length), 10))
                 .filter(num => !isNaN(num));
@@ -114,7 +114,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             }
         }
         const initialState: Partial<PipelineProject> = {
-            'Pipeline No.': nextPipelineNo,
+            'Pipeline No': nextPipelineNo,
             'Created Date': getTodayDateString(),
             'Status': 'Qualification',
             'Taxable': 'VAT',
@@ -131,7 +131,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         'Created Date': formatToInputDate(p['Created Date']),
         'Quote': extractUrlFromFormula(p.Quote),
         'Attach Invoice': extractUrlFromFormula(p['Attach Invoice']),
-        'Attach D.O': extractUrlFromFormula(p['Attach D.O']),
+        'Attach DO': extractUrlFromFormula(p['Attach DO']),
     }), []);
 
     useEffect(() => {
@@ -153,14 +153,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     }, []);
 
     const handleCompanySelect = (companyName: string) => {
-        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '', 'Quote': '', 'Quote No.': '', 'Invoice No.': '', 'SO No.': '', 'Inv Date': '' }));
+        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '', 'Quote': '', 'Quote No': '', 'Invoice No': '', 'SO No': '', 'Inv Date': '' }));
     };
 
     const handleQuoteSelect = (quoteNo: string) => {
-        const quote = quotations?.find(q => q['Quote No.'] === quoteNo);
+        const quote = quotations?.find(q => q['Quote No'] === quoteNo);
         setFormData(prev => ({
             ...prev,
-            'Quote No.': quoteNo,
+            'Quote No': quoteNo,
             'Quote': extractUrlFromFormula(quote?.File) || prev.Quote,
             'Bid Value': quote?.Amount || prev['Bid Value'],
             'Currency': (quote?.Currency as any) || prev.Currency
@@ -168,10 +168,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     };
 
     const handleInvoiceSelect = (invNo: string) => {
-        const inv = invoices?.find(i => i['Inv No.'] === invNo);
+        const inv = invoices?.find(i => i['Inv No'] === invNo);
         setFormData(prev => ({
             ...prev,
-            'Invoice No.': invNo,
+            'Invoice No': invNo,
             'Inv Date': inv?.['Inv Date'] ? formatToInputDate(inv['Inv Date']) : prev['Inv Date'],
             'Bid Value': inv?.Amount || prev['Bid Value'],
             'Currency': (inv?.Currency as any) || prev.Currency
@@ -179,10 +179,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     };
 
     const handleSOSelect = (soNo: string) => {
-        const so = saleOrders?.find(s => s['SO No.'] === soNo);
+        const so = saleOrders?.find(s => s['SO No'] === soNo);
         setFormData(prev => ({
             ...prev,
-            'SO No.': soNo,
+            'SO No': soNo,
             'Bid Value': so?.['Total Amount'] || prev['Bid Value'],
             'Currency': (so?.Currency as any) || prev.Currency
         }));
@@ -199,7 +199,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         onClose(); // Close modal immediately for optimistic UI
 
         // Exclude UI-only fields and dropped columns from database submission
-        const { calculatedDueDate, 'Attach Invoice': _ai, 'Attach D.O': _ado, ...dataToSubmit } = formData as any;
+        const { calculatedDueDate: _calculatedDueDate, 'Attach Invoice': _ai, 'Attach DO': _ado, ...dataToSubmit } = formData as any;
 
         const submissionData = {
             ...dataToSubmit,
@@ -212,12 +212,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
 
         if (isEditMode) {
             const originalProjects = projects ? [...projects] : [];
-            const updatedId = existingData['Pipeline No.'];
+            const updatedId = existingData['Pipeline No'];
             // Optimistic update
-            setProjects(current => current ? current.map(p => p['Pipeline No.'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
+            setProjects(current => current ? current.map(p => p['Pipeline No'] === updatedId ? { ...p, ...submissionData } as PipelineProject : p) : null);
 
             try {
-                await updateRecord('pipelines', 'Pipeline No.', updatedId, submissionData, isB2B);
+                await updateRecord('pipelines', 'Pipeline No', updatedId, submissionData, isB2B);
                 addToast('Pipeline updated!', 'success');
                 // The real-time subscription will update the data
             } catch (err: any) {
@@ -225,7 +225,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                 setProjects(originalProjects); // Revert on failure
             }
         } else { // CREATE
-            const tempId = submissionData['Pipeline No.'];
+            const tempId = submissionData['Pipeline No'];
             console.log('🚀 Creating pipeline optimistically:', submissionData);
             // Optimistic update
             setProjects(current => {
@@ -242,7 +242,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             } catch (err: any) {
                 addToast(`Failed to create pipeline: ${err.message}`, 'error');
                 // Revert by removing the optimistic data.
-                setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== tempId) : null);
+                setProjects(current => current ? current.filter(p => p['Pipeline No'] !== tempId) : null);
             }
         }
     };
@@ -251,15 +251,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         if (!existingData) return;
 
         const originalProjects = projects ? [...projects] : [];
-        const projectToDeleteId = existingData['Pipeline No.'];
+        const projectToDeleteId = existingData['Pipeline No'];
 
         setDeleteConfirmOpen(false);
         onClose();
 
-        setProjects(current => current ? current.filter(p => p['Pipeline No.'] !== projectToDeleteId) : null);
+        setProjects(current => current ? current.filter(p => p['Pipeline No'] !== projectToDeleteId) : null);
 
         try {
-            await deleteRecord('pipelines', 'Pipeline No.', projectToDeleteId, isB2B);
+            await deleteRecord('pipelines', 'Pipeline No', projectToDeleteId, isB2B);
             addToast('Pipeline deleted!', 'success');
         } catch (err: any) {
             addToast(`Failed to delete pipeline: ${err.message}`, 'error');
@@ -270,7 +270,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     const relatedActivities = useMemo<UnifiedActivity[]>(() => {
         if (!existingData) return [];
         const companyName = existingData['Company Name'];
-        const pipelineId = existingData['Pipeline No.'];
+        const pipelineId = existingData['Pipeline No'];
         const allActivities: UnifiedActivity[] = [];
 
         contactLogs.forEach(log => {
@@ -292,7 +292,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
 
     const isContactDisabled = !formData['Company Name'];
     const contactPlaceholder = !formData['Company Name'] ? "Select a company first" : (contactOptions.length === 0 ? "No contacts found" : "Select Contact");
-    const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Pipeline No.']}` : `Editing: ${existingData['Pipeline No.']}`) : 'Create New Pipeline';
+    const title = isEditMode ? (isReadOnly ? `Details: ${existingData['Pipeline No']}` : `Editing: ${existingData['Pipeline No']}`) : 'Create New Pipeline';
     const submitText = isEditMode ? 'Save Changes' : 'Save Pipeline';
 
     const handleCancelClick = () => {
@@ -340,7 +340,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             >
                 <div className="space-y-6">
                     <FormSection title="Core Details">
-                        {isReadOnly ? <FormDisplay label="Pipeline No." value={formData['Pipeline No.']} /> : <FormInput name="Pipeline No." label="Pipeline No." value={formData['Pipeline No.']} onChange={handleChange} required readOnly />}
+                        {isReadOnly ? <FormDisplay label="Pipeline No" value={formData['Pipeline No']} /> : <FormInput name="Pipeline No" label="Pipeline No" value={formData['Pipeline No']} onChange={handleChange} required readOnly />}
                         {isReadOnly ? <FormDisplay label="Status" value={formData.Status} /> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
                         {isReadOnly ? <FormDisplay label="Responsible By" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Responsible By" value={formData['Responsible By']} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Due Date" value={formatToInputDate(formData['Due Date'])} /> : <FormInput name="Due Date" label="Due Date" value={formData['Due Date']} onChange={handleChange} type="date" />}
@@ -398,7 +398,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                                                 initialData: {
                                                     'Company Name': formData['Company Name'],
                                                     'Contact Name': formData['Contact Name'],
-                                                    'Pipeline No.': formData['Pipeline No.']
+                                                    'Pipeline No': formData['Pipeline No']
                                                 }
                                             }
                                         })}
@@ -412,18 +412,18 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                             <SearchableSelect
                                 name="Quote"
                                 label="Quote No. (from System)"
-                                value={formData['Quote No.'] || ''}
+                                value={formData['Quote No'] || ''}
                                 onChange={handleQuoteSelect}
                                 options={quotationOptions}
                                 placeholder="Select Quotation..."
-                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'quotations', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No.': formData['Pipeline No.'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'quotations', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
                             />
                         )}
 
                         {isReadOnly ? (
-                            <FormDisplay label="SO No.">
+                            <FormDisplay label="SO No">
                                 <div className="flex items-center justify-between">
-                                    <span>{formData['SO No.'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                    <span>{formData['SO No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
                                     <button
                                         type="button"
                                         onClick={() => handleNavigation({
@@ -432,8 +432,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                                                 action: 'create',
                                                 initialData: {
                                                     'Company Name': formData['Company Name'],
-                                                    'Quote No.': quotations?.find(q => q.File === formData.Quote)?.['Quote No.'] || '',
-                                                    'Pipeline No.': formData['Pipeline No.']
+                                                    'Quote No': quotations?.find(q => q.File === formData.Quote)?.['Quote No'] || '',
+                                                    'Pipeline No': formData['Pipeline No']
                                                 }
                                             }
                                         })}
@@ -445,21 +445,21 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                             </FormDisplay>
                         ) : (
                             <SearchableSelect
-                                name="SO No."
+                                name="SO No"
                                 label="Sale Order No. (Select from System)"
-                                value={formData['SO No.'] || ''}
+                                value={formData['SO No'] || ''}
                                 onChange={handleSOSelect}
                                 options={soOptions}
                                 placeholder="Select Sale Order..."
-                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No.': formData['Pipeline No.'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
                             />
                         )}
 
                         {isReadOnly ? (
                             <FormDisplay label="Invoice No.">
                                 <div className="flex items-center justify-between">
-                                    <span>{formData['Invoice No.'] || <span className="text-muted-foreground italic">N/A</span>}</span>
-                                    {!formData['Invoice No.'] && (
+                                    <span>{formData['Invoice No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                    {!formData['Invoice No'] && (
                                         <button
                                             type="button"
                                             onClick={() => handleNavigation({
@@ -468,8 +468,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                                                     isPipeline: true,
                                                     'Company Name': formData['Company Name'],
                                                     'Contact Name': formData['Contact Name'],
-                                                    'Quote No.': quotations?.find(q => q.File === formData.Quote)?.['Quote No.'] || '',
-                                                    'Pipeline No.': formData['Pipeline No.']
+                                                    'Quote No': quotations?.find(q => q.File === formData.Quote)?.['Quote No'] || '',
+                                                    'Pipeline No': formData['Pipeline No']
                                                 }
                                             })}
                                             className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
@@ -483,7 +483,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                             <SearchableSelect
                                 name="Invoice No."
                                 label="Invoice No. (Select from System)"
-                                value={formData['Invoice No.'] || ''}
+                                value={formData['Invoice No'] || ''}
                                 onChange={handleInvoiceSelect}
                                 options={invoiceOptions}
                                 placeholder="Select Invoice..."

@@ -141,7 +141,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
     }
   };
 
-  const avgValue = data.length > 0 ? data.reduce((sum, d) => sum + d.winValue, 0) / data.length : 0;
+  const _avgValue = data.length > 0 ? data.reduce((sum, d) => sum + d.winValue, 0) / data.length : 0;
 
   const option = {
     grid: {
@@ -284,9 +284,14 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
+        <div className="flex flex-col items-center justify-center flex-grow text-slate-600 gap-2">
           <BarChart2 className="w-12 h-12 text-gray-300" />
-          <p className="mt-4 text-sm font-medium">No revenue data to display for the selected filters.</p>
+          <p className="mt-2 text-sm font-medium">No revenue data to display.</p>
+          <p className="text-xs text-muted-foreground max-w-xs text-center">
+            {isB2B
+              ? 'Pipeline wins will appear here once projects are marked as Close (win).'
+              : 'Revenue will appear here once sale orders are marked as Completed.'}
+          </p>
         </div>
       )}
     </div>

@@ -147,7 +147,6 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const { addToast } = useToast();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState('');
     const [successInfo, setSuccessInfo] = useState<{ invNo: string } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [previewMode, setPreviewMode] = useState<'invoice' | 'do'>('invoice');
@@ -232,31 +231,17 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         }
     };
 
-    const nextInvoiceNumber = useMemo(() => {
-        if (!invoices || invoices.length === 0) return 'INV-20250001';
-
-        const maxNum = invoices.reduce((max, inv) => {
-            const numPartMatch = inv['Inv No.'].match(/\d+$/);
-            if (!numPartMatch) return max;
-            const numPart = parseInt(numPartMatch[0], 10);
-            return isNaN(numPart) ? max : Math.max(max, numPart);
-        }, 0);
-
-        return `INV-${String(maxNum + 1).padStart(8, '4').replace(/^4+/, (m) => '2025'.slice(0, Math.max(0, 4 - (m.length - 4))) + '0'.repeat(Math.max(0, m.length - 4)))}`;
-        // Simpler: Just get the date part if we want, or sequential
-    }, [invoices]);
-
     // Improved next invoice number logic
     const calculatedNextInvNo = useMemo(() => {
         if (!invoices || invoices.length === 0) return 'INV-250001';
         const year = new Date().getFullYear().toString().slice(-2);
         const prefix = `INV-${year}`;
 
-        const thisYearInvoices = invoices.filter(inv => inv['Inv No.'].startsWith(prefix));
+        const thisYearInvoices = invoices.filter(inv => inv['Inv No'].startsWith(prefix));
         if (thisYearInvoices.length === 0) return `${prefix}0001`;
 
         const maxNum = thisYearInvoices.reduce((max, inv) => {
-            const numPart = parseInt(inv['Inv No.'].slice(prefix.length), 10);
+            const numPart = parseInt(inv['Inv No'].slice(prefix.length), 10);
             return isNaN(numPart) ? max : Math.max(max, numPart);
         }, 0);
 
@@ -272,7 +257,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
             let fetchedItems = [];
             if (typeof existingInvoice.ItemsJSON === 'string') {
-                try { fetchedItems = JSON.parse(existingInvoice.ItemsJSON); } catch (e) { }
+                try { fetchedItems = JSON.parse(existingInvoice.ItemsJSON); } catch { }
             } else {
                 fetchedItems = existingInvoice.ItemsJSON || [];
             }
@@ -282,9 +267,9 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             const company = companies?.find(c => c['Company Name'] === so['Company Name']);
 
             setInvoice({
-                'Inv No.': calculatedNextInvNo,
+                'Inv No': calculatedNextInvNo,
                 'Inv Date': getTodayDateString(),
-                'SO No.': so['SO No.'],
+                'SO No': so['SO No'],
                 'Company Name': so['Company Name'],
                 'Contact Name': so['Contact Name'],
                 'Phone Number': so['Phone Number'],
@@ -295,7 +280,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Currency': so.Currency || 'USD',
                 'Payment Term': so['Payment Term'],
                 'Company Address': company?.['Address (English)'] || '',
-                'Tin No.': company?.['Tin No.'] || company?.['Patent'] || '',
+                'Tin No': company?.['Tin No'] || company?.['Patent'] || '',
                 'Prepared By': currentUser?.Name || '',
                 'Prepared By Position': currentUser ? (
                     currentUser.Name?.toLowerCase().includes('sreyneang') 
@@ -312,7 +297,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
             let soItems = [];
             if (typeof so.ItemsJSON === 'string') {
-                try { soItems = JSON.parse(so.ItemsJSON); } catch (e) { }
+                try { soItems = JSON.parse(so.ItemsJSON); } catch { }
             } else {
                 soItems = so.ItemsJSON || [];
             }
@@ -324,7 +309,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             }
         } else {
             setInvoice({
-                'Inv No.': calculatedNextInvNo,
+                'Inv No': calculatedNextInvNo,
                 'Inv Date': getTodayDateString(),
                 'Status': 'Draft',
                 'Currency': 'USD',
@@ -372,7 +357,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Phone Number': company['Phone Number'] || (contact ? contact['Phone Number'] : prev['Phone Number']),
                 'Email': company['Email'] || (contact ? contact.Email : prev.Email),
                 'Contact Name': contact ? contact.Name : prev['Contact Name'],
-                'Tin No.': company['Tin No.'] || company['Patent'] || prev['Tin No.'],
+                'Tin No': company['Tin No'] || company['Patent'] || prev['Tin No'],
             }));
         } else {
             setInvoice(prev => ({ ...prev, 'Company Name': companyName }));
@@ -380,11 +365,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     };
 
     const handleSOSelect = (soNo: string) => {
-        const so = saleOrders?.find(s => s['SO No.'] === soNo);
+        const so = saleOrders?.find(s => s['SO No'] === soNo);
         if (so) {
             setInvoice(prev => ({
                 ...prev,
-                'SO No.': soNo,
+                'SO No': soNo,
                 'Company Name': so['Company Name'] || prev['Company Name'],
                 'Contact Name': so['Contact Name'] || prev['Contact Name'],
                 'Phone Number': so['Phone Number'] || prev['Phone Number'],
@@ -397,7 +382,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
             let soItems = [];
             if (typeof so.ItemsJSON === 'string') {
-                try { soItems = JSON.parse(so.ItemsJSON); } catch (e) { }
+                try { soItems = JSON.parse(so.ItemsJSON); } catch { }
             } else {
                 soItems = so.ItemsJSON || [];
             }
@@ -409,7 +394,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             }
             addToast(`Loaded information from SO ${soNo}`, 'success');
         } else {
-            setInvoice(prev => ({ ...prev, 'SO No.': soNo }));
+            setInvoice(prev => ({ ...prev, 'SO No': soNo }));
         }
     };
 
@@ -462,13 +447,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     };
 
     const handleSave = async () => {
-        if (!invoice['Inv No.'] || !invoice['Company Name']) {
-            setError('Please fill in Invoice No. and Company Name');
+        if (!invoice['Inv No'] || !invoice['Company Name']) {
+            addToast('Please fill in Invoice No. and Company Name', 'error');
             return;
         }
 
         setIsSubmitting(true);
-        setError('');
 
         try {
             const payload = {
@@ -480,16 +464,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             };
 
             if (existingInvoice) {
-                await updateRecord('Invoices', existingInvoice['Inv No.'], payload);
-                setInvoices(current => current ? current.map(inv => inv['Inv No.'] === invoice['Inv No.'] ? (payload as Invoice) : inv) : [payload as Invoice]);
+                await updateRecord('Invoices', existingInvoice['Inv No'], payload);
+                setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as Invoice) : inv) : [payload as Invoice]);
             } else {
                 await createRecord('Invoices', payload);
                 setInvoices(current => current ? [payload as Invoice, ...current] : [payload as Invoice]);
             }
 
-            setSuccessInfo({ invNo: invoice['Inv No.'] });
+            setSuccessInfo({ invNo: invoice['Inv No'] });
         } catch (err: any) {
-            setError(err.message || 'Failed to save invoice');
+            addToast(err.message || 'Failed to save invoice', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -513,11 +497,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Phone Number': invoice['Phone Number'],
                 'Email': invoice['Email'],
                 'Payment Term': invoice['Payment Term'],
-                'Tin No.': invoice['Tin No.'],
-                'SO No': invoice['SO No.'],
+                'Tin No': invoice['Tin No'],
+                'SO No': invoice['SO No'],
                 'Date': invoice['Inv Date'],
-                'Invoice No': invoice['Inv No.'],
-                'DO No': invoice['Inv No.'] ? invoice['Inv No.'].replace('INV', 'DO') : '',
+                'Invoice No': invoice['Inv No'],
+                'DO No': invoice['Inv No'] ? invoice['Inv No'].replace('INV', 'DO') : '',
                 'Prepared By': invoice['Prepared By'],
                 'Prepared By Position': invoice['Prepared By Position'],
                 'Approved By': invoice['Approved By'],
@@ -539,12 +523,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             },
             currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
             previewMode: false,
-            filename: `${isDO ? 'DO' : 'Invoice'}_${invoice['Inv No.']}.pdf`
+            filename: `${isDO ? 'DO' : 'Invoice'}_${invoice['Inv No']}.pdf`
         });
     };
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
-    const soOptions = useMemo(() => saleOrders ? [...new Set(saleOrders.map(s => s['SO No.']).filter(Boolean))].sort().reverse() : [], [saleOrders]);
+    const soOptions = useMemo(() => saleOrders ? [...new Set(saleOrders.map(s => s['SO No']).filter(Boolean))].sort().reverse() : [], [saleOrders]);
 
     const printableProps = {
         headerData: {
@@ -620,7 +604,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     return (
         <>
             <DocumentEditorContainer
-                title={existingInvoice ? `Edit Invoice: ${invoice['Inv No.']}` : "New Invoice & DO"}
+                title={existingInvoice ? `Edit Invoice: ${invoice['Inv No']}` : "New Invoice & DO"}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
@@ -844,7 +828,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                     <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
                                     <div>
                                         <h3 className="text-sm font-bold text-gray-800">{previewMode === 'do' ? 'Delivery Order' : 'Invoice'} Preview</h3>
-                                        <p className="text-[10px] text-gray-500">{invoice['Inv No.']} • {invoice['Company Name'] || 'No Company Selected'}</p>
+                                        <p className="text-[10px] text-gray-500">{invoice['Inv No']} • {invoice['Company Name'] || 'No Company Selected'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -891,12 +875,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         <ScrollArea className="flex-1 px-5 py-4">
                             <div className="space-y-6">
                                 <FormSection title="Header Details">
-                                    <FormInput label="Invoice No." name="Inv No." value={invoice['Inv No.']} onChange={handleInputChange} required />
+                                    <FormInput label="Invoice No." name="Inv No" value={invoice['Inv No']} onChange={handleInputChange} required />
                                     <FormInput label="Invoice Date" name="Inv Date" type="date" value={invoice['Inv Date']} onChange={handleInputChange} />
                                     <SearchableSelect
-                                        name="SO No."
+                                        name="SO No"
                                         label="SO Reference"
-                                        value={invoice['SO No.'] || ''}
+                                        value={invoice['SO No'] || ''}
                                         options={soOptions}
                                         onChange={handleSOSelect}
                                         placeholder="Select SO"
@@ -931,7 +915,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                     <FormInput label="Phone Number" name="Phone Number" value={invoice['Phone Number']} onChange={handleInputChange} />
                                     <FormInput label="Email" name="Email" value={invoice['Email']} onChange={handleInputChange} />
                                     <FormInput label="Payment Term" name="Payment Term" value={invoice['Payment Term']} onChange={handleInputChange} />
-                                    <FormInput label="Tin No." name="Tin No." value={invoice['Tin No.']} onChange={handleInputChange} />
+                                    <FormInput label="Tin No" name="Tin No" value={invoice['Tin No']} onChange={handleInputChange} />
                                     <FormTextarea label="Company Address" name="Company Address" value={invoice['Company Address']} onChange={handleInputChange} rows={3} />
                                 </FormSection>
 

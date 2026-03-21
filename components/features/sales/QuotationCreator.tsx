@@ -361,7 +361,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     // Calculate the next ID based on the MAX number in the list.
     // B2B and B2C have separate sequences
     const nextQuotationNumber = useMemo(() => {
-        if (existingQuotation) return existingQuotation['Quote No.'];
+        if (existingQuotation) return existingQuotation['Quote No'];
 
         const prefix = isB2B ? 'BQ-' : 'Q-';
         const regex = isB2B ? /BQ-(\d+)/ : /Q-(\d+)/;
@@ -370,7 +370,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         if (!quotations || quotations.length === 0) return defaultId;
 
         const maxNum = quotations.reduce((max, q) => {
-            const quoteNo = q['Quote No.'];
+            const quoteNo = q['Quote No'];
             if (!quoteNo) return max;
 
             const match = quoteNo.match(regex);
@@ -406,7 +406,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             };
         }
         return {
-            'Quote No.': nextQuotationNumber,
+            'Quote No': nextQuotationNumber,
             'Quote Date': getTodayDateString(),
             'Validity Date': getTodayDateString(),
             'Status': 'Open',
@@ -434,7 +434,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     // Update local state when the calculated ID changes (only for new quotes)
     useEffect(() => {
         if (!existingQuotation) {
-            setQuote(prev => ({ ...prev, 'Quote No.': nextQuotationNumber }));
+            setQuote(prev => ({ ...prev, 'Quote No': nextQuotationNumber }));
         }
     }, [nextQuotationNumber, existingQuotation]);
 
@@ -461,7 +461,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
 
     useEffect(() => {
-        if (!existingQuotation || !existingQuotation['Quote No.'] || !companies || !contacts) {
+        if (!existingQuotation || !existingQuotation['Quote No'] || !companies || !contacts) {
             if (existingQuotation) {
                 setItemsLoading(true);
             }
@@ -472,7 +472,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             setItemsLoading(true);
             setError('');
             try {
-                const response = await readQuotationSheetData(existingQuotation['Quote No.'], isB2B);
+                const response = await readQuotationSheetData(existingQuotation['Quote No'], isB2B);
                 if (!response) {
                     throw new Error('Failed to fetch quotation details: empty response.');
                 }
@@ -688,7 +688,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setError('');
         try {
             const masterSheetData: Quotation = {
-                'Quote No.': quote['Quote No.'] || nextQuotationNumber,
+                'Quote No': quote['Quote No'] || nextQuotationNumber,
                 'File': '', // No external file link anymore
                 'Quote Date': quote['Quote Date'] || null,
                 'Validity Date': quote['Validity Date'] || null,
@@ -722,19 +722,19 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             };
 
             // This now saves to Supabase directly
-            await createQuotationSheet(masterSheetData['Quote No.'], sheetGenerationData, isB2B);
+            await createQuotationSheet(masterSheetData['Quote No'], sheetGenerationData, isB2B);
 
-            console.log('🚀 Quotation saved, adding to list optimistically:', masterSheetData['Quote No.']);
+            console.log('🚀 Quotation saved, adding to list optimistically:', masterSheetData['Quote No']);
 
             // Optimistic update: Add quotation to list immediately
             setQuotations(current => {
                 if (!current) return [masterSheetData as Quotation];
                 // Check if already exists (update case)
-                const exists = current.some(q => q['Quote No.'] === masterSheetData['Quote No.']);
+                const exists = current.some(q => q['Quote No'] === masterSheetData['Quote No']);
                 if (exists) {
                     // Update existing
                     return current.map(q =>
-                        q['Quote No.'] === masterSheetData['Quote No.'] ? masterSheetData as Quotation : q
+                        q['Quote No'] === masterSheetData['Quote No'] ? masterSheetData as Quotation : q
                     );
                 } else {
                     // Add new
@@ -745,9 +745,9 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             // Handle "Close (Win)" auto-conversion logic
             if (masterSheetData.Status === 'Close (Win)') {
                 // Open Success Modal with option to create Sale Order
-                setSuccessInfo({ quoteNo: masterSheetData['Quote No.'], isWin: true });
+                setSuccessInfo({ quoteNo: masterSheetData['Quote No'], isWin: true });
             } else {
-                setSuccessInfo({ quoteNo: masterSheetData['Quote No.'], isWin: false });
+                setSuccessInfo({ quoteNo: masterSheetData['Quote No'], isWin: false });
             }
 
         } catch (err: any) {
@@ -788,7 +788,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             type: 'Quotation',
             headerData: {
                 ...quote,
-                'Quotation ID': quote['Quote No.'],
+                'Quotation ID': quote['Quote No'],
                 'Quote Date': quote['Quote Date'],
                 'Validity Date': quote['Validity Date'],
                 'Company Name': quote['Company Name'],
@@ -815,7 +815,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 grandTotal: totals.grandTotal
             },
             currency: quote.Currency || 'USD',
-            filename: `Quotation_${quote['Quote No.']}.pdf`,
+            filename: `Quotation_${quote['Quote No']}.pdf`,
         });
     };
 
@@ -826,7 +826,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             type: 'Quotation',
             headerData: {
                 ...quote,
-                'Quotation ID': quote['Quote No.'],
+                'Quotation ID': quote['Quote No'],
                 'Quote Date': quote['Quote Date'],
                 'Validity Date': quote['Validity Date'],
                 'Company Name': quote['Company Name'],
@@ -853,13 +853,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 grandTotal: totals.grandTotal
             },
             currency: quote.Currency || 'USD',
-            filename: `Quotation_${quote['Quote No.']}.pdf`,
+            filename: `Quotation_${quote['Quote No']}.pdf`,
         });
     };
 
     const printableProps = {
         headerData: {
-            'Quotation ID': quote['Quote No.'], 'Quote Date': quote['Quote Date'], 'Validity Date': quote['Validity Date'],
+            'Quotation ID': quote['Quote No'], 'Quote Date': quote['Quote Date'], 'Validity Date': quote['Validity Date'],
             'Company Name': quote['Company Name'], 'Company Address': quote['Company Address'], 'Contact Person': quote['Contact Name'],
             'Contact Tel': quote['Contact Number'], 'Contact Email': quote['Contact Email'], 'Payment Term': quote['Payment Term'],
             'Stock Status': quote['Stock Status'], 'Created By': quote['Created By'], 'Prepared By': quote['Prepared By'],
@@ -947,7 +947,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     return (
         <>
             <DocumentEditorContainer
-                title={existingQuotation ? `Edit Quotation ${existingQuotation['Quote No.']}` : "Create New Quotation"}
+                title={existingQuotation ? `Edit Quotation ${existingQuotation['Quote No']}` : "Create New Quotation"}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
@@ -1195,7 +1195,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         <div className="w-1.5 h-5 bg-brand-500 rounded-full"></div>
                                         <div>
                                             <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
-                                            <p className="text-[10px] text-muted-foreground">{quote['Quote No.']} • {quote['Company Name'] || 'No Company'}</p>
+                                            <p className="text-[10px] text-muted-foreground">{quote['Quote No']} • {quote['Company Name'] || 'No Company'}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -1214,7 +1214,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.10)]">
                                             <PrintableQuotation
                                                 headerData={{
-                                                    'Quotation ID': quote['Quote No.'],
+                                                    'Quotation ID': quote['Quote No'],
                                                     'Quote Date': quote['Quote Date'],
                                                     'Validity Date': quote['Validity Date'],
                                                     'Company Name': quote['Company Name'],
@@ -1558,7 +1558,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                     </FormSection>
 
                                     <FormSection title="Quotation Info">
-                                        <FormInput name="Quote No." label="Quotation No." value={quote['Quote No.']} onChange={handleHeaderChange} readOnly required />
+                                        <FormInput name="Quote No" label="Quotation No." value={quote['Quote No']} onChange={handleHeaderChange} readOnly required />
                                         <FormSelect name="Currency" label="Currency" value={quote.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
                                         <FormSelect name="Tax Type" label="Tax Type" value={quote['Tax Type']} onChange={handleHeaderChange} options={TAX_TYPE_OPTIONS} />
                                         <FormInput name="Quote Date" label="Quote Date" value={quote['Quote Date']} onChange={handleHeaderChange} type="date" required />
@@ -1745,7 +1745,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     actionButtonText={successInfo.isWin ? "Create Sale Order" : "Back to List"}
                     onAction={() => {
                         if (successInfo.isWin) {
-                            const wonQuote = quotations?.find(q => q['Quote No.'] === successInfo.quoteNo);
+                            const wonQuote = quotations?.find(q => q['Quote No'] === successInfo.quoteNo);
                             handleNavigation({ view: 'sale-orders', payload: wonQuote });
                         } else {
                             setSuccessInfo(null);

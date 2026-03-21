@@ -99,7 +99,7 @@ const UserManagementDashboard: React.FC = () => {
             }
             window.location.reload();
             handleCloseModal();
-        } catch (err) {
+        } catch {
             addToast("Failed to save user", "error");
         }
     };
@@ -126,7 +126,7 @@ const UserManagementDashboard: React.FC = () => {
                 setIsSettingPassword(null);
                 setNewPassword('');
             }
-        } catch (err) {
+        } catch {
             addToast("Network error setting password", "error");
         } finally {
             setIsSavingPassword(false);
@@ -140,7 +140,7 @@ const UserManagementDashboard: React.FC = () => {
             addToast("User deleted successfully", "success");
             window.location.reload();
             setIsDeleting(null);
-        } catch (err) {
+        } catch {
             addToast("Failed to delete user", "error");
         }
     };

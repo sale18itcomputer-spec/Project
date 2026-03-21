@@ -5,7 +5,6 @@ import { Vendor } from "../../types";
 import { insertRecord, updateRecord, deleteRecord } from "../../services/b2bDb";
 import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
-import { useData } from "../../contexts/DataContext";
 import { Check, Pencil, Trash2 } from 'lucide-react';
 import ConfirmationModal from "./ConfirmationModal";
 import { useToast } from "../../contexts/ToastContext";
@@ -20,7 +19,6 @@ interface NewVendorModalProps {
 
 const NewVendorModal: React.FC<NewVendorModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
     const { currentUser } = useAuth();
-    const { setVendors } = useData();
     const { addToast } = useToast();
 
     const [formData, setFormData] = useState<Partial<Vendor>>({});

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PurchaseOrder } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
@@ -14,16 +14,14 @@ import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { supabase } from "../../../lib/supabase";
 import ConfirmationModal from "../../modals/ConfirmationModal";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { Badge } from "../../ui/badge";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-visibility';
 
 const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPayload }) => {
-    const { purchaseOrders, setPurchaseOrders, loading, error, vendors, refetchData } = useData();
+    const { purchaseOrders, setPurchaseOrders, loading, refetchData } = useData();
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const { handleNavigation, navigation } = useNavigation();
 
     const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
@@ -41,8 +39,6 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
     const [isDuplicating, setIsDuplicating] = useState(false);
-    const { width } = useWindowSize();
-    const isMobile = width < 1024;
     const { currentUser } = useAuth();
 
     const fetchPOItems = async (poId: string) => {
@@ -124,10 +120,6 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
     const filteredData = useMemo(() => {
         let data = purchaseOrders || [];
 
-        if (statusFilter) {
-            data = data.filter(item => item.status === statusFilter);
-        }
-
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             data = data.filter(item =>
@@ -138,7 +130,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         }
 
         return data;
-    }, [purchaseOrders, searchQuery, statusFilter]);
+    }, [purchaseOrders, searchQuery]);
 
     const allColumns = useMemo<ColumnDef<PurchaseOrder>[]>(() => [
         {
@@ -191,7 +183,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         try {
             const saved = localStorageGet(PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY);
             if (saved) return new Set(JSON.parse(saved));
-        } catch (e) { }
+        } catch { }
         return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
     });
 

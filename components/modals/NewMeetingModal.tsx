@@ -46,7 +46,7 @@ const NewMeetingModal: React.FC<NewMeetingModalProps> = ({ isOpen, onClose, exis
     const isEditMode = !!existingData;
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
-    const pipelineOptions = useMemo(() => projects?.filter(p => p['Company Name'] === formData['Company Name']).map(p => p['Pipeline No.']) || [], [projects, formData]);
+    const pipelineOptions = useMemo(() => projects?.filter(p => p['Company Name'] === formData['Company Name']).map(p => p['Pipeline No']) || [], [projects, formData]);
 
     const getInitialState = useCallback(() => {
         let nextMeetingId = 'M00000001';

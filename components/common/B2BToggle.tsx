@@ -7,10 +7,10 @@ import { Building2, Users2, Sun, Moon } from 'lucide-react';
 
 const B2BToggle: React.FC = () => {
     const { mode, toggleMode, isB2B, b2bTheme, toggleB2BTheme } = useB2B();
-    const { currentUser } = useAuth();
+    const { currentUser: _currentUser } = useAuth();
 
     // Only show toggle for admin users
-    // if (currentUser?.Role !== 'Admin') {
+    // if (_currentUser?.Role !== 'Admin') {
     //    return null;
     // }
 

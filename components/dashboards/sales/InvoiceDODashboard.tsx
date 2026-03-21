@@ -60,13 +60,13 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const selectedInvoiceId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
-        if (initialPayload?.action === 'view' && initialPayload?.data?.['Inv No.']) return initialPayload.data['Inv No.'];
+        if (initialPayload?.action === 'view' && initialPayload?.data?.['Inv No']) return initialPayload.data['Inv No'];
         return null;
     }, [navigation.action, navigation.id, initialPayload]);
 
     const selectedInvoiceToEdit = useMemo(() => {
         if (navigation.action === 'edit' && navigation.id && invoices) {
-            return invoices.find(inv => inv['Inv No.'] === navigation.id) || null;
+            return invoices.find(inv => inv['Inv No'] === navigation.id) || null;
         }
         return null;
     }, [navigation.action, navigation.id, invoices]);
@@ -84,14 +84,14 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const handleEditInvoice = (invoice: Invoice) => {
         setInitialData(null);
-        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'edit', id: invoice['Inv No.'] });
+        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'edit', id: invoice['Inv No'] });
     };
 
     const handleViewInvoice = (invoice: Invoice) => {
         if (isMobile) {
             handleEditInvoice(invoice);
         } else {
-            handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: invoice['Inv No.'] });
+            handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: invoice['Inv No'] });
         }
     };
 
@@ -102,13 +102,13 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete) return;
         const originalInvoices = invoices ? [...invoices] : [];
-        const invoiceId = invoiceToDelete['Inv No.'];
+        const invoiceId = invoiceToDelete['Inv No'];
         setInvoiceToDelete(null);
-        setInvoices(prev => prev ? prev.filter(inv => inv['Inv No.'] !== invoiceId) : null);
+        setInvoices(prev => prev ? prev.filter(inv => inv['Inv No'] !== invoiceId) : null);
         try {
             await deleteRecord('Invoices', invoiceId);
             addToast('Invoice deleted!', 'success');
-        } catch (err: any) {
+        } catch {
             addToast('Failed to delete invoice.', 'error');
             setInvoices(originalInvoices);
         }
@@ -130,7 +130,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
         }
         if (!searchQuery) return dataToFilter;
         return dataToFilter.filter(item =>
-            ['Inv No.', 'Company Name', 'Contact Name', 'Status', 'Taxable', 'Created By', 'SO No.'].some(key =>
+            ['Inv No', 'Company Name', 'Contact Name', 'Status', 'Taxable', 'Created By', 'SO No'].some(key =>
                 String(item[key as keyof Invoice] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
             )
         );
@@ -138,8 +138,8 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const allColumns = useMemo<ColumnDef<Invoice>[]>(() => [
         {
-            accessorKey: 'Inv No.',
-            header: 'Inv No.',
+            accessorKey: 'Inv No',
+            header: 'Inv No',
             isSortable: true,
             cell: (value: string) => (
                 <div className="font-semibold text-muted-foreground/80">{value}</div>
@@ -198,7 +198,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
         try {
             const saved = localStorageGet(INVOICE_COLUMNS_VISIBILITY_KEY);
             if (saved) return new Set(JSON.parse(saved));
-        } catch (e) { }
+        } catch { }
         return new Set(allColumns.map(c => c.accessorKey || (c as any).id).filter(Boolean));
     });
 
@@ -239,7 +239,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
     const renderKanbanCard = (item: Invoice) => (
         <>
             <h4 className="font-bold text-foreground text-base">{item['Company Name']}</h4>
-            <p className="text-sm text-muted-foreground font-mono">{item['Inv No.']}</p>
+            <p className="text-sm text-muted-foreground font-mono">{item['Inv No']}</p>
             <p className="text-lg font-semibold text-brand-500 mt-2">{formatCurrencySmartly(item.Amount, item.Currency)}</p>
             <p className="text-sm text-muted-foreground/80 mt-2">By {item['Created By']}</p>
         </>
@@ -323,7 +323,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                     <DataTable
                         tableId="invoice-table" data={filteredData} columns={displayedColumns} loading={loading}
                         onRowClick={handleViewInvoice} initialSort={{ key: 'Inv Date', direction: 'descending' }}
-                        mobilePrimaryColumns={['Inv No.', 'Company Name', 'Amount', 'Status']}
+                        mobilePrimaryColumns={['Inv No', 'Company Name', 'Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
                         renderRowActions={(row) => (
                             <div className="flex items-center justify-center gap-3">
@@ -363,7 +363,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                 ) : viewMode === 'board' ? (
                     <KanbanView<Invoice>
                         columns={kanbanColumns} onCardClick={handleEditInvoice} renderCardContent={renderKanbanCard}
-                        loading={loading} getItemId={(item) => item['Inv No.']}
+                        loading={loading} getItemId={(item) => item['Inv No']}
                     />
                 ) : (
                     <div className="h-full flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
@@ -371,12 +371,12 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                         <div className="w-full md:w-80 flex-shrink-0 bg-card overflow-y-auto">
                             {filteredData.map(inv => (
                                 <button
-                                    key={inv['Inv No.']}
-                                    onClick={() => handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: inv['Inv No.'] })}
-                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No.'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
+                                    key={inv['Inv No']}
+                                    onClick={() => handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: inv['Inv No'] })}
+                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-foreground">{inv['Inv No.']}</span>
+                                        <span className="font-bold text-foreground">{inv['Inv No']}</span>
                                         <StatusBadge status={inv.Status} />
                                     </div>
                                     <div className="text-sm font-medium text-foreground/80 truncate">{inv['Company Name']}</div>
@@ -391,7 +391,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                         <div className="flex-1 bg-background overflow-y-auto p-4 md:p-8">
                             {selectedInvoiceId ? (
                                 (() => {
-                                    const selectedInv = invoices.find(i => i['Inv No.'] === selectedInvoiceId);
+                                    const selectedInv = invoices.find(i => i['Inv No'] === selectedInvoiceId);
                                     if (!selectedInv) return null;
                                     return (
                                         <div className="max-w-4xl mx-auto space-y-6">
@@ -420,7 +420,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                                             <div className="mt-1 grid grid-cols-2 gap-4">
                                                                 <div>
                                                                     <p className="text-xs text-muted-foreground">Invoice No.</p>
-                                                                    <p className="font-bold text-foreground">{selectedInv['Inv No.']}</p>
+                                                                    <p className="font-bold text-foreground">{selectedInv['Inv No']}</p>
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-xs text-muted-foreground">Date</p>
@@ -428,7 +428,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-xs text-muted-foreground">SO Ref</p>
-                                                                    <p className="font-medium text-foreground/80">{selectedInv['SO No.'] || 'N/A'}</p>
+                                                                    <p className="font-medium text-foreground/80">{selectedInv['SO No'] || 'N/A'}</p>
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-xs text-muted-foreground">Taxable</p>
@@ -451,7 +451,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                                                             <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Customer</label>
                                                             <p className="mt-1 font-bold text-foreground text-lg leading-tight">{selectedInv['Company Name']}</p>
                                                             <p className="text-sm text-muted-foreground mt-1">{selectedInv['Company Address']}</p>
-                                                            {selectedInv['Tin No.'] && <p className="text-xs text-muted-foreground mt-1">TIN: {selectedInv['Tin No.']}</p>}
+                                                            {selectedInv['Tin No'] && <p className="text-xs text-muted-foreground mt-1">TIN: {selectedInv['Tin No']}</p>}
                                                         </div>
                                                         <div>
                                                             <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Contact</label>
@@ -509,7 +509,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                 confirmText="Delete"
                 variant="danger"
             >
-                Are you sure you want to delete invoice {invoiceToDelete?.['Inv No.']}? This action cannot be undone.
+                Are you sure you want to delete invoice {invoiceToDelete?.['Inv No']}? This action cannot be undone.
             </ConfirmationModal>
         </div>
     );

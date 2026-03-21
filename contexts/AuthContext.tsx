@@ -7,7 +7,15 @@ import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
-const DEV_AUTO_LOGIN_EMAIL = process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN ?? '';
+// Only active in development builds. Guard prevents accidental use in production.
+const DEV_AUTO_LOGIN_EMAIL =
+  process.env.NODE_ENV === 'development'
+    ? (process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN ?? '')
+    : '';
+
+if (process.env.NODE_ENV !== 'development' && process.env.NEXT_PUBLIC_DEV_AUTO_LOGIN) {
+  console.warn('[Auth] NEXT_PUBLIC_DEV_AUTO_LOGIN is set in a non-development environment. It will be ignored.');
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -54,7 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Safety net: if the network never responds, unblock the UI after 10s
     const timeoutId = setTimeout(() => {
       if (isMounted) {
-        console.warn('[Auth] Bootstrap timed out after 10s — forcing loading state to false.');
+        console.error('[Auth] Bootstrap timed out after 10s — check network or Supabase config.');
         setIsAuthLoading(false);
       }
     }, 10000);
@@ -62,7 +70,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const bootstrapAuth = async () => {
       try {
         // Step 1: Get the active session (anon or authenticated)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase!.auth.getSession();
         if (sessionError) console.error('[Auth] Session error:', sessionError);
         if (!isMounted) return;
 
@@ -78,10 +86,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (session?.user?.email) {
           syncUser(session.user.email, fetchedUsers);
-        } else if (process.env.NODE_ENV === 'development' && DEV_AUTO_LOGIN_EMAIL) {
+        } else if (DEV_AUTO_LOGIN_EMAIL) {
           syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
         } else {
-          // Last resort: restore from localStorage for legacy (non-Supabase) sessions
+          // Last resort: restore from localStorage for sessions that survive page refresh
           const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
           if (savedUserId) {
             const user = fetchedUsers.find(u => u.UserID === savedUserId);
@@ -102,7 +110,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listener handles subsequent sign-in / sign-out events AFTER initial bootstrap.
     // It reuses usersRef — no duplicate fetch needed.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
       if (session?.user?.email) {
         // Use already-fetched list; only fetch if somehow still null (edge case)
         const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
@@ -120,23 +128,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       subscription.unsubscribe();
     };
     // Intentionally only runs once on mount. syncUser and supabase are stable refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase!.auth.signInWithPassword({ email, password });
 
       if (error) {
-        // Fallback: legacy plain-text password check against Users table
-        if (!users) return { success: false, message: 'Auth service unavailable.' };
-        const trimmedEmail = email.trim().toLowerCase();
-        const user = users.find(u => u.Email && u.Email.trim().toLowerCase() === trimmedEmail);
-        if (user && String(user.Password) === String(password).trim()) {
-          if (user.Status !== 'Active') return { success: false, message: 'Account inactive.' };
-          syncUser(user.Email || '', users);
-          return { success: true, message: 'Login successful (Legacy)!' };
-        }
+        // Supabase Auth is the single source of truth for passwords.
+        // The legacy plain-text password fallback has been removed for security.
+        // If a user can't log in, use "Forgot password" to reset via Supabase Auth.
         return { success: false, message: error.message };
       }
 
@@ -144,17 +146,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err: any) {
       return { success: false, message: err.message };
     }
-  }, [supabase, users, syncUser]);
+  }, [supabase]);
 
   const loginWithGoogle = useCallback(async () => {
-    await supabase.auth.signInWithOAuth({
+    await supabase!.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
     });
   }, [supabase]);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    await supabase!.auth.signOut();
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
     deleteCookie('limperial_legacy_session');

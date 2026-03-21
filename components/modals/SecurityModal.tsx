@@ -47,8 +47,8 @@ const SecurityModal: React.FC = () => {
             if (!userRecord && view === 'settings') {
                 setView('create');
             }
-        } catch (err) {
-            console.error("Failed to fetch security data:", err);
+        } catch (_err) {
+            console.error("Failed to fetch security data:", _err);
         } finally {
             setIsLoading(false);
         }
@@ -93,7 +93,7 @@ const SecurityModal: React.FC = () => {
                 setView('settings');
                 setSuccess('');
             }, 1000);
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to save passcode');
         } finally {
             setIsLoading(false);
@@ -110,7 +110,7 @@ const SecurityModal: React.FC = () => {
             setView('settings');
             setSuccess('Auto-lock timeout updated');
             setTimeout(() => setSuccess(''), 2000);
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to update timeout');
         } finally {
             setIsLoading(false);
@@ -128,8 +128,8 @@ const SecurityModal: React.FC = () => {
             setSuccess('Passcode disabled');
             window.dispatchEvent(new CustomEvent('security-settings-updated'));
             setTimeout(() => setSuccess(''), 2000);
-        } catch (err) {
-            console.error("Failed to disable passcode:", err);
+        } catch (_err) {
+            console.error("Failed to disable passcode:", _err);
         } finally {
             setIsLoading(false);
         }

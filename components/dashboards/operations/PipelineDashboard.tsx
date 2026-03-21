@@ -9,7 +9,6 @@ import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Ta
 import { deleteRecord, updateRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
-import { useAuth } from "../../../contexts/AuthContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
@@ -48,19 +47,6 @@ const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }
 };
 
 
-const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const typeColors: { [key: string]: string } = {
-    'Maintenance': 'bg-indigo-500/10 text-indigo-500',
-    'Project': 'bg-fuchsia-500/10 text-fuchsia-500',
-    'Consultant': 'bg-cyan-500/10 text-cyan-500',
-  };
-
-  return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${typeColors[type] || 'bg-muted text-muted-foreground'}`}>
-      {type}
-    </span>
-  );
-};
 
 const DueDate: React.FC<{ dueDate?: Date | null }> = ({ dueDate }) => {
   if (!dueDate) {
@@ -184,43 +170,11 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility';
 
-const PipelineMobileCard: React.FC<{ project: ProcessedProject, onView: () => void }> = ({ project, onView }) => {
-  let statusClass = 'mobile-status-default';
-  if (['Price Request', 'Revising Specs'].includes(project.Status)) statusClass = 'mobile-status-danger';
-  if (['Pending PO', 'Ordering'].includes(project.Status)) statusClass = 'mobile-status-info';
-  if (project.Status === 'Close (win)') statusClass = 'mobile-status-success';
-
-  return (
-    <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-      <div className="mobile-card-header">
-        <div>
-          <div className="mobile-card-title">{project['Company Name']}</div>
-          <div className="mobile-card-subtitle">{project.Require}</div>
-        </div>
-        <span className={`mobile-status ${statusClass}`}>
-          <span className="mobile-status-dot"></span>
-          {project.Status === 'Close (win)' ? 'Won' : project.Status === 'Close (lose)' ? 'Lost' : project.Status}
-        </span>
-      </div>
-      <div className="mobile-card-body">
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Bid Value</span>
-          <span className="mobile-card-value">{formatCurrencySmartly(project['Bid Value'], project.Currency)}</span>
-        </div>
-        <div className="mobile-card-row">
-          <span className="mobile-card-label">Sales Rep</span>
-          <span className="mobile-card-value">{project['Responsible By']}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 
 const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) => {
   const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error, isB2B } = useB2BData();
   const { addToast } = useToast();
-  const { currentUser } = useAuth();
   const { handleNavigation, navigation } = useNavigation();
   const [projectToDelete, setProjectToDelete] = useState<PipelineProject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,10 +201,10 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const handleCloseModal = () => handleNavigation({ view: 'projects', filter: navigation.filter });
   const handleOpenNewProject = () => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'create' });
   const handleViewProject = (project: ProcessedProject) => {
-    setSelectedPipelineNo(project['Pipeline No.']);
+    setSelectedPipelineNo(project['Pipeline No']);
     setViewMode('detail');
   };
-  const handleEditProject = (project: ProcessedProject) => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'edit', id: project['Pipeline No.'] });
+  const handleEditProject = (project: ProcessedProject) => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'edit', id: project['Pipeline No'] });
 
   const handleDeleteRequest = (project: PipelineProject) => {
     setProjectToDelete(project);
@@ -259,21 +213,21 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const handleConfirmDelete = async () => {
     if (!projectToDelete) return;
     const originalProjects = pipelineData ? [...pipelineData] : [];
-    const projectId = projectToDelete['Pipeline No.'];
+    const projectId = projectToDelete['Pipeline No'];
     setProjectToDelete(null);
-    setProjects(prev => prev ? prev.filter(p => p['Pipeline No.'] !== projectId) : null);
+    setProjects(prev => prev ? prev.filter(p => p['Pipeline No'] !== projectId) : null);
     try {
       const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
       await deleteRecord(tableName, projectId);
       addToast('Project deleted!', 'success');
-    } catch (err: any) {
+    } catch {
       addToast('Failed to delete project.', 'error');
       setProjects(originalProjects);
     }
   };
 
   const handleItemMove = async (item: PipelineProject, newStatus: string) => {
-    const pipelineNo = item['Pipeline No.'];
+    const pipelineNo = item['Pipeline No'];
     if (!pipelineNo) return;
 
     const originalProjects = pipelineData ? [...pipelineData] : [];
@@ -282,7 +236,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     setProjects(currentProjects => {
       if (!currentProjects) return null;
       return currentProjects.map(p =>
-        p['Pipeline No.'] === pipelineNo ? { ...p, Status: newStatus as PipelineProject['Status'] } : p
+        p['Pipeline No'] === pipelineNo ? { ...p, Status: newStatus as PipelineProject['Status'] } : p
       );
     });
 
@@ -302,7 +256,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const validPipelineData = useMemo(() => {
     if (!pipelineData) return [];
-    return pipelineData.filter(project => project['Pipeline No.'] && (project['Pipeline No.'].startsWith('PL') || project['Pipeline No.'].startsWith('BPL')))
+    return pipelineData.filter(project => project['Pipeline No'] && (project['Pipeline No'].startsWith('PL') || project['Pipeline No'].startsWith('BPL')))
   }, [pipelineData]);
 
   const processedData: ProcessedProject[] = useMemo(() => {
@@ -315,7 +269,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const modalConfig = useMemo(() => {
     const isOpen = !!navigation.action && ['create', 'edit'].includes(navigation.action);
     const isReadOnly = navigation.action === 'view';
-    const project = navigation.id && processedData ? processedData.find(p => p['Pipeline No.'] === navigation.id) || null : null;
+    const project = navigation.id && processedData ? processedData.find(p => p['Pipeline No'] === navigation.id) || null : null;
     return { project, isReadOnly, isOpen };
   }, [navigation.action, navigation.id, processedData]);
 
@@ -336,7 +290,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
     if (searchQuery) {
       const lowercasedQuery = searchQuery.toLowerCase();
-      const searchKeys = ['Company Name', 'Pipeline No.', 'Responsible By', 'Contact Name', 'Require'];
+      const searchKeys = ['Company Name', 'Pipeline No', 'Responsible By', 'Contact Name', 'Require'];
       dataToFilter = dataToFilter.filter(item =>
         searchKeys.some(key =>
           String(item[key as keyof ProcessedProject] ?? '').toLowerCase().includes(lowercasedQuery)
@@ -349,12 +303,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const selectedProject = useMemo(() => {
     if (!selectedPipelineNo) return null;
-    return filteredData.find(p => p['Pipeline No.'] === selectedPipelineNo) || null;
+    return filteredData.find(p => p['Pipeline No'] === selectedPipelineNo) || null;
   }, [selectedPipelineNo, filteredData]);
 
   useEffect(() => {
     if (viewMode === 'detail' && !selectedPipelineNo && filteredData.length > 0) {
-      setSelectedPipelineNo(filteredData[0]['Pipeline No.']);
+      setSelectedPipelineNo(filteredData[0]['Pipeline No']);
     }
   }, [viewMode, selectedPipelineNo, filteredData]);
 
@@ -417,8 +371,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   const allColumns = useMemo<ColumnDef<ProcessedProject>[]>(() => [
     {
-      accessorKey: 'Pipeline No.',
-      header: 'Pipeline No.',
+      accessorKey: 'Pipeline No',
+      header: 'Pipeline No',
       isSortable: true,
       cell: (value: string) => (
         <div className="font-semibold text-muted-foreground/80">{value}</div>
@@ -645,7 +599,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">{selectedProject['Company Name']}</h1>
-                  <p className="text-muted-foreground font-mono mt-1">{selectedProject['Pipeline No.']}</p>
+                  <p className="text-muted-foreground font-mono mt-1">{selectedProject['Pipeline No']}</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <button
@@ -812,7 +766,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             columns={displayedColumns}
             loading={loading}
             onRowClick={handleViewProject}
-            mobilePrimaryColumns={['Pipeline No.', 'Company Name', 'Bid Value', 'Status']}
+            mobilePrimaryColumns={['Pipeline No', 'Company Name', 'Bid Value', 'Status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
@@ -847,7 +801,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           renderCardContent={renderKanbanCard}
           loading={loading}
           onItemMove={handleItemMove}
-          getItemId={(item) => item['Pipeline No.']}
+          getItemId={(item) => item['Pipeline No']}
         />
       ) : (
         <div className="flex-1 min-h-0 bg-background overflow-hidden">
@@ -871,7 +825,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
         confirmText="Delete"
         variant="danger"
       >
-        Are you sure you want to delete project {projectToDelete?.['Pipeline No.']}? This action cannot be undone.
+        Are you sure you want to delete project {projectToDelete?.['Pipeline No']}? This action cannot be undone.
       </ConfirmationModal>
       <footer className="flex-shrink-0 bg-card border-t border-border p-3">
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">

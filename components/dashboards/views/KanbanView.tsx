@@ -80,7 +80,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = (_e: React.DragEvent) => {
     setDragOverColumn(null);
   };
 

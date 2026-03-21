@@ -1,7 +1,74 @@
 
 /**
+ * Tokeniser/parser for simple arithmetic expressions like "50*0.7" or "(10+5)*2".
+ * Supports: +  -  *  /  ( )  and decimal numbers.
+ * No eval() or new Function() — fully CSP-safe.
+ */
+function evalArithmetic(expr: string): number {
+  let pos = 0;
+
+  const peek = () => expr[pos];
+  const consume = () => expr[pos++];
+
+  const skipWs = () => { while (expr[pos] === ' ') pos++; };
+
+  const parseNumber = (): number => {
+    skipWs();
+    let numStr = '';
+    if (peek() === '-') { numStr += consume(); }
+    while (pos < expr.length && /[0-9.]/.test(peek())) numStr += consume();
+    const n = parseFloat(numStr);
+    if (isNaN(n)) throw new Error(`Unexpected token at ${pos}`);
+    return n;
+  };
+
+  // Forward declarations
+  let parseExpr: () => number;
+
+  const parsePrimary = (): number => {
+    skipWs();
+    if (peek() === '(') {
+      consume(); // '('
+      const val = parseExpr();
+      skipWs();
+      if (peek() === ')') consume();
+      return val;
+    }
+    return parseNumber();
+  };
+
+  const parseTerm = (): number => {
+    let left = parsePrimary();
+    skipWs();
+    while (peek() === '*' || peek() === '/') {
+      const op = consume();
+      const right = parsePrimary();
+      left = op === '*' ? left * right : right !== 0 ? left / right : 0;
+      skipWs();
+    }
+    return left;
+  };
+
+  parseExpr = (): number => {
+    let left = parseTerm();
+    skipWs();
+    while (peek() === '+' || peek() === '-') {
+      const op = consume();
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+      skipWs();
+    }
+    return left;
+  };
+
+  const result = parseExpr();
+  return isFinite(result) ? result : 0;
+}
+
+/**
  * Safely evaluates simple mathematical formulas from a Google Sheet string (e.g., "=50*0.7").
  * If the input is not a formula, it attempts to parse it as a number.
+ * Uses a hand-written arithmetic parser — no eval() or new Function() (CSP-safe).
  * @param value The string value from the sheet cell.
  * @returns The calculated numeric value, or 0 if parsing fails.
  */
@@ -13,23 +80,17 @@ export const parseSheetValue = (value: any): number => {
   const stringValue = String(value).trim();
 
   if (stringValue.startsWith('=')) {
-    const expression = stringValue.substring(1);
-    // Sanitize to allow only numbers, basic operators, parentheses, and whitespace.
-    // This is a security measure to prevent arbitrary code execution.
-    const sanitizedExpression = expression.replace(/[^0-9.*/+\-().\s]/g, '');
-
-    if (sanitizedExpression !== expression) {
-      console.warn(`Attempted to evaluate a potentially unsafe formula: "${expression}"`);
+    const expression = stringValue.substring(1).trim();
+    // Validate: only allow digits, decimal points, basic operators, parens, whitespace
+    if (!/^[0-9.()+\-*/ ]+$/.test(expression)) {
+      console.warn(`Skipping unsafe formula: "${expression}"`);
       return 0;
     }
-
     try {
-      // Using the Function constructor is safer than a direct eval().
-      const result = new Function(`return ${sanitizedExpression}`)();
-      return typeof result === 'number' && isFinite(result) ? result : 0;
+      return evalArithmetic(expression);
     } catch (e) {
       console.error(`Error evaluating formula: "${expression}"`, e);
-      return 0; // Return 0 if the formula is invalid or fails to execute.
+      return 0;
     }
   }
 

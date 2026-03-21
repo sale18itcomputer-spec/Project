@@ -1,6 +1,6 @@
 // Headers for Pipelines Sheet
 export const PIPELINE_HEADERS = [
-  'Pipeline No.',
+  'Pipeline No',
   'Company Name',
   'Contact Name',
   'Contact Number',
@@ -16,17 +16,17 @@ export const PIPELINE_HEADERS = [
   'Due Date',
   'Inv Date',
   'Quote',
-  'Quote No.',
+  'Quote No',
   'Bid Value',
-  'Invoice No.',
-  'SO No.',
+  'Invoice No',
+  'SO No',
   'Remarks',
   'Conditional',
   'Currency'
 ] as const;
 
 export const COMPACT_PIPELINE_HEADERS = [
-  'Pipeline No.',
+  'Pipeline No',
   'Company Name',
   'Status',
   'Responsible By',
@@ -165,7 +165,7 @@ export const USER_HEADERS = [
 
 // Headers for Quotations Sheet
 export const QUOTATION_HEADERS = [
-  'Quote No.',
+  'Quote No',
   'File',
   'Quote Date',
   'Validity Date',
@@ -194,10 +194,10 @@ export const QUOTATION_HEADERS = [
 
 // Headers for Sale Orders Sheet
 export const SALE_ORDER_HEADERS = [
-  'SO No.',
+  'SO No',
   'SO Date',
   'File',
-  'Quote No.',
+  'Quote No',
   'Company Name',
   'Contact Name',
   'Phone Number',
@@ -232,10 +232,10 @@ export const PRICELIST_HEADERS = [
 ] as const;
 
 export const INVOICE_HEADERS = [
-  'Inv No.',
+  'Inv No',
   'Inv Date',
   'File',
-  'SO No.',
+  'SO No',
   'Company Name',
   'Contact Name',
   'Phone Number',

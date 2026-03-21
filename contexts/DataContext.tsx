@@ -1,6 +1,5 @@
 'use client';
 
-
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { batchReadRecords } from '../services/api';
 import { supabase } from '../lib/supabase';
@@ -37,6 +36,41 @@ import {
 import { useAuth } from './AuthContext';
 import * as db from '../utils/db';
 
+// ---------------------------------------------------------------------------
+// Fetch strategy
+//
+// CRITICAL tables are fetched immediately on login — they're needed by the
+// dashboard and sidebar counts.
+//
+// LAZY tables are fetched only when explicitly requested via `fetchModule()`.
+// They may still be served from IndexedDB cache on first call, so the UI
+// stays responsive while the network request completes in the background.
+// ---------------------------------------------------------------------------
+const CRITICAL_SHEETS = [
+  'Pipelines',
+  'Company List',
+  'Contact_List',
+] as const;
+
+ 
+const LAZY_SHEETS = [
+  'Contact_Logs',
+  'Site_Survey_Logs',
+  'Meeting_Logs',
+  'Quotations',
+  'Sale Orders',
+  'Raw',
+  'Invoices',
+  'Vendors',
+  'Vendor Pricelist',
+  'Purchase Orders',
+] as const;
+
+type LazySheet = typeof LAZY_SHEETS[number];
+
+// Which modules have been fetched this session (avoids duplicate network hits)
+const fetchedModules = new Set<LazySheet>();
+
 interface DataContextProps {
   projects: PipelineProject[] | null;
   setProjects: React.Dispatch<React.SetStateAction<PipelineProject[] | null>>;
@@ -70,18 +104,18 @@ interface DataContextProps {
   activeContactNames: Set<string>;
   activePipelineIds: Set<string>;
   refetchData: () => void;
+  /** Call this inside a module page to ensure its data is fetched. */
+  fetchModule: (...sheets: LazySheet[]) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
-  if (!Array.isArray(items)) {
-    return [];
-  }
-  const normalizedItems = items.map(item => {
-    const trimmedKeyItem: { [key: string]: any } = {};
+  if (!Array.isArray(items)) return [];
+  return items.map(item => {
+    const trimmedKeyItem: Record<string, any> = {};
     for (const key in item) {
-      trimmedKeyItem[key.trim()] = (item as any)[key];
+      trimmedKeyItem[key.trim()] = item[key];
     }
     const normalizedItem = {} as T;
     headers.forEach(header => {
@@ -89,7 +123,6 @@ const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
     });
     return normalizedItem;
   });
-  return normalizedItems;
 };
 
 const storeToSheetMap: Record<db.StoreName, string> = {
@@ -130,7 +163,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [refetchCounter, setRefetchCounter] = useState(0);
   const { isAuthenticated } = useAuth();
 
-  const refetchData = useCallback(() => setRefetchCounter(c => c + 1), []);
+  const refetchData = useCallback(() => {
+    fetchedModules.clear();
+    setRefetchCounter(c => c + 1);
+  }, []);
 
   const [projects, setProjects] = useState<PipelineProject[] | null>(null);
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -142,15 +178,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [saleOrders, setSaleOrders] = useState<SaleOrder[] | null>(null);
   const [pricelist, setPricelist] = useState<PricelistItem[] | null>(null);
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
 
-  // dispatch setters are stable references — no useMemo needed for their functions, but the object itself needs to be stable
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const stateSetters = useMemo<Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>>>(() => ({
     projects: setProjects,
     companies: setCompanies,
@@ -164,82 +198,127 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     invoices: setInvoices,
     vendors: setVendors,
     vendorPricelist: setVendorPricelist,
-    purchaseOrders: setPurchaseOrders
+    purchaseOrders: setPurchaseOrders,
   }), []);
 
-  // Real-time subscription setup
+  // ---------------------------------------------------------------------------
+  // Core normalise-and-store helper (shared by boot fetch and lazy fetch)
+  // ---------------------------------------------------------------------------
+  // vendorsRef gives applyNormalizedData access to the latest vendors state
+  // without making it a dependency (which would cause unnecessary re-renders).
+  const vendorsRef = React.useRef<Vendor[] | null>(null);
+  useEffect(() => { vendorsRef.current = vendors; }, [vendors]);
+
+  const applyNormalizedData = useCallback((sheetNames: string[], freshData: Record<string, any[]>) => {
+    const normalizedData: Partial<Record<db.StoreName, any[]>> = {};
+
+    for (const sheetName of sheetNames) {
+      const storeName = sheetToStoreMap[sheetName] as db.StoreName;
+      const data = freshData[sheetName];
+      const headers = sheetToHeadersMap[sheetName];
+      if (!data || !headers || !storeName || !stateSetters[storeName]) continue;
+
+      const normalized = normalize(data, headers);
+
+      if (storeName === 'vendorPricelist') {
+        // Prefer vendors fetched in the same batch; fall back to current state
+        const currentVendors =
+          (normalizedData['vendors'] as Vendor[] | undefined) ??
+          vendorsRef.current ??
+          [];
+        const withNames = (normalized as VendorPricelistItem[]).map(item => {
+          const vendor = currentVendors.find(
+            v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase()
+          );
+          return { ...item, vendor_name: vendor?.vendor_name ?? 'Unknown Vendor' };
+        });
+        stateSetters[storeName](withNames);
+        normalizedData[storeName] = withNames;
+      } else if (storeName === 'purchaseOrders') {
+        // Prefer vendors fetched in the same batch; fall back to current state
+        const currentVendors =
+          (normalizedData['vendors'] as Vendor[] | undefined) ??
+          vendorsRef.current ??
+          [];
+        const pos = (normalized as PurchaseOrder[]).map(po => {
+          const vendor = currentVendors.find(v => v.id === po.vendor_id);
+          return { ...po, vendor_name: po.vendor_name || vendor?.vendor_name || '' };
+        });
+        stateSetters[storeName](pos);
+        normalizedData[storeName] = pos;
+      } else {
+        stateSetters[storeName](normalized);
+        normalizedData[storeName] = normalized;
+      }
+    }
+
+    db.batchSetStoreData(normalizedData).catch(console.error);
+  }, [stateSetters]);
+
+  // ---------------------------------------------------------------------------
+  // Real-time subscription
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Configuration map for Supabase tables to React state
-    const tableConfig: {
-      [key: string]: {
-        setter: React.Dispatch<React.SetStateAction<any[] | null>>,
-        headers: readonly string[],
-        primaryKey: string
-      }
-    } = {
-      'pipelines': { setter: setProjects, headers: PIPELINE_HEADERS, primaryKey: 'Pipeline No.' },
-      'companies': { setter: setCompanies, headers: COMPANY_HEADERS, primaryKey: 'Company ID' },
-      'contacts': { setter: setContacts, headers: CONTACT_HEADERS, primaryKey: 'Customer ID' },
-      'meeting_logs': { setter: setMeetings, headers: MEETING_HEADERS, primaryKey: 'Meeting ID' },
-      'contact_logs': { setter: setContactLogs, headers: CONTACT_LOG_HEADERS, primaryKey: 'Log ID' },
-      'site_survey_logs': { setter: setSiteSurveys, headers: SITE_SURVEY_LOG_HEADERS, primaryKey: 'Site ID' },
-      'quotations': { setter: setQuotations, headers: QUOTATION_HEADERS, primaryKey: 'Quote No.' },
-      'sale_orders': { setter: setSaleOrders, headers: SALE_ORDER_HEADERS, primaryKey: 'SO No.' },
-      'pricelist': { setter: setPricelist, headers: PRICELIST_HEADERS, primaryKey: 'Code' },
-      'invoices': { setter: setInvoices, headers: INVOICE_HEADERS, primaryKey: 'Inv No.' },
-      'vendors': { setter: setVendors, headers: VENDOR_HEADERS, primaryKey: 'id' },
-      'vendor_pricelist': { setter: setVendorPricelist, headers: VENDOR_PRICELIST_HEADERS, primaryKey: 'id' },
-      'purchase_orders': { setter: setPurchaseOrders, headers: PURCHASE_ORDER_HEADERS, primaryKey: 'id' },
+    const tableConfig: Record<string, {
+      setter: React.Dispatch<React.SetStateAction<any[] | null>>;
+      headers: readonly string[];
+      primaryKey: string;
+    }> = {
+      pipelines:        { setter: setProjects,       headers: PIPELINE_HEADERS,        primaryKey: 'Pipeline No' },
+      companies:        { setter: setCompanies,      headers: COMPANY_HEADERS,         primaryKey: 'Company ID' },
+      contacts:         { setter: setContacts,       headers: CONTACT_HEADERS,         primaryKey: 'Customer ID' },
+      meeting_logs:     { setter: setMeetings,       headers: MEETING_HEADERS,         primaryKey: 'Meeting ID' },
+      contact_logs:     { setter: setContactLogs,    headers: CONTACT_LOG_HEADERS,     primaryKey: 'Log ID' },
+      site_survey_logs: { setter: setSiteSurveys,    headers: SITE_SURVEY_LOG_HEADERS, primaryKey: 'Site ID' },
+      quotations:       { setter: setQuotations,     headers: QUOTATION_HEADERS,       primaryKey: 'Quote No' },
+      sale_orders:      { setter: setSaleOrders,     headers: SALE_ORDER_HEADERS,      primaryKey: 'SO No' },
+      pricelist:        { setter: setPricelist,      headers: PRICELIST_HEADERS,       primaryKey: 'Code' },
+      invoices:         { setter: setInvoices,       headers: INVOICE_HEADERS,         primaryKey: 'Inv No' },
+      vendors:          { setter: setVendors,        headers: VENDOR_HEADERS,          primaryKey: 'id' },
+      vendor_pricelist: { setter: setVendorPricelist, headers: VENDOR_PRICELIST_HEADERS, primaryKey: 'id' },
+      purchase_orders:  { setter: setPurchaseOrders, headers: PURCHASE_ORDER_HEADERS,  primaryKey: 'id' },
     };
 
-    const channel = supabase.channel('db_changes_channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public' },
-        (payload) => {
-          const { table, eventType, new: newRecord, old: oldRecord } = payload;
-          const config = tableConfig[table];
+    // Unique channel name avoids conflicts between browser tabs
+    const channelName = `db_changes_${crypto.randomUUID()}`;
+    const channel = supabase!.channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        const { table, eventType, new: newRecord, old: oldRecord } = payload;
+        const config = tableConfig[table];
+        if (!config) return;
 
-          if (!config) return;
+        const { setter, headers, primaryKey } = config;
 
-          const { setter, headers, primaryKey } = config;
-
-          if (eventType === 'INSERT') {
-            const normalizedItem = normalize([newRecord], headers)[0];
-            setter(prev => {
-              if (!prev) return [normalizedItem];
-              if (prev.some(item => item[primaryKey] === normalizedItem[primaryKey])) return prev;
-              return [normalizedItem, ...prev];
-            });
-          } else if (eventType === 'UPDATE') {
-            const normalizedItem = normalize([newRecord], headers)[0];
-            setter(prev => {
-              if (!prev) return [normalizedItem];
-              return prev.map(item => item[primaryKey] === normalizedItem[primaryKey] ? normalizedItem : item);
-            });
-          } else if (eventType === 'DELETE') {
-            const deletedId = oldRecord[primaryKey];
-            if (deletedId) {
-              setter(prev => prev ? prev.filter(item => item[primaryKey] !== deletedId) : prev);
-            }
-          }
+        if (eventType === 'INSERT') {
+          const item = normalize([newRecord], headers)[0];
+          setter(prev => {
+            if (!prev) return [item];
+            if (prev.some(r => r[primaryKey] === item[primaryKey])) return prev;
+            return [item, ...prev];
+          });
+        } else if (eventType === 'UPDATE') {
+          const item = normalize([newRecord], headers)[0];
+          setter(prev => prev
+            ? prev.map(r => r[primaryKey] === item[primaryKey] ? item : r)
+            : [item]
+          );
+        } else if (eventType === 'DELETE') {
+          const deletedId = oldRecord[primaryKey];
+          if (deletedId) setter(prev => prev ? prev.filter(r => r[primaryKey] !== deletedId) : prev);
         }
-      )
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-
+    return () => { supabase!.removeChannel(channel); };
   }, [isAuthenticated, stateSetters]);
 
-
+  // ---------------------------------------------------------------------------
+  // Boot fetch — critical tables only
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const clearData = () => {
-      Object.values(stateSetters).forEach(setter => setter(null));
-    };
+    const clearData = () => Object.values(stateSetters).forEach(setter => setter(null));
 
     if (!isAuthenticated) {
       setLoading(false);
@@ -247,107 +326,94 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const loadData = async () => {
+    const loadCriticalData = async () => {
       setLoading(true);
       setError(null);
-      let isDataLoadedFromCache = false;
+      let loadedFromCache = false;
 
+      // 1. Serve cache immediately so the UI isn't blank
       try {
-        const cachedData = await db.batchGetStoreData(db.STORE_NAMES);
+        const criticalStoreNames = CRITICAL_SHEETS.map(s => sheetToStoreMap[s]) as db.StoreName[];
+        const cachedData = await db.batchGetStoreData(criticalStoreNames);
         if (Object.values(cachedData).some(arr => arr && arr.length > 0)) {
-          (Object.keys(cachedData) as db.StoreName[]).forEach(storeName => {
-            const setter = stateSetters[storeName];
-            if (setter) setter(cachedData[storeName]);
+          criticalStoreNames.forEach(storeName => {
+            if (stateSetters[storeName]) stateSetters[storeName](cachedData[storeName]);
           });
-          isDataLoadedFromCache = true;
+          loadedFromCache = true;
           setLoading(false);
         }
       } catch (dbError) {
-        console.error("Failed to load data from IndexedDB:", dbError);
+        console.error('[DataContext] Failed to load cache from IndexedDB:', dbError);
       }
 
+      // 2. Fetch fresh data from network for critical tables
       try {
-        // All stores go through the same unified batch-fetch pipeline.
-        // storeToSheetMap maps every store to its logical sheet name;
-        // sheetToHeadersMap drives normalization for all of them.
-        const sheetNames = db.STORE_NAMES
-          .map(s => storeToSheetMap[s])
-          .filter(name => !!sheetToHeadersMap[name]);
-
-        const freshData = await batchReadRecords<Record<string, any[]>>(sheetNames);
-        const normalizedData: Partial<Record<db.StoreName, any[]>> = {};
-
-        for (const sheetName of sheetNames) {
-          const storeName = sheetToStoreMap[sheetName] as db.StoreName;
-          const data = freshData[sheetName];
-          const headers = sheetToHeadersMap[sheetName];
-          if (data && headers && storeName && stateSetters[storeName]) {
-            const normalized = normalize(data, headers);
-
-            // After normalizing vendor_pricelist, join vendor_name from vendors
-            if (storeName === 'vendorPricelist') {
-              const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) || [];
-              const withNames = (normalized as VendorPricelistItem[]).map(item => {
-                const vendor = currentVendors.find(
-                  v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase()
-                );
-                return { ...item, vendor_name: vendor?.vendor_name ?? 'Unknown Vendor' };
-              });
-              stateSetters[storeName](withNames);
-              normalizedData[storeName] = withNames;
-            } else if (storeName === 'purchaseOrders') {
-              // Join vendor_name for purchase orders
-              const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) || [];
-              const pos = (normalized as PurchaseOrder[]).map(po => {
-                const vendor = currentVendors.find(v => v.id === po.vendor_id);
-                return { ...po, vendor_name: po.vendor_name || vendor?.vendor_name || '' };
-              });
-              stateSetters[storeName](pos);
-              normalizedData[storeName] = pos;
-            } else {
-              stateSetters[storeName](normalized);
-              normalizedData[storeName] = normalized;
-            }
-          }
-        }
-
-        db.batchSetStoreData(normalizedData);
+        const freshData = await batchReadRecords<Record<string, any[]>>([...CRITICAL_SHEETS]);
+        applyNormalizedData([...CRITICAL_SHEETS], freshData);
       } catch (networkError: any) {
-        console.error("Failed to fetch data from network:", networkError);
-        if (!isDataLoadedFromCache) {
-          setError(networkError.message);
-        } else {
-          console.warn("Could not fetch fresh data. Displaying stale data from cache.");
-        }
+        console.error('[DataContext] Failed to fetch critical data:', networkError);
+        if (!loadedFromCache) setError(networkError.message);
+        else console.warn('[DataContext] Displaying stale cached data — network unavailable.');
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-    // stateSetters is a plain object literal of stable dispatch refs — excluding to avoid infinite loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadCriticalData();
+     
   }, [isAuthenticated, refetchCounter]);
 
+  // ---------------------------------------------------------------------------
+  // fetchModule — called by individual module pages for lazy data
+  // ---------------------------------------------------------------------------
+  const fetchModule = useCallback(async (...sheets: LazySheet[]) => {
+    const toFetch = sheets.filter(s => !fetchedModules.has(s));
+    if (toFetch.length === 0) return;
 
+    toFetch.forEach(s => fetchedModules.add(s));
+
+    // Serve from IndexedDB cache first
+    try {
+      const storeNames = toFetch.map(s => sheetToStoreMap[s]) as db.StoreName[];
+      const cachedData = await db.batchGetStoreData(storeNames);
+      if (Object.values(cachedData).some(arr => arr && arr.length > 0)) {
+        storeNames.forEach(storeName => {
+          if (stateSetters[storeName] && cachedData[storeName]?.length > 0) {
+            stateSetters[storeName](cachedData[storeName]);
+          }
+        });
+      }
+    } catch (dbError) {
+      console.error('[DataContext] Cache read failed for lazy modules:', dbError);
+    }
+
+    // Fetch fresh from network
+    try {
+      const freshData = await batchReadRecords<Record<string, any[]>>(toFetch);
+      applyNormalizedData(toFetch, freshData);
+    } catch (networkError: any) {
+      console.error('[DataContext] Failed to fetch lazy module data:', networkError);
+    }
+  }, [stateSetters, applyNormalizedData]);
+
+  // ---------------------------------------------------------------------------
+  // Derived sets from pipeline data (memoised)
+  // ---------------------------------------------------------------------------
   const { activeCompanyNames, activeContactNames, activePipelineIds } = useMemo(() => {
     const activeCompanyNames = new Set<string>();
     const activeContactNames = new Set<string>();
     const activePipelineIds = new Set<string>();
 
-    if (projects) {
-      projects.forEach(project => {
-        if (project['Company Name']) activeCompanyNames.add(project['Company Name']);
-        if (project['Contact Name']) activeContactNames.add(project['Contact Name']);
-        if (project['Pipeline No.']) activePipelineIds.add(project['Pipeline No.']);
-      });
-    }
+    projects?.forEach(project => {
+      if (project['Company Name']) activeCompanyNames.add(project['Company Name']);
+      if (project['Contact Name']) activeContactNames.add(project['Contact Name']);
+      if (project['Pipeline No']) activePipelineIds.add(project['Pipeline No']);
+    });
 
     return { activeCompanyNames, activeContactNames, activePipelineIds };
   }, [projects]);
 
-
-  const value = {
+  const value: DataContextProps = {
     projects, setProjects,
     companies, setCompanies,
     contacts, setContacts,
@@ -362,11 +428,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     vendorPricelist, setVendorPricelist,
     purchaseOrders, setPurchaseOrders,
     loading,
-    error: error || null,
+    error,
     activeCompanyNames,
     activeContactNames,
     activePipelineIds,
     refetchData,
+    fetchModule,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -374,8 +441,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
+  if (context === undefined) throw new Error('useData must be used within a DataProvider');
   return context;
 };

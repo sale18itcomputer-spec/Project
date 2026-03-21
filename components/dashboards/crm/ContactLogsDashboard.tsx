@@ -17,9 +17,7 @@ import { deleteRecord } from "../../../services/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
-// FIX: Imported the Spinner component to resolve a "Cannot find name 'Spinner'" error.
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
 type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
@@ -38,30 +36,6 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
 
 const CONTACT_LOG_COLUMNS_VISIBILITY_KEY = 'limperial-contact-log-columns-visibility';
 
-const ContactLogMobileCard: React.FC<{ log: ContactLog, onView: () => void }> = ({ log, onView }) => (
-  <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
-    <div className="mobile-card-header">
-      <div>
-        <div className="mobile-card-title">{log['Company Name']}</div>
-        <div className="mobile-card-subtitle">{log['Contact Name']}</div>
-      </div>
-      <span className="mobile-status mobile-status-info">
-        <span className="mobile-status-dot"></span>
-        {log.Type}
-      </span>
-    </div>
-    <div className="mobile-card-body">
-      <div className="mobile-card-row">
-        <span className="mobile-card-label">Date</span>
-        <span className="mobile-card-value text-slate-500 font-medium">{formatDisplayDate(log['Contact Date'])}</span>
-      </div>
-      <div className="mobile-card-row">
-        <span className="mobile-card-label">Logged By</span>
-        <span className="mobile-card-value">{log['Responsible By']}</span>
-      </div>
-    </div>
-  </div>
-);
 
 
 const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilter }) => {
@@ -76,8 +50,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
   const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
-  const { width } = useWindowSize();
-  const isMobile = width < 1024; // lg breakpoint
 
   const modalConfig = useMemo(() => {
     const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);

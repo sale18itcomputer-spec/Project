@@ -1,3 +1,4 @@
-import { createClient } from '../utils/supabase/client';
+import { getSupabaseBrowserClient } from '../utils/supabase/client';
 
-export const supabase = createClient() as any;
+// Singleton — throws at startup if env vars are missing.
+export const supabase = getSupabaseBrowserClient();

@@ -38,7 +38,7 @@ type ProcessedContact = Contact & {
   totalAmountKHR: number;
 };
 
-const ContactMobileCard: React.FC<{ contact: ProcessedContact, onView: () => void }> = ({ contact, onView }) => (
+const _ContactMobileCard: React.FC<{ contact: ProcessedContact, onView: () => void }> = ({ contact, onView }) => (
   <div className="mobile-card" onClick={onView} role="button" tabIndex={0}>
     <div className="mobile-card-header">
       <div>
