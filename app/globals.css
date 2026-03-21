@@ -3,6 +3,7 @@
 @theme {
     --color-border: hsl(var(--border));
     --color-input: hsl(var(--input));
+    --color-input-background: hsl(var(--input));
     --color-ring: hsl(var(--ring));
     --color-background: hsl(var(--background));
     --color-foreground: hsl(var(--foreground));
@@ -271,25 +272,42 @@
     }
 
     .dark {
-        --background: 222.2 84% 4.9%;
-        --foreground: 210 40% 98%;
-        --card: 222.2 84% 4.9%;
-        --card-foreground: 210 40% 98%;
-        --popover: 222.2 84% 4.9%;
-        --popover-foreground: 210 40% 98%;
-        --primary: 210 40% 98%;
-        --primary-foreground: 222.2 47.4% 11.2%;
-        --secondary: 217.2 32.6% 17.5%;
-        --secondary-foreground: 210 40% 98%;
-        --muted: 217.2 32.6% 17.5%;
-        --muted-foreground: 215 20.2% 65.1%;
-        --accent: 217.2 32.6% 17.5%;
-        --accent-foreground: 210 40% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 210 40% 98%;
-        --border: 217.2 32.6% 17.5%;
-        --input: 217.2 32.6% 17.5%;
-        --ring: 212.7 26.8% 83.9%;
+        /* ── Base: #262624 warm charcoal ── */
+        --background:          40 3% 15%;   /* #262624 — page bg          */
+        --foreground:          40 10% 91%;  /* near-white warm text        */
+
+        /* Cards float above the page */
+        --card:                40 4% 19%;   /* #2f2f2c                     */
+        --card-foreground:     40 10% 91%;
+
+        /* Popovers / dropdowns (deeper than cards) */
+        --popover:             40 4% 16%;   /* slightly below bg           */
+        --popover-foreground:  40 10% 91%;
+
+        /* Brand blue — vibrant and accessible on dark */
+        --primary:             215 85% 63%;
+        --primary-foreground:  215 100% 8%;
+
+        /* Raised surface for inputs / badges */
+        --secondary:           40 4% 23%;
+        --secondary-foreground:40 10% 85%;
+
+        /* Muted backgrounds (table rows, skeleton) */
+        --muted:               40 3% 21%;
+        --muted-foreground:    40 5% 56%;
+
+        /* Hover / focus accent lift */
+        --accent:              40 5% 27%;
+        --accent-foreground:   40 10% 91%;
+
+        /* Danger */
+        --destructive:         0 65% 45%;
+        --destructive-foreground: 0 0% 98%;
+
+        /* Dividers and input outlines */
+        --border:              40 4% 27%;
+        --input:               40 4% 22%;
+        --ring:                215 85% 63%;
     }
 
     .b2b-dark {
@@ -325,17 +343,17 @@
         font-family: 'Inter', sans-serif;
         font-variant-numeric: tabular-nums;
         -webkit-text-size-adjust: 100%;
-        overflow-x: hidden;
-        overflow-y: auto;
+        overflow: hidden;
+        height: 100%;
+        height: 100dvh;
     }
 
     body {
         background-color: hsl(var(--background));
         color: hsl(var(--foreground));
-        min-height: 100vh;
-        min-height: -webkit-fill-available;
-        overflow-x: hidden;
-        overflow-y: auto;
+        height: 100%;
+        height: 100dvh;
+        overflow: hidden;
     }
 
     @supports (font-variation-settings: normal) {
@@ -351,18 +369,30 @@
         }
     }
 
-    @media (min-width: 1024px) and (max-height: 900px) {
+    /* Laptop / small screen height optimizations — keep everything in viewport */
+    @media (min-width: 1024px) and (max-height: 800px) {
+        .metric-cards-grid {
+            gap: 0.75rem !important;
+        }
+        .dashboard-container {
+            padding-top: 0.75rem !important;
+            padding-bottom: 0.75rem !important;
+        }
+        .chart-container {
+            height: 260px !important;
+        }
+    }
+
+    @media (min-width: 1024px) and (min-height: 801px) and (max-height: 900px) {
         .metric-cards-grid {
             gap: 1rem !important;
         }
-
         .dashboard-container {
             padding-top: 1rem !important;
             padding-bottom: 1rem !important;
         }
-
         .chart-container {
-            height: 320px !important;
+            height: 300px !important;
         }
     }
 
@@ -553,6 +583,7 @@
     html,
     body {
         height: auto !important;
+        min-height: unset !important;
         overflow: visible !important;
         background-color: #fff !important;
     }
@@ -607,8 +638,8 @@
     left: 0;
     right: 0;
     height: 56px;
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
+    background: hsl(var(--background));
+    border-bottom: 1px solid hsl(var(--border));
     z-index: 80;
     display: flex;
     align-items: center;
@@ -621,6 +652,7 @@
     font-weight: 600;
     flex: 1;
     text-align: center;
+    color: hsl(var(--foreground));
 }
 
 .mobile-bottom-nav {
@@ -630,8 +662,8 @@
     right: 0;
     height: calc(64px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
-    background: white;
-    border-top: 1px solid #e5e7eb;
+    background: hsl(var(--background));
+    border-top: 1px solid hsl(var(--border));
     display: flex;
     justify-content: space-around;
     align-items: flex-start;
@@ -646,14 +678,14 @@
     justify-content: center;
     gap: 0.25rem;
     min-width: 64px;
-    color: #6b7280;
+    color: hsl(var(--muted-foreground));
     text-decoration: none;
     transition: color 0.2s;
     padding-top: 2px;
 }
 
 .mobile-nav-item.active {
-    color: #004aad;
+    color: hsl(var(--primary));
 }
 
 .mobile-nav-item-label {
@@ -668,17 +700,18 @@
 }
 
 .mobile-card {
-    background: white;
-    border: 1px solid #e5e7eb;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     border-radius: 0.75rem;
     margin-bottom: 1rem;
     overflow: hidden;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    color: hsl(var(--card-foreground));
 }
 
 .mobile-card:active {
-    background: #f9fafb;
+    background: hsl(var(--accent));
     transform: scale(0.98);
 }
 
@@ -688,8 +721,8 @@
 
 .mobile-card-header {
     padding: 1rem;
-    background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
+    background: hsl(var(--muted));
+    border-bottom: 1px solid hsl(var(--border));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -698,12 +731,12 @@
 .mobile-card-title {
     font-size: 1rem;
     font-weight: 600;
-    color: #111827;
+    color: hsl(var(--foreground));
 }
 
 .mobile-card-subtitle {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: hsl(var(--muted-foreground));
     margin-top: 0.25rem;
 }
 
@@ -716,7 +749,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
 }
 
 .mobile-card-row:last-child {
@@ -726,13 +759,13 @@
 
 .mobile-card-label {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: hsl(var(--muted-foreground));
     font-weight: 500;
 }
 
 .mobile-card-value {
     font-size: 0.875rem;
-    color: #111827;
+    color: hsl(var(--foreground));
     font-weight: 600;
     text-align: right;
 }
@@ -745,15 +778,16 @@
     width: 100%;
     padding: 0.75rem 1rem 0.75rem 2.75rem;
     font-size: 1rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid hsl(var(--border));
     border-radius: 9999px;
-    background: #f9fafb;
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
 }
 
 .mobile-search-input:focus {
     outline: none;
-    border-color: #004aad;
-    background: white;
+    border-color: hsl(var(--primary));
+    background: hsl(var(--background));
 }
 
 .mobile-search-icon {
@@ -761,7 +795,7 @@
     left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: #9ca3af;
+    color: hsl(var(--muted-foreground));
 }
 
 .mobile-tabs {
@@ -782,16 +816,16 @@
     font-weight: 600;
     border-radius: 9999px;
     white-space: nowrap;
-    background: #f3f4f6;
-    color: #6b7280;
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
     border: none;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .mobile-tab.active {
-    background: #004aad;
-    color: white;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
 }
 
 .mobile-status {
@@ -1146,6 +1180,137 @@ tbody tr {
 
 tbody tr:hover {
     background-color: hsl(var(--muted) / 0.5);
+}
+
+/* ============================================
+   PORTAL & OVERLAY Z-INDEX GUARANTEES
+   Radix UI portals render into document.body.
+   These rules ensure they always float above
+   any creator/modal/sticky headers.
+   ============================================ */
+
+[data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+}
+
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay] {
+    z-index: 9998 !important;
+}
+
+[data-radix-dialog-content],
+[data-radix-alert-dialog-content] {
+    z-index: 9999 !important;
+}
+
+/* Sonner toast container */
+[data-sonner-toaster] {
+    z-index: 99999 !important;
+}
+
+/* ============================================
+   DARK MODE POLISH
+   ============================================ */
+
+/* Elevated card shadow in dark mode */
+.dark .bg-card,
+.dark [class*="bg-card"] {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+}
+
+/* Borders are softer / less stark */
+.dark * {
+    border-color: hsl(40 4% 27% / 0.8);
+}
+
+/* Better text selection in dark mode */
+.dark ::selection {
+    background-color: hsl(215 85% 63% / 0.3);
+    color: hsl(40 10% 91%);
+}
+
+/* Scrollbars adapt to dark bg */
+.dark .custom-scrollbar::-webkit-scrollbar-track,
+.dark ::-webkit-scrollbar-track {
+    background: hsl(40 3% 17%);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
+    background-color: hsl(40 4% 30%);
+    border-color: hsl(40 3% 17%);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(40 5% 40%);
+}
+
+/* Header border in dark mode */
+.dark header {
+    border-color: hsl(40 4% 22%);
+    background-color: hsl(40 3% 15% / 0.85);
+}
+
+/* Sidebar in dark mode */
+.dark aside {
+    border-color: hsl(40 4% 22%);
+    background-color: hsl(40 4% 17%);
+}
+
+/* Dropdown menus get a subtle shadow and border */
+.dark [role="menu"],
+.dark [data-radix-popper-content-wrapper] > * {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+    border-color: hsl(40 4% 27%);
+}
+
+/* Input fields in dark mode — use CSS var so Tailwind bg-input works correctly */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark select {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+    color: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Skeleton shimmer adapts to dark */
+.dark .skeleton::after {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+}
+
+/* Table header dark */
+.dark thead tr th {
+    background-color: hsl(40 4% 19%);
+    border-color: hsl(40 4% 27%);
+}
+
+/* Glass effect in dark */
+.dark .glass {
+    background: rgba(38, 38, 36, 0.8);
+    border-color: rgba(255,255,255,0.06);
+}
+
+/* Mobile nav dark overrides now handled automatically via CSS variables */
+
+/* Notification unread item background in dark */
+.dark .bg-brand-50\/30 {
+    background-color: hsl(215 85% 63% / 0.08);
+}
+
+/* Hover lift shadows in dark */
+.dark .hover-lift:hover {
+    box-shadow: 0 8px 25px -8px rgba(0,0,0,0.5);
+}
+
+.dark .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(60, 130, 246, 0.2);
+}
+
+/* Modal backdrop in dark */
+.dark .modal-backdrop {
+    background: rgba(0, 0, 0, 0.6);
 }
 
 [data-state="delayed-open"][data-side="top"] {

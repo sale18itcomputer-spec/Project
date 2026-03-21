@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
 
 interface SuccessModalProps {
@@ -37,7 +38,8 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
 
   if (!isOpen && !isVisible) return null;
 
-  return (
+  if (typeof window === 'undefined') return null;
+  return createPortal(
     <div className={`fixed inset-0 z-[10000] flex items-center justify-center p-4 transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
       {/* Professional Backdrop */}
       <div
@@ -47,14 +49,14 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
 
       {/* Modal Container */}
       <div className={`
-                relative w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden transform transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]
+                relative w-full max-w-md bg-card rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] border border-border overflow-hidden transform transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]
                 ${isOpen ? 'translate-y-0 scale-100' : 'translate-y-4 scale-[0.97] opacity-0'}
             `}>
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all z-10"
+          className="absolute top-5 right-5 p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all z-10"
         >
           <X className="w-4 h-4" strokeWidth={2.5} />
         </button>
@@ -68,11 +70,11 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
             </div>
           </div>
 
-          <h2 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">
+          <h2 className="text-xl font-bold text-foreground mb-2 tracking-tight">
             {title}
           </h2>
 
-          <div className="text-sm text-slate-500 font-medium leading-relaxed mb-10 max-w-[280px]">
+          <div className="text-sm text-muted-foreground font-medium leading-relaxed mb-10 max-w-[280px]">
             {message}
           </div>
 
@@ -108,7 +110,8 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
         {/* Status Indicator */}
         <div className="h-1 bg-gradient-to-r from-emerald-400 to-blue-500/50 opacity-40" />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

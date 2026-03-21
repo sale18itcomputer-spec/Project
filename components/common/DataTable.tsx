@@ -561,7 +561,7 @@ function DataTable<T extends object>({
             </span>
             <button
               onClick={handleExportExcel}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors text-xs font-semibold"
+              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-600/20 transition-colors text-xs font-semibold"
               title="Export filtered data as Excel"
             >
               <Download className="w-3.5 h-3.5" />

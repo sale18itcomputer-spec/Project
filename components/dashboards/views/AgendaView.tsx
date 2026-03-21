@@ -90,10 +90,10 @@ function AgendaView<T>({ items, renderCardContent, onItemClick, loading }: Agend
 
     if (totalItems === 0) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-50 p-8">
-                <EmptyState illustration={<ClipboardList className="w-20 h-20 text-slate-300" />}>
-                    <h3 className="mt-2 text-lg font-semibold text-gray-900">No Items to Display</h3>
-                    <p className="mt-1 text-sm text-gray-500">There are currently no items in the agenda.</p>
+            <div className="flex-1 flex items-center justify-center bg-muted/30 p-8">
+                <EmptyState illustration={<ClipboardList className="w-20 h-20 text-muted-foreground/30" />}>
+                    <h3 className="mt-2 text-lg font-semibold text-foreground">No Items to Display</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">There are currently no items in the agenda.</p>
                 </EmptyState>
             </div>
         );
@@ -105,7 +105,7 @@ function AgendaView<T>({ items, renderCardContent, onItemClick, loading }: Agend
 
         return (
             <div className="mb-8">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 px-8 sticky top-0 bg-slate-100/80 backdrop-blur-sm py-3 -mx-8 z-10 border-b border-t border-slate-200">{title}</h2>
+                <h2 className="text-xl font-bold text-foreground mb-4 px-8 sticky top-0 bg-background/80 backdrop-blur-sm py-3 -mx-8 z-10 border-b border-t border-border">{title}</h2>
                 <div className="space-y-4">
                     {items.map(item => {
                         const currentDateHeader = formatDateForHeader(item.date!);
@@ -113,12 +113,12 @@ function AgendaView<T>({ items, renderCardContent, onItemClick, loading }: Agend
                         lastDateHeader = currentDateHeader;
                         return (
                             <React.Fragment key={item.id}>
-                                {showDateHeader && <h3 className="text-base font-semibold text-slate-500 pt-4 pb-2 border-b border-slate-200">{currentDateHeader}</h3>}
+                                {showDateHeader && <h3 className="text-base font-semibold text-muted-foreground pt-4 pb-2 border-b border-border">{currentDateHeader}</h3>}
                                 <button
                                     onClick={() => onItemClick(item.data)}
-                                    className="w-full text-left bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-brand-300 transition-all duration-200 transform hover:-translate-y-px border-l-4 border-l-brand-500"
+                                    className="w-full text-left bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-lg hover:border-brand-300 transition-all duration-200 transform hover:-translate-y-px border-l-4 border-l-brand-500"
                                 >
-                                    <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
+                                    <h4 className="font-bold text-foreground text-lg">{item.title}</h4>
                                     {renderCardContent(item.data)}
                                 </button>
                             </React.Fragment>

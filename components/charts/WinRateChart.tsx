@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect, useId, useState } from 'react';
+import React, { useRef, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { Target } from 'lucide-react';
-import { useDebouncedCallback } from 'use-debounce';
-import { limperialTheme } from "../charts/echartsTheme";
+import { limperialTheme, useChartReady } from "../charts/echartsTheme";
 
 echarts.registerTheme('limperial', limperialTheme);
 
@@ -22,35 +21,12 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  const handleResize = useDebouncedCallback(() => {
-    const echartsInstance = chartRef.current?.getEchartsInstance();
-    if (echartsInstance) {
-      echartsInstance.resize();
-    }
-  }, 150);
-
-  const [shouldRender, setShouldRender] = useState(false);
-
-  useEffect(() => {
-    // Ensure container has dimensions before rendering
-    const timer = setTimeout(() => {
-      setShouldRender(true);
-      handleResize();
-    }, 50);
-
-    if (!containerRef.current) return;
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      clearTimeout(timer);
-      resizeObserver.disconnect();
-    };
-  }, [handleResize]);
+  const isReady = useChartReady(containerRef, chartRef, [winRate, won, total]);
 
   const option = {
     series: [
-      { // Background track
+      {
+        // Background track
         type: 'gauge',
         center: ['50%', '60%'],
         radius: '90%',
@@ -65,13 +41,14 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
         axisLine: {
           lineStyle: {
             width: 18,
-            color: [[1, 'var(--muted)']],
+            color: [[1, 'rgba(148,163,184,0.2)']],
             roundCap: true,
-          }
+          },
         },
         detail: { show: false },
       },
-      { // Main progress gauge
+      {
+        // Main progress gauge
         type: 'gauge',
         center: ['50%', '60%'],
         radius: '90%',
@@ -83,11 +60,11 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
           lineStyle: {
             width: 18,
             color: [
-              [0.4, '#f43f5e'], // rose-500
-              [0.6, '#f59e0b'], // amber-500
-              [1, '#10b981']   // emerald-500
+              [0.4, '#f43f5e'],  // rose-500
+              [0.6, '#f59e0b'],  // amber-500
+              [1, '#10b981'],    // emerald-500
             ],
-          }
+          },
         },
         progress: {
           show: true,
@@ -95,10 +72,10 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
           width: 18,
           itemStyle: {
             color: 'auto',
-            shadowColor: 'rgba(0, 0, 0, 0.25)',
+            shadowColor: 'rgba(0,0,0,0.25)',
             shadowBlur: 10,
-            shadowOffsetY: 4
-          }
+            shadowOffsetY: 4,
+          },
         },
         pointer: { show: false },
         axisTick: { show: false },
@@ -112,7 +89,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
             offsetCenter: ['0%', '35%'],
             fontSize: 16,
             fontWeight: 500,
-            color: 'var(--muted-foreground)'
+            color: 'var(--muted-foreground)',
           },
           detail: {
             valueAnimation: true,
@@ -120,32 +97,40 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
             fontSize: 40,
             fontWeight: '700',
             color: 'auto',
-            offsetCenter: ['0%', '10%']
+            offsetCenter: ['0%', '10%'],
           },
         }],
-      }
+      },
     ],
     tooltip: {
       formatter: (params: any) => {
         if (!params || params.value === undefined) return '';
         return `Win Rate: <strong>${params.value.toFixed(1)}%</strong><br/>(${won} won out of ${total} closed deals)`;
-      }
-    }
+      },
+    },
   };
 
   return (
     <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
       <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1 flex-shrink-0">Pipeline Win Rate</h2>
       <p className="text-sm text-muted-foreground mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
+
       {total > 0 ? (
-        <div className="h-full w-full flex-grow min-h-0 -mt-8" role="figure" aria-labelledby={titleId}>
-          {shouldRender && (
-            <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} notMerge={true} lazyUpdate={true} theme="limperial" />
+        <div className="flex-grow min-h-0 w-full" role="figure" aria-labelledby={titleId}>
+          {isReady && (
+            <ECharts
+              ref={chartRef}
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              notMerge={true}
+              lazyUpdate={false}
+              theme="limperial"
+            />
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center flex-grow text-slate-600">
-          <Target className="w-12 h-12 text-gray-300" />
+        <div className="flex flex-col items-center justify-center flex-grow text-muted-foreground">
+          <Target className="w-12 h-12 text-muted-foreground/30" />
           <p className="mt-4 text-sm font-medium">No win/loss data to display.</p>
         </div>
       )}

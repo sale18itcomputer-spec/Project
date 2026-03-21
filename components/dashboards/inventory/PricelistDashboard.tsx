@@ -20,7 +20,7 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
     if (num === 0 && String(value || '').trim() === '') {
-        return <span className="text-slate-400 text-right block w-full">-</span>;
+        return <span className="text-muted-foreground/50 text-right block w-full">-</span>;
     }
 
     const formatted = currency === 'KHR'
@@ -28,7 +28,7 @@ const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] 
         : num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
     return (
-        <span className="text-sm font-medium text-slate-800 text-right block w-full">
+        <span className="text-sm font-medium text-foreground text-right block w-full">
             {formatted}
         </span>
     );
@@ -45,10 +45,10 @@ const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status
         variant = 'destructive';
     } else if (lowerStatus.includes('available')) {
         variant = 'outline';
-        customClass = 'font-semibold text-emerald-700 border-emerald-500/80 bg-emerald-50';
+        customClass = 'font-semibold text-emerald-700 dark:text-emerald-400 border-emerald-500/80 bg-emerald-500/10';
     } else if (lowerStatus.includes('pre-order')) {
         variant = 'outline';
-        customClass = 'font-semibold text-amber-700 border-amber-500/80 bg-amber-50';
+        customClass = 'font-semibold text-amber-700 dark:text-amber-400 border-amber-500/80 bg-amber-500/10';
     }
 
     return <Badge variant={variant} className={`${customClass} ${className}`}>{status}</Badge>;
@@ -62,7 +62,7 @@ const PricelistCard: React.FC<{
     onDelete: () => void;
 }> = ({ item, onView, onEdit, onDelete }) => (
     <Card
-        className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative cursor-pointer border hover:border-primary hover:shadow-xl hover:-translate-y-1.5"
+        className="flex flex-col justify-between overflow-hidden transition-all duration-300 group relative cursor-pointer border bg-card hover:border-primary hover:shadow-xl hover:-translate-y-1.5"
         onClick={onView}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? onView() : undefined}
         tabIndex={0}
@@ -75,7 +75,7 @@ const PricelistCard: React.FC<{
 
         <CardHeader className="pb-2">
             <div className="flex justify-between items-start gap-2">
-                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-slate-600">{item.Brand}</CardDescription>
+                <CardDescription className="pr-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">{item.Brand}</CardDescription>
                 <StatusBadge status={item.Status} />
             </div>
             <CardTitle className="pt-0.5 group-hover:text-primary transition-colors text-lg leading-tight font-bold break-words">
@@ -83,13 +83,13 @@ const PricelistCard: React.FC<{
             </CardTitle>
         </CardHeader>
 
-        <CardContent className="flex-grow text-xs text-slate-600">
+        <CardContent className="flex-grow text-xs text-muted-foreground">
             <p>{item.Description}</p>
         </CardContent>
 
-        <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-slate-50/70 border-t">
+        <CardFooter className="flex justify-between items-end mt-auto pt-4 bg-muted/40 border-t">
             <div className="flex flex-col">
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-2xl font-bold text-foreground">
                     {item.Currency === 'KHR'
                         ? `៛${parseSheetValue(item['End User Price']).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                         : parseSheetValue(item['End User Price']).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -119,32 +119,32 @@ const CategorySection: React.FC<{
         <Card className="overflow-hidden transition-shadow hover:shadow-md">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full flex justify-between items-center p-4 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={isOpen}
                 aria-controls={contentId}
             >
                 <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg text-slate-800">{category}</h3>
+                    <h3 className="font-semibold text-lg text-foreground">{category}</h3>
                     <Badge variant="secondary">{items.length}</Badge>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             <div id={contentId} className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
-                    <div className="border-t border-slate-200">
-                        <ul className="divide-y divide-slate-100">
+                    <div className="border-t border-border">
+                        <ul className="divide-y divide-border/50">
                             {items.map(item => (
                                 <li key={item.Code} className="group relative" >
                                     <div
-                                        className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-slate-50 cursor-pointer"
+                                        className="grid grid-cols-[1fr_auto] items-center py-3 px-4 hover:bg-muted/50 cursor-pointer"
                                         onClick={() => onViewItem(item)}
                                         role="button"
                                         tabIndex={0}
                                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onViewItem(item)}
                                     >
                                         <div className="min-w-0">
-                                            <p className="font-semibold text-slate-900 truncate group-hover:text-primary">{item.Model}</p>
-                                            <p className="text-sm text-slate-500 truncate font-mono">{item.Code}</p>
+                                            <p className="font-semibold text-foreground truncate group-hover:text-primary">{item.Model}</p>
+                                            <p className="text-sm text-muted-foreground truncate font-mono">{item.Code}</p>
                                         </div>
                                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
                                             <div className="w-28 text-right">
@@ -274,15 +274,15 @@ const PricelistDashboard: React.FC = () => {
     const allColumns = useMemo<ColumnDef<ProcessedPricelistItem>[]>(() => {
         const cols: ColumnDef<ProcessedPricelistItem>[] = [
             { accessorKey: 'Category', header: 'Category', isSortable: true },
-            { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-slate-800">{value}</span> },
+            { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-foreground">{value}</span> },
             { accessorKey: 'Brand', header: 'Brand', isSortable: true },
             { accessorKey: 'Model', header: 'Model', isSortable: true },
-            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-2 max-w-sm">{value}</p> },
+            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-muted-foreground line-clamp-2 max-w-sm">{value}</p> },
             {
                 accessorKey: 'fullDescription',
                 header: 'Full Description',
                 isSortable: true,
-                cell: (value: string) => <p className="text-sm text-slate-600">{value}</p>
+                cell: (value: string) => <p className="text-sm text-muted-foreground">{value}</p>
             },
             { accessorKey: 'End User Price', header: 'Unit Price', isSortable: true, cell: (value: string, row) => <PriceCell value={value} currency={row.Currency} /> },
             { accessorKey: 'Promotion', header: 'Promotion', isSortable: true, cell: (value: string) => <span className="text-sm font-medium text-rose-500">{value}</span> },
@@ -375,7 +375,7 @@ const PricelistDashboard: React.FC = () => {
                                         e.stopPropagation();
                                         handleEditItem(row);
                                     }}
-                                    className="p-2 text-slate-400 hover:text-brand-600 transition"
+                                    className="p-2 text-muted-foreground hover:text-brand-600 transition"
                                 >
                                     <Pencil size={16} />
                                 </button>
@@ -419,10 +419,10 @@ const PricelistDashboard: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-4 lg:p-6 flex flex-col gap-4 bg-white border-b border-slate-200 flex-shrink-0">
+            <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <p className="text-base text-slate-600">
-                        <span className="font-bold text-slate-800">{filteredData.length}</span> items found
+                    <p className="text-base text-muted-foreground">
+                        <span className="font-bold text-foreground">{filteredData.length}</span> items found
                     </p>
 
                     <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
@@ -434,7 +434,7 @@ const PricelistDashboard: React.FC = () => {
                                 placeholder="Search pricelist..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                                className="bg-muted border-transparent text-foreground placeholder:text-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
                             />
                             <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
@@ -443,13 +443,13 @@ const PricelistDashboard: React.FC = () => {
                             <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
                             {viewMode === 'table' && (
                                 <>
-                                    <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                                    <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
                                         <button
                                             onClick={() => setCellWrapStyle('overflow')}
                                             title="Overflow"
                                             className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                                ? 'bg-white shadow-sm text-brand-700'
-                                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                                ? 'bg-background shadow-sm text-brand-700'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                                 }`}
                                             aria-pressed={cellWrapStyle === 'overflow'}
                                         >
@@ -459,8 +459,8 @@ const PricelistDashboard: React.FC = () => {
                                             onClick={() => setCellWrapStyle('wrap')}
                                             title="Wrap"
                                             className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                                ? 'bg-white shadow-sm text-brand-700'
-                                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                                ? 'bg-background shadow-sm text-brand-700'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                                 }`}
                                             aria-pressed={cellWrapStyle === 'wrap'}
                                         >
@@ -470,8 +470,8 @@ const PricelistDashboard: React.FC = () => {
                                             onClick={() => setCellWrapStyle('clip')}
                                             title="Clip"
                                             className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                                ? 'bg-white shadow-sm text-brand-700'
-                                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                                ? 'bg-background shadow-sm text-brand-700'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                                 }`}
                                             aria-pressed={cellWrapStyle === 'clip'}
                                         >
@@ -481,8 +481,8 @@ const PricelistDashboard: React.FC = () => {
                                             onClick={() => setCellWrapStyle('nowrap')}
                                             title="No Wrap (Horizontal)"
                                             className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'nowrap'
-                                                ? 'bg-white shadow-sm text-brand-700'
-                                                : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                                                ? 'bg-background shadow-sm text-brand-700'
+                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                                                 }`}
                                             aria-pressed={cellWrapStyle === 'nowrap'}
                                         >
@@ -508,7 +508,7 @@ const PricelistDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-hidden bg-slate-50 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
+            <div className={`flex-1 overflow-hidden bg-muted/30 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
                 <div className="p-4 sm:p-6 space-y-4">
 
                     <PricelistFilterBar

@@ -96,7 +96,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({ label, icon, opti
             </button>
 
             {isOpen && (
-                <div id={contentId} className="absolute top-full mt-2 w-72 bg-card rounded-lg shadow-lg border border-border z-[100] flex flex-col animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
+                <div id={contentId} className="absolute top-full mt-2 w-72 bg-card rounded-lg shadow-lg border border-border z-[9999] flex flex-col animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
                     <div className="p-2 border-b border-border">
                         <input
                             type="search"

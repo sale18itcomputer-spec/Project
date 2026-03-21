@@ -7,13 +7,6 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { parseDate } from "../../../utils/time";
 import { PendingWorkItem as BasePendingWorkItem } from "../../../types";
 import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription
-} from "../../ui/card";
-import {
     FileText,
     ShoppingCart,
     Briefcase,
@@ -348,37 +341,38 @@ const PendingWorks: React.FC = () => {
     };
 
     return (
-        <Card className="h-full flex flex-col overflow-hidden border-none shadow-xl bg-gradient-to-br from-card to-background/50">
-            <CardHeader className="flex-shrink-0 border-b bg-card/50 backdrop-blur-sm p-4 space-y-0 relative z-10">
-                <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+        <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden h-full">
+            {/* Header Section */}
+            <div className="p-6 pb-4 flex-shrink-0 border-b border-border/50 bg-card/50 backdrop-blur-sm relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
                             <Clock className="h-5 w-5 text-primary animate-pulse" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Workflow Status</h4>
+                            <h3 className="text-lg font-extrabold text-foreground flex items-center gap-2">
                                 Pending Works
                                 {hasAnyItems && (
                                     <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
                                         {pendingItems.length}
                                     </span>
                                 )}
-                            </CardTitle>
-                            <CardDescription className="text-xs font-medium">Items that require your attention</CardDescription>
+                            </h3>
                         </div>
                     </div>
                     {activeFilter !== 'all' && (
                          <button 
                              onClick={() => setActiveFilter('all')}
-                             className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-2 py-1 rounded-md transition-all"
+                             className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-2 py-1 rounded-md transition-all font-semibold"
                          >
-                             <FilterX className="h-3 w-3" /> Clear Filter
+                             <FilterX className="h-3 w-3" /> Clear
                          </button>
                      )}
                 </div>
 
                 {hasAnyItems && (
-                    <div className="flex gap-4 mt-3 pt-2 border-t border-dashed border-muted-foreground/10">
+                    <div className="flex gap-4 pt-3 border-t border-dashed border-muted-foreground/10">
                         <button 
                             onClick={() => toggleFilter('overdue')}
                             className={cn(
@@ -421,9 +415,9 @@ const PendingWorks: React.FC = () => {
                         </button>
                     </div>
                 )}
-            </CardHeader>
+            </div>
 
-            <CardContent className="flex-grow overflow-y-auto custom-scrollbar p-0">
+            <div className="flex-grow overflow-y-auto custom-scrollbar bg-background/30">
                 {hasAnyItems ? (
                     <div className="flex flex-col">
                         {(activeFilter === 'all' || activeFilter === 'overdue') && groupedItems.overdue.length > 0 && (
@@ -470,11 +464,9 @@ const PendingWorks: React.FC = () => {
                         </p>
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };
 
 export default PendingWorks;
-
-

@@ -86,7 +86,7 @@ const STRIP_HTML = (html: string) => {
 };
 
 const CustomToolbar = () => (
-    <div id="global-quill-toolbar" className="ql-toolbar ql-snow flex flex-wrap items-center gap-2 border-b border-border bg-slate-50/50 px-4 py-2 w-full !border-0 border-b">
+    <div id="global-quill-toolbar" className="ql-toolbar ql-snow flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 w-full !border-0 border-b">
         <span className="ql-formats">
             <select className="ql-header" defaultValue="normal">
                 <option value="normal">Normal</option>
@@ -546,7 +546,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             {activeTab === 'header' && (
                                 <div className="space-y-4">
                                     <div className="space-y-3 pb-4 border-b border-border">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Logo & Company Name</h4>
+                                        <h4 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Logo & Company Name</h4>
                                         <div className="grid grid-cols-2 gap-4">
                                             <PDFControlField
                                                 label="Logo Size"
@@ -582,7 +582,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                     </div>
 
                                     <div className="space-y-3 pb-4 border-b border-border">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Document Information Grid</h4>
+                                        <h4 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Document Information Grid</h4>
                                         <div className="grid grid-cols-2 gap-4">
                                             <PDFControlField
                                                 label="Grid Y Position"
@@ -648,7 +648,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             <div className="mt-4 flex justify-end gap-2 p-2 bg-muted/30 rounded-lg">
                                 <button
                                     onClick={handleSaveLayout}
-                                    className="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded hover:bg-slate-700 transition"
+                                    className="px-3 py-1.5 bg-foreground text-background text-xs font-semibold rounded hover:opacity-80 transition"
                                 >
                                     Save as Default Layout
                                 </button>
@@ -657,7 +657,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                         setPdfLayout(defaultLayoutConfig);
                                         localStorage.setItem('global_pdf_layout', JSON.stringify(defaultLayoutConfig));
                                     }}
-                                    className="px-3 py-1.5 bg-rose-100 text-rose-700 text-xs font-semibold rounded hover:bg-rose-200 transition"
+                                    className="px-3 py-1.5 bg-rose-500/10 text-rose-500 text-xs font-semibold rounded hover:bg-rose-500/20 transition"
                                 >
                                     Reset Settings
                                 </button>
@@ -763,7 +763,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                 </div>
                             </div>
                             {/* Global Sticky Toolbar */}
-                            <div className="border-b border-border sticky top-0 z-10 w-full overflow-x-auto bg-slate-50 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:!px-2 [&_.ql-toolbar]:!py-1.5 [&_.ql-toolbar]:w-full [&_.ql-picker]:font-sans">
+                            <div className="border-b border-border sticky top-0 z-10 w-full overflow-x-auto bg-muted/50 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:!px-2 [&_.ql-toolbar]:!py-1.5 [&_.ql-toolbar]:w-full [&_.ql-picker]:font-sans">
                                 <CustomToolbar />
                             </div>
                             <div className="overflow-x-auto">
@@ -792,7 +792,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                                     />
                                                 </td>
                                                 <td className="px-2 py-3 min-w-[300px]">
-                                                    <div className="bg-white rounded border border-border/50 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all shadow-sm overflow-hidden" style={{ minHeight: '60px' }}>
+                                                    <div className="bg-background rounded border border-border/50 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all shadow-sm overflow-hidden" style={{ minHeight: '60px' }}>
                                                         <ReactQuill
                                                             theme="snow"
                                                             value={item.description}

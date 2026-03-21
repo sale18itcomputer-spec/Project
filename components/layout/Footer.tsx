@@ -33,7 +33,7 @@ const Footer: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                 <p className="font-medium">&copy; {currentYear} Limperial Technology Co., Ltd.</p>
                 <span className="hidden sm:inline w-1 h-1 rounded-full bg-muted-foreground/30"></span>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-50/50 border border-brand-100/50">
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                   <Sparkles className="w-3.5 h-3.5 text-brand-500 fill-brand-500/20" />
                   <span className="font-semibold text-xs bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400">Powered by Gemini</span>
                 </div>

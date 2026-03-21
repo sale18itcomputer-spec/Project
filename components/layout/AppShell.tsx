@@ -23,6 +23,7 @@ const CONSTRAINED_ROUTES = [
     '/site-surveys', '/meetings', '/pricelist', '/b2b-pricelist',
     '/quotations', '/sale-orders', '/invoice-do', '/users',
     '/vendors', '/vendor-pricelist', '/purchase-orders',
+    '/', // Dashboard uses its own internal scroll
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -169,7 +170,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
         <PasscodeLock>
             <div
-                className="relative h-screen flex bg-background"
+                className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
                 style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}
             >
                 <Sidebar
@@ -182,18 +183,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     onResizeMouseDown={handleMouseDown}
                     onResizeDoubleClick={handleToggleCollapse}
                 />
-                <div className="flex-1 flex flex-col transition-[margin] duration-300 ease-in-out ml-[var(--sidebar-width)]">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden transition-[margin] duration-300 ease-in-out ml-[var(--sidebar-width)]">
                     <Header
                         onMenuClick={() => { }}
                         isSidebarOpen={false}
                         isMobile={false}
                     />
-                    <main className={`flex-1 ${isConstrained ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultPadding ? 'p-4 md:p-5 lg:p-6' : ''}`}>
+                    <main className={`flex-1 min-h-0 ${isConstrained ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${useDefaultPadding ? 'p-3 md:p-4 lg:p-5' : ''}`}>
                         <div className={`${isConstrained ? 'h-full' : ''} animate-slide-up`}>
                             {children}
                         </div>
                     </main>
-                    <Footer />
+                    {!isConstrained && <Footer />}
                 </div>
             </div>
         </PasscodeLock>

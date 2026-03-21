@@ -26,7 +26,7 @@ const NavItem: React.FC<{
   badge?: string;
   disabled?: boolean;
 }> = ({ icon, label, isActive, onClick, isCollapsed, badge, disabled }) => {
-  const baseClasses = 'group flex items-center w-full text-left rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ease-in-out';
+  const baseClasses = 'group flex items-center w-full text-left rounded-lg py-2 text-sm font-medium transition-all duration-200 ease-in-out';
   const activeClasses = 'bg-primary text-primary-foreground shadow-sm';
   const inactiveClasses = 'text-muted-foreground hover:bg-accent hover:text-accent-foreground';
   const disabledClasses = 'opacity-50 cursor-not-allowed';
@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
 
   const sidebarClasses = `
     fixed inset-y-0 left-0 bg-card border-r
-    flex
+    flex h-full
     transform transition-transform duration-300 ease-in-out
     lg:translate-x-0
     z-[100]
@@ -74,8 +74,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
 
   return (
     <aside style={{ width: `${width}px` }} className={sidebarClasses}>
-      <div className={`flex flex-col h-full flex-grow overflow-y-auto overflow-x-hidden ${isCollapsed ? 'p-3' : 'p-4'}`}>
-        <div className={`flex items-center flex-shrink-0 h-16 border-b ${isCollapsed ? 'justify-center' : 'justify-center'}`}>
+      <div className={`flex flex-col h-full flex-grow overflow-y-auto overflow-x-hidden ${isCollapsed ? 'p-2' : 'p-3'}`}>
+        <div className={`flex items-center flex-shrink-0 h-12 border-b ${isCollapsed ? 'justify-center' : 'justify-center'}`}>
           <button
             onClick={() => onNavigate('/')}
             className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring rounded-md transition-opacity hover:opacity-80"
@@ -94,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <nav className="pt-4 space-y-4 sm:space-y-5">
+          <nav className="pt-3 space-y-3">
             {/* Main Section */}
             <div>
               {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</h3>}

@@ -72,19 +72,19 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
       accessorKey: 'Site ID',
       header: 'Site ID',
       isSortable: true,
-      cell: (value: string) => <div className="text-slate-600">{value}</div>
+      cell: (value: string) => <div className="text-muted-foreground">{value}</div>
     },
     {
       accessorKey: 'Location',
       header: 'Location',
       isSortable: true,
-      cell: (value: string) => <span className="font-semibold text-sm text-slate-800">{value}</span>
+      cell: (value: string) => <span className="font-semibold text-sm text-foreground">{value}</span>
     },
     {
       accessorKey: 'Responsible By',
       header: 'Responsible By',
       isSortable: true,
-      cell: (value: string) => <span className="font-medium text-slate-800">{value}</span>
+      cell: (value: string) => <span className="font-medium text-foreground">{value}</span>
     },
     {
       accessorKey: 'Date',
@@ -92,27 +92,27 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
       isSortable: true,
       cell: (value: string) => {
         const date = parseDate(value);
-        return date ? formatDateAsMDY(date) : <span className="text-gray-400 italic">N/A</span>;
+        return date ? formatDateAsMDY(date) : <span className="text-muted-foreground/50 italic">N/A</span>;
       }
     },
     {
       accessorKey: 'Start Time',
       header: 'Start Time',
       isSortable: true,
-      cell: (value: string) => <span className="text-sm text-slate-800">{value}</span>
+      cell: (value: string) => <span className="text-sm text-foreground">{value}</span>
     },
     {
       accessorKey: 'End Time',
       header: 'End Time',
       isSortable: true,
-      cell: (value: string) => <span className="text-sm text-slate-800">{value}</span>
+      cell: (value: string) => <span className="text-sm text-foreground">{value}</span>
     },
     {
       accessorKey: 'Remark',
       header: 'Remark',
       isSortable: false,
       cell: (value: string) => (
-        <p className="line-clamp-2 max-w-md text-sm text-slate-800">
+        <p className="line-clamp-2 max-w-md text-sm text-muted-foreground">
           {value}
         </p>
       )
@@ -178,13 +178,13 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
   const renderAgendaCard = (survey: SiteSurveyLog) => (
     <>
-      <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+      <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-slate-400" />
+          <MapPin className="w-4 h-4 text-muted-foreground/50" />
           <span className="font-medium">{survey.Location}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-400" />
+          <Clock className="w-4 h-4 text-muted-foreground/50" />
           <span>{survey['Start Time']} - {survey['End Time']}</span>
         </div>
       </div>
@@ -268,7 +268,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
                     e.stopPropagation();
                     handleEditSurvey(row);
                   }}
-                  className="p-2 text-slate-400 hover:text-brand-600 transition"
+                  className="p-2 text-muted-foreground hover:text-brand-600 transition"
                 >
                   <Pencil size={16} />
                 </button>

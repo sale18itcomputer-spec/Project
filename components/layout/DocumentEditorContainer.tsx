@@ -31,9 +31,9 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
 }) => {
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Premium Sticky Header */}
-      <header className="flex-shrink-0 bg-card/80 backdrop-blur-md border-b border-border/60 sticky top-0 z-[100] screen-only">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+      {/* Creator Header — flex-shrink-0 so it never scrolls away */}
+      <header className="flex-shrink-0 bg-card/80 backdrop-blur-md border-b border-border/60 screen-only">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
 
           {/* Navigation & Title */}
           <div className="flex items-center gap-6 min-w-0">

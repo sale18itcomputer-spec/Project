@@ -106,21 +106,16 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const toggleB2BTheme = () => {
-        const newTheme = b2bTheme === 'light' ? 'dark' : 'light';
-        setB2BThemeState(newTheme);
-        try { localStorage.setItem(THEME_STORAGE_KEY, newTheme); } catch { }
+        // B2B theme is now controlled by the unified ThemeProvider;
+        // this is a no-op kept for API compatibility
     };
 
     const isB2B = mode === 'B2B';
 
-    // Apply B2B Dark Mode
+    // B2B no longer applies its own dark class — ThemeProvider owns that
     useEffect(() => {
-        if (isB2B && b2bTheme === 'dark') {
-            document.documentElement.classList.add('b2b-dark');
-        } else {
-            document.documentElement.classList.remove('b2b-dark');
-        }
-    }, [isB2B, b2bTheme]);
+        document.documentElement.classList.remove('b2b-dark');
+    }, [isB2B]);
 
     // Data Fetching Logic
     const loadB2BData = useCallback(async () => {

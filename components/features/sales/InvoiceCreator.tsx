@@ -42,7 +42,7 @@ interface LineItem {
     amount: number;
 }
 
-const lineItemInputClasses = "w-full text-sm p-2 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition";
+const lineItemInputClasses = "w-full text-sm p-2 bg-muted/50 border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder-muted-foreground transition";
 
 const PricelistCombobox: React.FC<{
     item: LineItem;
@@ -96,23 +96,23 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && filteredPricelist.length > 0 && (
-                <div className="absolute z-50 w-[400px] mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-[300px] overflow-y-auto overflow-x-hidden">
+                <div className="absolute z-[9999] w-[400px] mt-1 bg-card border border-border rounded-md shadow-xl max-h-[300px] overflow-y-auto overflow-x-hidden">
                     {filteredPricelist.map((p, idx) => (
                         <button
                             key={idx}
                             type="button"
-                            className="w-full text-left px-4 py-2 hover:bg-brand-50 transition-colors border-b border-gray-50 last:border-0 group"
+                            className="w-full text-left px-4 py-2 hover:bg-muted transition-colors border-b border-border last:border-0 group"
                             onClick={() => {
                                 onPricelistItemSelect(item, p);
                                 setIsOpen(false);
                             }}
                         >
-                            <div className="font-bold text-gray-900 group-hover:text-brand-700 truncate">{p['Item Code']}</div>
-                            <div className="text-xs text-gray-500 grid grid-cols-2 gap-2 mt-1">
+                            <div className="font-bold text-foreground group-hover:text-brand-500 truncate">{p['Item Code']}</div>
+                            <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-1">
                                 <span className="truncate">Model: {p.Model}</span>
-                                <span className="text-right font-semibold text-brand-600">${Number(p['Selling Price (Include VAT)']).toLocaleString()}</span>
+                                <span className="text-right font-semibold text-brand-500">${Number(p['Selling Price (Include VAT)']).toLocaleString()}</span>
                             </div>
-                            {p.Brand && <div className="text-[10px] text-gray-400 mt-0.5">Brand: {p.Brand}</div>}
+                            {p.Brand && <div className="text-[10px] text-muted-foreground/60 mt-0.5">Brand: {p.Brand}</div>}
                         </button>
                     ))}
                 </div>

@@ -236,7 +236,7 @@ export default function PricingCalculatorPage() {
                 </Card>
             </div>
 
-            <Card className="mt-6 border-slate-200/60 shadow-md">
+            <Card className="mt-6 shadow-md">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Calculation Table</CardTitle>
@@ -259,7 +259,7 @@ export default function PricingCalculatorPage() {
                                             <div className="flex items-center gap-1 group bg-background rounded-md border border-transparent hover:border-border focus-within:border-input px-1.5 py-1 transition-all shadow-sm">
                                                 <button
                                                     onClick={() => toggleColSign(col.id)}
-                                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${col.sign === 1 ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}
+                                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${col.sign === 1 ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'}`}
                                                     title={col.sign === 1 ? "Adds to COGS" : "Subtracts from COGS"}
                                                 >
                                                     {col.sign === 1 ? '+' : '−'}
@@ -294,16 +294,16 @@ export default function PricingCalculatorPage() {
                                         </Button>
                                     </TableHead>
 
-                                    <TableHead className="min-w-[120px] font-semibold text-slate-700 bg-slate-50 border-l">Avg Cost</TableHead>
+                                    <TableHead className="min-w-[120px] font-semibold text-foreground bg-muted/50 border-l">Avg Cost</TableHead>
                                     <TableHead className="min-w-[100px] text-primary">Mark Up (%)</TableHead>
-                                    <TableHead className="min-w-[120px] font-semibold text-slate-800 bg-slate-50 border-l">Selling PR</TableHead>
-                                    <TableHead className="min-w-[120px] border-l bg-brand-50/30">Commission ({formatCurrency(commission)})</TableHead>
+                                    <TableHead className="min-w-[120px] font-semibold text-foreground bg-muted/50 border-l">Selling PR</TableHead>
+                                    <TableHead className="min-w-[120px] border-l bg-primary/5">Commission ({formatCurrency(commission)})</TableHead>
                                     <TableHead className="min-w-[120px] font-semibold border-l">Margin</TableHead>
                                     <TableHead className="min-w-[110px]">Operation ({operationPercent}%)</TableHead>
                                     <TableHead className="min-w-[120px] font-semibold">Profit</TableHead>
                                     <TableHead className="min-w-[110px]">Income Tax ({incomeTaxPercent}%)</TableHead>
-                                    <TableHead className="min-w-[120px] font-bold text-green-600 border-l bg-green-50/50">True Profit</TableHead>
-                                    <TableHead className="min-w-[100px] font-bold text-green-600 bg-green-50/50">True Profit %</TableHead>
+                                    <TableHead className="min-w-[120px] font-bold text-emerald-600 dark:text-emerald-400 border-l bg-emerald-500/10">True Profit</TableHead>
+                                    <TableHead className="min-w-[100px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">True Profit %</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -336,7 +336,7 @@ export default function PricingCalculatorPage() {
                                                     type="number"
                                                     value={row.cogs}
                                                     onChange={(e) => updateRow(row.id, 'cogs', Number(e.target.value))}
-                                                    className="h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20 font-medium"
+                                                    className="h-8 shadow-sm focus-visible:ring-primary/20 font-medium"
                                                     step="0.01"
                                                 />
                                             </TableCell>
@@ -345,7 +345,7 @@ export default function PricingCalculatorPage() {
                                                     type="number"
                                                     value={row.quantity}
                                                     onChange={(e) => updateRow(row.id, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
-                                                    className="h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20 font-medium text-center"
+                                                    className="h-8 shadow-sm focus-visible:ring-primary/20 font-medium text-center"
                                                     min="1"
                                                 />
                                             </TableCell>
@@ -355,14 +355,14 @@ export default function PricingCalculatorPage() {
                                                         type="number"
                                                         value={row.customCosts[col.id] || 0}
                                                         onChange={(e) => updateCostValue(row.id, col.id, Number(e.target.value))}
-                                                        className={`h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20 ${col.sign === 1 ? 'text-blue-700' : 'text-rose-700'}`}
+                                                        className={`h-8 shadow-sm focus-visible:ring-primary/20 ${col.sign === 1 ? 'text-blue-600 dark:text-blue-400' : 'text-rose-600 dark:text-rose-400'}`}
                                                         step="0.01"
                                                     />
                                                 </TableCell>
                                             ))}
                                             <TableCell className="p-2"></TableCell>
 
-                                            <TableCell className="p-2 font-semibold text-slate-700 bg-slate-50/50 border-l">
+                                            <TableCell className="p-2 font-semibold text-foreground bg-muted/30 border-l">
                                                 {formatCurrency(avgCost)}
                                             </TableCell>
                                             <TableCell className="p-2">
@@ -370,11 +370,11 @@ export default function PricingCalculatorPage() {
                                                     type="number"
                                                     value={row.markUp}
                                                     onChange={(e) => updateRow(row.id, 'markUp', Number(e.target.value))}
-                                                    className="h-8 shadow-sm border-slate-200 focus-visible:ring-primary/20"
+                                                    className="h-8 shadow-sm focus-visible:ring-primary/20"
                                                     step="0.1"
                                                 />
                                             </TableCell>
-                                            <TableCell className="p-2 bg-slate-50/50 border-l">
+                                            <TableCell className="p-2 bg-muted/30 border-l">
                                                 <Input
                                                     type="number"
                                                     value={Number(sellingPR.toFixed(2))}
@@ -385,11 +385,11 @@ export default function PricingCalculatorPage() {
                                                             updateRow(row.id, 'markUp', Number(newMarkUp.toFixed(4)));
                                                         }
                                                     }}
-                                                    className="h-8 shadow-sm border-slate-300 focus-visible:border-primary focus-visible:ring-primary/20 font-bold text-slate-800 bg-white"
+                                                    className="h-8 shadow-sm focus-visible:border-primary focus-visible:ring-primary/20 font-bold"
                                                     step="0.01"
                                                 />
                                             </TableCell>
-                                            <TableCell className="p-2 font-medium border-l bg-brand-50/10 whitespace-nowrap">
+                                            <TableCell className="p-2 font-medium border-l bg-primary/5 whitespace-nowrap">
                                                 {formatCurrency(priceWithComm)}
                                             </TableCell>
                                             <TableCell className="p-2 font-medium border-l">
@@ -397,7 +397,7 @@ export default function PricingCalculatorPage() {
                                                     {formatCurrency(totalMargin)}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="p-2 text-slate-600 text-sm">
+                                            <TableCell className="p-2 text-muted-foreground text-sm">
                                                 {formatCurrency(operationVal)}
                                             </TableCell>
                                             <TableCell className="p-2 font-medium">
@@ -405,16 +405,16 @@ export default function PricingCalculatorPage() {
                                                     {formatCurrency(profit)}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="p-2 text-slate-600 text-sm">
+                                            <TableCell className="p-2 text-muted-foreground text-sm">
                                                 {formatCurrency(incomeTaxVal)}
                                             </TableCell>
-                                            <TableCell className="p-2 font-bold border-l bg-green-50/20 whitespace-nowrap">
-                                                <span className={trueProfit >= 0 ? 'text-green-600' : 'text-red-500'}>
+                                            <TableCell className="p-2 font-bold border-l bg-emerald-500/10 whitespace-nowrap">
+                                                <span className={trueProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
                                                     {formatCurrency(trueProfit)}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="p-2 font-bold bg-green-50/20">
-                                                <span className={trueProfitPercent >= 0 ? 'text-green-600' : 'text-red-500'}>
+                                            <TableCell className="p-2 font-bold bg-emerald-500/10">
+                                                <span className={trueProfitPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
                                                     {formatPercent(trueProfitPercent)}
                                                 </span>
                                             </TableCell>
@@ -438,7 +438,7 @@ export default function PricingCalculatorPage() {
                 </CardContent>
             </Card>
 
-            <Card className="mt-6 border-slate-200/60 shadow-md xl:w-1/2">
+            <Card className="mt-6 shadow-md xl:w-1/2">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Purchase Price & Margin Table</CardTitle>

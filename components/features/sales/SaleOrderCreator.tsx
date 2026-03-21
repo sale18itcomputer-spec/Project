@@ -68,7 +68,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
     }
 };
 
-const lineItemInputClasses = "w-full text-sm p-2 bg-muted/50 border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder-muted-foreground transition";
+const lineItemInputClasses = "w-full text-sm p-2 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder:text-muted-foreground/50 transition hover:border-muted-foreground/40";
 
 const PricelistCombobox: React.FC<{
     item: LineItem;
@@ -129,7 +129,7 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && !disabled && filteredPricelist.length > 0 && (
-                <div className="absolute z-[100] w-[450px] mt-1 bg-white rounded-md shadow-lg border border-slate-200">
+                <div className="absolute z-[9999] w-[450px] mt-1 bg-card rounded-md shadow-lg border border-border">
                     <ScrollArea className="max-h-72">
                         <ul>
                             {filteredPricelist.map(pItem => (
@@ -145,12 +145,12 @@ const PricelistCombobox: React.FC<{
                                     >
                                         <div className="flex justify-between w-full items-center">
                                             <div className="truncate pr-4">
-                                                <p className="font-semibold text-slate-800">{pItem.Model}</p>
-                                                <p className="text-xs text-slate-500">{pItem.Brand} - {pItem.Code}</p>
+                                                <p className="font-semibold text-foreground">{pItem.Model}</p>
+                                                <p className="text-xs text-muted-foreground">{pItem.Brand} - {pItem.Code}</p>
                                             </div>
                                             <div className="text-right flex-shrink-0">
-                                                <p className="font-semibold text-slate-700">{pItem['End User Price']}</p>
-                                                <p className="text-xs text-slate-500">{pItem.Status}</p>
+                                                <p className="font-semibold text-foreground">{pItem['End User Price']}</p>
+                                                <p className="text-xs text-muted-foreground">{pItem.Status}</p>
                                             </div>
                                         </div>
                                     </button>
@@ -181,7 +181,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
     const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
 
-    // PDF Configuration State
     const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
     const [showPdfConfig, setShowPdfConfig] = useState(false);
     const [showLayoutControls, setShowLayoutControls] = useState(false);
@@ -193,7 +192,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const applyBullet = (itemId: string, bulletChar: string) => {
         setItems(prev => prev.map(item => {
             if (item.id !== itemId) return item;
-
             const lines = (item.description || '').split('\n');
             const processedLines = lines.map(line => {
                 let cleanLine = line;
@@ -204,27 +202,20 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 });
                 return bulletChar + cleanLine;
             });
-
             return { ...item, description: processedLines.join('\n') };
         }));
     };
 
     const updateLayout = (path: string, value: any) => {
         setPdfLayout(prev => {
-            // Use deep clone for safety given the depth
             const next = JSON.parse(JSON.stringify(prev));
-
-            // Helper to set value at path
             const setVal = (obj: any, p: string, v: any) => {
                 const k = p.split('.');
                 let c = obj;
                 for (let i = 0; i < k.length - 1; i++) c = c[k[i]];
                 c[k[k.length - 1]] = v;
             };
-
             setVal(next, path, value);
-
-            // Smart updates for Header Grouping
             if (path === 'header.companyName.x') {
                 const newX = Number(value);
                 setVal(next, 'header.contactInfo.x', newX);
@@ -234,49 +225,36 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 const oldY = prev.header.companyName.y;
                 const newY = Number(value);
                 const delta = newY - oldY;
-
                 setVal(next, 'header.contactInfo.y', prev.header.contactInfo.y + delta);
                 setVal(next, 'header.address.y', prev.header.address.y + delta);
                 setVal(next, 'header.separatorLine.y', prev.header.separatorLine.y + delta);
                 setVal(next, 'title.y', prev.title.y + delta);
             }
-
-            // Sync to localStorage
             localStorage.setItem('global_pdf_layout', JSON.stringify(next));
             return next;
         });
     };
 
-    // Load layout from database or localStorage
     useEffect(() => {
         const loadGlobalLayout = async () => {
-            // Priority 1: Database
             const dbLayout = await getSetting('global_pdf_layout');
             if (dbLayout && typeof dbLayout === 'object' && Object.keys(dbLayout).length > 0) {
-                // Migration: Update old layouts with low footer.y to new default
                 if (dbLayout.footer && dbLayout.footer.y < 260) {
-                    console.log('📝 Migrating old PDF layout: updating footer.y from', dbLayout.footer.y, 'to', defaultLayoutConfig.footer.y);
                     dbLayout.footer.y = defaultLayoutConfig.footer.y;
-                    // Save the migrated layout back to database
                     await saveSetting('global_pdf_layout', dbLayout);
                 }
                 setPdfLayout(dbLayout);
                 localStorage.setItem('global_pdf_layout', JSON.stringify(dbLayout));
                 return;
             }
-
-            // Priority 2: LocalStorage
             const savedLayout = localStorage.getItem('global_pdf_layout');
             if (savedLayout) {
                 try {
                     const parsed = JSON.parse(savedLayout);
                     if (parsed && typeof parsed === 'object') {
-                        // Migration: Update old layouts with low footer.y to new default
                         if (parsed.footer && parsed.footer.y < 260) {
-                            console.log('📝 Migrating old PDF layout from localStorage: updating footer.y from', parsed.footer.y, 'to', defaultLayoutConfig.footer.y);
                             parsed.footer.y = defaultLayoutConfig.footer.y;
                             localStorage.setItem('global_pdf_layout', JSON.stringify(parsed));
-                            // Also save to database
                             await saveSetting('global_pdf_layout', parsed);
                         }
                         setPdfLayout(parsed);
@@ -286,7 +264,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 }
             }
         };
-
         loadGlobalLayout();
     }, []);
 
@@ -303,21 +280,16 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const nextSaleOrderNumber = useMemo(() => {
         if (!saleOrders || saleOrders.length === 0) return 'SO-0000001';
-
         const maxNum = saleOrders.reduce((max, so) => {
-            // Match trailing digits regardless of prefix format (S, S-, SO-)
             const numPartMatch = so['SO No'].match(/\d+$/);
             if (!numPartMatch) return max;
             const numPart = parseInt(numPartMatch[0], 10);
             return isNaN(numPart) ? max : Math.max(max, numPart);
         }, 0);
-
         return `SO-${String(maxNum + 1).padStart(7, '0')}`;
     }, [saleOrders]);
 
     const [saleOrder, setSaleOrder] = useState<Partial<SaleOrder & { [key: string]: any }>>({});
-
-
 
     const fetchQuoteItems = React.useCallback(async (quoteId: string) => {
         setItemsLoading(true);
@@ -325,15 +297,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             const { items: fetchedItems } = await readQuotationSheetData(quoteId);
             if (fetchedItems && fetchedItems.length > 0) {
                 const newItems: LineItem[] = fetchedItems.map((item: any, index: number) => {
-                    // Resolve description: prefer pricelist entry, fall back to item fields
                     const pricelistEntry = pricelist?.find(p => p.Code === item.itemCode);
                     const resolvedDescription = pricelistEntry
                         ? (pricelistEntry.Description || '')
-                        : [
-                            (item.modelName || '').trim(),
-                            (item.description || '').trim()
-                          ].filter(Boolean).join('\n');
-
+                        : [(item.modelName || '').trim(), (item.description || '').trim()].filter(Boolean).join('\n');
                     return {
                         id: `item-${Date.now()}-${index}`,
                         no: item.no || index + 1,
@@ -342,7 +309,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                         description: resolvedDescription,
                         qty: item.qty || 1,
                         unitPrice: item.unitPrice || 0,
-                        commission: 0, // Default commission to 0
+                        commission: 0,
                         amount: (item.qty || 1) * (item.unitPrice || 0),
                     };
                 });
@@ -369,46 +336,32 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'SO Date': existingSaleOrder['SO Date'] ? formatToInputDate(existingSaleOrder['SO Date']) : getTodayDateString(),
                 'Delivery Date': existingSaleOrder['Delivery Date'] ? formatToInputDate(existingSaleOrder['Delivery Date']) : getTodayDateString(),
                 'Currency': (existingSaleOrder.Currency === 'KHR' ? 'KHR' : 'USD') as ('USD' | 'KHR'),
-                // Fallback for missing fields in old records
                 'Company Address': existingSaleOrder['Company Address'] || company?.['Address (English)'] || '',
                 'Payment Term': existingSaleOrder['Payment Term'] || company?.['Payment Term'] || '',
                 'Phone Number': existingSaleOrder['Phone Number'] || contact?.['Tel (1)'] || '',
                 'Email': existingSaleOrder.Email || contact?.Email || '',
                 'Prepared By': existingSaleOrder['Prepared By'] || currentUser?.Name || '',
                 'Prepared By Position': existingSaleOrder['Prepared By Position'] || (currentUser ? (
-                    currentUser.Name?.toLowerCase().includes('sreyneang') 
+                    currentUser.Name?.toLowerCase().includes('sreyneang')
                         ? '017 594 524 | 010 345 994'
-                        : [
-                            currentUser.Role,
-                            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                            currentUser.Email
-                        ].filter(Boolean).join(' | ')
+                        : [currentUser.Role, [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '), currentUser.Email].filter(Boolean).join(' | ')
                 ) : ''),
                 'Approved By': existingSaleOrder['Approved By'] || '',
                 'Approved By Position': existingSaleOrder['Approved By Position'] || '',
             };
 
             if (!baseData['Bill Invoice']) {
-                if (parseFloat(baseData.Tax || '0') > 0) {
-                    baseData['Bill Invoice'] = 'VAT';
-                } else {
-                    baseData['Bill Invoice'] = 'NON-VAT';
-                }
+                baseData['Bill Invoice'] = parseFloat(baseData.Tax || '0') > 0 ? 'VAT' : 'NON-VAT';
             }
             setSaleOrder(baseData);
-
 
             if (existingSaleOrder.ItemsJSON) {
                 try {
                     const parsedItems = typeof existingSaleOrder.ItemsJSON === 'string'
                         ? JSON.parse(existingSaleOrder.ItemsJSON)
                         : existingSaleOrder.ItemsJSON;
-
                     if (Array.isArray(parsedItems)) {
-                        setItems(parsedItems.map((item: any) => ({
-                            ...item,
-                            id: item.id || `item-${Date.now()}-${Math.random()}`
-                        })));
+                        setItems(parsedItems.map((item: any) => ({ ...item, id: item.id || `item-${Date.now()}-${Math.random()}` })));
                     }
                 } catch (e) {
                     console.error("Failed to parse ItemsJSON", e);
@@ -417,18 +370,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 fetchQuoteItems(existingSaleOrder['Quote No']);
             }
         } else {
-            // Check for ItemsJSON in initialData
             if (initialData?.ItemsJSON) {
                 try {
                     const parsedItems = typeof initialData.ItemsJSON === 'string'
                         ? JSON.parse(initialData.ItemsJSON)
                         : initialData.ItemsJSON;
-
                     if (Array.isArray(parsedItems)) {
-                        setItems(parsedItems.map((item: any) => ({
-                            ...item,
-                            id: item.id || `item-${Date.now()}-${Math.random()}`
-                        })));
+                        setItems(parsedItems.map((item: any) => ({ ...item, id: item.id || `item-${Date.now()}-${Math.random()}` })));
                     } else {
                         setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
                     }
@@ -457,13 +405,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Payment Term': initialData?.['Payment Term'] || '',
                 'Prepared By': initialData?.['Prepared By'] || currentUser?.Name || '',
                 'Prepared By Position': initialData?.['Prepared By Position'] || (currentUser ? (
-                    currentUser.Name?.toLowerCase().includes('sreyneang') 
+                    currentUser.Name?.toLowerCase().includes('sreyneang')
                         ? '017 594 524 | 010 345 994'
-                        : [
-                            currentUser.Role,
-                            [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                            currentUser.Email
-                        ].filter(Boolean).join(' | ')
+                        : [currentUser.Role, [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '), currentUser.Email].filter(Boolean).join(' | ')
                 ) : ''),
                 'Approved By': initialData?.['Approved By'] || '',
                 'Approved By Position': initialData?.['Approved By Position'] || '',
@@ -474,7 +418,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         }
     }, [existingSaleOrder, nextSaleOrderNumber, currentUser, isFromQuote, pricelist, initialData, companies, contacts]);
 
-    // Restore items from sessionStorage when duplicating
     useEffect(() => {
         if (!existingSaleOrder && initialData) {
             const stored = sessionStorage.getItem('duplicate_sale_order_items');
@@ -482,10 +425,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 try {
                     const parsedItems = JSON.parse(stored);
                     if (Array.isArray(parsedItems) && parsedItems.length > 0) {
-                        setItems(parsedItems.map((item: any, idx: number) => ({
-                            ...item,
-                            id: `item-dup-${Date.now()}-${idx}`,
-                        })));
+                        setItems(parsedItems.map((item: any, idx: number) => ({ ...item, id: `item-dup-${Date.now()}-${idx}` })));
                     }
                 } catch (e) {
                     console.error('Failed to parse duplicate sale order items', e);
@@ -508,17 +448,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         setSaleOrder(prev => ({ ...prev, 'Install Software': selectedSoftware.join(', ') }));
     }, [selectedSoftware]);
 
-
-    // Auto-fill customer details from companies/contacts when coming from initialData (+Create SO)
     useEffect(() => {
         if (!existingSaleOrder && initialData && companies && contacts) {
             const companyName = initialData['Company Name'];
             const contactName = initialData['Contact Name'];
-
             if (companyName || contactName) {
                 const company = companies.find(c => c['Company Name'] === companyName);
                 const contact = contacts.find(c => c.Name === contactName && (!companyName || c['Company Name'] === companyName));
-
                 setSaleOrder(prev => ({
                     ...prev,
                     'Phone Number': contact?.['Tel (1)'] || prev['Phone Number'] || initialData?.['Contact Number'] || '',
@@ -544,7 +480,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         setItems(currentItems => {
             const newItems = currentItems.map(item => {
                 if (item.id === lineItem.id) {
-                    const unitPrice = typeof pricelistItem['End User Price'] === 'number' ? pricelistItem['End User Price'] : parseFloat(String(pricelistItem['End User Price']).replace(/[^0-9.]/g, '')) || 0;
+                    const unitPrice = typeof pricelistItem['End User Price'] === 'number'
+                        ? pricelistItem['End User Price']
+                        : parseFloat(String(pricelistItem['End User Price']).replace(/[^0-9.]/g, '')) || 0;
                     return {
                         ...item,
                         itemCode: pricelistItem.Code,
@@ -552,7 +490,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                         description: pricelistItem.Description || '',
                         unitPrice: unitPrice,
                         amount: (typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty)) || 0) * (unitPrice + (parseFloat(String(item.commission)) || 0)),
-                        commission: item.commission, // preserve commission
+                        commission: item.commission,
                     };
                 }
                 return item;
@@ -566,7 +504,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             const newItems = currentItems.map(item => {
                 if (item.id === id) {
                     const updatedItem = { ...item, [field]: value } as any;
-
                     const q = parseFloat(String(updatedItem.qty)) || 0;
                     const p = parseFloat(String(updatedItem.unitPrice)) || 0;
                     const c = parseFloat(String(updatedItem.commission)) || 0;
@@ -603,12 +540,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         return { subTotal, tax, grandTotal, commission };
     }, [items, saleOrder['Bill Invoice']]);
 
-
-
     const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setSaleOrder(prev => ({ ...prev, [name]: value }));
-    }
+    };
 
     const handleCompanySelect = (companyName: string) => {
         const company = companies?.find(c => c['Company Name'] === companyName);
@@ -622,7 +557,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             'Quote No': '',
             'Payment Term': company?.['Payment Term'] || ''
         }));
-    }
+    };
 
     const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const contactName = e.target.value;
@@ -630,7 +565,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         setSaleOrder(prev => ({
             ...prev,
             'Contact Name': contactName,
-            // Only auto-fill if we find a contact match, otherwise keep current tel/email
             ...(contact ? {
                 'Phone Number': contact?.['Tel (1)'] || prev['Phone Number'] || '',
                 'Email': contact?.Email || prev['Email'] || ''
@@ -667,7 +601,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         setIsUploading(true);
         try {
             const response = await uploadFile(file);
@@ -678,9 +611,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         } finally {
             setIsUploading(false);
         }
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleRemoveFile = () => {
@@ -701,7 +632,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Email': saleOrder.Email || '',
                 'Tax': String(totals.tax),
                 'Total Amount': String(totals.grandTotal),
-                // FIX: Ensure Commission is '0' if empty string, to prevent Supabase invalid input syntax for type numeric
                 'Commission': saleOrder.Commission ? String(saleOrder.Commission) : '0',
                 'Status': saleOrder.Status || 'Pending',
                 'Delivery Date': saleOrder['Delivery Date'],
@@ -719,26 +649,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Remark': saleOrder['Remark'] || '',
                 'Terms and Conditions': saleOrder['Terms and Conditions'] || '',
             };
-
-            // Combine master data with line items for Supabase storage
-            const payload = {
-                ...masterSheetData,
-                'ItemsJSON': items
-            };
-
-            // Database write handled by createSaleOrderSheet (upsert)
+            const payload = { ...masterSheetData, 'ItemsJSON': items };
             await createSaleOrderSheet(masterSheetData['SO No'], payload);
-
             if (existingSaleOrder && existingSaleOrder['SO No']) {
-                // Optimistic update
                 setSaleOrders(current => current ? current.map(so => so['SO No'] === masterSheetData['SO No'] ? masterSheetData : so) : [masterSheetData]);
-                setSuccessInfo({ soNo: masterSheetData['SO No'] });
-            } else { // Create
-                // Optimistic update
+            } else {
                 setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
-                setSuccessInfo({ soNo: masterSheetData['SO No'] });
             }
-
+            setSuccessInfo({ soNo: masterSheetData['SO No'] });
         } finally {
             setIsSubmitting(false);
         }
@@ -760,14 +678,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const handleConvertToInvoice = async () => {
         setIsSubmitting(true);
         try {
-            // Update status to Completed for the Sale Order
-            const updatedSO = {
-                ...saleOrder,
-                Status: 'Completed' as const
-            };
-
-            setSaleOrder(updatedSO);
-
+            setSaleOrder(prev => ({ ...prev, Status: 'Completed' as const }));
             const masterSheetData: SaleOrder = {
                 'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': saleOrder['SO Date'] || null,
@@ -796,34 +707,15 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Remark': saleOrder['Remark'] || '',
                 'Terms and Conditions': saleOrder['Terms and Conditions'] || '',
             };
-
-            const payload = {
-                ...masterSheetData,
-                'ItemsJSON': items
-            };
-
-            // Save the sale order with updated status
+            const payload = { ...masterSheetData, 'ItemsJSON': items };
             await createSaleOrderSheet(masterSheetData['SO No'], payload);
-
             if (setSaleOrders) {
                 setSaleOrders(prev => {
                     const base = prev ? prev.filter(so => so['SO No'] !== masterSheetData['SO No']) : [];
                     return [masterSheetData as any, ...base];
                 });
             }
-
-            // Navigate directly to invoice creator
-            handleNavigation({
-                view: 'invoice-do',
-                payload: {
-                    action: 'create',
-                    soData: {
-                        ...masterSheetData,
-                        'ItemsJSON': items
-                    }
-                }
-            });
-
+            handleNavigation({ view: 'invoice-do', payload: { action: 'create', soData: { ...masterSheetData, 'ItemsJSON': items } } });
             addToast('Sale Order marked as Completed and converted to Invoice.', 'success');
         } catch (err: any) {
             addToast('Error during conversion: ' + err.message, 'error');
@@ -837,14 +729,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const quoteOptions = useMemo(() => quotations?.filter(q => q['Company Name'] === saleOrder['Company Name']).map(q => q['Quote No']) || [], [quotations, saleOrder]);
     const currencySymbol = getCurrencySymbol(saleOrder.Currency);
 
-    // FIX: Define formatCurrency function to correctly format numeric values as currency strings.
     const formatCurrency = (value: number) => {
         if (typeof value !== 'number' || isNaN(value)) return `${currencySymbol}0.00`;
         return `${currencySymbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
-
-
-
 
     const handleDownloadPDF = () => {
         generatePDF({
@@ -863,20 +751,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Bill Invoice': saleOrder['Bill Invoice'],
             },
             items: items.filter(item => item.no > 0).map(item => ({
-                no: item.no,
-                itemCode: item.itemCode,
-                modelName: item.modelName,
-                description: item.description,
-                qty: item.qty,
-                unitPrice: item.unitPrice,
-                amount: item.amount,
-                commission: item.commission
+                no: item.no, itemCode: item.itemCode, modelName: item.modelName,
+                description: item.description, qty: item.qty, unitPrice: item.unitPrice,
+                amount: item.amount, commission: item.commission
             })),
-            totals: {
-                subTotal: totals.subTotal,
-                tax: totals.tax,
-                grandTotal: totals.grandTotal
-            },
+            totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
             previewMode: false,
             filename: `SaleOrder_${saleOrder['SO No']}.pdf`
@@ -917,11 +796,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     const headerRight = (
         <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 border-r border-slate-200 pr-3 mr-1">
+            <div className="flex items-center gap-2 border-r border-border pr-3 mr-1">
                 <button
                     onClick={() => setShowPdfPreview(!showPdfPreview)}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showPdfPreview ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                    title="Toggle PDF Preview"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -931,7 +809,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 <button
                     onClick={() => setShowLayoutControls(!showLayoutControls)}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showLayoutControls ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                    title="Toggle Layout Controls"
                 >
                     <SlidersHorizontal className="w-4 h-4" />
                     <span className="hidden lg:inline">{showLayoutControls ? 'Hide Controls' : 'Layout'}</span>
@@ -939,20 +816,15 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 <button
                     onClick={() => setShowFormPanel(!showFormPanel)}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showFormPanel ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                    title="Toggle Form Panel"
                 >
                     <PanelRight className="w-4 h-4" />
                     <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
                 </button>
             </div>
-
-            <div className="flex items-center gap-2">
-                <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-card text-brand-600 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-all active:scale-95 shadow-sm">
-                    <Download className="w-4 h-4" />
-                    Download PDF
-                </button>
-            </div>
-
+            <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-card text-brand-600 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-all active:scale-95 shadow-sm">
+                <Download className="w-4 h-4" />
+                Download PDF
+            </button>
             <button
                 onClick={handleViewQuote}
                 className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 whitespace-nowrap text-sm hover:scale-[1.02] active:scale-[0.98]"
@@ -975,11 +847,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 leftActions={headerLeft}
                 rightActions={headerRight}
             >
-                {/* Main Content Area - Matching QuotationCreator Layout */}
                 <div className="screen-only h-full flex relative overflow-hidden">
                     {/* Center area: PDF Layout + Preview */}
                     <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview && !showLayoutControls) ? 'hidden' : ''}`}>
-                        {/* Top: Collapsible Layout Controls with Horizontal Tabs */}
+                        {/* Layout Controls */}
                         <div className={`w-full border-b border-border flex flex-col bg-card transition-all duration-300 ease-in-out flex-shrink-0 ${showLayoutControls ? 'h-[320px] opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
                             <div className="flex px-4 items-center justify-between border-b border-border bg-muted/30 h-10">
                                 <div className="flex gap-1 h-full items-center">
@@ -991,10 +862,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-4 h-7 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab.id
-                                                ? `bg-background ${tab.textColor} shadow-sm border border-border`
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                                                }`}
+                                            className={`px-4 h-7 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? `bg-background ${tab.textColor} shadow-sm border border-border` : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
                                         >
                                             <div className={`w-2 h-2 rounded-full ${activeTab === tab.id ? tab.activeColor : 'bg-muted-foreground/30'}`} />
                                             {tab.label}
@@ -1002,18 +870,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     ))}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setShowPdfConfig(true)}
-                                        className="px-3 h-8 text-[11px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-tight flex items-center gap-1.5"
-                                    >
+                                    <button onClick={() => setShowPdfConfig(true)} className="px-3 h-8 text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-tight flex items-center gap-1.5">
                                         Advanced
                                     </button>
-                                    <button
-                                        onClick={handleSaveLayout}
-                                        className="px-4 h-8 bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 transition-all shadow-sm active:scale-95"
-                                    >
-                                        <Save className="w-3 h-3" />
-                                        Save Default
+                                    <button onClick={handleSaveLayout} className="px-4 h-8 bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 transition-all shadow-sm active:scale-95">
+                                        <Save className="w-3 h-3" /> Save Default
                                     </button>
                                 </div>
                             </div>
@@ -1023,14 +884,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-foreground uppercase flex items-center gap-1.5 opacity-80"><ImageIcon className="w-3.5 h-3.5" /> Logo Positioning</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.logo.x', defaultLayoutConfig.header.logo.x);
-                                                    updateLayout('header.logo.y', defaultLayoutConfig.header.logo.y);
-                                                    updateLayout('header.logo.width', defaultLayoutConfig.header.logo.width);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Logo</h3>
+                                                <button onClick={() => { updateLayout('header.logo.x', defaultLayoutConfig.header.logo.x); updateLayout('header.logo.y', defaultLayoutConfig.header.logo.y); updateLayout('header.logo.width', defaultLayoutConfig.header.logo.width); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="X (mm)" path="header.logo.x" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
@@ -1038,17 +893,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 <PDFControlField label="Width (mm)" path="header.logo.width" min={10} max={120} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
                                             </div>
                                         </div>
-
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> Company Name</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.companyName.fontSize', defaultLayoutConfig.header.companyName.fontSize);
-                                                    updateLayout('header.contactInfo.fontSize', defaultLayoutConfig.header.contactInfo.fontSize);
-                                                    updateLayout('header.address.fontSize', defaultLayoutConfig.header.address.fontSize);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> Company Name</h3>
+                                                <button onClick={() => { updateLayout('header.companyName.fontSize', defaultLayoutConfig.header.companyName.fontSize); updateLayout('header.contactInfo.fontSize', defaultLayoutConfig.header.contactInfo.fontSize); updateLayout('header.address.fontSize', defaultLayoutConfig.header.address.fontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Co. Font" path="header.companyName.fontSize" min={8} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
@@ -1056,17 +904,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 <PDFControlField label="Address Font" path="header.address.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
                                             </div>
                                         </div>
-
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Separator & Title</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.separatorLine.y', defaultLayoutConfig.header.separatorLine.y);
-                                                    updateLayout('title.y', defaultLayoutConfig.title.y);
-                                                    updateLayout('title.fontSize', defaultLayoutConfig.title.fontSize);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Separator & Title</h3>
+                                                <button onClick={() => { updateLayout('header.separatorLine.y', defaultLayoutConfig.header.separatorLine.y); updateLayout('title.y', defaultLayoutConfig.title.y); updateLayout('title.fontSize', defaultLayoutConfig.title.fontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Separator Y" path="header.separatorLine.y" min={10} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
@@ -1074,17 +915,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 <PDFControlField label="Title Size" path="title.fontSize" min={12} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
                                             </div>
                                         </div>
-
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Order Info</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('info.startY', defaultLayoutConfig.info.startY);
-                                                    updateLayout('info.fontSize', defaultLayoutConfig.info.fontSize);
-                                                    updateLayout('info.rowHeight', defaultLayoutConfig.info.rowHeight);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Order Info</h3>
+                                                <button onClick={() => { updateLayout('info.startY', defaultLayoutConfig.info.startY); updateLayout('info.fontSize', defaultLayoutConfig.info.fontSize); updateLayout('info.rowHeight', defaultLayoutConfig.info.rowHeight); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Start Y" path="info.startY" min={30} max={150} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
@@ -1094,55 +928,33 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                         </div>
                                     </div>
                                 )}
-
                                 {activeTab === 'table' && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Table Setup</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.startY', defaultLayoutConfig.table.startY);
-                                                    updateLayout('table.fontSize', defaultLayoutConfig.table.fontSize);
-                                                    updateLayout('table.descriptionFontSize', defaultLayoutConfig.table.descriptionFontSize);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-emerald-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Table Setup</h3>
+                                                <button onClick={() => { updateLayout('table.startY', defaultLayoutConfig.table.startY); updateLayout('table.fontSize', defaultLayoutConfig.table.fontSize); updateLayout('table.descriptionFontSize', defaultLayoutConfig.table.descriptionFontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
-                                            <div className="bg-emerald-50/50 p-2 rounded-xl border border-emerald-100 shadow-sm space-y-1">
+                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Start Y" path="table.startY" min={60} max={250} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
                                                 <PDFControlField label="Header Size" path="table.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
                                                 <PDFControlField label="Content Size" path="table.descriptionFontSize" min={6} max={12} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
                                             </div>
                                         </div>
-
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Margins</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.margins.left', defaultLayoutConfig.table.margins.left);
-                                                    updateLayout('table.margins.right', defaultLayoutConfig.table.margins.right);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-emerald-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Margins</h3>
+                                                <button onClick={() => { updateLayout('table.margins.left', defaultLayoutConfig.table.margins.left); updateLayout('table.margins.right', defaultLayoutConfig.table.margins.right); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Left Margin" path="table.margins.left" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
                                                 <PDFControlField label="Right Margin" path="table.margins.right" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
                                             </div>
                                         </div>
-
                                         <div className="lg:col-span-2 space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5"><Layout className="w-3.5 h-3.5" /> Column Widths</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.columnWidths.no', defaultLayoutConfig.table.columnWidths.no);
-                                                    updateLayout('table.columnWidths.itemCode', defaultLayoutConfig.table.columnWidths.itemCode);
-                                                    updateLayout('table.columnWidths.qty', defaultLayoutConfig.table.columnWidths.qty);
-                                                    updateLayout('table.columnWidths.unitPrice', defaultLayoutConfig.table.columnWidths.unitPrice);
-                                                    updateLayout('table.columnWidths.total', defaultLayoutConfig.table.columnWidths.total);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-emerald-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Layout className="w-3.5 h-3.5" /> Column Widths</h3>
+                                                <button onClick={() => { updateLayout('table.columnWidths.no', defaultLayoutConfig.table.columnWidths.no); updateLayout('table.columnWidths.itemCode', defaultLayoutConfig.table.columnWidths.itemCode); updateLayout('table.columnWidths.qty', defaultLayoutConfig.table.columnWidths.qty); updateLayout('table.columnWidths.unitPrice', defaultLayoutConfig.table.columnWidths.unitPrice); updateLayout('table.columnWidths.total', defaultLayoutConfig.table.columnWidths.total); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm">
                                                 <div className="divide-y divide-border/20">
@@ -1156,20 +968,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                         </div>
                                     </div>
                                 )}
-
                                 {activeTab === 'footer' && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-purple-700 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Terms & Signature</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('terms.spacingBefore', defaultLayoutConfig.terms.spacingBefore);
-                                                    updateLayout('footer.y', defaultLayoutConfig.footer.y);
-                                                    updateLayout('footer.preparedBy.x', defaultLayoutConfig.footer.preparedBy.x);
-                                                    updateLayout('footer.approvedBy.x', defaultLayoutConfig.footer.approvedBy.x);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-purple-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
+                                                <h3 className="text-xs font-bold text-purple-500 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Terms & Signature</h3>
+                                                <button onClick={() => { updateLayout('terms.spacingBefore', defaultLayoutConfig.terms.spacingBefore); updateLayout('footer.y', defaultLayoutConfig.footer.y); updateLayout('footer.preparedBy.x', defaultLayoutConfig.footer.preparedBy.x); updateLayout('footer.approvedBy.x', defaultLayoutConfig.footer.approvedBy.x); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
                                             </div>
                                             <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
                                                 <PDFControlField label="Terms Spacing" path="terms.spacingBefore" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
@@ -1183,7 +987,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                             </ScrollArea>
                         </div>
 
-                        {/* Center: PDF Preview */}
+                        {/* PDF Preview */}
                         <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
                             <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
                                 <div className="flex items-center gap-3">
@@ -1193,12 +997,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                         <p className="text-[10px] text-muted-foreground">{saleOrder['SO No'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
-                                </div>
+                                <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
                             </div>
-
-                            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center">
+                            <div className="flex-1 overflow-auto bg-muted/30 p-4 flex justify-center">
                                 <div className="w-[794px] min-h-[1123px] bg-white shadow-lg">
                                     <PrintableSaleOrder
                                         headerData={{
@@ -1223,19 +1024,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <div className={`bg-background transition-all duration-300 ease-in-out flex flex-col ${showFormPanel ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'
-                        } ${showPdfPreview ? 'border-l border-border flex-shrink-0 w-[500px]' : 'flex-1 max-w-4xl mx-auto'
-                        }`}>
+                    <div className={`bg-background transition-all duration-300 ease-in-out flex flex-col ${showFormPanel ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'} ${showPdfPreview ? 'border-l border-border flex-shrink-0 w-[500px]' : 'flex-1 max-w-4xl mx-auto'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
                                 <h3 className="text-sm font-bold text-foreground">Sale Order Details</h3>
                             </div>
-                            <button
-                                onClick={() => setShowFormPanel(false)}
-                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all"
-                                aria-label="Close panel"
-                            >
+                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -1243,24 +1038,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                         <ScrollArea className="flex-1 px-5 py-4">
                             <div className="space-y-6">
                                 <FormSection title="Customer Info">
-                                    <SearchableSelect
-                                        name="Company Name"
-                                        label="Company Name"
-                                        value={saleOrder['Company Name'] || ''}
-                                        onChange={handleCompanySelect}
-                                        options={companyOptions}
-                                        required
-                                        placeholder="Search for a company..."
-                                    />
-                                    <FormInput
-                                        name="Contact Name"
-                                        label="Contact Person"
-                                        value={saleOrder['Contact Name'] || ''}
-                                        onChange={handleContactChange}
-                                        list="contact-list"
-                                        datalistOptions={contactOptions}
-                                        placeholder="Type or select a contact..."
-                                    />
+                                    <SearchableSelect name="Company Name" label="Company Name" value={saleOrder['Company Name'] || ''} onChange={handleCompanySelect} options={companyOptions} required placeholder="Search for a company..." />
+                                    <FormInput name="Contact Name" label="Contact Person" value={saleOrder['Contact Name'] || ''} onChange={handleContactChange} list="contact-list" datalistOptions={contactOptions} placeholder="Type or select a contact..." />
                                     <FormTextarea name="Company Address" label="Address" value={saleOrder['Company Address']} onChange={handleHeaderChange} rows={3} />
                                     <FormInput name="Phone Number" label="Tel" value={saleOrder['Phone Number']} onChange={handleHeaderChange} />
                                     <FormInput name="Email" label="Email" value={saleOrder['Email']} onChange={handleHeaderChange} />
@@ -1285,23 +1064,18 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <FormInput name="Approved By Position" label="Position" value={saleOrder['Approved By Position']} onChange={handleHeaderChange} />
                                     <FormTextarea name="Remark" label="Remark" value={saleOrder.Remark} onChange={handleHeaderChange} rows={3} />
 
-
-                                    <div className="mb-4">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Set up software</label>
-
+                                    <div className="mb-4 md:col-span-2">
+                                        <label className="block text-xs font-bold text-muted-foreground/70 uppercase tracking-wide mb-2">Set up software</label>
                                         <div className="flex gap-2 mb-3">
                                             <input
                                                 type="text"
                                                 placeholder="Add other software..."
-                                                className="flex-1 text-sm px-3 py-1.5 border border-slate-300 rounded-md focus:ring-1 focus:ring-brand-500 font-normal shadow-sm"
+                                                className="flex-1 text-sm px-3 py-1.5 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
                                                         e.preventDefault();
                                                         const val = e.currentTarget.value.trim();
-                                                        if (val) {
-                                                            handleAddSoftware(val);
-                                                            e.currentTarget.value = '';
-                                                        }
+                                                        if (val) { handleAddSoftware(val); e.currentTarget.value = ''; }
                                                     }
                                                 }}
                                                 id="custom-software-input"
@@ -1310,33 +1084,23 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 type="button"
                                                 onClick={() => {
                                                     const input = document.getElementById('custom-software-input') as HTMLInputElement;
-                                                    if (input && input.value.trim()) {
-                                                        handleAddSoftware(input.value.trim());
-                                                        input.value = '';
-                                                    }
+                                                    if (input && input.value.trim()) { handleAddSoftware(input.value.trim()); input.value = ''; }
                                                 }}
-                                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-sm font-semibold border border-slate-200 transition-colors"
+                                                className="px-3 py-1.5 bg-muted hover:bg-muted/80 text-foreground rounded-md text-sm font-semibold border border-border transition-colors"
                                             >
                                                 Add
                                             </button>
                                         </div>
-
                                         <div className="grid grid-cols-2 gap-2">
                                             {[...new Set([...SOFTWARE_OPTIONS, ...selectedSoftware])].sort().map(option => (
-                                                <label key={option} className={`flex items-center gap-2 cursor-pointer p-2 rounded-md border transition-all ${selectedSoftware.includes(option) ? 'bg-brand-50 border-brand-200' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'}`}>
+                                                <label key={option} className={`flex items-center gap-2 cursor-pointer p-2 rounded-md border transition-all ${selectedSoftware.includes(option) ? 'bg-brand-500/10 border-brand-500/30' : 'hover:bg-muted border-transparent hover:border-border'}`}>
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedSoftware.includes(option)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                handleAddSoftware(option);
-                                                            } else {
-                                                                handleRemoveSoftware(option);
-                                                            }
-                                                        }}
-                                                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                                                        onChange={(e) => { if (e.target.checked) { handleAddSoftware(option); } else { handleRemoveSoftware(option); } }}
+                                                        className="rounded border-border text-brand-600 focus:ring-brand-500"
                                                     />
-                                                    <span className={`text-sm ${selectedSoftware.includes(option) ? 'text-brand-700 font-medium' : 'text-slate-700'}`}>{option}</span>
+                                                    <span className={`text-sm ${selectedSoftware.includes(option) ? 'text-brand-500 font-medium' : 'text-foreground'}`}>{option}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -1344,33 +1108,28 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                 </FormSection>
 
                                 <FormSection title="Attachment">
-                                    <div>
+                                    <div className="md:col-span-2">
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                                         {isUploading ? (
-                                            <div className="flex items-center gap-3 text-sm text-slate-600 p-4 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200">
-                                                <Spinner size="sm" />
-                                                <span className="font-bold">Uploading...</span>
+                                            <div className="flex items-center gap-3 text-sm text-muted-foreground p-4 rounded-xl bg-muted border-2 border-dashed border-border">
+                                                <Spinner size="sm" /><span className="font-bold">Uploading...</span>
                                             </div>
                                         ) : saleOrder['Attachment'] ? (
-                                            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100 shadow-sm">
-                                                <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-700 hover:underline truncate max-w-[200px]">
-                                                    View Uploaded File
-                                                </a>
-                                                <button type="button" onClick={handleRemoveFile} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors">
-                                                    <X className="w-4 h-4" />
-                                                </button>
+                                            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                                <a href={saleOrder['Attachment']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-500 hover:underline truncate max-w-[200px]">View Uploaded File</a>
+                                                <button type="button" onClick={handleRemoveFile} className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors"><X className="w-4 h-4" /></button>
                                             </div>
                                         ) : (
-                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center p-4 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 transition-all flex flex-col items-center gap-2">
-                                                <Upload className="w-5 h-5 text-slate-400" />
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center p-4 bg-muted hover:bg-muted/80 text-muted-foreground font-bold rounded-xl border-2 border-dashed border-border hover:border-muted-foreground/40 transition-all flex flex-col items-center gap-2">
+                                                <Upload className="w-5 h-5 text-muted-foreground/50" />
                                                 <span className="text-[10px] uppercase tracking-widest">Click to Upload File</span>
                                             </button>
                                         )}
                                     </div>
                                 </FormSection>
 
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                                <div className="bg-card p-4 rounded-xl border border-border shadow-sm dark:shadow-none">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-4">Line Items</h3>
                                     {itemsLoading ? (
                                         <div className="text-center p-8"><Spinner /></div>
                                     ) : (
@@ -1378,23 +1137,18 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                             {items.map((item) => {
                                                 const isDescriptionRow = item.no === 0;
                                                 return (
-                                                    <div key={item.id} className="relative p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md group">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeItem(item.id)}
-                                                            className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all z-10"
-                                                            title="Remove Item"
-                                                        >
+                                                    <div key={item.id} className="relative p-4 bg-muted/30 rounded-xl border border-border shadow-sm transition-all hover:border-brand-500/50 hover:shadow-md group">
+                                                        <button type="button" onClick={() => removeItem(item.id)} className="absolute top-3 right-3 text-muted-foreground/50 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all z-10" title="Remove Item">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
 
                                                         {isDescriptionRow ? (
                                                             <div>
-                                                                <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Note / Description</label>
+                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Note / Description</label>
                                                                 <textarea
                                                                     value={item.description}
                                                                     onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                    className="w-full text-sm p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all bg-white"
+                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
                                                                     rows={2}
                                                                     placeholder="Add clear note..."
                                                                 />
@@ -1403,62 +1157,48 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                             <>
                                                                 <div className="flex flex-wrap gap-3 pr-8 mb-3">
                                                                     <div className="w-10">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
-                                                                        <div className="h-9 flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600 shadow-sm">
-                                                                            {item.no}
-                                                                        </div>
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block text-center">No.</label>
+                                                                        <div className="h-9 flex items-center justify-center bg-card rounded-lg border border-border font-mono text-sm font-semibold text-foreground">{item.no}</div>
                                                                     </div>
-
                                                                     <div className="flex-1 min-w-[140px]">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Item Code</label>
                                                                         <PricelistCombobox item={item} onItemChange={handleItemChange} onPricelistItemSelect={handlePricelistItemSelect} />
                                                                     </div>
-
                                                                     <div className="flex-[1.5] min-w-[160px]">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.modelName}
-                                                                            onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                                            className="w-full h-9 px-3 text-sm font-medium border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all shadow-sm "
-                                                                        />
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Model</label>
+                                                                        <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)} className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-all" />
                                                                     </div>
                                                                 </div>
 
                                                                 <div className="flex flex-wrap gap-3 mb-3">
                                                                     <div className="w-20">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
-                                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-blue-200 shadow-sm" />
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
+                                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
                                                                     </div>
                                                                     <div className="w-28">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
-                                                                        <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-blue-200 shadow-sm" />
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Unit Price</label>
+                                                                        <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
                                                                     </div>
                                                                     <div className="flex-1 text-right pt-4">
-                                                                        <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Total Amount</div>
+                                                                        <div className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-0.5">Total Amount</div>
                                                                         {(() => {
-                                                                            const currencySymbol = saleOrder.Currency === 'KHR' ? '៛' : '$';
-                                                                            return <div className="text-lg font-bold text-slate-700">{currencySymbol}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                                                            const sym = saleOrder.Currency === 'KHR' ? '៛' : '$';
+                                                                            return <div className="text-lg font-bold text-foreground">{sym}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>;
                                                                         })()}
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="pt-2 border-t border-slate-200/60">
+                                                                <div className="pt-2 border-t border-border/60">
                                                                     <div className="flex items-center justify-between mb-1.5">
-                                                                        <label className="text-[10px] uppercase font-bold text-slate-400 block flex items-center gap-2">
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 block flex items-center gap-2">
                                                                             Description / Spec
-                                                                            <span className="text-[9px] normal-case font-normal bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-200">Expanded View</span>
+                                                                            <span className="text-[9px] normal-case font-normal bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full border border-border">Expanded View</span>
                                                                         </label>
-                                                                        <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-200">
-                                                                            <List className="w-3 h-3 text-slate-400 mr-1 ml-0.5" />
+                                                                        <div className="flex items-center gap-1 bg-muted p-0.5 rounded border border-border">
+                                                                            <List className="w-2.5 h-2.5 text-muted-foreground/40 ml-1 mr-0.5" />
                                                                             {BULLET_TYPES.map(bt => (
-                                                                                <button
-                                                                                    key={bt.label}
-                                                                                    type="button"
-                                                                                    onClick={() => applyBullet(item.id, bt.char)}
-                                                                                    className="px-2 py-0.5 text-[9px] font-bold text-slate-500 hover:text-blue-600 hover:bg-white rounded transition-all border border-transparent hover:border-slate-200"
-                                                                                >
-                                                                                    {bt.label}
+                                                                                <button key={bt.label} type="button" onClick={() => applyBullet(item.id, bt.char)} className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-brand-500 rounded transition-all">
+                                                                                    {bt.label === 'None' ? 'None' : bt.char.trim() || '∅'}
                                                                                 </button>
                                                                             ))}
                                                                         </div>
@@ -1466,7 +1206,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                     <textarea
                                                                         value={item.description}
                                                                         onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                        className="w-full text-sm p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all bg-white shadow-inner resize-y min-h-[80px]"
+                                                                        className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
                                                                         rows={3}
                                                                         placeholder="Detailed product description..."
                                                                     />
@@ -1478,26 +1218,26 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                             })}
 
                                             <div className="flex gap-3 pt-2">
-                                                <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-blue-300 text-blue-600 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                     <span>+ Add Product Line</span>
                                                 </button>
-                                                <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-600 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground bg-muted hover:bg-muted/80 hover:border-muted-foreground/30 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                     <span>+ Add Note Block</span>
                                                 </button>
                                             </div>
 
-                                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mt-6 space-y-3">
+                                            <div className="bg-muted/30 rounded-xl p-5 border border-border mt-6 space-y-3">
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-500 font-medium">Sub Total</span>
-                                                    <span className="text-slate-700 font-black">{formatCurrency(totals.subTotal)}</span>
+                                                    <span className="text-muted-foreground font-medium">Sub Total</span>
+                                                    <span className="text-foreground font-semibold">{formatCurrency(totals.subTotal)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-500 font-medium">Tax</span>
-                                                    <span className="text-slate-700 font-black">{formatCurrency(totals.tax)}</span>
+                                                    <span className="text-muted-foreground font-medium">Tax</span>
+                                                    <span className="text-foreground font-semibold">{formatCurrency(totals.tax)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center pt-3 border-t border-slate-300">
-                                                    <span className="text-xs text-slate-800 font-black uppercase tracking-wider">Grand Total</span>
-                                                    <span className="text-lg text-blue-700 font-black">{formatCurrency(totals.grandTotal)}</span>
+                                                <div className="flex justify-between items-center pt-3 border-t border-border mt-2">
+                                                    <span className="text-base text-foreground font-extrabold uppercase tracking-wide">Grand Total</span>
+                                                    <span className="text-xl text-brand-500 font-black">{formatCurrency(totals.grandTotal)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1508,11 +1248,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     </div>
                 </div>
 
-                {/* Print-only content */}
                 <div className="print-only">
                     <PrintableSaleOrder {...printableProps} />
                 </div>
             </DocumentEditorContainer>
+
             {successInfo && (
                 <SuccessModal
                     isOpen={true}
@@ -1523,25 +1263,17 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     actionButtonText="Back to List"
                     onAction={() => { setSuccessInfo(null); onBack(); }}
                     extraActions={
-                        <button
-                            onClick={() => window.print()}
-                            className="w-full flex items-center justify-center gap-2 bg-brand-600 text-white py-2.5 rounded-md font-semibold hover:bg-brand-700 transition shadow-sm"
-                        >
+                        <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-2 bg-brand-600 text-white py-2.5 rounded-md font-semibold hover:bg-brand-700 transition shadow-sm">
                             <Printer className="w-4 h-4" /> Print Sale Order
                         </button>
                     }
                 />
-            )
-            }
+            )}
 
-            {/* PDF Configuration Modal */}
             <PDFConfigModal
                 isOpen={showPdfConfig}
                 onClose={() => setShowPdfConfig(false)}
-                onGenerate={(layout) => {
-                    setPdfLayout(layout);
-                    setShowPdfConfig(false);
-                }}
+                onGenerate={(layout) => { setPdfLayout(layout); setShowPdfConfig(false); }}
                 currentLayout={pdfLayout}
             />
         </>

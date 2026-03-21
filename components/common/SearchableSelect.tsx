@@ -72,15 +72,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return (
         <div className="flex flex-col relative" ref={wrapperRef}>
             <div className="flex justify-between items-center mb-2 px-0.5">
-                <label htmlFor={name} className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">
+                <label htmlFor={name} className="text-[13px] font-bold text-foreground uppercase tracking-wider">
                     {label}{required && <span className="text-rose-500 ml-1">*</span>}
                 </label>
                 {actionButton}
             </div>
 
-            <div className={`relative group transition-all duration-300 ${isOpen ? 'z-30' : 'z-10'}`}>
+            <div className={`relative group transition-all duration-300 ${isOpen ? 'z-[9999]' : 'z-10'}`}>
                 <div className="relative">
-                    <Search className={`h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${isOpen ? 'text-brand-500' : 'text-slate-400'}`} />
+                    <Search className={`h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${isOpen ? 'text-brand-500' : 'text-muted-foreground'}`} />
                     <input
                         ref={inputRef}
                         type="text"
@@ -95,25 +95,25 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         disabled={disabled}
                         autoComplete="off"
                         className={`
-                            block w-full px-10 py-3 bg-white border rounded-xl sm:text-sm
+                            block w-full px-10 py-3 bg-background border rounded-xl sm:text-sm text-foreground
                             transition-all duration-200 shadow-sm
                             ${isOpen
-                                ? 'border-brand-500 ring-4 ring-brand-500/10 bg-white'
-                                : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'}
-                            ${disabled ? 'bg-slate-100 text-slate-500 cursor-not-allowed opacity-60' : 'cursor-text'}
+                                ? 'border-brand-500 ring-4 ring-brand-500/10 bg-background'
+                                : 'border-border hover:border-muted-foreground/30 bg-muted/40 hover:bg-background'}
+                            ${disabled ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60' : 'cursor-text'}
                         `}
                         role="combobox"
                         aria-expanded={isOpen}
                         aria-controls={listId}
                     />
-                    <ChevronDown className={`h-4 w-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-300 ${isOpen ? 'rotate-180 text-brand-500' : ''}`} />
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-300 ${isOpen ? 'rotate-180 text-brand-500' : ''}`} />
                 </div>
 
                 {isOpen && !disabled && (
                     <div
                         id={listId}
                         role="listbox"
-                        className="absolute w-full mt-2 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                        className="absolute w-full mt-2 bg-card rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.25)] border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]"
                     >
                         <ScrollArea className="max-h-[280px]">
                             <div className="p-2 space-y-1">
@@ -126,8 +126,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                             className={`
                                                 w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150
                                                 ${value === option
-                                                    ? 'bg-brand-50 text-brand-700 font-semibold'
-                                                    : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'}
+                                                    ? 'bg-brand-500/10 text-brand-600 font-semibold'
+                                                    : 'text-foreground hover:bg-muted active:bg-accent'}
                                             `}
                                         >
                                             <span className="truncate">{option}</span>
@@ -138,9 +138,9 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                     ))
                                 ) : (
                                     <div className="px-4 py-8 text-center">
-                                        <Search className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-                                        <p className="text-sm text-slate-500 font-medium">No results for "{searchTerm}"</p>
-                                        <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+                                        <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                                        <p className="text-sm text-muted-foreground font-medium">No results for "{searchTerm}"</p>
+                                        <p className="text-xs text-muted-foreground/60 mt-1">Try a different search term</p>
                                     </div>
                                 )}
                             </div>

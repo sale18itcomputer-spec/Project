@@ -2,7 +2,7 @@ import React from 'react';
 
 const BrandedLoader: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-white">
+    <div className="flex flex-col items-center justify-center h-screen bg-background">
       <style>{`
         @keyframes spin {
           to {
@@ -13,7 +13,7 @@ const BrandedLoader: React.FC = () => {
           display: inline-block;
           width: 50px;
           height: 50px;
-          border: 4px solid rgba(0, 74, 173, 0.1);
+          border: 4px solid rgba(0, 74, 173, 0.15);
           border-left-color: #004aad;
           border-radius: 50%;
           animation: spin 1s linear infinite;
@@ -25,7 +25,7 @@ const BrandedLoader: React.FC = () => {
         className="h-12 w-auto mb-8"
       />
       <div className="spinner-branded"></div>
-      <p className="mt-6 text-lg text-slate-600 font-medium">
+      <p className="mt-6 text-lg text-muted-foreground font-medium">
         Loading Dashboard...
       </p>
     </div>

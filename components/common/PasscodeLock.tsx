@@ -170,7 +170,7 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
 
     if (isLoading) {
         return (
-            <div className="fixed inset-0 bg-[#0c121d] flex items-center justify-center z-[200]">
+            <div className="fixed inset-0 bg-background flex items-center justify-center z-[99999]">
                 <Spinner />
             </div>
         );
@@ -183,7 +183,7 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
     // Passcode Creation UI
     if (isSettingMode) {
         return (
-            <div className="fixed inset-0 z-[100] bg-[#0c121d] flex flex-col items-center justify-start text-white font-sans">
+            <div className="fixed inset-0 z-[99999] bg-[#0c121d] dark:bg-[#0a0f1a] flex flex-col items-center justify-start text-white font-sans">
                 <header className="w-full p-4 flex items-center justify-between border-b border-white/5">
                     <button onClick={() => window.location.reload()} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                         <ArrowLeft className="w-6 h-6" />
@@ -255,7 +255,7 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
 
     // Passcode Entry UI
     return (
-        <div className="fixed inset-0 z-[100] bg-[#0c121d] flex flex-col items-center justify-center text-white px-6 font-sans">
+        <div className="fixed inset-0 z-[99999] bg-[#0c121d] dark:bg-[#0a0f1a] flex flex-col items-center justify-center text-white px-6 font-sans">
             <div className="w-full max-w-sm flex flex-col items-center space-y-10">
                 <h2 className="text-2xl font-normal text-slate-100">Enter your local passcode</h2>
 

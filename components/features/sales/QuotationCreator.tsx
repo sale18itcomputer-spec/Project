@@ -74,7 +74,7 @@ Seal broken, misuse, or modification by anyone other than LIMPERIAL TECHNOLOGY.
 * Good sold are not returnable and received in good condition.
 * We look forward to hearing from you.`;
 
-const lineItemInputClasses = "w-full text-sm p-2 bg-muted/50 border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder-muted-foreground transition";
+const lineItemInputClasses = "w-full text-sm p-2 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder:text-muted-foreground/50 transition hover:border-muted-foreground/40";
 
 const PricelistCombobox: React.FC<{
     item: LineItem;
@@ -136,7 +136,7 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && !disabled && filteredPricelist.length > 0 && (
-                <div className="absolute z-[100] w-[450px] mt-1 bg-card rounded-md shadow-xl border border-border ring-1 ring-black/5">
+                <div className="absolute z-[9999] w-[450px] mt-1 bg-card rounded-md shadow-xl border border-border ring-1 ring-black/5">
                     <ScrollArea className="max-h-72">
                         <ul>
                             {filteredPricelist.map(pItem => (
@@ -1614,11 +1614,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                         </div>
                                                                     </div>
                                                                     <textarea
-                                                                        value={item.description}
-                                                                        onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                        className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-background text-foreground"
-                                                                        rows={2}
-                                                                        placeholder="Add clear note..."
+                                                                    value={item.description}
+                                                                    onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
+                                                                    rows={2}
+                                                                    placeholder="Add clear note..."
                                                                     />
                                                                 </div>
                                                             ) : (
@@ -1642,7 +1642,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                                 type="text"
                                                                                 value={item.modelName}
                                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                                                className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-background text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm "
+                                                                                className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all hover:border-muted-foreground/40"
                                                                             />
                                                                         </div>
                                                                     </div>
@@ -1650,15 +1650,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                     <div className="flex flex-wrap gap-3 mb-3">
                                                                         <div className="w-20">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
-                                                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-background text-foreground focus:border-brand-500 focus:ring-brand-500/20 shadow-sm" />
+                                                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="w-28">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Unit Price</label>
-                                                                            <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-background text-foreground focus:border-brand-500 focus:ring-brand-500/20 shadow-sm" />
+                                                                            <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="w-24">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Comm.</label>
-                                                                            <input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-background text-foreground focus:border-brand-500 focus:ring-brand-500/20 shadow-sm" />
+                                                                            <input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="flex-1 text-right pt-4">
                                                                             <div className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-0.5">Total Amount</div>
@@ -1693,7 +1693,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                         <textarea
                                                                             value={item.description}
                                                                             onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                            className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-background text-foreground shadow-inner resize-y min-h-[80px]"
+                                                                            className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
                                                                             rows={3}
                                                                             placeholder="Detailed product description..."
                                                                         />

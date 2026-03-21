@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Lock, Trash2, Clock, ArrowRight, ChevronRight } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -136,11 +137,12 @@ const SecurityModal: React.FC = () => {
     };
 
     if (!isOpen) return null;
+    if (typeof window === 'undefined') return null;
 
     const currentTimeoutLabel = TIMEOUT_OPTIONS.find(o => o.value === (currentRecord?.AutoLockTimeout || '1h'))?.label || '1 hour';
 
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-[#17212b] border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-[#eff0f1]">
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center">
@@ -285,7 +287,8 @@ const SecurityModal: React.FC = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

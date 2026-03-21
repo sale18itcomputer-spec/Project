@@ -2,19 +2,19 @@ import { openDB, IDBPDatabase } from 'idb';
 
 
 const DB_NAME = 'limperial-db';
-const DB_VERSION = 6; // Added purchaseOrders
+const DB_VERSION = 7; // Fixed keyPath fields (removed trailing dots, fixed pricelist key)
 
 const STORE_CONFIG = {
-    projects: { keyPath: 'Pipeline No.' },
+    projects: { keyPath: 'Pipeline No' },
     companies: { keyPath: 'Company ID' },
     contacts: { keyPath: 'Customer ID' },
     contactLogs: { keyPath: 'Log ID' },
     siteSurveys: { keyPath: 'Site ID' },
     meetings: { keyPath: 'Meeting ID' },
-    quotations: { keyPath: 'Quote No.' },
-    saleOrders: { keyPath: 'SO No.' },
-    pricelist: { keyPath: 'Item Code' },
-    invoices: { keyPath: 'Inv No.' },
+    quotations: { keyPath: 'Quote No' },
+    saleOrders: { keyPath: 'SO No' },
+    pricelist: { keyPath: 'Code' },
+    invoices: { keyPath: 'Inv No' },
     vendors: { keyPath: 'id' },
     vendorPricelist: { keyPath: 'id' },
     purchaseOrders: { keyPath: 'id' },

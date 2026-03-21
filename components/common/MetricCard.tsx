@@ -8,8 +8,8 @@ interface MetricCardProps {
   title: string;
   value: string;
   subValue?: string;
-  change: string;
-  changeType: 'increase' | 'decrease';
+  change?: string;
+  changeType?: 'increase' | 'decrease';
   onClick?: () => void;
   icon?: React.ReactElement<{ className?: string }>;
   className?: string;

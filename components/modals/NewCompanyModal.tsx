@@ -313,7 +313,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                             <FormDisplay label="Payment Term" value={formData['Payment Term']} />
                         ) : (
                             <div className="flex flex-col">
-                                <label htmlFor="Payment Term" className="block text-sm font-medium text-muted-foreground/60 mb-1.5">Payment Term</label>
+                                <label htmlFor="Payment Term" className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">Payment Term</label>
                                 <input
                                     type="text"
                                     name="Payment Term"
@@ -321,7 +321,7 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                     value={formData['Payment Term'] || ''}
                                     onChange={handleChange}
                                     list="payment-terms-list"
-                                    className="block w-full px-3.5 py-2.5 bg-muted border border-border rounded-lg placeholder-muted-foreground/40 focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150"
+                                    className="block w-full px-3.5 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 hover:border-muted-foreground/40"
                                     placeholder="Select or type a payment term"
                                 />
                                 <datalist id="payment-terms-list">
@@ -386,9 +386,9 @@ const NewCompanyModal: React.FC<NewCompanyModalProps> = ({ isOpen, onClose, exis
                                         const match = quote.File.match(/=HYPERLINK\("([^"]+)"/i);
                                         if (match && match[1]) url = match[1];
                                     }
-                                    return (<li key={quote['Quote No.']} className="flex items-center space-x-4 py-4">
+                                    return (<li key={quote['Quote No']} className="flex items-center space-x-4 py-4">
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-foreground truncate">{quote['Quote No.']}</p>
+                                            <p className="text-sm font-semibold text-foreground truncate">{quote['Quote No']}</p>
                                             <p className="text-sm text-muted-foreground truncate">{formatDisplayDate(quote['Quote Date'])}</p>
                                         </div>
                                         <div className="text-right">

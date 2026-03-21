@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useRef, useEffect, useId, useState } from 'react';
+import React, { useRef, useMemo, useId } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { BarChart2 } from 'lucide-react';
 import { useWindowSize } from "../../hooks/useWindowSize";
-import { useDebouncedCallback } from 'use-debounce';
-import { limperialTheme } from "../charts/echartsTheme";
+import { limperialTheme, useChartReady } from "../charts/echartsTheme";
 import { useFilter } from "../../contexts/FilterContext";
 
 echarts.registerTheme('limperial', limperialTheme);
@@ -14,7 +13,7 @@ echarts.registerTheme('limperial', limperialTheme);
 const ECharts = ReactECharts as any;
 
 interface MonthlyWinValueData {
-  name: string; // e.g., "Apr 2024", "Q2 2024", "2024"
+  name: string;
   winValue: number;
   projectCount: number;
 }
@@ -35,13 +34,12 @@ const ToggleButton: React.FC<{ period: Period, label: string, activePeriod: Peri
     return (
       <button
         onClick={() => onClick(period)}
-        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${isActive ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'
-          }`}
+        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${isActive ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-accent'}`}
       >
         {label}
       </button>
     );
-  }
+  };
 
 const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, period, onPeriodChange, currency, isB2B }) => {
   const { width } = useWindowSize();
@@ -50,6 +48,8 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
   const containerRef = useRef<HTMLDivElement>(null);
   const { filters, setFilter } = useFilter();
   const titleId = useId();
+
+  const isReady = useChartReady(containerRef, chartRef, [data, period]);
 
   const formatCurrency = (value: number) => {
     if (!value) return currency === 'KHR' ? '៛0' : '$0';
@@ -63,49 +63,21 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
     return `$${value.toFixed(0)}`;
   };
 
-  const formatFullCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatFullCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
-      currencyDisplay: currency === 'KHR' ? 'code' : 'symbol'
+      currency,
+      currencyDisplay: currency === 'KHR' ? 'code' : 'symbol',
     }).format(value).replace('KHR', '៛');
-  }
 
-  const handleResize = useDebouncedCallback(() => {
-    const echartsInstance = chartRef.current?.getEchartsInstance();
-    if (echartsInstance) {
-      echartsInstance.resize();
-    }
-  }, 150);
-
-  const [shouldRender, setShouldRender] = useState(false);
-
-  useEffect(() => {
-    // Ensure container has dimensions before rendering
-    const timer = setTimeout(() => {
-      setShouldRender(true);
-      handleResize();
-    }, 50);
-
-    if (!containerRef.current) return;
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      clearTimeout(timer);
-      resizeObserver.disconnect();
-    };
-  }, [handleResize]);
-
-  const monthMap: { [key: string]: string } = {
-    'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April', 'May': 'May', 'Jun': 'June',
-    'Jul': 'July', 'Aug': 'August', 'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December'
+  const monthMap: Record<string, string> = {
+    Jan: 'January', Feb: 'February', Mar: 'March', Apr: 'April', May: 'May', Jun: 'June',
+    Jul: 'July', Aug: 'August', Sep: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
   };
 
   const onEvents = {
-    'click': (params: any) => {
+    click: (params: any) => {
       if (!params.name) return;
-
       const currentMonthFilter = (filters.month || []) as string[];
       const currentYearFilter = (filters.year || []) as string[];
 
@@ -113,187 +85,155 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
         const [monthStr, yearStr] = params.name.split(' ');
         const clickedMonth = monthMap[monthStr];
         const clickedYear = yearStr;
-
         if (!clickedMonth || !clickedYear) return;
-
-        const isFilterActive = currentMonthFilter.length === 1 && currentMonthFilter[0] === clickedMonth &&
+        const isActive = currentMonthFilter.length === 1 && currentMonthFilter[0] === clickedMonth &&
           currentYearFilter.length === 1 && currentYearFilter[0] === clickedYear;
-
-        if (isFilterActive) {
-          setFilter('month', []);
-          setFilter('year', []);
-        } else {
-          setFilter('month', [clickedMonth]);
-          setFilter('year', [clickedYear]);
-        }
+        if (isActive) { setFilter('month', []); setFilter('year', []); }
+        else { setFilter('month', [clickedMonth]); setFilter('year', [clickedYear]); }
       } else if (period === 'yearly') {
         const clickedYear = params.name;
-
-        const isFilterActive = currentYearFilter.length === 1 && currentYearFilter[0] === clickedYear && currentMonthFilter.length === 0;
-
-        if (isFilterActive) {
-          setFilter('year', []);
-        } else {
-          setFilter('year', [clickedYear]);
-          setFilter('month', []); // Clear month filter when setting a year one
-        }
+        const isActive = currentYearFilter.length === 1 && currentYearFilter[0] === clickedYear && currentMonthFilter.length === 0;
+        if (isActive) { setFilter('year', []); }
+        else { setFilter('year', [clickedYear]); setFilter('month', []); }
       }
-    }
+    },
   };
 
-  const _avgValue = data.length > 0 ? data.reduce((sum, d) => sum + d.winValue, 0) / data.length : 0;
+  const option = useMemo(() => {
+    if (!data || data.length === 0) return {};
+    const totalCount = data.length;
+    const barWidth = totalCount <= 4 ? '30%' : totalCount <= 8 ? '45%' : '60%';
 
-  const option = {
-    grid: {
-      left: isMobile ? '1%' : '3%',
-      right: isMobile ? '4%' : '4%',
-      bottom: isMobile ? '15%' : 60, // Reduced margin
-      top: 50, // Reduced space for better fit
-      containLabel: true,
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        dataView: { show: true, readOnly: false, title: "Data View" },
-        magicType: { show: true, type: ['line', 'bar'], title: { line: "Line", bar: "Bar" } },
-        restore: { show: true, title: "Restore" },
-        saveAsImage: { show: true, title: "Save Image" }
-      }
-    },
-    xAxis: {
-      type: 'category',
-      data: data.map(d => d.name),
-      axisTick: {
-        alignWithLabel: true,
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        borderRadius: 12,
+        padding: [12, 16],
+        formatter: (params: any) => {
+          const p = Array.isArray(params) ? params[0] : params;
+          if (!p || p.value === undefined) return '';
+          const item = data[p.dataIndex];
+          return `
+            <div style="font-weight:700;margin-bottom:8px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${p.name}</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
+                        <span style="font-weight:800;font-size:16px;">${formatFullCurrency(p.value)}</span>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding-left:18px;">
+                    <span style="font-size:11px;color:hsl(var(--muted-foreground));font-weight:600;">
+                        ${isB2B ? 'Projects Won' : 'Orders Completed'}: <strong>${item?.projectCount || 0}</strong>
+                    </span>
+                </div>
+            </div>
+          `;
+        }
       },
-      axisLabel: {
-        rotate: isMobile ? 30 : 0,
-        interval: 'auto',
+      grid: {
+        top: '12%',
+        left: '4%',
+        right: '4%',
+        bottom: '12%',
+        containLabel: true
       },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: {
-        formatter: (value: number) => formatCurrency(value),
+      xAxis: {
+        type: 'category',
+        data: data.map(d => d.name),
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: 'hsl(var(--border))' } },
+        axisLabel: {
+          color: 'hsl(var(--muted-foreground))',
+          fontSize: 11,
+          fontWeight: '600',
+          margin: 15,
+          rotate: isMobile ? 45 : 0
+        }
       },
-    },
-    series: [
-      {
+      yAxis: {
+        type: 'value',
+        splitLine: { show: true, lineStyle: { type: 'dashed', color: 'hsl(var(--border))' } },
+        axisLabel: {
+          formatter: (val: number) => formatCurrency(val),
+          color: 'hsl(var(--muted-foreground))',
+          fontSize: 11,
+          fontWeight: '500'
+        }
+      },
+      series: [{
         name: 'Revenue',
         type: 'bar',
-        cursor: 'pointer',
-        barWidth: isMobile ? '80%' : '60%',
-        data: data.map(d => d.winValue),
+        barWidth: isMobile ? '70%' : barWidth,
         itemStyle: {
+          borderRadius: [6, 6, 0, 0],
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#60a5fa' },
+            { offset: 0, color: '#3077d3' },
             { offset: 1, color: '#004aad' }
-          ]),
-          borderRadius: [4, 4, 0, 0],
+          ])
         },
+        data: data.map(d => d.winValue),
         emphasis: {
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#93c5fd' },
-              { offset: 1, color: '#3077d3' }
-            ])
-          }
-        },
-        label: {
-          show: !isMobile,
-          position: 'top',
-          formatter: (params: any) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(params.value),
-          fontSize: 12,
-        },
+            itemStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#60a5fa' },
+                    { offset: 1, color: '#3077d3' }
+                ])
+            }
+        }
+      }]
+    };
+  }, [data, currency, isMobile, isB2B]);
 
-      },
-    ],
-    tooltip: {
-      formatter: (params: any) => {
-        const param = Array.isArray(params) ? params[0] : params;
-        if (!param || param.value === undefined) return '';
-
-        const { name, value, dataIndex } = param;
-        const { projectCount } = data[dataIndex];
-
-        const marker = `<span class="w-3 h-3 rounded-full mr-2 inline-block" style="background-color: ${param.color.colorStops ? param.color.colorStops[1].color : param.color};"></span>`;
-
-        return `
-            <div class="font-bold text-gray-800 mb-2">${name}</div>
-            <div class="flex items-center">
-                ${marker}
-                <span class="text-gray-600">Revenue:</span>
-                <span class="font-semibold text-gray-800 ml-auto">${formatFullCurrency(value)}</span>
-            </div>
-            <div class="flex items-center mt-1">
-                <span class="w-3 h-3 rounded-full mr-2 inline-block bg-slate-400"></span>
-                <span class="text-gray-600">${isB2B ? 'Projects Won' : 'Orders Completed'}:</span>
-                <span class="font-semibold text-gray-800 ml-auto">${projectCount}</span>
-            </div>`;
-      }
-    },
-    dataZoom: [
-      {
-        type: 'inside',
-        start: 0,
-        end: 100
-      },
-      {
-        type: 'slider',
-        show: !isMobile && data.length > 12,
-        start: 0,
-        end: 100,
-        bottom: 10,
-        height: 40,
-      }
-    ],
-    legend: {
-      show: false,
-    },
-  };
-
-  const chartTitle = {
-    monthly: 'Monthly Revenue',
-    quarterly: 'Quarterly Revenue',
-    yearly: 'Yearly Revenue'
-  }[period];
+  const chartTitle = { monthly: 'Monthly Revenue', quarterly: 'Quarterly Revenue', yearly: 'Yearly Revenue' }[period];
 
   return (
-    <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
-      <div className="flex flex-col sm:flex-row justify-between items-start mb-4 flex-shrink-0 gap-2">
-        <div>
-          <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1">{chartTitle}</h2>
-          <p className="text-sm text-muted-foreground">
-            {isB2B ? 'Revenue from won projects (excluding VAT)' : 'Revenue from completed sale orders (excluding VAT)'}. Click and drag to zoom.
-          </p>
+    <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden" style={{ height: '900px' }}>
+      <div className="p-6 pb-0 flex-shrink-0">
+        <div className="flex flex-row justify-between items-start gap-2">
+          <div>
+            <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Financial Performance</h4>
+            <h3 id={titleId} className="text-lg font-extrabold text-foreground">{chartTitle}</h3>
+          </div>
+          <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0 mt-1">
+            <ToggleButton period="monthly" label="Monthly" activePeriod={period} onClick={onPeriodChange} />
+            <ToggleButton period="quarterly" label="Quarterly" activePeriod={period} onClick={onPeriodChange} />
+            <ToggleButton period="yearly" label="Yearly" activePeriod={period} onClick={onPeriodChange} />
+          </div>
         </div>
-        <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0">
-          <ToggleButton period='monthly' label='Monthly' activePeriod={period} onClick={onPeriodChange} />
-          <ToggleButton period='quarterly' label='Quarterly' activePeriod={period} onClick={onPeriodChange} />
-          <ToggleButton period='yearly' label='Yearly' activePeriod={period} onClick={onPeriodChange} />
-        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {isB2B 
+            ? 'Total revenue from won pipelines over the selected period. Click bars to filter by date.' 
+            : 'Total revenue from completed sale orders. Click bars to filter by date.'}
+        </p>
       </div>
-      {data && data.length > 0 ? (
-        <div className="w-full flex-grow min-h-0" role="figure" aria-labelledby={titleId}>
-          {shouldRender && (
-            <ECharts ref={chartRef} option={option} style={{ height: '100%', width: '100%' }} onEvents={onEvents} notMerge={true} lazyUpdate={true} theme="limperial" />
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center flex-grow text-slate-600 gap-2">
-          <BarChart2 className="w-12 h-12 text-gray-300" />
-          <p className="mt-2 text-sm font-medium">No revenue data to display.</p>
-          <p className="text-xs text-muted-foreground max-w-xs text-center">
-            {isB2B
-              ? 'Pipeline wins will appear here once projects are marked as Close (win).'
-              : 'Revenue will appear here once sale orders are marked as Completed.'}
-          </p>
-        </div>
-      )}
+
+      <div className="p-4 flex-grow min-h-0" ref={containerRef}>
+        {data && data.length > 0 ? (
+          isReady && (
+            <ECharts
+              ref={chartRef}
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              onEvents={onEvents}
+              notMerge={true}
+              lazyUpdate={false}
+              theme="limperial"
+            />
+          )
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+            <BarChart2 className="w-12 h-12 text-muted-foreground/30" />
+            <p className="mt-2 text-sm font-medium">No revenue data to display.</p>
+            <p className="text-xs text-muted-foreground max-w-xs text-center border-t border-border/50 pt-3 mt-2">
+              {isB2B
+                ? 'Pipeline wins will appear here once projects are marked as Close (win).'
+                : 'Revenue will appear here once sale orders are marked as Completed.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

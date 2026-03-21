@@ -34,8 +34,8 @@ const CurrencyToggle: React.FC = () => {
 
     return (
         <div className="bg-muted p-1 rounded-full flex gap-1 flex-shrink-0">
-            <button onClick={() => setFilter('currency', 'USD')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'USD' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'}`}>USD</button>
-            <button onClick={() => setFilter('currency', 'KHR')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'KHR' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800'}`}>KHR</button>
+            <button onClick={() => setFilter('currency', 'USD')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'USD' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-accent'}`}>USD</button>
+            <button onClick={() => setFilter('currency', 'KHR')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${activeCurrency === 'KHR' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-accent'}`}>KHR</button>
         </div>
     );
 };

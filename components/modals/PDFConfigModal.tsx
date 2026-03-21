@@ -24,10 +24,10 @@ const A4_HEIGHT_MM = 297;
 type TabKey = 'header' | 'table' | 'info' | 'footer';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode; color: string; activeColor: string; borderColor: string; bgColor: string }[] = [
-    { key: 'header', label: 'Header', icon: <ImageIcon className="w-3.5 h-3.5" />, color: 'text-blue-500', activeColor: 'text-blue-600', borderColor: 'border-blue-500', bgColor: 'bg-blue-50' },
-    { key: 'info',   label: 'Info',   icon: <Type className="w-3.5 h-3.5" />,     color: 'text-amber-500', activeColor: 'text-amber-600', borderColor: 'border-amber-500', bgColor: 'bg-amber-50' },
-    { key: 'table',  label: 'Table',  icon: <Ruler className="w-3.5 h-3.5" />,    color: 'text-emerald-500', activeColor: 'text-emerald-600', borderColor: 'border-emerald-500', bgColor: 'bg-emerald-50' },
-    { key: 'footer', label: 'Footer', icon: <ScrollText className="w-3.5 h-3.5" />, color: 'text-purple-500', activeColor: 'text-purple-600', borderColor: 'border-purple-500', bgColor: 'bg-purple-50' },
+    { key: 'header', label: 'Header', icon: <ImageIcon className="w-3.5 h-3.5" />, color: 'text-blue-500', activeColor: 'text-blue-500', borderColor: 'border-blue-500', bgColor: 'bg-blue-500/10' },
+    { key: 'info',   label: 'Info',   icon: <Type className="w-3.5 h-3.5" />,     color: 'text-amber-500', activeColor: 'text-amber-500', borderColor: 'border-amber-500', bgColor: 'bg-amber-500/10' },
+    { key: 'table',  label: 'Table',  icon: <Ruler className="w-3.5 h-3.5" />,    color: 'text-emerald-500', activeColor: 'text-emerald-500', borderColor: 'border-emerald-500', bgColor: 'bg-emerald-500/10' },
+    { key: 'footer', label: 'Footer', icon: <ScrollText className="w-3.5 h-3.5" />, color: 'text-purple-500', activeColor: 'text-purple-500', borderColor: 'border-purple-500', bgColor: 'bg-purple-500/10' },
 ];
 
 const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGenerate, currentLayout }) => {
@@ -148,7 +148,7 @@ const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGene
     const activeTabMeta = TABS.find(t => t.key === activeTab)!;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className={`bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 border border-border/50 ${isFullscreen ? 'w-full h-full rounded-none' : 'w-[96vw] max-w-7xl h-[92vh]'}`}>
 
                 {/* ── Header ── */}
@@ -316,7 +316,7 @@ const PDFConfigModal: React.FC<PDFConfigModalProps> = ({ isOpen, onClose, onGene
                                 <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
                                     <Eye className="w-3.5 h-3.5 text-blue-500" />
                                     Live Preview
-                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-bold">A4</span>
+                                    <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-full text-[10px] font-bold">A4</span>
                                 </div>
                                 <div className="text-[10px] text-muted-foreground/60 font-mono">
                                     {Math.round(previewScale * 100)}% scale

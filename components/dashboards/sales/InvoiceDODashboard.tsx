@@ -31,7 +31,7 @@ const StatusBadge: React.FC<{ status: Invoice['Status'] }> = ({ status }) => {
         'Cancel': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
     };
 
-    const config = statusConfig[status] || { bg: 'bg-slate-100', text: 'text-slate-800' };
+    const config = statusConfig[status] || { bg: 'bg-muted', text: 'text-muted-foreground' };
 
     return (
         <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${config.bg} ${config.text}`}>

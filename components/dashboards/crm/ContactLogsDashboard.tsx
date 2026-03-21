@@ -136,7 +136,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
       accessorKey: 'Log ID',
       header: 'Log ID',
       isSortable: true,
-      cell: (value: string) => <div className="text-slate-600">{value}</div>,
+      cell: (value: string) => <div className="text-muted-foreground">{value}</div>,
     },
     {
       accessorKey: 'Contact Date',
@@ -150,7 +150,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
       cell: (value: string) => (
         <button
           onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'companies', filter: value }); }}
-          className="group font-semibold text-slate-800 hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+          className="group font-semibold text-foreground hover:underline text-left transition-colors inline-flex items-center gap-1.5"
         >
           {value} <ExternalLink className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
@@ -162,7 +162,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
       cell: (value: string) => (
         <button
           onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'contacts', filter: value }); }}
-          className="group font-medium text-slate-800 hover:underline text-left transition-colors"
+          className="group font-medium text-foreground hover:underline text-left transition-colors"
         >
           {value}
         </button>
@@ -175,7 +175,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     {
       accessorKey: 'Remarks',
       header: 'Remarks',
-      cell: (value: string) => <p className="text-sm text-slate-600 line-clamp-1 max-w-[200px] sm:max-w-sm md:max-w-md">{value}</p>,
+      cell: (value: string) => <p className="text-sm text-muted-foreground line-clamp-1 max-w-[200px] sm:max-w-sm md:max-w-md">{value}</p>,
     },
   ], [handleNavigation]);
 
@@ -246,12 +246,12 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
         />
       </div>
       <div className="flex-grow">
-        <h4 className="font-bold text-slate-800 pr-10">{log['Company Name']}</h4>
-        <p className="text-sm text-slate-500">{log['Contact Name']}</p>
-        {log.Remarks && <p className="text-sm text-slate-600 mt-2 leading-snug line-clamp-3">{log.Remarks}</p>}
+        <h4 className="font-bold text-foreground pr-10">{log['Company Name']}</h4>
+        <p className="text-sm text-muted-foreground">{log['Contact Name']}</p>
+        {log.Remarks && <p className="text-sm text-muted-foreground mt-2 leading-snug line-clamp-3">{log.Remarks}</p>}
       </div>
       <div className="flex justify-between items-end mt-4 pt-2">
-        <span className="text-sm font-medium text-slate-500">{formatDisplayDate(log['Contact Date'])}</span>
+        <span className="text-sm font-medium text-muted-foreground">{formatDisplayDate(log['Contact Date'])}</span>
         {log['Responsible By'] && (
           <Avatar name={log['Responsible By']} showName={false} className="w-8 h-8 text-sm" />
         )}
@@ -263,10 +263,10 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-white border-b border-slate-200 flex-shrink-0">
+      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <p className="text-base text-slate-500">
-            <span className="font-bold text-slate-800">{filteredData.length}</span> logs
+          <p className="text-base text-muted-foreground">
+            <span className="font-bold text-foreground">{filteredData.length}</span> logs
           </p>
 
           <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
@@ -279,16 +279,16 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
                   placeholder="Search logs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-slate-100 border-transparent text-gray-800 placeholder-gray-400 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block w-full pl-10 p-2.5 transition"
+                  className="bg-muted border-transparent text-foreground placeholder:text-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </div>
 
-              <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+              <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full md:w-auto dark:[color-scheme:dark]">
                 {logTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
 
-              <select value={responsibleUserFilter} onChange={e => setResponsibleUserFilter(e.target.value)} className="bg-slate-100 border-transparent text-gray-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-white focus:border-brand-500 block p-2.5 transition w-full md:w-auto">
+              <select value={responsibleUserFilter} onChange={e => setResponsibleUserFilter(e.target.value)} className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full md:w-auto dark:[color-scheme:dark]">
                 {userOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
@@ -297,14 +297,14 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
               <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
               {viewMode === 'table' && (
                 <>
-                  <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'overflow'} >
+                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
                       <ArrowRightToLine className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'wrap'} >
+                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
                       <WrapText className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`} aria-pressed={cellWrapStyle === 'clip'} >
+                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
                       <Scissors className="w-4 h-4" />
                     </button>
                   </div>
@@ -336,7 +336,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
           getItemId={(item) => item['Log ID'] || ''}
         />
       ) : (
-        <div className="flex-1 min-h-0 overflow-hidden bg-slate-50 p-4">
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-4">
           <DataTable
             tableId="contact-logs-table"
             data={filteredData}
@@ -352,7 +352,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
                   e.stopPropagation();
                   handleEditLog(row);
                 }}
-                className="p-2 text-slate-400 hover:text-brand-600 transition"
+                className="p-2 text-muted-foreground hover:text-brand-600 transition"
               >
                 <Pencil size={16} />
               </button>

@@ -15,13 +15,13 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
-    'Close': 'bg-emerald-100 text-slate-800',
-    'Open': 'bg-sky-100 text-slate-800',
-    'Cancelled': 'bg-rose-100 text-slate-800',
+    'Close': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    'Open': 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+    'Cancelled': 'bg-rose-500/15 text-rose-700 dark:text-rose-400',
   };
 
   return (
-    <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status] || 'bg-slate-100 text-slate-800'}`}>
+    <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status] || 'bg-muted text-muted-foreground'}`}>
       {status}
     </span>
   );
@@ -29,11 +29,11 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
   const typeColors: { [key: string]: string } = {
-    'Online': 'bg-sky-100 text-slate-800',
-    'Onsite': 'bg-emerald-100 text-slate-800',
+    'Online': 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+    'Onsite': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${typeColors[type] || 'bg-slate-100 text-slate-800'}`}>
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${typeColors[type] || 'bg-muted text-muted-foreground'}`}>
       {type}
     </span>
   );
@@ -119,7 +119,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
       accessorKey: 'Meeting ID',
       header: 'Meeting ID',
       isSortable: true,
-      cell: (value: string) => <div className="text-slate-600">{value}</div>,
+      cell: (value: string) => <div className="text-muted-foreground">{value}</div>,
     },
     {
       accessorKey: 'Company Name',
@@ -131,7 +131,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
             e.stopPropagation();
             handleNavigation({ view: 'companies', filter: value });
           }}
-          className="group font-semibold text-base text-slate-800 hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+          className="group font-semibold text-base text-foreground hover:underline text-left transition-colors inline-flex items-center gap-1.5"
           aria-label={`View company: ${value}`}
         >
           {value}
@@ -150,7 +150,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
               e.stopPropagation();
               handleNavigation({ view: 'projects', filter: value });
             }}
-            className="group text-sm text-slate-600 hover:underline block inline-flex items-center gap-1.5"
+            className="group text-sm text-muted-foreground hover:underline block inline-flex items-center gap-1.5"
             aria-label={`View project: ${value}`}
           >
             {value}
@@ -165,12 +165,12 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
       isSortable: true,
       cell: (value: string) => {
         const date = parseDate(value);
-        return date ? formatDateAsMDY(date) : <span className="text-slate-400 italic">N/A</span>;
+        return date ? formatDateAsMDY(date) : <span className="text-muted-foreground/50 italic">N/A</span>;
       }
     },
-    { accessorKey: 'Participants', header: 'Participants', isSortable: false, cell: (value: string) => <span className="text-slate-800 truncate block max-w-xs">{value}</span> },
+    { accessorKey: 'Participants', header: 'Participants', isSortable: false, cell: (value: string) => <span className="text-foreground truncate block max-w-xs">{value}</span> },
     { accessorKey: 'Type', header: 'Type', isSortable: true, cell: (value: string) => <TypeBadge type={value} /> },
-    { accessorKey: 'Responsible By', header: 'Responsible By', isSortable: true, cell: (value: string) => <span className="font-medium text-slate-800">{value}</span> },
+    { accessorKey: 'Responsible By', header: 'Responsible By', isSortable: true, cell: (value: string) => <span className="font-medium text-foreground">{value}</span> },
     { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: string) => <StatusBadge status={value} /> },
   ], [handleNavigation]);
 
@@ -234,16 +234,16 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
   const renderAgendaCard = (meeting: Meeting) => (
     <>
       <div className="flex justify-between items-start">
-        <p className="text-sm text-slate-500 font-medium line-clamp-1 pr-16">{meeting.Type} Meeting</p>
+        <p className="text-sm text-muted-foreground font-medium line-clamp-1 pr-16">{meeting.Type} Meeting</p>
         <StatusBadge status={meeting.Status} />
       </div>
-      <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+      <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-slate-400" />
+          <Users className="w-4 h-4 text-muted-foreground/50" />
           <span className="font-medium truncate">{meeting.Participants}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-400" />
+          <Clock className="w-4 h-4 text-muted-foreground/50" />
           <span>{meeting['Start Time']} - {meeting['End Time']}</span>
         </div>
       </div>
@@ -327,7 +327,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
                     e.stopPropagation();
                     handleEditMeeting(row);
                   }}
-                  className="p-2 text-slate-400 hover:text-brand-600 transition"
+                  className="p-2 text-muted-foreground hover:text-brand-600 transition"
                 >
                   <Pencil size={16} />
                 </button>

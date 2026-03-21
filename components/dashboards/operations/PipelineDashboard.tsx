@@ -148,7 +148,7 @@ const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void; onDelete: 
         <div className="absolute right-0 mt-1 w-36 bg-card rounded-md shadow-lg border border-border z-10 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
           <button onClick={handleAction(onView)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">View Details</button>
           <button onClick={handleAction(onEdit)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">Edit</button>
-          <button onClick={handleAction(onDelete)} className="block w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition-colors">Delete</button>
+          <button onClick={handleAction(onDelete)} className="block w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-500/10 transition-colors">Delete</button>
         </div>
       )}
     </div>

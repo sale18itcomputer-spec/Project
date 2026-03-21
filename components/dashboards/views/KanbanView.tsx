@@ -22,25 +22,25 @@ interface KanbanViewProps<T> {
 }
 
 const colorConfig = {
-  sky: { border: 'border-sky-500', bg: 'bg-sky-100', text: 'text-sky-800', bgDot: 'bg-sky-500' },
-  emerald: { border: 'border-emerald-500', bg: 'bg-emerald-100', text: 'text-emerald-800', bgDot: 'bg-emerald-500' },
-  rose: { border: 'border-rose-500', bg: 'bg-rose-100', text: 'text-rose-800', bgDot: 'bg-rose-500' },
-  violet: { border: 'border-violet-500', bg: 'bg-violet-100', text: 'text-violet-800', bgDot: 'bg-violet-500' },
-  amber: { border: 'border-amber-500', bg: 'bg-amber-100', text: 'text-amber-800', bgDot: 'bg-amber-500' },
-  slate: { border: 'border-slate-500', bg: 'bg-slate-100', text: 'text-slate-800', bgDot: 'bg-slate-500' },
+  sky: { border: 'border-sky-500', bg: 'bg-sky-500/15', text: 'text-sky-600 dark:text-sky-400', bgDot: 'bg-sky-500' },
+  emerald: { border: 'border-emerald-500', bg: 'bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', bgDot: 'bg-emerald-500' },
+  rose: { border: 'border-rose-500', bg: 'bg-rose-500/15', text: 'text-rose-600 dark:text-rose-400', bgDot: 'bg-rose-500' },
+  violet: { border: 'border-violet-500', bg: 'bg-violet-500/15', text: 'text-violet-600 dark:text-violet-400', bgDot: 'bg-violet-500' },
+  amber: { border: 'border-amber-500', bg: 'bg-amber-500/15', text: 'text-amber-600 dark:text-amber-400', bgDot: 'bg-amber-500' },
+  slate: { border: 'border-slate-500', bg: 'bg-slate-500/15', text: 'text-slate-600 dark:text-slate-400', bgDot: 'bg-slate-500' },
 };
 
 
 const KanbanBoardSkeleton = () => (
-  <div className="flex-1 overflow-x-auto horizontal-scroll p-6 bg-slate-100">
+  <div className="flex-1 overflow-x-auto horizontal-scroll p-6 bg-muted/40">
     <div className="grid gap-6 h-full" style={{ gridTemplateColumns: 'repeat(5, minmax(320px, 1fr))' }}>
       {[...Array(5)].map((_, i) => (
         <div key={i} className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards" style={{ animationDelay: `${i * 100}ms` }}>
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 mb-4 h-24 w-full animate-pulse"></div>
+          <div className="bg-card rounded-lg p-4 shadow-sm border border-border mb-4 h-24 w-full animate-pulse"></div>
           <div className="space-y-3 flex-1">
-            <div className="h-32 bg-slate-200 rounded-lg animate-pulse w-full"></div>
-            <div className="h-32 bg-slate-200 rounded-lg animate-pulse w-full"></div>
-            <div className="h-32 bg-slate-200 rounded-lg animate-pulse w-full"></div>
+            <div className="h-32 bg-muted rounded-lg animate-pulse w-full"></div>
+            <div className="h-32 bg-muted rounded-lg animate-pulse w-full"></div>
+            <div className="h-32 bg-muted rounded-lg animate-pulse w-full"></div>
           </div>
         </div>
       ))}
@@ -101,17 +101,17 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
 
   if (totalItems === 0 && !loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
-        <EmptyState illustration={<ClipboardList className="w-20 h-20 text-slate-300" />}>
-          <h3 className="mt-2 text-lg font-semibold text-gray-900">No Items to Display</h3>
-          <p className="mt-1 text-sm text-slate-600">There are currently no items in the board.</p>
+      <div className="flex-1 flex items-center justify-center bg-muted/30">
+        <EmptyState illustration={<ClipboardList className="w-20 h-20 text-muted-foreground/30" />}>
+          <h3 className="mt-2 text-lg font-semibold text-foreground">No Items to Display</h3>
+          <p className="mt-1 text-sm text-muted-foreground">There are currently no items in the board.</p>
         </EmptyState>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-x-auto horizontal-scroll p-6 bg-slate-100">
+    <div className="flex-1 overflow-x-auto horizontal-scroll p-6 bg-muted/40">
       <div
         className="grid gap-6 h-full kanban-board-grid"
         style={{ '--kanban-column-count': columns.length } as React.CSSProperties}
@@ -129,12 +129,12 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
             >
 
               {/* Header Card */}
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200/70 mb-4 flex-shrink-0 transition-all duration-200">
+              <div className="bg-card rounded-lg p-4 shadow-sm border border-border mb-4 flex-shrink-0 transition-all duration-200">
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${colors.bgDot}`}></span>
-                      <h3 className="font-semibold uppercase tracking-wider text-xs text-slate-600">
+                      <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground">
                         {column.title}
                       </h3>
                     </div>
@@ -160,7 +160,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
                       onDragStart={(e) => handleDragStart(e, item, column.id)}
                       onDragEnd={handleDragEnd}
                       onClick={() => onCardClick(item)}
-                      className={`w-full text-left bg-white p-4 rounded-lg shadow-sm hover:shadow-md ${!!onItemMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} transition-all duration-200 group relative border-l-4 animate-in fade-in zoom-in-95 duration-300 fill-mode-backwards`}
+                      className={`w-full text-left bg-card p-4 rounded-lg shadow-sm hover:shadow-md ${!!onItemMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} transition-all duration-200 group relative border-l-4 animate-in fade-in zoom-in-95 duration-300 fill-mode-backwards`}
                       style={{
                         borderColor: colorConfig[column.color].border.replace('border-', '') || undefined,
                         animationDelay: `${Math.min((index % 10) * 50, 500)}ms`
@@ -173,9 +173,9 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-16 px-4 text-slate-600 text-sm h-full flex flex-col items-center justify-center">
-                    <div className="p-6 rounded-lg border-2 border-dashed border-slate-200 w-full">
-                      <p className="font-medium text-slate-400">{onItemMove ? "Drag items here" : "No items to display"}</p>
+                  <div className="text-center py-16 px-4 text-muted-foreground text-sm h-full flex flex-col items-center justify-center">
+                    <div className="p-6 rounded-lg border-2 border-dashed border-border w-full">
+                      <p className="font-medium text-muted-foreground/60">{onItemMove ? "Drag items here" : "No items to display"}</p>
                     </div>
                   </div>
                 )}
