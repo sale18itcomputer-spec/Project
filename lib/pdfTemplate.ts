@@ -100,21 +100,34 @@ const LAYOUT = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Font embedding ────────────────────────────────────────────────────────────
-function getFontB64(): string {
-    const fontPath = path.join(process.cwd(), 'public', 'KhmerOS.ttf');
-    return fs.readFileSync(fontPath).toString('base64');
+function getFontsB64(): { khmer: string; times: string; timesBold: string } {
+    const khmer     = fs.readFileSync(path.join(process.cwd(), 'public', 'KhmerOS.ttf')).toString('base64');
+    const times     = fs.readFileSync(path.join(process.cwd(), 'public', 'times.ttf')).toString('base64');
+    const timesBold = fs.readFileSync(path.join(process.cwd(), 'public', 'timesbd.ttf')).toString('base64');
+    return { khmer, times, timesBold };
 }
 
 // ── Base CSS ──────────────────────────────────────────────────────────────────
-function baseStyle(fontB64: string): string {
+function baseStyle(): string {
     const L = LAYOUT;
     const T = L.table;
+    const fonts = getFontsB64();
     return `
     <style>
       @font-face {
         font-family: 'KhmerOS';
-        src: url('data:font/truetype;base64,${fontB64}') format('truetype');
+        src: url('data:font/truetype;base64,${fonts.khmer}') format('truetype');
         font-weight: normal; font-style: normal;
+      }
+      @font-face {
+        font-family: 'Times New Roman';
+        src: url('data:font/truetype;base64,${fonts.times}') format('truetype');
+        font-weight: normal; font-style: normal;
+      }
+      @font-face {
+        font-family: 'Times New Roman';
+        src: url('data:font/truetype;base64,${fonts.timesBold}') format('truetype');
+        font-weight: bold; font-style: normal;
       }
       @page { size: A4; }
       html, body { margin: 0; padding: 0; }
@@ -315,7 +328,6 @@ export interface PdfTemplateOptions {
 }
 
 export function buildHtml(opts: PdfTemplateOptions): string {
-    const fontB64 = getFontB64();
     const sym = opts.currency === 'KHR' ? '៛' : '$';
     const { headerData: hd, items, totals } = opts;
     const tax = totals.tax ?? totals.vat ?? 0;
@@ -334,7 +346,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  ${baseStyle(fontB64)}
+  ${baseStyle()}
 </head>
 <body>
   <div class="page">
