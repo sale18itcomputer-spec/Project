@@ -45,10 +45,10 @@ const LAYOUT = {
   // Source: defaultLayoutConfig.info  { startY:33.5, fontSize:9, rowHeight:8 }
   customerInfo: {
     fontSize:      9,   // pt
-    rowGap:        5,   // px  — 1.5 spacing
+    rowGap:       10,   // px  — increased row gap
     colLabel:     90,   // px  — wide enough for 'Company Name' on 1 line
     colColon:     12,   // px
-    colRightLabel:110,  // px
+    colRightLabel: 90,   // px
     colRightValue:120,  // px
   },
 
@@ -120,19 +120,19 @@ function baseStyle(): string {
         font-weight: normal; font-style: normal;
       }
       @font-face {
-        font-family: 'Times New Roman';
+        font-family: 'Custom Times';
         src: url('data:font/truetype;base64,${fonts.times}') format('truetype');
         font-weight: normal; font-style: normal;
       }
       @font-face {
-        font-family: 'Times New Roman';
+        font-family: 'Custom Times';
         src: url('data:font/truetype;base64,${fonts.timesBold}') format('truetype');
         font-weight: bold; font-style: normal;
       }
       @page { size: A4; }
       html, body { margin: 0; padding: 0; }
       body {
-        font-family: 'Times New Roman', 'KhmerOS', serif;
+        font-family: 'Custom Times', 'KhmerOS', serif;
         font-size: 9pt;
         color: #000; background: #fff;
         -webkit-font-smoothing: antialiased;
@@ -169,15 +169,15 @@ function baseStyle(): string {
         margin-bottom: 10px;
         font-size: ${pt(L.customerInfo.fontSize)};
       }
-      .info-grid .lbl       { font-weight: normal; white-space: nowrap; }
+      .info-grid .lbl, .info-grid .lbl-right { font-weight: normal; white-space: nowrap; }
       .info-grid .cln       { text-align: center; }
-      .info-grid .val       { white-space: pre-line; line-height: 1.5; font-weight: normal; padding-right: 20px; }
-      .info-grid .lbl-right { padding-left: 24px; }
+      .info-grid .val       { white-space: pre-line; line-height: 1.5; font-weight: normal; padding-left: 8px; }
+      .info-grid .val-left  { padding-right: 60px; }
       /* ── Table ── */
       table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: ${pt(T.contentFontSize)}; table-layout: fixed; }
       th {
         background: #004aad; color: #fff; padding: 5px 6px; text-align: center;
-        font-weight: bold; border: 1px solid #004aad; font-size: ${pt(T.headerFontSize)};
+        font-weight: bold; border: 1px solid #000; font-size: ${pt(T.headerFontSize)};
       }
       td { padding: 5px 6px; border: 1px solid #000; vertical-align: top; word-wrap: break-word; }
       td.center  { text-align: center; }
@@ -187,7 +187,7 @@ function baseStyle(): string {
       td.sub     { font-size: ${pt(T.contentFontSize)}; white-space: pre-wrap; }
       /* ── Tfoot ── */
       tfoot td { font-size: ${pt(T.contentFontSize)}; padding: 4px 6px; }
-      tfoot tr.grand td { background: #f0f0f0; font-weight: bold; border-top: 2px solid #000; }
+      tfoot tr.grand td { background: #fff; font-weight: bold; border-top: 2px solid #000; }
       /* ── Terms ── */
       .terms { margin-top: ${mm(L.terms.spacingAbove)}; font-size: ${pt(L.terms.contentFontSize)}; line-height: 1.4; page-break-inside: avoid; }
       .terms h4 { font-weight: bold; font-size: ${pt(L.terms.titleFontSize)}; margin-bottom: 2px; }
@@ -201,7 +201,7 @@ function baseStyle(): string {
       }
       .sig-box   { text-align: center; flex: 0 0 160px; }
       .sig-label { font-weight: bold; font-size: ${pt(L.signatures.fontSize)}; margin-bottom: ${L.signatures.labelBottom}px; }
-      .sig-line  { border-top: 1px solid #000; padding-top: 5px; font-size: ${pt(L.signatures.lineFontSize)}; font-weight: bold; line-height: 1.5; }
+      .sig-line  { border-top: 1px solid #000; padding-top: 5px; font-size: ${pt(L.signatures.lineFontSize)}; font-weight: normal; line-height: 1.5; }
       /* ── PO bands ── */
       .po-band { display: flex; background: #004aad; color: #fff; font-weight: bold; font-size: 8pt; padding: 3px 5px; margin-bottom: 2px; }
       .po-band span { flex: 1; }
@@ -261,7 +261,7 @@ function companyHeader(): string {
 function infoRow(l1: string, v1: string, l2: string, v2: string): string {
     return `
       <div class="lbl">${esc(l1)}</div><div class="cln">:</div>
-      <div class="val">${esc(v1)}</div>
+      <div class="val val-left">${esc(v1)}</div>
       <div class="lbl-right">${esc(l2)}</div><div class="cln">:</div><div class="val">${esc(v2)}</div>`;
 }
 
