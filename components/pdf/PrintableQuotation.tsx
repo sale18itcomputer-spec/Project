@@ -126,11 +126,11 @@ const PrintableQuotation: React.FC<PrintableQuotationProps> = ({ headerData, ite
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4', paddingRight: '20px' }}>{headerData['Company Address'] || ''}</div>
                     
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Quote Date</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'left', alignSelf: 'start' }}>Quote Date</div>
+                    <div style={{ fontWeight: 'normal', textAlign: 'center', alignSelf: 'start' }}>:</div>
+                    <div style={{ fontWeight: 'normal', alignSelf: 'start' }}>{headerData['Quote Date'] ? new Date(headerData['Quote Date'] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</div>
 
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>

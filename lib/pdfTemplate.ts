@@ -48,8 +48,8 @@ const LAYOUT = {
     rowGap:        5,   // px  — 1.5 spacing
     colLabel:     90,   // px  — wide enough for 'Company Name' on 1 line
     colColon:     12,   // px
-    colRightLabel:90,   // px
-    colRightValue:100,  // px
+    colRightLabel:110,  // px
+    colRightValue:120,  // px
   },
 
   // ── Item table ───────────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ const LAYOUT = {
     contentFontSize: 9,    // pt
     subFontSize:     8.5,  // pt — descriptionFontSize
     colNo:    7,   // %  13/188
-    colCode: 12,   // %  23/188
-    colDesc: 51,   // %  96/188
+    colCode: 17,   // %  23/188
+    colDesc: 46,   // %  96/188
     colQty:   6,   // %  12/188
     colPrice:10,   // %  18/188 — single cell, $ left + number right via flex
     colTotal:14,   // %  26/188 — single cell, $ left + number right via flex
@@ -158,8 +158,8 @@ function baseStyle(fontB64: string): string {
       }
       .info-grid .lbl       { font-weight: normal; white-space: nowrap; }
       .info-grid .cln       { text-align: center; }
-      .info-grid .val       { white-space: pre-line; line-height: 1.5; font-weight: normal; }
-      .info-grid .lbl-right { padding-left: 8px; }
+      .info-grid .val       { white-space: pre-line; line-height: 1.5; font-weight: normal; padding-right: 20px; }
+      .info-grid .lbl-right { padding-left: 24px; }
       /* ── Table ── */
       table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: ${pt(T.contentFontSize)}; table-layout: fixed; }
       th {
