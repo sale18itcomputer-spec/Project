@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { prepare, layout } from '@chenglou/pretext';
 import EmptyState from "../../common/EmptyState";
 import { ClipboardList } from 'lucide-react';
 
@@ -30,6 +31,20 @@ const colorConfig = {
   slate: { border: 'border-slate-500', bg: 'bg-slate-500/15', text: 'text-slate-600 dark:text-slate-400', bgDot: 'bg-slate-500' },
 };
 
+
+function useAutoFontSize(text: string) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  const [cls, setCls] = useState<'text-xs' | 'text-[10px]'>('text-xs');
+  useEffect(() => {
+    if (!ref.current) return;
+    const w = ref.current.offsetWidth;
+    if (w === 0) return;
+    const p = prepare(text, '600 12px Inter');
+    const { lineCount } = layout(p, w, 16);
+    setCls(lineCount <= 1 ? 'text-xs' : 'text-[10px]');
+  }, [text]);
+  return { ref, cls };
+}
 
 const KanbanBoardSkeleton = () => (
   <div className="flex-1 overflow-x-auto horizontal-scroll p-6 bg-muted/40">
@@ -134,9 +149,7 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${colors.bgDot}`}></span>
-                      <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground">
-                        {column.title}
-                      </h3>
+                      <KanbanColumnTitle title={column.title} />
                     </div>
                     {column.renderHeader && (
                       <div className="mt-1 pl-[16px]">
@@ -185,6 +198,15 @@ function KanbanView<T>({ columns, renderCardContent, onCardClick, loading, onIte
         })}
       </div>
     </div>
+  );
+}
+
+function KanbanColumnTitle({ title }: { title: string }) {
+  const { ref, cls } = useAutoFontSize(title);
+  return (
+    <h3 ref={ref} className={`font-semibold uppercase tracking-wider ${cls} text-muted-foreground`}>
+      {title}
+    </h3>
   );
 }
 

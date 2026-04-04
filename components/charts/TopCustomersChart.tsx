@@ -71,30 +71,38 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderColor: 'hsl(var(--border))',
         borderRadius: 12,
         padding: [12, 16],
+        shadowBlur: 10,
+        shadowColor: 'rgba(0,0,0,0.05)',
+        textStyle: { color: 'hsl(var(--foreground))', fontFamily: 'Inter, sans-serif' },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
           if (!p || p.value === undefined) return '';
           const name = p.name.replace(/^\d+\.\s*/, '');
           const pct = totalWinValue > 0 ? ((p.value / totalWinValue) * 100).toFixed(1) : '0';
           return `
-            <div style="font-weight:700;margin-bottom:8px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${name}</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
+            <div style="font-weight:700;margin-bottom:10px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;">${name}</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:28px;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
-                        <span style="font-weight:800;font-size:16px;">${formatFullCurrency(p.value)}</span>
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="font-weight:800;font-size:18px;letter-spacing:-0.5px;">${formatFullCurrency(p.value)}</span>
                     </div>
-                    <span style="color:#3b82f6;font-size:12px;font-weight:700;background:rgba(59,130,246,0.1);padding:2px 8px;border-radius:6px;">${pct}%</span>
+                    <span style="color:#0ea5e9;font-size:12px;font-weight:700;background:rgba(14,165,233,0.1);padding:4px 10px;border-radius:8px;">${pct}%</span>
                 </div>
-                <div style="font-size:11px;color:hsl(var(--muted-foreground));font-weight:600;padding-left:18px;">
-                    Orders: <strong>${p.data.projectCount}</strong>
+                <div style="font-size:12px;color:hsl(var(--muted-foreground));font-weight:600;padding-left:20px;margin-top:-4px;">
+                    Deals: <strong style="color:hsl(var(--foreground))">${p.data.projectCount}</strong>
                 </div>
             </div>
           `;
         }
       },
+      animationDuration: 1000,
+      animationEasing: 'cubicOut',
+      animationThreshold: 2000,
       grid: {
         left: '2%',
         right: '12%',
@@ -162,7 +170,7 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ data, totalWinVal
   }, [data, totalWinValue, currency, isMobile]);
 
   return (
-    <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden" style={{ height: '900px' }}>
+    <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden h-[400px] lg:h-[500px] w-full">
       <div className="p-6 pb-0 flex-shrink-0">
         <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Customer Performance</h4>
         <h3 id={titleId} className="text-lg font-extrabold text-foreground">Top 10 Customers</h3>

@@ -59,21 +59,29 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
         return {
             tooltip: {
                 trigger: 'item',
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderColor: 'hsl(var(--border))',
                 borderRadius: 12,
                 padding: [12, 16],
+                shadowBlur: 10,
+                shadowColor: 'rgba(0,0,0,0.05)',
+                textStyle: { color: 'hsl(var(--foreground))', fontFamily: 'Inter, sans-serif' },
                 formatter: (params: any) => {
                     return `
-                        <div style="font-weight:700;margin-bottom:8px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${params.name}</div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
+                        <div style="font-weight:700;margin-bottom:10px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;">${params.name}</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:28px;">
                             <div style="display:flex;align-items:center;gap:10px;">
-                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${params.color}"></span>
-                                <span style="font-weight:800;font-size:16px;">${params.value}</span>
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${params.color}"></span>
+                                <span style="font-weight:800;font-size:18px;letter-spacing:-0.5px;">${params.value}<span style="font-size:12px;opacity:0.5;margin-left:4px;">Deals</span></span>
                             </div>
-                            <span style="color:#3b82f6;font-size:12px;font-weight:700;background:rgba(59,130,246,0.1);padding:2px 8px;border-radius:6px;">${params.percent}%</span>
+                            <span style="color:#0ea5e9;font-size:12px;font-weight:700;background:rgba(14,165,233,0.1);padding:4px 10px;border-radius:8px;">${params.percent}%</span>
                         </div>
                     `;
                 }
             },
+            animationDuration: 1000,
+            animationEasing: 'cubicOut',
+            animationThreshold: 2000,
             legend: {
                 bottom: '2%',
                 left: 'center',
@@ -108,10 +116,10 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
                         shadowColor: 'rgba(0, 0, 0, 0.05)'
                     }
                 },
-                data: data.map(item => ({
+                data: data.map((item, i) => ({
                     value: item.value,
                     name: item.name,
-                    itemStyle: { color: STATUS_COLORS[item.name as keyof typeof STATUS_COLORS] || '#94a3b8' }
+                    itemStyle: { color: ['#1e3a8a', '#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff'][i % 9] }
                 }))
             }],
             graphic: [
@@ -147,7 +155,7 @@ const ProjectOutcomeChart: React.FC<ProjectOutcomeChartProps> = ({ data }) => {
     }, [data]);
 
     return (
-        <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden" style={{ height: '900px' }}>
+        <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden h-[400px] lg:h-[500px] w-full">
             <div className="p-6 pb-0 flex-shrink-0">
                 <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Pipeline Analytics</h4>
                 <h3 id={titleId} className="text-lg font-extrabold text-foreground">Pipeline Status</h3>

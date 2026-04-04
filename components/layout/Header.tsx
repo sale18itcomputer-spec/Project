@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { prepare, layout } from '@chenglou/pretext';
 import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock, Moon, Sun } from 'lucide-react';
 
@@ -118,6 +119,25 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
   /* Removed getTitle function as we are now using breadcrumbs for desktop and only simplified title for mobile, handled inline or via separate logic if needed. 
      Wait, getTitle was used for mobile. Let's bringing it back or alternative. */
 
+  const mobileTitleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const el = mobileTitleRef.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    if (w === 0) return;
+    const title = el.textContent || '';
+    const sizes = [
+      { cls: 'text-lg', px: 18 },
+      { cls: 'text-base', px: 16 },
+      { cls: 'text-sm', px: 14 },
+    ] as const;
+    for (const s of sizes) {
+      const p = prepare(title, `600 ${s.px}px Inter`);
+      const { lineCount } = layout(p, w, 28);
+      if (lineCount <= 1) { el.className = el.className.replace(/text-(lg|base|sm)/, s.cls); return; }
+    }
+  }, [pathname]);
+
   const getMobileTitle = () => {
     const pathMap: Record<string, string> = {
       '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
@@ -150,7 +170,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
         <div className="flex flex-col justify-center">
           {/* Show title on mobile, breadcrumbs on desktop */}
-          <h1 className={`${isMobile ? 'block text-lg font-semibold mobile-nav-title' : 'hidden'}`}>{getMobileTitle()}</h1>
+          <h1 ref={mobileTitleRef} className={`${isMobile ? 'block text-lg font-semibold mobile-nav-title' : 'hidden'}`}>{getMobileTitle()}</h1>
           <div className="hidden lg:block">
             {getBreadcrumbs()}
           </div>

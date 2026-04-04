@@ -1,4 +1,27 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { prepare, layout } from '@chenglou/pretext';
+
+function useAutoFontSize(text: string, font: string, lineHeight: number) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  const [cls, setCls] = useState('text-base');
+  useEffect(() => {
+    if (!ref.current) return;
+    const w = ref.current.offsetWidth;
+    if (w === 0) return;
+    const sizes = [
+      { cls: 'text-base', px: 16 },
+      { cls: 'text-sm',   px: 14 },
+      { cls: 'text-xs',   px: 12 },
+    ] as const;
+    for (const s of sizes) {
+      const p = prepare(text, `600 ${s.px}px ${font}`);
+      const { lineCount } = layout(p, w, lineHeight);
+      if (lineCount <= 1) { setCls(s.cls); return; }
+    }
+    setCls('text-xs');
+  }, [text, font, lineHeight]);
+  return { ref, cls };
+}
 
 interface EmptyStateProps {
   illustration?: React.ReactNode;
@@ -40,7 +63,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       </div>
       {children || (
         <div className="space-y-2">
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          <AutoTitle title={title} />
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">{description}</p>
           {action && (
             <div className="pt-4">
@@ -51,6 +74,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       )}
     </div>
   );
+};
+
+const AutoTitle: React.FC<{ title: string }> = ({ title }) => {
+  const { ref, cls } = useAutoFontSize(title, 'Inter', 24);
+  return <h3 ref={ref} className={`${cls} font-semibold text-foreground`}>{title}</h3>;
 };
 
 export default EmptyState;

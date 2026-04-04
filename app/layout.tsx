@@ -34,7 +34,7 @@ export default function RootLayout({
                 <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" />
                 <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
             </head>
-            <body className="bg-background text-foreground antialiased h-full overflow-hidden">
+            <body className="bg-background text-foreground antialiased min-h-screen">
                 {/* Suspense required for useSearchParams used inside NavigationProvider */}
                 <Suspense fallback={null}>
                     <AppProviders>

@@ -103,15 +103,36 @@ const WinRateChart: React.FC<WinRateChartProps> = ({ winRate, won, total }) => {
       },
     ],
     tooltip: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: 'hsl(var(--border))',
+      borderRadius: 12,
+      padding: [12, 16],
+      shadowBlur: 10,
+      shadowColor: 'rgba(0,0,0,0.05)',
+      textStyle: { color: 'hsl(var(--foreground))', fontFamily: 'Inter, sans-serif' },
       formatter: (params: any) => {
         if (!params || params.value === undefined) return '';
-        return `Win Rate: <strong>${params.value.toFixed(1)}%</strong><br/>(${won} won out of ${total} closed deals)`;
+        return `
+          <div style="font-weight:700;margin-bottom:10px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;">Goal Tracking</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:28px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981"></span>
+                  <span style="font-weight:800;font-size:18px;letter-spacing:-0.5px;">${params.value.toFixed(1)}%</span>
+              </div>
+          </div>
+          <div style="font-size:12px;color:hsl(var(--muted-foreground));font-weight:600;margin-top:8px;">
+              Details: <strong style="color:hsl(var(--foreground))">${won} won of ${total}</strong>
+          </div>
+        `;
       },
     },
+    animationDuration: 2000,
+    animationEasing: 'elasticOut',
+    animationThreshold: 2000,
   };
 
   return (
-    <div className="bg-card p-6 rounded-xl border border-border shadow-sm h-full flex flex-col" ref={containerRef}>
+    <div className="bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col overflow-hidden h-[400px] lg:h-[500px] w-full" ref={containerRef}>
       <h2 id={titleId} className="text-lg font-semibold text-foreground mb-1 flex-shrink-0">Pipeline Win Rate</h2>
       <p className="text-sm text-muted-foreground mb-2 flex-shrink-0">Percentage of deals won vs. lost.</p>
 

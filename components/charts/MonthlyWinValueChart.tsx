@@ -70,11 +70,6 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
       currencyDisplay: currency === 'KHR' ? 'code' : 'symbol',
     }).format(value).replace('KHR', '៛');
 
-  const monthMap: Record<string, string> = {
-    Jan: 'January', Feb: 'February', Mar: 'March', Apr: 'April', May: 'May', Jun: 'June',
-    Jul: 'July', Aug: 'August', Sep: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
-  };
-
   const onEvents = {
     click: (params: any) => {
       if (!params.name) return;
@@ -82,14 +77,12 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
       const currentYearFilter = (filters.year || []) as string[];
 
       if (period === 'monthly') {
-        const [monthStr, yearStr] = params.name.split(' ');
-        const clickedMonth = monthMap[monthStr];
-        const clickedYear = yearStr;
-        if (!clickedMonth || !clickedYear) return;
-        const isActive = currentMonthFilter.length === 1 && currentMonthFilter[0] === clickedMonth &&
-          currentYearFilter.length === 1 && currentYearFilter[0] === clickedYear;
+        const [mShort, yearStr] = params.name.split(' ');
+        if (!mShort || !yearStr) return;
+        const isActive = currentMonthFilter.length === 1 && currentMonthFilter[0] === mShort &&
+          currentYearFilter.length === 1 && currentYearFilter[0] === yearStr;
         if (isActive) { setFilter('month', []); setFilter('year', []); }
-        else { setFilter('month', [clickedMonth]); setFilter('year', [clickedYear]); }
+        else { setFilter('month', [mShort]); setFilter('year', [yearStr]); }
       } else if (period === 'yearly') {
         const clickedYear = params.name;
         const isActive = currentYearFilter.length === 1 && currentYearFilter[0] === clickedYear && currentMonthFilter.length === 0;
@@ -108,30 +101,39 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderColor: 'hsl(var(--border))',
+        borderWidth: 1,
         borderRadius: 12,
         padding: [12, 16],
+        shadowBlur: 10,
+        shadowColor: 'rgba(0,0,0,0.05)',
+        textStyle: { color: 'hsl(var(--foreground))', fontFamily: 'Inter, sans-serif' },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
           if (!p || p.value === undefined) return '';
           const item = data[p.dataIndex];
           return `
-            <div style="font-weight:700;margin-bottom:8px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${p.name}</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
+            <div style="font-weight:700;margin-bottom:10px;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;">${p.name}</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:28px;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
-                        <span style="font-weight:800;font-size:16px;">${formatFullCurrency(p.value)}</span>
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>
+                        <span style="font-weight:800;font-size:18px;letter-spacing:-0.5px;">${formatFullCurrency(p.value)}</span>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px;padding-left:18px;">
-                    <span style="font-size:11px;color:hsl(var(--muted-foreground));font-weight:600;">
-                        ${isB2B ? 'Projects Won' : 'Orders Completed'}: <strong>${item?.projectCount || 0}</strong>
+                <div style="display:flex;align-items:center;gap:10px;padding-left:20px;margin-top:-4px;">
+                    <span style="font-size:12px;color:hsl(var(--muted-foreground));font-weight:600;">
+                        ${isB2B ? 'Wins' : 'Orders'}: <strong style="color:hsl(var(--foreground))">${item?.projectCount || 0}</strong>
                     </span>
                 </div>
             </div>
           `;
         }
       },
+      animationDuration: 1000,
+      animationEasing: 'cubicOut',
+      animationThreshold: 2000,
       grid: {
         top: '12%',
         left: '4%',
@@ -189,7 +191,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
   const chartTitle = { monthly: 'Monthly Revenue', quarterly: 'Quarterly Revenue', yearly: 'Yearly Revenue' }[period];
 
   return (
-    <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden" style={{ height: '900px' }}>
+    <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden h-[400px] lg:h-[500px] w-full">
       <div className="p-6 pb-0 flex-shrink-0">
         <div className="flex flex-row justify-between items-start gap-2">
           <div>

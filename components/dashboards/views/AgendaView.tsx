@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { prepare, layout } from '@chenglou/pretext';
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { ClipboardList } from 'lucide-react';
@@ -41,6 +42,28 @@ const formatDateForHeader = (date: Date): string => {
         month: 'long',
         day: 'numeric'
     });
+}
+
+function AgendaCardTitle({ title }: { title: string }) {
+    const ref = useRef<HTMLHeadingElement>(null);
+    const [cls, setCls] = useState('text-lg');
+    useEffect(() => {
+        if (!ref.current) return;
+        const w = ref.current.offsetWidth;
+        if (w === 0) return;
+        const sizes = [
+            { cls: 'text-lg', px: 18 },
+            { cls: 'text-base', px: 16 },
+            { cls: 'text-sm', px: 14 },
+        ] as const;
+        for (const s of sizes) {
+            const p = prepare(title, `700 ${s.px}px Inter`);
+            const { lineCount } = layout(p, w, 28);
+            if (lineCount <= 1) { setCls(s.cls); return; }
+        }
+        setCls('text-sm');
+    }, [title]);
+    return <h4 ref={ref} className={`font-bold text-foreground ${cls}`}>{title}</h4>;
 }
 
 function AgendaView<T>({ items, renderCardContent, onItemClick, loading }: AgendaViewProps<T>) {
@@ -118,7 +141,7 @@ function AgendaView<T>({ items, renderCardContent, onItemClick, loading }: Agend
                                     onClick={() => onItemClick(item.data)}
                                     className="w-full text-left bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-lg hover:border-brand-300 transition-all duration-200 transform hover:-translate-y-px border-l-4 border-l-brand-500"
                                 >
-                                    <h4 className="font-bold text-foreground text-lg">{item.title}</h4>
+                                    <AgendaCardTitle title={item.title} />
                                     {renderCardContent(item.data)}
                                 </button>
                             </React.Fragment>
