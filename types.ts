@@ -297,11 +297,18 @@ export interface PricelistItem {
   'Description': string;
   'End User Price': string;
   'Dealer Price': string;
-  'Sheet Name': string;
-  'Promotion': string;
   'Category': string;
-  'Status': string;
+  'Series': string;
+  'Status': 'Available' | 'Out of Stock' | 'Pre-order' | string;
   'Currency'?: 'USD' | 'KHR';
+  'Promotion': string;
+  'Qty': number | null;
+  'image_url': any;
+  'video_url': string;
+  'extra_specs': any;
+  'category_id': number | null;
+  'subcategory_id': number | null;
+  'updated_at': string;
   [key: string]: any;
 }
 

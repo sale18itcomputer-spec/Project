@@ -49,7 +49,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     const getInitialState = useCallback(() => {
         return {
             'Status': 'Available',
-            'Sheet Name': '',
+            'Currency': 'USD',
             'Dealer Price': '',
         };
     }, []);
@@ -120,7 +120,6 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 
         const submissionData = {
             ...cleanFormData,
-            'Sheet Name': formData['Sheet Name'] || '',
             'Dealer Price': toNumeric(formData['Dealer Price']),
             'End User Price': toNumeric(formData['End User Price']),
         };

@@ -218,17 +218,24 @@ export const SALE_ORDER_HEADERS = [
 
 // Headers for Pricelist Sheet
 export const PRICELIST_HEADERS = [
-  'Sheet Name',
-  'Brand',
-  'Category',
   'Code',
+  'Brand',
   'Model',
   'Description',
-  'Dealer Price',
   'End User Price',
-  'Promotion',
+  'Dealer Price',
+  'Category',
+  'Series',
   'Status',
-  'Currency'
+  'Currency',
+  'Promotion',
+  'Qty',
+  'image_url',
+  'video_url',
+  'extra_specs',
+  'category_id',
+  'subcategory_id',
+  'updated_at',
 ] as const;
 
 export const INVOICE_HEADERS = [

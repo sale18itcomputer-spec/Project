@@ -2,7 +2,7 @@ import { openDB, IDBPDatabase } from 'idb';
 
 
 const DB_NAME = 'limperial-db';
-const DB_VERSION = 7; // Fixed keyPath fields (removed trailing dots, fixed pricelist key)
+const DB_VERSION = 8; // Consolidated pricelist Status column (removed lowercase status, normalised to Available/Out of Stock/Pre-order)
 
 const STORE_CONFIG = {
     projects: { keyPath: 'Pipeline No' },
