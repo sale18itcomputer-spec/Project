@@ -189,7 +189,10 @@ export const QUOTATION_HEADERS = [
   'Terms and Conditions',
   'Prepared By Position',
   'Approved By Position',
-  'ItemsJSON'
+  'Tax Type',
+  'ItemsJSON',
+  'created_at',
+  'updated_at',
 ] as const;
 
 // Headers for Sale Orders Sheet

@@ -245,9 +245,16 @@ export const createQuotationSheet = async (newSheetName: string, data: any): Pro
     // Use upsert so we never need a separate existence check — avoids the
     // "failed to parse tree path" error that .select('Quote No.') triggers
     // in PostgREST when the column name contains a dot.
+    const payload = {
+        ...data,
+        // Always stamp updated_at so the weekly report can track when a
+        // quotation was last modified. created_at is managed by the DB trigger
+        // (DEFAULT NOW()) and is never overwritten here.
+        updated_at: new Date().toISOString(),
+    };
     const { error } = await supabase
         .from('quotations')
-        .upsert(data, { onConflict: 'Quote No' });
+        .upsert(payload, { onConflict: 'Quote No' });
 
     if (error) {
         console.error('Supabase Upsert (Quotation) Error:', error);

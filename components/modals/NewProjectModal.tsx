@@ -13,7 +13,7 @@ import NewCompanyModal from "./NewCompanyModal";
 import NewContactModal from "./NewContactModal";
 import { useToast } from "../../contexts/ToastContext";
 import ResizableModal from "./ResizableModal";
-import { Check, Pencil, Trash2, Calendar, MessageSquare, Plus } from 'lucide-react';
+import { Check, Pencil, Trash2, Calendar, MessageSquare, MapPin, Plus } from 'lucide-react';
 import SearchableSelect from "../common/SearchableSelect";
 import { useNavigation } from "../../contexts/NavigationContext";
 
@@ -57,7 +57,7 @@ const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
 const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, meetings, contactLogs }) => {
-    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders } = useB2BData();
+    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders, siteSurveys } = useB2BData();
     const { isB2B } = useB2B();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PipelineProject>>({});
@@ -287,6 +287,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             }
         });
 
+        siteSurveys?.forEach(survey => {
+            if (survey['Company Name'] === companyName || survey['Pipeline_ID'] === pipelineId) {
+                const date = parseDate(survey['Date']);
+                if (date) { allActivities.push({ type: 'survey', date, isoDate: date.toISOString(), responsible: survey['Responsible By'], summary: `Site Survey: ${survey.Location}`, details: survey.Remark, original: survey as any }); }
+            }
+        });
+
         return allActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
     }, [existingData, meetings, contactLogs]);
 
@@ -501,7 +508,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                                         {relatedActivities.map((activity, index) => (
                                             <div key={`${activity.type}-${activity.isoDate}-${index}`} className="relative">
                                                 <div className="absolute -left-[29px] top-0.5 w-8 h-8 rounded-full bg-card flex items-center justify-center ring-4 ring-card">
-                                                    {activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-500" /> : <MessageSquare className="w-5 h-5 text-violet-500" />}
+                                                    {activity.type === 'meeting' ? <Calendar className="w-5 h-5 text-sky-500" /> : activity.type === 'survey' ? <MapPin className="w-5 h-5 text-emerald-500" /> : <MessageSquare className="w-5 h-5 text-violet-500" />}
                                                 </div>
                                                 <div className="bg-muted p-4 rounded-lg border border-border">
                                                     <p className="font-semibold text-foreground">{activity.summary}</p>

@@ -46,13 +46,11 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 
     const isEditMode = !!existingData;
 
-    const getInitialState = useCallback(() => {
-        return {
-            'Status': 'Available',
-            'Currency': 'USD',
-            'Dealer Price': '',
-        };
-    }, []);
+    const getInitialState = useCallback(() => ({
+        'Status': 'Available',
+        'Currency': 'USD',
+        'Dealer Price': '',
+    } as const), []);
 
     useEffect(() => {
         if (isOpen) {

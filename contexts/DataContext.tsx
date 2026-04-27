@@ -282,7 +282,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Unique channel name avoids conflicts between browser tabs
-    const channelName = `db_changes_${crypto.randomUUID()}`;
+    // crypto.randomUUID() is only available in secure contexts (HTTPS);
+    // fall back to a manual UUID-like string for local HTTP dev.
+    const uuid =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const channelName = `db_changes_${uuid}`;
     const channel = supabase!.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
         const { table, eventType, new: newRecord, old: oldRecord } = payload;

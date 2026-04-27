@@ -225,7 +225,7 @@ const AnalyticsDashboard: React.FC = () => {
   // Metric counters (quotesCount + saleOrdersCount) for the header cards
   // These are fast O(n) passes — fine to keep here
   // ---------------------------------------------------------------------------
-  const lazyMetrics = useMemo(() => ({
+  const _lazyMetrics = useMemo(() => ({
     quotesCount:     (quotations  || []).filter(q  => q.Status === 'Open').length,
     saleOrdersCount: (saleOrders  || []).filter(so => so.Status === 'Pending').length,
   }), [quotations, saleOrders]);

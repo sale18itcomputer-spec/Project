@@ -22,7 +22,7 @@ const CONSTRAINED_ROUTES = [
     '/projects', '/companies', '/contacts', '/contact-logs',
     '/site-surveys', '/meetings', '/pricelist', '/b2b-pricelist',
     '/quotations', '/sale-orders', '/invoice-do', '/users',
-    '/vendors', '/vendor-pricelist', '/purchase-orders',
+    '/vendors', '/vendor-pricelist', '/purchase-orders', '/weekly-report',
     '/', // Dashboard uses its own internal scroll
 ];
 

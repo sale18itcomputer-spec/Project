@@ -12,7 +12,7 @@ echarts.registerTheme('limperial', limperialTheme);
 
 const ECharts = ReactECharts as any;
 
-const STATUS_COLORS: Record<string, string> = {
+const _STATUS_COLORS: Record<string, string> = {
   'close (win)':    '#10b981', // emerald
   'close (lose)':   '#94a3b8', // slate
   'price request':  '#f43f5e', // rose

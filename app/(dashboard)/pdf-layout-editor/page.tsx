@@ -116,7 +116,7 @@ margins: {
 }
 
 // ── Resizable column handle ────────────────────────────────────────────────
-function ResizeHandle({ onDrag }: { onDrag: (delta: number) => void }) {
+function _ResizeHandle({ onDrag }: { onDrag: (delta: number) => void }) {
   const dragging = useRef(false);
   const startX = useRef(0);
 

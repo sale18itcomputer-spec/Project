@@ -33,7 +33,20 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (isAuthenticated) {
-            router.push(redirectPath);
+            // On local network (dev), stay local. On any other network, redirect to production.
+            const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+            const isLocal =
+                hostname === 'localhost' ||
+                hostname === '127.0.0.1' ||
+                /^192\.168\./.test(hostname) ||
+                /^10\./.test(hostname) ||
+                /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+
+            if (isLocal) {
+                router.push(redirectPath);
+            } else {
+                window.location.href = 'https://project.limperialtech.com';
+            }
         }
     }, [isAuthenticated, router, redirectPath]);
 

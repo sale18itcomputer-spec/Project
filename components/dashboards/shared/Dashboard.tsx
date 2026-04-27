@@ -4,7 +4,7 @@ import React, { useMemo, Suspense } from 'react';
 import MetricCard from "../../common/MetricCard";
 import { useB2BData } from "../../../hooks/useB2BData";
 import { FilterProvider } from "../../../contexts/FilterContext";
-import DashboardFilterBar from "../components/DashboardFilterBar";
+
 import { parseSheetValue } from "../../../utils/formatters";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import ContentSkeleton from "../../common/ContentSkeleton";
@@ -32,7 +32,7 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     if (loading) return null;
 
-    const getBestValue = (item: any) =>
+    const _getBestValue = (item: any) =>
       parseSheetValue(item['Bid Value']) || parseSheetValue(item['Total Amount']) || parseSheetValue(item['Amount']) || parseSheetValue(item['Grand Total']) || 0;
 
     const wonProjects = (projects || []).filter(p => (p.Status || '').toLowerCase().includes('win'));

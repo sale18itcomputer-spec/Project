@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SiteSurveyLog } from "../../types";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
-import { FormSection, FormInput, FormTextarea, FormDisplay } from "../common/FormControls";
+import { FormSection, FormInput, FormTextarea, FormDisplay, FormSelect } from "../common/FormControls";
+import SearchableSelect from "../common/SearchableSelect";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { formatToSheetDate, formatToInputDate } from "../../utils/time";
@@ -30,12 +31,20 @@ const getTodayDateString = () => {
 
 const NewSiteSurveyModal: React.FC<NewSiteSurveyModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
     const { currentUser } = useAuth();
-    const { siteSurveys, setSiteSurveys } = useData();
+    const { siteSurveys, setSiteSurveys, companies, projects } = useData();
     const { addToast } = useToast();
+
     const [formData, setFormData] = useState<Partial<SiteSurveyLog>>({});
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    
+
+    const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
+    const pipelineOptions = useMemo(() => projects?.filter(p => p['Company Name'] === formData['Company Name']).map(p => p['Pipeline No']) || [], [projects, formData]);
+
+    const handleCompanySelect = (companyName: string) => {
+        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Pipeline_ID': '' }));
+    };
+
     const isEditMode = !!existingData;
 
     const getInitialState = useCallback(() => {
@@ -205,6 +214,16 @@ const NewSiteSurveyModal: React.FC<NewSiteSurveyModalProps> = ({ isOpen, onClose
                             ? <FormDisplay label="Site ID" value={formData['Site ID']} /> 
                             : <FormInput name="Site ID" label="Site ID" value={formData['Site ID']} onChange={()=>{}} required readOnly />
                         }
+                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
+                            <SearchableSelect
+                                name="Company Name"
+                                label="Company Name"
+                                value={formData['Company Name'] || ''}
+                                onChange={handleCompanySelect}
+                                options={companyOptions}
+                                placeholder="Search companies..."
+                            />}
+                        {isReadOnly ? <FormDisplay label="Pipeline ID" value={formData['Pipeline_ID']} /> : <FormSelect name="Pipeline_ID" label="Pipeline ID" value={formData['Pipeline_ID']} onChange={handleChange} options={pipelineOptions} disabled={!formData['Company Name'] || pipelineOptions.length === 0} disabledPlaceholder={!formData['Company Name'] ? 'Select a company first' : 'No pipelines found'} />}
                         {isReadOnly ? <FormDisplay label="Responsible By" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Responsible By" value={formData['Responsible By']} onChange={handleChange} required />}
                         {isReadOnly ? <FormDisplay label="Date" value={formatToInputDate(formData.Date)} /> : <FormInput name="Date" label="Date" value={formData.Date} onChange={handleChange} type="date" required/>}
                         {isReadOnly ? <FormDisplay label="Start Time" value={formData['Start Time']} /> : <FormInput name="Start Time" label="Start Time" value={formData['Start Time']} onChange={handleChange} type="time" />}

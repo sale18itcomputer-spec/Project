@@ -166,7 +166,10 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   };
 
   const handleCreateSaleOrder = (quotation: Quotation) => {
-    handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': quotation['Company Name'] }, quote: quotation } });
+    // Pass action at the top-level so navigation.action === 'create' in the URL.
+    // Pass the quotation directly as payload so SaleOrderDashboard's Case 1
+    // field mapping (initialPayload['Quote No']) resolves correctly.
+    handleNavigation({ view: 'sale-orders', action: 'create', payload: quotation });
   };
 
   const handleDuplicateQuotation = async (quotation: Quotation) => {

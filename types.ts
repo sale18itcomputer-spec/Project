@@ -126,6 +126,8 @@ export interface ContactLog {
 
 export interface SiteSurveyLog {
   'Site ID'?: string;
+  'Company Name'?: string;
+  'Pipeline_ID'?: string;
   'Location': string;
   'Responsible By': string;
   'Date': string;
@@ -152,7 +154,7 @@ export interface Meeting {
 }
 
 export interface UnifiedActivity {
-  type: 'meeting' | 'log';
+  type: 'meeting' | 'log' | 'survey';
   date: Date;
   isoDate: string;
   responsible: string;

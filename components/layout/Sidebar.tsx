@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList, Calculator } from 'lucide-react';
+import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList, Calculator, BarChart2 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -163,6 +163,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                     isCollapsed={isCollapsed}
                   />
                 )}
+                {!isB2B && (
+                  <NavItem
+                    icon={<BarChart2 size={20} />}
+                    label="Weekly Report"
+                    isActive={isActive('/weekly-report')}
+                    onClick={() => onNavigate('/weekly-report')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </ul>
             </div>
 
@@ -208,13 +217,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
                   onClick={() => onNavigate('/vendor-pricelist')}
                   isCollapsed={isCollapsed}
                 />
-                <NavItem
-                  icon={<Truck size={20} />}
-                  label="Vendor Master"
-                  isActive={isActive('/vendors')}
-                  onClick={() => onNavigate('/vendors')}
-                  isCollapsed={isCollapsed}
-                />
+                {currentUser?.Role !== 'Sales' && (
+                  <NavItem
+                    icon={<Truck size={20} />}
+                    label="Vendor Master"
+                    isActive={isActive('/vendors')}
+                    onClick={() => onNavigate('/vendors')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </ul>
             </div>
 

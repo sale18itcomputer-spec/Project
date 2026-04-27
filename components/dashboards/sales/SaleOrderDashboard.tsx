@@ -20,6 +20,7 @@ import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
+
 interface SaleOrderDashboardProps {
     initialPayload?: any; // Can be Quotation or a pipeline data object
 }
