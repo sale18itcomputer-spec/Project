@@ -70,8 +70,12 @@ export function buildDeliveryNote(
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 4px 8px; }
   table.items-table th, table.items-table td { border: 1px solid #000; padding: 4px 8px; }
+  .items-table thead { break-after: avoid; page-break-after: avoid; }
+  .items-table tbody tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
   .addr-clamp { white-space: normal; word-break: break-word; }
+  @page { size:A4; margin:10mm 8mm; }
+  .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
     .a4-container { box-shadow: none !important; margin: 0 !important; }
@@ -80,8 +84,9 @@ export function buildDeliveryNote(
 </head>
 <body>
 
-<div style="width:210mm;margin:0 auto;display:flex;flex-direction:column;min-height:267mm;padding: 0 8px;">
+<div style="width:210mm;margin:0 auto;padding:0 8px;">
 
+  <div class="no-break">
   <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
@@ -156,17 +161,18 @@ export function buildDeliveryNote(
       </table>
     </div>
   </div>
+  </div><!-- end no-break -->
 
   <!-- Items Table -->
-  <div class="flex-grow mb-6">
+  <div class="mb-4">
     <table class="items-table w-full mx-auto">
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[12px]">
-          <th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
-          <th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
-          <th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
-          <th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Qty</div></th>
-          <th class="w-[25%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខស៊េរី</div><div>Serial Number</div></th>
+          <th class="w-[4%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
+          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
+          <th class="w-[39%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
+          <th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Qty</div></th>
+          <th class="w-[30%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខស៊េរី</div><div>Serial Number</div></th>
         </tr>
       </thead>
       <tbody>

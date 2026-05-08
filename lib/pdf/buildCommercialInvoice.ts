@@ -102,8 +102,12 @@ export function buildCommercialInvoice(
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 4px 8px; }
   table.items-table th, table.items-table td { border: 1px solid #000 !important; padding: 4px 8px; }
+  .items-table thead { break-after: avoid; page-break-after: avoid; }
+  .items-table tbody tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
   .addr-clamp { white-space: normal; word-break: break-word; }
+  @page { size:A4; margin:10mm 8mm; }
+  .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
     .a4-container { box-shadow: none !important; margin: 0 !important; }
@@ -112,8 +116,9 @@ export function buildCommercialInvoice(
 </head>
 <body>
 
-<div style="width:210mm;margin:0 auto;display:flex;flex-direction:column;min-height:267mm;padding: 0 8px;">
+<div style="width:210mm;margin:0 auto;padding:0 8px;">
 
+  <div class="no-break">
   <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
@@ -198,25 +203,26 @@ export function buildCommercialInvoice(
       </table>
     </div>
   </div>
+  </div><!-- end no-break -->
 
   <!-- Items Table -->
-  <div class="flex-grow mb-12">
+  <div class="mb-4">
     <table class="items-table w-full mx-auto">
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[10px]">
-          <th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#186;</div></th>
-          <th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
-          <th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
-          <th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
-          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
-          <th class="w-[13%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
+          <th class="w-[4%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#186;</div></th>
+          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
+          <th class="w-[35%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
+          <th class="w-[14%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
+          <th class="w-[17%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
+          <th class="w-[18%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
         </tr>
       </thead>
       <tbody>
         ${itemRows}
         <!-- rowspan=4: Grand Total / Deposit / Balance Due / Balance Due in Riel -->
         <tr>
-          <td class="align-top p-4" colspan="3" rowspan="${footerRowspan}" style="border: none !important; border-right: 1px solid #000 !important;">
+          <td class="align-top p-4" colspan="3" rowspan="${footerRowspan}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important;">
             <div class="w-full text-[10px] space-y-4">
               <div>
                 <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>

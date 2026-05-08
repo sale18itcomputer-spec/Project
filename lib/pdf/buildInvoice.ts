@@ -225,11 +225,21 @@ function buildFooterRows(
 
     return `
         <tr>
-          <td style="border:none; border-right:2px solid #000; vertical-align:top; padding:12px; font-size:9pt;" colspan="3" rowspan="6">
-            <p style="font-weight:bold;margin:0 0 6px">Please arrange the payment to :</p>
-            <p style="margin:0 0 8px"><span style="font-weight:bold">Bank :</span> ADVANCED BANK OF ASIA LTD (ABA BANK)</p>
-            <p style="margin:0 0 8px"><span style="font-weight:bold">Account Number :</span> 003916564</p>
-            <p style="margin:0"><span style="font-weight:bold">Account Name :</span> LIMPERIAL TECHNOLOGY CO.,LTD.</p>
+          <td style="border:none; vertical-align:top; padding:12px; font-size:9pt;" colspan="3" rowspan="6">
+            <div style="margin-bottom:8px;">
+              <p style="font-weight:bold;text-decoration:underline;text-transform:uppercase;margin:0 0 4px;font-size:9pt;">Term Condition:</p>
+              <ul style="padding-left:14px;margin:0;list-style-type:disc;font-size:8.5pt;">
+                <li style="margin-bottom:3px;"><span style="font-weight:bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                <li style="margin-bottom:3px;"><span style="font-weight:bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                <li style="margin-bottom:3px;"><span style="font-weight:bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-weight:bold;text-decoration:underline;text-transform:uppercase;margin:0 0 4px;font-size:9pt;">Payment Information:</p>
+              <p style="margin:0 0 3px;font-size:8.5pt;"><span style="font-weight:bold">Bank:</span> Advanced Bank of Asia Ltd (ABA Bank)</p>
+              <p style="margin:0 0 3px;font-size:8.5pt;"><span style="font-weight:bold">Account Name:</span> LIMPERIAL TECHNOLOGY CO., LTD.</p>
+              <p style="margin:0;font-size:8.5pt;"><span style="font-weight:bold">Account Number:</span> 003 916 564</p>
+            </div>
           </td>
           <td class="tot-lbl" colspan="2">ប្រាក់កក់ / Deposit</td>
           <td class="tot-val">${money(sym, deposit > 0 ? deposit : null)}</td>

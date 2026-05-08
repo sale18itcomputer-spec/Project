@@ -33,25 +33,60 @@ export function buildQuotationVAT(
 
     const dataItems = items.filter(i => Number(i.no) > 0);
 
-    const itemRows = dataItems.map(item => {
+    const makeItemRow = (item: typeof dataItems[0]) => {
         const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const amt   = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
-        const amtDisplay   = amt > 0
+        const amtDisplay = amt > 0
             ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`
             : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
         const priceDisplay = price > 0
             ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>`
             : '';
-        return `
-        <tr class="text-center break-inside-avoid">
-          <td class="align-top py-2">${esc(item.no)}</td>
-          <td class="align-top py-2">${esc(item.itemCode)}</td>
-          <td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px] whitespace-pre-wrap mt-1">${esc(item.description)}</div>` : ''}</td>
-          <td class="align-top py-2">${esc(item.qty)}</td>
-          <td class="align-top py-2">${priceDisplay}</td>
-          <td class="align-top py-2">${amtDisplay}</td>
-        </tr>`;
-    }).join('');
+
+        if (!item.description) {
+            return `
+            <tr class="text-center break-inside-avoid">
+              <td class="align-top py-2">${esc(item.no)}</td>
+              <td class="align-top py-2">${esc(item.itemCode)}</td>
+              <td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}</td>
+              <td class="align-top py-2">${esc(item.qty)}</td>
+              <td class="align-top py-2">${priceDisplay}</td>
+              <td class="align-top py-2">${amtDisplay}</td>
+            </tr>`;
+        }
+
+        const descLines = item.description.split('\n');
+        let rows = ``;
+
+        rows += `
+            <tr class="text-center break-inside-avoid">
+              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.no)}</td>
+              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.itemCode)}</td>
+              <td class="text-left font-bold align-top py-2" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>
+              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.qty)}</td>
+              <td class="align-top py-2" style="border-bottom:none !important;">${priceDisplay}</td>
+              <td class="align-top py-2" style="border-bottom:none !important;">${amtDisplay}</td>
+            </tr>`;
+
+        descLines.forEach((line, idx) => {
+            const isLast = idx === descLines.length - 1;
+            const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important; border-top:none !important;';
+            const padStyle = isLast ? 'padding-bottom: 8px;' : 'padding-bottom: 0;';
+            rows += `
+            <tr class="text-center break-inside-avoid">
+              <td class="align-top py-0" style="${tdStyle}"></td>
+              <td class="align-top py-0" style="${tdStyle}"></td>
+              <td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${tdStyle} padding-top: 2px; ${padStyle}">${esc(line)}</td>
+              <td class="align-top py-0" style="${tdStyle}"></td>
+              <td class="align-top py-0" style="${tdStyle}"></td>
+              <td class="align-top py-0" style="${tdStyle}"></td>
+            </tr>`;
+        });
+        
+        return rows;
+    };
+
+    const itemRows = dataItems.map(makeItemRow).join('');
 
     const moneyCellUsd = (v: number | null) =>
         v !== null && v > 0
@@ -74,8 +109,12 @@ export function buildQuotationVAT(
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 4px 8px; }
   .items-table th, .items-table td { border: 1px solid #000 !important; }
+  .items-table thead { break-after: avoid; page-break-after: avoid; }
+  .items-table tbody tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
   .addr-clamp { white-space: normal; word-break: break-word; }
+  @page { size:A4; margin:10mm 8mm; }
+  .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
   }
@@ -83,8 +122,9 @@ export function buildQuotationVAT(
 </head>
 <body>
 
-<div style="width:210mm;margin:0 auto;display:flex;flex-direction:column;min-height:267mm;padding:0 8px;">
+<div style="width:210mm;margin:0 auto;padding:0 8px;">
 
+  <div class="no-break">
   <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
@@ -178,44 +218,67 @@ export function buildQuotationVAT(
       </table>
     </div>
   </div>
+  </div><!-- end no-break -->
 
   <!-- Items Table -->
-  <div class="flex-grow mb-12">
-    <table class="items-table w-full mx-auto">
+  <div class="mb-4">
+    <table class="items-table w-full mx-auto" style="table-layout:fixed;">
+      <colgroup>
+        <col style="width:4%"/>
+        <col style="width:16%"/>
+        <col style="width:33%"/>
+        <col style="width:12%"/>
+        <col style="width:16%"/>
+        <col style="width:19%"/>
+      </colgroup>
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[12px]">
-          <th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
-          <th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
-          <th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
-          <th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
-          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
-          <th class="w-[13%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
+          <th class="w-[4%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
+          <th class="w-[16%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
+          <th class="w-[33%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
+          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
+          <th class="w-[16%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
+          <th class="w-[19%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
         </tr>
       </thead>
+      <tfoot style="display: table-footer-group;">
+        <tr><td colspan="6" style="padding:0 !important; border:none !important; border-top:1px solid #000 !important; height:0;"></td></tr>
+      </tfoot>
       <tbody>
         ${itemRows}
       </tbody>
+    </table>
+
+    <table class="w-full mx-auto" style="border-collapse: collapse; margin-top: -1px; table-layout: fixed;">
+      <colgroup>
+        <col style="width:4%"/>
+        <col style="width:16%"/>
+        <col style="width:33%"/>
+        <col style="width:12%"/>
+        <col style="width:16%"/>
+        <col style="width:19%"/>
+      </colgroup>
       <tbody class="break-inside-avoid">
         <tr>
-          <td class="align-top p-4" colspan="3" rowspan="${totalRows}" style="border:none !important;border-right:1px solid #000 !important;">
+          <td class="align-top p-4" colspan="3" rowspan="${totalRows}" style="width: 65%; border:none;">
             <div class="w-full" style="font-size:10px;">
               <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Terms &amp; Conditions:</h4>
               <ul style="padding-left:14px;margin:0;list-style-type:disc;">
                 <li style="margin-bottom:3px;"><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
                 <li style="margin-bottom:3px;"><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
                 <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
-              </ul>
-            </div>
+                </ul>
+                </div>
           </td>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">សរុប / Sub Total</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">Sub Total</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         ${vatAmount > 0 ? `<tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">អាករលើតម្លៃបន្ថែម / VAT (10%)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">VAT (10%)</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount)}</td>
         </tr>` : ''}
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">សរុបបូកបញ្ចូលប្រាក់ដុល្លារ / Grand Total in Dollar</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">Grand Total in Dollar</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
         </tr>
       </tbody>
