@@ -2,7 +2,12 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building, Users, FileText, ShoppingCart, Filter, MessageSquare, Map, Calendar, ChevronLeft, ChevronRight, Tags, Truck, Package, ClipboardList, Calculator, BarChart2, Receipt } from 'lucide-react';
+import {
+  LayoutDashboard, Building, Users, FileText, ShoppingCart,
+  Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
+  ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
+  ChevronRight, UserCog,
+} from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FINANCE_ALLOWED_PATHS } from '@/components/layout/AppShell';
@@ -18,6 +23,7 @@ interface SidebarProps {
   onResizeDoubleClick: () => void;
 }
 
+// ── Nav Item ──────────────────────────────────────────────────────────────────
 const NavItem: React.FC<{
   icon: React.ReactNode;
   label: string;
@@ -25,35 +31,132 @@ const NavItem: React.FC<{
   onClick: () => void;
   isCollapsed: boolean;
   badge?: string;
-  disabled?: boolean;
-}> = ({ icon, label, isActive, onClick, isCollapsed, badge, disabled }) => {
-  const base = 'group flex items-center w-full text-left rounded-lg py-2 text-sm font-medium transition-all duration-200 ease-in-out';
-  const active = 'bg-primary text-primary-foreground shadow-sm';
-  const inactive = 'text-muted-foreground hover:bg-accent hover:text-accent-foreground';
+}> = ({ icon, label, isActive, onClick, isCollapsed, badge }) => (
+  <li>
+    <button
+      onClick={onClick}
+      title={isCollapsed ? label : undefined}
+      className={`
+        group relative flex items-center w-full text-left
+        transition-all duration-150
+        ${isCollapsed
+          ? 'justify-center w-9 h-9 mx-auto rounded-lg'
+          : 'px-2.5 py-1.5 rounded-md'
+        }
+        ${isActive
+          ? isCollapsed
+            ? 'bg-brand-600/10 text-brand-600 dark:text-brand-400'
+            : 'text-brand-600 dark:text-brand-400 bg-brand-600/8'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
+        }
+      `}
+    >
+      {/* Active indicator bar */}
+      {isActive && !isCollapsed && (
+        <span className="absolute left-0 inset-y-1 w-[3px] rounded-full bg-brand-600 dark:bg-brand-400" />
+      )}
+
+      {/* Icon */}
+      <span className={`
+        shrink-0
+        ${isActive
+          ? 'text-brand-600 dark:text-brand-400'
+          : 'text-muted-foreground/70 group-hover:text-foreground'
+        }
+      `}>
+        {icon}
+      </span>
+
+      {/* Label */}
+      {!isCollapsed && (
+        <div className="ml-2.5 flex items-center justify-between flex-1 min-w-0">
+          <span className={`text-[13px] font-medium truncate ${isActive ? 'font-semibold' : ''}`}>
+            {label}
+          </span>
+          {badge && (
+            <span className="ml-2 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider rounded bg-brand-600/10 text-brand-600 dark:text-brand-400">
+              {badge}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Collapsed tooltip */}
+      {isCollapsed && (
+        <span className="
+          pointer-events-none absolute left-full ml-2.5 z-50
+          px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap
+          bg-popover text-popover-foreground border border-border
+          shadow-md opacity-0 -translate-x-1
+          group-hover:opacity-100 group-hover:translate-x-0
+          transition-all duration-150
+        ">
+          {label}
+        </span>
+      )}
+    </button>
+  </li>
+);
+
+// ── Section ───────────────────────────────────────────────────────────────────
+const Section: React.FC<{
+  label: string;
+  isCollapsed: boolean;
+  children: React.ReactNode;
+}> = ({ label, isCollapsed, children }) => (
+  <div>
+    {isCollapsed
+      ? <div className="my-2 border-t border-border/40" />
+      : (
+        <p className="px-2.5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none">
+          {label}
+        </p>
+      )
+    }
+    <ul className="space-y-px">
+      {children}
+    </ul>
+  </div>
+);
+
+// ── User card ─────────────────────────────────────────────────────────────────
+const UserCard: React.FC<{ user: any; isCollapsed: boolean }> = ({ user, isCollapsed }) => {
+  const initials = user?.Name
+    ? user.Name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
+
+  if (isCollapsed) {
+    return (
+      <div className="flex justify-center" title={`${user?.Name} · ${user?.Role}`}>
+        <div className="w-7 h-7 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
+          {initials}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <li>
-      <button
-        onClick={disabled ? undefined : onClick}
-        disabled={disabled}
-        className={`${base} ${isActive ? active : inactive} ${isCollapsed ? 'justify-center px-3' : 'px-3'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        aria-label={isCollapsed ? label : undefined}
-      >
-        <span className={`transition-colors ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-accent-foreground'}`}>{icon}</span>
-        {!isCollapsed && (
-          <div className="ml-3 flex items-center justify-between flex-1 min-w-0">
-            <span className="truncate">{label}</span>
-            {badge && <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-brand-500/10 text-brand-600 rounded">{badge}</span>}
-          </div>
-        )}
-      </button>
-    </li>
+    <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-accent/60 transition-colors cursor-default">
+      <div className="w-7 h-7 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-semibold text-foreground truncate leading-tight">
+          {user?.Name || 'Unknown'}
+        </p>
+        <p className="text-[10px] text-muted-foreground/70 leading-tight mt-px">
+          {user?.Role || 'User'}
+        </p>
+      </div>
+    </div>
   );
 };
 
-const SectionHeader: React.FC<{ label: string; isCollapsed: boolean }> = ({ label, isCollapsed }) =>
-  isCollapsed ? <hr className="my-4" /> : <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</h3>;
-
-const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isCollapsed, onToggleCollapse, onNavigate, onResizeMouseDown, onResizeDoubleClick }) => {
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+const Sidebar: React.FC<SidebarProps> = ({
+  isSidebarOpen, width, isResizing, isCollapsed,
+  onToggleCollapse, onNavigate, onResizeMouseDown, onResizeDoubleClick,
+}) => {
   const pathname = usePathname();
   const { isB2B } = useB2B();
   const { currentUser } = useAuth();
@@ -62,121 +165,120 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, width, isResizing, isC
   const isSales = currentUser?.Role === 'Sales';
 
   const isActive = (path: string) => pathname === path;
+  const go = (path: string) => () => onNavigate(path);
 
   return (
     <aside
       style={{ width: `${width}px` }}
-      className={`fixed inset-y-0 left-0 bg-card border-r flex h-full transform transition-transform duration-300 ease-in-out lg:translate-x-0 z-[100] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isResizing ? 'lg:transition-none' : 'lg:transition-[width] lg:duration-300 lg:ease-in-out'}`}
+      className={`
+        fixed inset-y-0 left-0 flex h-full z-[100]
+        bg-background border-r border-border/50
+        transform transition-transform duration-300 ease-in-out lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${isResizing ? 'lg:transition-none' : 'lg:transition-[width] lg:duration-300 lg:ease-in-out'}
+      `}
     >
-      <div className={`flex flex-col h-full flex-grow overflow-y-auto overflow-x-hidden ${isCollapsed ? 'p-2' : 'p-3'}`}>
+      <div className={`flex flex-col h-full w-full ${isCollapsed ? 'px-2 py-4' : 'px-3 py-4'}`}>
 
         {/* Logo */}
-        <div className="flex items-center justify-center flex-shrink-0 h-12 border-b">
-          <button onClick={() => onNavigate('/')} className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring rounded-md transition-opacity hover:opacity-80" aria-label="Go to dashboard">
+        <div className={`flex shrink-0 mb-5 ${isCollapsed ? 'justify-center' : 'px-1'}`}>
+          <button
+            onClick={go('/')}
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:opacity-75 transition-opacity"
+            aria-label="Dashboard"
+          >
             {isCollapsed
-              ? <div className="w-10 h-10 bg-primary text-primary-foreground font-sans font-bold text-base rounded-lg flex items-center justify-center shadow-md">LPT</div>
-              : <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial Company Logo" className="h-9 w-auto" />
+              ? (
+                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white text-xs font-black flex items-center justify-center tracking-tight">
+                  L
+                </div>
+              )
+              : <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial" className="h-7 w-auto" />
             }
           </button>
         </div>
 
         {/* Nav */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <nav className="pt-3 space-y-3">
+        <nav className={`
+          flex-1 overflow-y-auto overflow-x-hidden
+          space-y-0
+          [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+        `}>
+          {isFinance ? (
+            <Section label="Finance" isCollapsed={isCollapsed}>
+              <NavItem icon={<FileText size={16} />} label="Invoices" isActive={isActive('/invoices')} onClick={go('/invoices')} isCollapsed={isCollapsed} />
+              <NavItem icon={<Truck size={16} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} isCollapsed={isCollapsed} />
+              <NavItem icon={<Receipt size={16} />} label="Receipts" isActive={isActive('/receipts')} onClick={go('/receipts')} isCollapsed={isCollapsed} />
+            </Section>
+          ) : (
+            <>
+              <Section label="Overview" isCollapsed={isCollapsed}>
+                <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" isActive={isActive('/')} onClick={go('/')} isCollapsed={isCollapsed} />
+                <NavItem icon={<Building size={16} />} label="Companies" isActive={isActive('/companies')} onClick={go('/companies')} isCollapsed={isCollapsed} />
+                {!isB2B && <NavItem icon={<Users size={16} />} label="Contacts" isActive={isActive('/contacts')} onClick={go('/contacts')} isCollapsed={isCollapsed} />}
+                {isAdmin && <NavItem icon={<UserCog size={16} />} label="Users" isActive={isActive('/users')} onClick={go('/users')} isCollapsed={isCollapsed} />}
+              </Section>
 
-            {isFinance ? (
-              /* Finance: only Invoices, Delivery Orders, Receipts */
-              <div>
-                {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Finance</h3>}
-                <ul className="mt-2 space-y-1">
-                  <NavItem icon={<FileText size={20} />} label="Invoices" isActive={isActive('/invoices')} onClick={() => onNavigate('/invoices')} isCollapsed={isCollapsed} />
-                  <NavItem icon={<Truck size={20} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={() => onNavigate('/delivery-orders')} isCollapsed={isCollapsed} />
-                  <NavItem icon={<Receipt size={20} />} label="Receipts" isActive={isActive('/receipts')} onClick={() => onNavigate('/receipts')} isCollapsed={isCollapsed} />
-                </ul>
-              </div>
-            ) : (
-              <>
-                {/* Main */}
-                <div>
-                  {!isCollapsed && <SectionHeader label="Main" isCollapsed={isCollapsed} />}
-                  <ul className="mt-2 space-y-1">
-                    <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" isActive={isActive('/')} onClick={() => onNavigate('/')} isCollapsed={isCollapsed} />
-                    <NavItem icon={<Building size={20} />} label="Companies" isActive={isActive('/companies')} onClick={() => onNavigate('/companies')} isCollapsed={isCollapsed} />
-                    {!isB2B && <NavItem icon={<Users size={20} />} label="Contacts" isActive={isActive('/contacts')} onClick={() => onNavigate('/contacts')} isCollapsed={isCollapsed} />}
-                    {isAdmin && <NavItem icon={<Users size={20} />} label="User Management" isActive={isActive('/users')} onClick={() => onNavigate('/users')} isCollapsed={isCollapsed} />}
-                  </ul>
-                </div>
+              <Section label="Sales" isCollapsed={isCollapsed}>
+                <NavItem icon={<FileText size={16} />} label="Quotations" isActive={isActive('/quotations')} onClick={go('/quotations')} isCollapsed={isCollapsed} />
+                {!isB2B && <NavItem icon={<ShoppingCart size={16} />} label="Sale Orders" isActive={isActive('/sale-orders')} onClick={go('/sale-orders')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<FileText size={16} />} label="Invoices" isActive={isActive('/invoices')} onClick={go('/invoices')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<Truck size={16} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<Receipt size={16} />} label="Receipts" isActive={isActive('/receipts')} onClick={go('/receipts')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<BarChart2 size={16} />} label="Weekly Report" isActive={isActive('/weekly-report')} onClick={go('/weekly-report')} isCollapsed={isCollapsed} />}
+              </Section>
 
-                {/* Sales Documents */}
-                <div>
-                  <SectionHeader label="Sales Documents" isCollapsed={isCollapsed} />
-                  <ul className="mt-2 space-y-1">
-                    <NavItem icon={<FileText size={20} />} label="Quotations" isActive={isActive('/quotations')} onClick={() => onNavigate('/quotations')} isCollapsed={isCollapsed} />
-                    {!isB2B && <NavItem icon={<ShoppingCart size={20} />} label="Sale Orders" isActive={isActive('/sale-orders')} onClick={() => onNavigate('/sale-orders')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<FileText size={20} />} label="Invoices" isActive={isActive('/invoices')} onClick={() => onNavigate('/invoices')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<Truck size={20} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={() => onNavigate('/delivery-orders')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<Receipt size={20} />} label="Receipts" isActive={isActive('/receipts')} onClick={() => onNavigate('/receipts')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<BarChart2 size={20} />} label="Weekly Report" isActive={isActive('/weekly-report')} onClick={() => onNavigate('/weekly-report')} isCollapsed={isCollapsed} />}
-                  </ul>
-                </div>
+              <Section label="Products" isCollapsed={isCollapsed}>
+                {isB2B
+                  ? <NavItem icon={<Tags size={16} />} label="B2B Pricelist" isActive={isActive('/b2b-pricelist')} onClick={go('/b2b-pricelist')} isCollapsed={isCollapsed} />
+                  : <NavItem icon={<Tags size={16} />} label="Pricelist" isActive={isActive('/pricelist')} onClick={go('/pricelist')} isCollapsed={isCollapsed} />
+                }
+                <NavItem icon={<Package size={16} />} label="Vendor Pricelist" isActive={isActive('/vendor-pricelist')} onClick={go('/vendor-pricelist')} isCollapsed={isCollapsed} />
+                {!isSales && <NavItem icon={<Truck size={16} />} label="Vendor Master" isActive={isActive('/vendors')} onClick={go('/vendors')} isCollapsed={isCollapsed} />}
+              </Section>
 
-                {/* Tools */}
-                <div>
-                  <SectionHeader label="Tools" isCollapsed={isCollapsed} />
-                  <ul className="mt-2 space-y-1">
-                    <NavItem icon={<Calculator size={20} />} label="Pricing Calculator" isActive={isActive('/pricing-calculator')} onClick={() => onNavigate('/pricing-calculator')} isCollapsed={isCollapsed} />
-                  </ul>
-                </div>
+              {isAdmin && (
+                <Section label="Procurement" isCollapsed={isCollapsed}>
+                  <NavItem icon={<ClipboardList size={16} />} label="Purchase Orders" isActive={isActive('/purchase-orders')} onClick={go('/purchase-orders')} isCollapsed={isCollapsed} />
+                </Section>
+              )}
 
-                {/* Products */}
-                <div>
-                  <SectionHeader label="Products" isCollapsed={isCollapsed} />
-                  <ul className="mt-2 space-y-1">
-                    {isB2B
-                      ? <NavItem icon={<Tags size={20} />} label="B2B Pricelist" isActive={isActive('/b2b-pricelist')} onClick={() => onNavigate('/b2b-pricelist')} isCollapsed={isCollapsed} />
-                      : <NavItem icon={<Tags size={20} />} label="Pricelist" isActive={isActive('/pricelist')} onClick={() => onNavigate('/pricelist')} isCollapsed={isCollapsed} />
-                    }
-                    <NavItem icon={<Package size={20} />} label="Vendor Pricelist" isActive={isActive('/vendor-pricelist')} onClick={() => onNavigate('/vendor-pricelist')} isCollapsed={isCollapsed} />
-                    {!isSales && <NavItem icon={<Truck size={20} />} label="Vendor Master" isActive={isActive('/vendors')} onClick={() => onNavigate('/vendors')} isCollapsed={isCollapsed} />}
-                  </ul>
-                </div>
+              <Section label="Activity" isCollapsed={isCollapsed}>
+                <NavItem icon={<Filter size={16} />} label="Pipelines" isActive={isActive('/projects')} onClick={go('/projects')} isCollapsed={isCollapsed} />
+                {!isB2B && <NavItem icon={<MessageSquare size={16} />} label="Contact Logs" isActive={isActive('/contact-logs')} onClick={go('/contact-logs')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<Map size={16} />} label="Site Surveys" isActive={isActive('/site-surveys')} onClick={go('/site-surveys')} isCollapsed={isCollapsed} />}
+                {!isB2B && <NavItem icon={<Calendar size={16} />} label="Meetings" isActive={isActive('/meetings')} onClick={go('/meetings')} isCollapsed={isCollapsed} />}
+              </Section>
 
-                {/* Procurement — Admin only */}
-                {isAdmin && (
-                  <div>
-                    <SectionHeader label="Procurement" isCollapsed={isCollapsed} />
-                    <ul className="mt-2 space-y-1">
-                      <NavItem icon={<ClipboardList size={20} />} label="Purchase Orders" isActive={isActive('/purchase-orders')} onClick={() => onNavigate('/purchase-orders')} isCollapsed={isCollapsed} />
-                    </ul>
-                  </div>
-                )}
+              <Section label="Tools" isCollapsed={isCollapsed}>
+                <NavItem icon={<Calculator size={16} />} label="Pricing Calculator" isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed} />
+              </Section>
+            </>
+          )}
+        </nav>
 
-                {/* Logs */}
-                <div>
-                  <SectionHeader label="Logs" isCollapsed={isCollapsed} />
-                  <ul className="mt-2 space-y-1">
-                    <NavItem icon={<Filter size={20} />} label="Pipelines" isActive={isActive('/projects')} onClick={() => onNavigate('/projects')} isCollapsed={isCollapsed} />
-                    {!isB2B && <NavItem icon={<MessageSquare size={20} />} label="Contact Logs" isActive={isActive('/contact-logs')} onClick={() => onNavigate('/contact-logs')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<Map size={20} />} label="Site Surveys" isActive={isActive('/site-surveys')} onClick={() => onNavigate('/site-surveys')} isCollapsed={isCollapsed} />}
-                    {!isB2B && <NavItem icon={<Calendar size={20} />} label="Meetings" isActive={isActive('/meetings')} onClick={() => onNavigate('/meetings')} isCollapsed={isCollapsed} />}
-                  </ul>
-                </div>
-              </>
-            )}
-          </nav>
-        </div>
-
-        {/* Collapse toggle */}
-        <div className="mt-auto flex-shrink-0 border-t pt-3">
-          <button onClick={onToggleCollapse} className="hidden lg:flex items-center justify-center w-full p-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors" aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-            {isCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
+        {/* Bottom */}
+        <div className="shrink-0 pt-3 mt-2 border-t border-border/40 space-y-1">
+          <UserCard user={currentUser} isCollapsed={isCollapsed} />
+          <button
+            onClick={onToggleCollapse}
+            className="hidden lg:flex items-center justify-center w-full py-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/60 transition-all"
+            aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
         </div>
       </div>
 
       {/* Resize handle */}
-      <div onMouseDown={onResizeMouseDown} onDoubleClick={onResizeDoubleClick} className="absolute top-0 right-0 h-full w-2 cursor-col-resize z-40 hidden lg:block group" role="separator" aria-orientation="vertical">
-        <div className={`w-0.5 h-full bg-transparent group-hover:bg-primary/50 transition-colors duration-200 mx-auto ${isResizing ? '!bg-primary' : ''}`} />
+      <div
+        onMouseDown={onResizeMouseDown}
+        onDoubleClick={onResizeDoubleClick}
+        className="absolute top-0 right-0 h-full w-1 cursor-col-resize z-40 hidden lg:block group"
+        role="separator"
+        aria-orientation="vertical"
+      >
+        <div className={`w-px h-full mx-auto bg-transparent group-hover:bg-brand-500/30 transition-colors duration-200 ${isResizing ? '!bg-brand-500/60' : ''}`} />
       </div>
     </aside>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Lock, ArrowLeft, Smile } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -20,7 +21,8 @@ interface UserPasscode {
 }
 
 const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
-    const { currentUser } = useAuth();
+    const { currentUser, logout } = useAuth();
+    const router = useRouter();
     const [isLocked, setIsLocked] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [passcode, setPasscode] = useState('');
@@ -185,7 +187,7 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
         return (
             <div className="fixed inset-0 z-[99999] bg-[#0c121d] dark:bg-[#0a0f1a] flex flex-col items-center justify-start text-white font-sans">
                 <header className="w-full p-4 flex items-center justify-between border-b border-white/5">
-                    <button onClick={() => window.location.reload()} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                    <button onClick={async () => { await logout(); router.replace('/login'); }} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                         <ArrowLeft className="w-6 h-6" />
                     </button>
                     <h1 className="text-xl font-medium">Local passcode</h1>
@@ -289,9 +291,9 @@ const PasscodeLock: React.FC<PasscodeLockProps> = ({ children }) => {
                     </Button>
 
                     <button
-                        onClick={() => {
-                            localStorage.removeItem('limperial_auth_user');
-                            window.location.reload();
+                        onClick={async () => {
+                            await logout();
+                            router.replace('/login');
                         }}
                         className="text-[#3390ec] hover:underline text-base font-medium transition-colors"
                     >

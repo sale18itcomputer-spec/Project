@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
-      const { error } = await supabase!.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
 
       if (error) {
         // Supabase Auth is the single source of truth for passwords.
@@ -142,11 +142,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, message: error.message };
       }
 
+      // Verify the user exists and is Active in our Users table
+      if (data?.user?.email) {
+        const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
+        if (!usersRef.current) setUsers(usersList);
+        const matched = syncUser(data.user.email, usersList);
+        if (!matched) {
+          // Auth succeeded but user not found or not Active — sign out immediately
+          await supabase!.auth.signOut();
+          return { success: false, message: 'Your account is not active or not registered. Please contact your administrator.' };
+        }
+      }
+
       return { success: true, message: 'Login successful!' };
     } catch (err: any) {
       return { success: false, message: err.message };
     }
-  }, [supabase]);
+  }, [supabase, syncUser]);
 
   const loginWithGoogle = useCallback(async () => {
     await supabase!.auth.signInWithOAuth({
@@ -156,10 +168,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [supabase]);
 
   const logout = useCallback(async () => {
-    await supabase!.auth.signOut();
+    // Clear local state and the middleware cookie FIRST so any redirects
+    // that happen during the async signOut don't see a stale session.
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
     deleteCookie('limperial_legacy_session');
+    await supabase!.auth.signOut();
   }, [supabase]);
 
   return (

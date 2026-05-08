@@ -28,5 +28,5 @@ export function setCookie(name: string, value: string, days: number) {
 
 export function deleteCookie(name: string) {
     if (typeof window === 'undefined') return;
-    document.cookie = name + '=; Max-Age=-99999999; path=/;';
+    document.cookie = name + '=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
 }
