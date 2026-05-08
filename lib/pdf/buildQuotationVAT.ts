@@ -1,0 +1,244 @@
+/**
+ * buildQuotationVAT.ts
+ * QUOTATION PDF builder — bilingual Khmer/English, VAT version.
+ */
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+
+export function buildQuotationVAT(
+    hd: Record<string, any>,
+    items: PdfItem[],
+    totals: PdfTotals,
+    currency: string,
+    sym: string,
+    tax: number,
+    signaturePadding = 0, // px — supports negative values
+    labelPadding = 200,
+): string {
+    const quoteNo   = esc(hd['Quotation ID'] || hd['Quote No'] || hd['Quotation No'] || '');
+    const quoteDate = esc(fmtDate(hd['Quote Date'] || hd['Quotation Date'] || ''));
+    const validity  = esc(fmtDate(hd['Validity Date'] || hd['Validity'] || ''));
+    const status    = esc(hd['Stock Status'] || hd['Status'] || '');
+    const payTerm   = esc(hd['Payment Term'] || '');
+    const customer  = esc(hd['Company Name'] || hd['Customer'] || '');
+    const address   = esc(hd['Company Address'] || hd['Address'] || '');
+    const vatTin    = esc(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN'] || '');
+    const contact   = esc(hd['Contact Person'] || hd['Contact Name'] || '');
+    const phone     = esc(hd['Contact Tel'] || hd['Phone Number'] || hd['Telephone'] || '');
+    const email     = esc(hd['Contact Email'] || hd['Email'] || '');
+
+    const subTotal  = totals.subTotal;
+    const vatAmount = tax > 0 ? tax : 0;
+    const grandUsd  = subTotal + vatAmount;
+    const totalRows = vatAmount > 0 ? 3 : 2;
+
+    const dataItems = items.filter(i => Number(i.no) > 0);
+
+    const itemRows = dataItems.map(item => {
+        const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
+        const amt   = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
+        const amtDisplay   = amt > 0
+            ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`
+            : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
+        const priceDisplay = price > 0
+            ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>`
+            : '';
+        return `
+        <tr class="text-center break-inside-avoid">
+          <td class="align-top py-2">${esc(item.no)}</td>
+          <td class="align-top py-2">${esc(item.itemCode)}</td>
+          <td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px] whitespace-pre-wrap mt-1">${esc(item.description)}</div>` : ''}</td>
+          <td class="align-top py-2">${esc(item.qty)}</td>
+          <td class="align-top py-2">${priceDisplay}</td>
+          <td class="align-top py-2">${amtDisplay}</td>
+        </tr>`;
+    }).join('');
+
+    const moneyCellUsd = (v: number | null) =>
+        v !== null && v > 0
+            ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(v)}</span></div>`
+            : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quotation - LIMPERIAL TECHNOLOGY CO., LTD.</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
+  body { font-family: 'Koh Santepheap', sans-serif; font-size: 11px; color: #000; }
+  .brand-blue { color: #004aad; }
+  .bg-brand-blue { background-color: #004aad; }
+  .border-brand-blue { border-color: #004aad; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 4px 8px; }
+  .items-table th, .items-table td { border: 1px solid #000 !important; }
+  .header-info p { margin-bottom: 2px; }
+  .addr-clamp { white-space: normal; word-break: break-word; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
+  }
+</style>
+</head>
+<body>
+
+<div style="width:210mm;margin:0 auto;display:flex;flex-direction:column;min-height:267mm;padding:0 8px;">
+
+  <!-- Header -->
+  <header class="mb-6">
+    <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
+      <div class="absolute left-0 top-0">
+        <img alt="L'IMPERIAL Logo" class="h-10 w-auto object-contain" src="${LOGO}"/>
+      </div>
+      <h1 class="text-xl font-bold mb-1" style="font-family:'Moul',serif;">លីមភើរៀលថេកណឡជីឯ.ក</h1>
+      <h2 class="text-lg font-bold mb-1" style="font-family:'Times New Roman',serif;">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
+      <p class="font-bold">លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN) : K003-902201968</p>
+      <p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</p>
+      <p class="text-[10px]">Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
+      <p class="text-[10px]">E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</p>
+    </div>
+  </header>
+
+  <!-- Title -->
+  <div class="text-center mb-6">
+    <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">សម្រង់តម្លៃ</h3>
+    <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">QUOTATION</h4>
+  </div>
+
+  <!-- Customer / Quotation Info -->
+  <div class="flex justify-between gap-0 mb-6">
+    <!-- Left: Customer Details -->
+    <div class="w-[62%]">
+      <table class="w-full border-none">
+        <tbody class="text-[12px]">
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Customer</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+            <td class="border-none py-1">${customer}</td>
+          </tr>
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;vertical-align:top;">Address</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;vertical-align:top;">:</td>
+            <td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td>
+          </tr>
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">VAT TIN</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+            <td class="border-none py-1">${vatTin}</td>
+          </tr>
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Contact Person</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+            <td class="border-none py-1">${contact}</td>
+          </tr>
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Telephone</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+            <td class="border-none py-1">${phone}</td>
+          </tr>
+          <tr>
+            <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">E-mail</td>
+            <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+            <td class="border-none py-1">${email}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Right: Quotation Details -->
+    <div class="w-[38%] flex flex-col">
+      <table class="w-auto ml-auto border-none table-fixed">
+        <tbody class="text-[12px]">
+          <tr>
+            <td class="w-[90px] font-bold border-none py-1 whitespace-nowrap">Quotation N&#176;</td>
+            <td class="w-[10px] border-none py-1 text-center">:</td>
+            <td class="w-auto border-none py-1 align-middle">${quoteNo}</td>
+          </tr>
+          <tr>
+            <td class="w-[90px] font-bold border-none py-1 whitespace-nowrap">Date</td>
+            <td class="w-[10px] border-none py-1 text-center">:</td>
+            <td class="w-auto border-none py-1 align-middle">${quoteDate}</td>
+          </tr>
+          <tr>
+            <td class="w-[90px] font-bold border-none py-1 whitespace-nowrap">Validity</td>
+            <td class="w-[10px] border-none py-1 text-center">:</td>
+            <td class="w-auto border-none py-1 align-middle">${validity}</td>
+          </tr>
+          <tr>
+            <td class="w-[90px] font-bold border-none py-1 whitespace-nowrap">Status</td>
+            <td class="w-[10px] border-none py-1 text-center">:</td>
+            <td class="w-auto border-none py-1 align-middle">${status}</td>
+          </tr>
+          <tr>
+            <td class="w-[90px] font-bold border-none py-1 whitespace-nowrap">Payment Term</td>
+            <td class="w-[10px] border-none py-1 text-center">:</td>
+            <td class="w-auto border-none py-1 align-middle">${payTerm}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="flex-grow mb-12">
+    <table class="items-table w-full mx-auto">
+      <thead>
+        <tr class="bg-brand-blue text-white text-center text-[12px]">
+          <th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
+          <th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
+          <th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
+          <th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
+          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
+          <th class="w-[13%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+      </tbody>
+      <tbody class="break-inside-avoid">
+        <tr>
+          <td class="align-top p-4" colspan="3" rowspan="${totalRows}" style="border:none !important;border-right:1px solid #000 !important;">
+            <div class="w-full" style="font-size:10px;">
+              <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Terms &amp; Conditions:</h4>
+              <ul style="padding-left:14px;margin:0;list-style-type:disc;">
+                <li style="margin-bottom:3px;"><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                <li style="margin-bottom:3px;"><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+              </ul>
+            </div>
+          </td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">សរុប / Sub Total</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
+        </tr>
+        ${vatAmount > 0 ? `<tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">អាករលើតម្លៃបន្ថែម / VAT (10%)</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount)}</td>
+        </tr>` : ''}
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">សរុបបូកបញ្ចូលប្រាក់ដុល្លារ / Grand Total in Dollar</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Signatures -->
+  <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
+    <div class="w-[35%] text-center">
+      <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Prepared By:</p>
+      <div class="border-t-2 border-black mb-1"></div>
+      <p class="text-[11px]">${esc(hd['Prepared By'] || hd['Created By'] || '')}</p>
+      <p class="text-[11px]">${esc(hd['Prepared By Position'] || '')}</p>
+    </div>
+    <div class="w-[35%] text-center">
+      <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Approved By:</p>
+      <div class="border-t-2 border-black mb-1"></div>
+      <p class="text-[11px]">${esc(hd['Approved By'] || '')}</p>
+      <p class="text-[11px]">${esc(hd['Approved By Position'] || '')}</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>`;
+}

@@ -9,6 +9,12 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { buildTaxInvoice }          from './pdf/buildTaxInvoice';
+import { buildCommercialInvoice }   from './pdf/buildCommercialInvoice';
+import { buildDeliveryNote }        from './pdf/buildDeliveryNote';
+import { buildQuotationVAT }        from './pdf/buildQuotationVAT';
+import { buildQuotationNonVAT }     from './pdf/buildQuotationNonVAT';
+import { buildReceipt }             from './pdf/buildReceipt';
 
 const MM = 3.7795; // px per mm at 96 dpi
 const mm = (v: number) => `${v * MM}px`;
@@ -311,7 +317,7 @@ function stdTfoot(currency: string, sym: string, sub: number, tax: number, grand
 // ── Document builders ─────────────────────────────────────────────────────────
 
 export interface PdfTemplateOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Delivery Order' | 'Purchase Order';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Delivery Order' | 'Purchase Order' | 'Commercial Invoice' | 'Receipt';
     headerData: Record<string, any>;
     items: Array<{
         no: number | string;
@@ -325,19 +331,46 @@ export interface PdfTemplateOptions {
     }>;
     totals: { subTotal: number; tax?: number; vat?: number; grandTotal: number };
     currency: 'USD' | 'KHR';
+    signaturePadding?: number;
+    labelPadding?: number;
 }
 
 export function buildHtml(opts: PdfTemplateOptions): string {
-    const sym = opts.currency === 'KHR' ? '៛' : '$';
+    const sym = opts.currency === 'KHR' ? '\u17db' : '$';
     const { headerData: hd, items, totals } = opts;
     const tax = totals.tax ?? totals.vat ?? 0;
 
+    // ── Self-contained bilingual builders ────────────────────────────────────
+    if (opts.type === 'Receipt') {
+        return buildReceipt(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+    }
+    if (opts.type === 'Tax Invoice') {
+        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding);
+    }
+    if (opts.type === 'Commercial Invoice') {
+        // showVatTin: true when the invoice data has a VAT TIN field
+        const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);
+        return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding);
+    }
+    if (opts.type === 'Delivery Order') {
+        return buildDeliveryNote(hd, items as any, opts.signaturePadding);
+    }
+    if (opts.type === 'Quotation') {
+        // Route to VAT or Non-VAT builder based on Tax Type field
+        const isNonVat = (hd['Tax Type'] || '').toUpperCase() === 'NON-VAT';
+        if (isNonVat) {
+            return buildQuotationNonVAT(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+        }
+        return buildQuotationVAT(hd, items as any, totals as any, opts.currency, sym, tax, opts.signaturePadding, opts.labelPadding);
+    }
+    // ── Remaining types use inline builders (Sale Order, Purchase Order) ──
     let body = '';
     switch (opts.type) {
-        case 'Quotation':      body = buildQuotation(hd, items, totals, opts.currency, sym, tax); break;
         case 'Sale Order':     body = buildSaleOrder(hd, items, totals, opts.currency, sym, tax); break;
-        case 'Invoice':        body = buildInvoice(hd, items, totals, opts.currency, sym, tax); break;
-        case 'Delivery Order': body = buildDO(hd, items); break;
+        case 'Invoice':
+            // Non-VAT Invoice: same bilingual builder as Tax Invoice but showVat=false
+            // → 5-row footer (no VAT row), no VAT TIN in header or customer info
+            return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding);
         case 'Purchase Order': body = buildPO(hd, items, totals, opts.currency, sym, tax); break;
     }
 
@@ -473,6 +506,9 @@ function buildSaleOrder(hd: any, items: any[], totals: any, currency: string, sy
 
 // ── Invoice ───────────────────────────────────────────────────────────────────
 function buildInvoice(hd: any, items: any[], totals: any, currency: string, sym: string, tax: number): string {
+    const isTax  = (hd['Taxable'] || '').toUpperCase() === 'VAT';
+    const tinVal = hd['Tin No.'] || hd['Tin No'] || '';
+    const tinStyle = isTax ? 'font-weight:bold' : '';
     const rows = items.filter(i => i.no > 0).map(item => {
         const hasSub = item.description;
         const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
@@ -495,12 +531,13 @@ function buildInvoice(hd: any, items: any[], totals: any, currency: string, sym:
 
     return `
     ${companyHeader()}
-    <h1 class="doc-title">INVOICE</h1>
+    <h1 class="doc-title">${isTax ? 'TAX INVOICE' : 'INVOICE'}</h1>
     <div class="info-grid">
-      ${infoRow('Company Name', hd['Company Name'] || '', 'Inv No', hd['Inv No.'] || '')}
+      ${infoRow('Company Name', hd['Company Name'] || '', 'Inv No.', hd['Inv No.'] || hd['Inv No'] || '')}
       ${infoRow('Address', hd['Company Address'] || '', 'Inv Date', fmtDate(hd['Inv Date']))}
-      ${infoRow('Contact Person', hd['Contact Name'] || '', 'SO Ref.', hd['SO No.'] || '')}
-      ${infoRow('Tel', hd['Phone Number'] || '', 'Tin No.', hd['Tin No.'] || '')}
+      ${infoRow('Contact Person', hd['Contact Name'] || '', 'SO Ref.', hd['SO No.'] || hd['SO No'] || '')}
+      <div class="lbl">Tel</div><div class="cln">:</div><div class="val val-left">${esc(hd['Phone Number'] || '')}</div>
+      <div class="lbl-right">Tin No.</div><div class="cln">:</div><div class="val" style="${tinStyle}">${esc(tinVal)}</div>
       ${infoRow('Email', hd['Email'] || '', 'Payment Term', hd['Payment Term'] || '')}
     </div>
     <table>

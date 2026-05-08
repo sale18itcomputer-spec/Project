@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Delivery Note</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@100;300;400;700;900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                "colors": {
+                    "brand-blue": "#0056b3",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "tertiary-container": "#0b1c30",
+                    "surface-container-highest": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#76777d",
+                    "primary-fixed": "#dae2fd",
+                    "secondary": "#0051d5",
+                    "surface-variant": "#ffffff",
+                    "surface-bright": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "surface-container-low": "#ffffff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "surface-container": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "primary-fixed-dim": "#bec6e0",
+                    "surface-container-high": "#ffffff",
+                    "on-secondary-container": "#fefcff",
+                    "surface-tint": "#565e74",
+                    "surface": "#ffffff",
+                    "on-secondary-fixed": "#00174b",
+                    "primary": "#000000",
+                    "on-background": "#191c1e",
+                    "on-error-container": "#93000a",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed-dim": "#b4c5ff",
+                    "on-primary-container": "#7c839b",
+                    "tertiary-fixed": "#d3e4fe",
+                    "secondary-container": "#316bf3",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#191c1e",
+                    "primary-container": "#131b2e",
+                    "on-secondary-fixed-variant": "#003ea8",
+                    "on-error": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#131b2e",
+                    "inverse-primary": "#bec6e0",
+                    "inverse-on-surface": "#eff1f3",
+                    "background": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-dim": "#ffffff",
+                    "error": "#ba1a1a",
+                    "secondary-fixed": "#dbe1ff",
+                    "outline-variant": "#c6c6cd",
+                    "on-surface-variant": "#45464d"
+                },
+                "fontFamily": {
+                    "body-main": ["Koh Santepheap", "sans-serif"],
+                    "metadata": ["Koh Santepheap", "sans-serif"],
+                    "h2-section": ["Koh Santepheap", "sans-serif"],
+                    "h1-display": ["Koh Santepheap", "sans-serif"],
+                    "table-header": ["Koh Santepheap", "sans-serif"],
+                    "label-caps": ["Koh Santepheap", "sans-serif"],
+                    "body-strong": ["Koh Santepheap", "sans-serif"]
+                }
+            }
+        }
+    }
+</script>
+<style>
+    @page {
+        size: A4;
+        margin: 0;
+    }
+    body {
+        -webkit-print-color-adjust: exact;
+        font-family: 'Koh Santepheap', sans-serif;
+        font-size: 11px;
+    }
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .a4-container {
+        width: 210mm;
+        min-height: 297mm;
+        margin: auto;
+        background: white;
+        box-shadow: 0 0 20px rgba(0,0,0,0.05);
+    }
+    table.items-table th, table.items-table td {
+        border: 1px solid #000;
+        padding: 4px 8px;
+    }
+    @media print {
+        .a4-container {
+            box-shadow: none;
+            margin: 0;
+            width: 100%;
+        }
+        .no-print {
+            display: none;
+        }
+        body {
+            background-color: white !important;
+        }
+    }
+</style>
+</head>
+<body class="font-body-main text-on-surface bg-background py-10">
+<div class="a4-container px-[20mm] py-[15mm] flex flex-col relative">
+<!-- Document Header (Letterhead Style) -->
+<header class="mb-6">
+<div class="border-b-[3px] border-brand-blue pb-4 text-center relative pt-12 header-info"><div class="absolute left-0 top-0">
+<img alt="Company Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0uhAXChV1zRhQS95LPzBoKQvG65rS386B7kqWOau8UfdJ0xW3R-6iYSTpbnU4ZozMF2jYMwSToO0rkFQCyrc7VwZqH89JFrFXMwvGJXvtaBmzd8jMbAOp0P60th5rVxqnJ2OwBy9VjjqeQRbvEk0X5OHcjkRLUOrfK-PAR_GLHPv2QDP-UCGNG2aX07stRW63iHjsd3CvbzcRFO2Ab2OMaJQ7gnoTLbNhqelddG3e6cBCCgZD-9Au5TUpV_PtIlDZzdl43_VbOWCDg"/>
+</div>
+<h1 class="text-xl font-bold mb-1">លីមភឺរៀល ថេកណូឡូជី ឯ.ក</h1>
+<h2 class="text-lg font-bold mb-1">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
+<p class="font-bold">លេខអត្តសញ្ញាណកម្មអតប (VAT TIN) : K003-902201968</p>
+<p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី ១ ជាន់ទី ២ ជាន់ទី ៣ និង ជាន់ទី ៤) ផ្លូវ អយស្ម័យយានបូព៌ (១៣៩), ភូមិ១ សង្កាត់ ស្រះចក ខណ្ឌ ដូនពេញ រាជធានីភ្នំពេញ</p>
+<p class="text-[8px] whitespace-nowrap">Address: #B15 ( Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor ), East Railway ( 139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
+<p class="text-[10px]">E-mail: info@limperialtech.com || ទូរស័ព្ទ (Telephone): +855 92 218 333</p></div>
+</header>
+<!-- Document Title -->
+<div class="text-center mb-6">
+<h3 class="text-xl font-bold"><div class="">លិខិតប្រគល់ទំនិញ</div>
+<div class="uppercase mt-1">Delivery Note</div></h3>
+</div>
+<!-- Information Sections (Aligned Colons) -->
+<div class="flex justify-between gap-8 mb-6"><!-- Left Column: Customer Details -->
+<div class="w-[55%]">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[25%]">Customer</td>
+<td class="border-none py-1 w-[3%] text-center">:</td>
+<td class="border-none py-1 w-[72%] font-bold">Tech Solutions Group</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[25%]">Address</td>
+<td class="border-none py-1 w-[3%] text-center">:</td>
+<td class="border-none py-1 w-[72%]"><div class="">#B១៥ ផ្លូវ ១៣៩ ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</div><div class="">#B15, East Railway (139), Sangkat Srah Chak, Phnom Penh.</div></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[25%]">Contact Person</td>
+<td class="border-none py-1 w-[3%] text-center">:</td>
+<td class="border-none py-1 w-[72%] font-bold">Mr. Sok Dara</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[25%]">Telephone</td>
+<td class="border-none py-1 w-[3%] text-center">:</td>
+<td class="border-none py-1 w-[72%] font-bold">+855 92 218 333</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[25%]">E-mail</td>
+<td class="border-none py-1 w-[3%] text-center">:</td>
+<td class="border-none py-1 w-[72%] font-bold">info@limperialtech.com</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Right Column: Document Details -->
+<div class="w-[30%] ml-auto">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[45%]">Delivery Nº</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[50%] font-bold">2026-00001</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[45%]">Date</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[50%] font-bold">24-Oct-2024</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+<!-- Item Table -->
+<div class="flex-grow mb-6">
+<table class="items-table w-full mx-auto border-collapse">
+<thead>
+<tr class="bg-brand-blue text-white text-center text-[9px]">
+<th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center">
+<div class="">ល.រ</div>
+<div class="">N°</div>
+</th>
+<th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center">
+<div class="">លេខកូដទំនិញ</div>
+<div class="">Part Number</div>
+</th>
+<th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center">
+<div class="">បរិយាយទំនិញ</div>
+<div class="">Description</div>
+</th>
+<th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center">
+<div class="">បរិមាណ</div>
+<div class="">Qty</div>
+</th>
+<th class="w-[25%] py-2 whitespace-nowrap leading-tight text-center">
+<div class="">លេខស៊េរី</div>
+<div class="">Serial Number</div>
+</th>
+</tr>
+</thead>
+<tbody class="text-[10px]">
+<tr class="h-10 text-center">
+<td class="">1</td>
+<td class="">CPU-I7-13700K</td>
+<td class="text-left text-on-surface-variant">Intel Core i7-13700K Desktop Processor 16 cores (8 P-cores + 8 E-cores) 30M Cache, up to 5.4 GHz</td>
+<td class="">5</td>
+<td class=""></td>
+</tr>
+<tr class="h-10 text-center">
+<td class="">2</td>
+<td class="">RAM-32G-DDR5</td>
+<td class="text-left text-on-surface-variant">Corsair Vengeance 32GB (2x16GB) DDR5 6000MHz C36 Desktop Memory</td>
+<td class="">5</td>
+<td class=""></td>
+</tr>
+<tr class="h-10 text-center">
+<td class="">3</td>
+<td class="">SSD-1TB-NVME</td>
+<td class="text-left text-on-surface-variant">Samsung 980 PRO SSD 1TB PCIe NVMe Gen 4 Gaming M.2 Internal Solid State Drive</td>
+<td class="">10</td>
+<td class=""></td>
+</tr>
+<!-- Empty rows for spacing -->
+<tr class="h-32">
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Notice Section -->
+<div class="mb-6 text-center text-[10px] font-bold text-error"><div>សូមផ្ដល់ពត៍មានចំពោះការខ្វះខាតផ្នែកសេវាដឹកជញ្ជូនទំនិញ</div><div class="mt-1">Please call, in case of delivery's problem (+855 XXX XXX XXX)</div></div>
+<!-- For Customer Only Section -->
+<div class="mb-12 border border-black p-4 text-[10px]">
+<div class="font-bold mb-2 uppercase underline">For Customer Only:</div>
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="form-checkbox h-4 w-4 text-brand-blue border-black rounded-none" type="checkbox"/>
+<span class="">Checked &amp; accepted all received goods are in good condition.</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="form-checkbox h-4 w-4 text-brand-blue border-black rounded-none" type="checkbox"/>
+<span class="">Received all goods as ordered</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="form-checkbox h-4 w-4 text-brand-blue border-black rounded-none" type="checkbox"/>
+<span class="">Unaccepted</span>
+</label>
+</div>
+</div>
+<!-- Signature Section -->
+<div class="flex justify-between px-4 pb-8 mx-auto w-full mt-16">
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black"></div>
+<div class="mt-4">
+<div class="text-[10px]">ហត្ថលេខា និងឈ្មោះអ្នកទទួល</div>
+<div class="text-[10px] font-bold">Receiver's Signature &amp; Name</div>
+</div>
+<div class="mt-8 text-[10px]">Date: _____/_____/_______</div>
+</div>
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black"></div>
+<div class="mt-4">
+<div class="text-[10px]">ហត្ថលេខា និងឈ្មោះអ្នកប្រគល់</div>
+<div class="text-[10px] font-bold">Deliverer's Signature &amp; Name</div>
+</div>
+<div class="mt-8 text-[10px]">Date: _____/_____/_______</div>
+</div>
+</div>
+</div>
+</body></html>

@@ -340,6 +340,7 @@ const UserManagementDashboard: React.FC = () => {
                                         <option value="Admin">Admin</option>
                                         <option value="Manager">Manager</option>
                                         <option value="Sales">Sales</option>
+                                        <option value="Finance">Finance</option>
                                         <option value="User">User</option>
                                     </select>
                                 </div>

@@ -18,12 +18,38 @@ import { buildHtml, PdfTemplateOptions } from '@/lib/pdfTemplate';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// ── Browserless.io config ─────────────────────────────────────────────────────
-// Default endpoint is Browserless v2 SFO region. Override via env if needed.
 const BROWSERLESS_ENDPOINT =
     process.env.BROWSERLESS_ENDPOINT || 'https://production-sfo.browserless.io';
 
+// ── Simple in-memory rate limiter (per session cookie, resets on cold start) ──
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30;        // max requests
+const RATE_WINDOW = 60_000;   // per 60 seconds
+
+function checkRateLimit(key: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+    if (!entry || now > entry.resetAt) {
+        rateLimitMap.set(key, { count: 1, resetAt: now + RATE_WINDOW });
+        return true;
+    }
+    if (entry.count >= RATE_LIMIT) return false;
+    entry.count++;
+    return true;
+}
+
 export async function POST(req: NextRequest) {
+    // ── Auth check ────────────────────────────────────────────────────────────
+    const sessionCookie = req.cookies.get('limperial_legacy_session')?.value;
+    if (!sessionCookie) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // ── Rate limit ────────────────────────────────────────────────────────────
+    if (!checkRateLimit(sessionCookie)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     let opts: PdfTemplateOptions;
     try {
         opts = await req.json();
@@ -60,7 +86,7 @@ export async function POST(req: NextRequest) {
                     options: {
                         format:          'A4',
                         printBackground: true,
-                        margin: { top: '10mm', right: '11mm', bottom: '10mm', left: '11mm' },
+                        margin: { top: '10mm', right: '11mm', bottom: '14mm', left: '11mm' },
                     },
                     // Wait for fonts and the logo image to load before printing
                     gotoOptions: {
@@ -75,7 +101,7 @@ export async function POST(req: NextRequest) {
             const errText = await browserlessRes.text().catch(() => browserlessRes.statusText);
             console.error('[PDF API] Browserless error:', browserlessRes.status, errText);
             return NextResponse.json(
-                { error: 'PDF generation failed', detail: errText },
+                { error: `Browserless ${browserlessRes.status}: ${errText.slice(0, 300)}` },
                 { status: 502 }
             );
         }
@@ -105,6 +131,8 @@ function sanitizeFilename(opts: PdfTemplateOptions): string {
     const id = opts.headerData['Quotation ID']
         || opts.headerData['Sale Order ID']
         || opts.headerData['Invoice No']
+        || opts.headerData['RV No']
+        || opts.headerData['Receipt No']
         || opts.headerData['PO Number']
         || opts.type;
     return `${String(id).replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`;

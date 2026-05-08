@@ -194,7 +194,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     const handleConvertToInvoice = (so: SaleOrder) => {
         handleNavigation({
-            view: 'invoice-do',
+            view: 'invoices',
             payload: {
                 action: 'create',
                 soData: so

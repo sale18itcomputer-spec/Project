@@ -13,16 +13,12 @@ export interface Metric {
 export interface ProjectStatusData {
   name: string;
   value: number;
-  // Add index signature for compatibility with Recharts data prop type.
   [key: string]: any;
 }
 
 export interface Activity {
   id: number;
-  user: {
-    name: string;
-    avatar: string;
-  };
+  user: { name: string; avatar: string };
   action: string;
   target: string;
   time: string;
@@ -88,7 +84,7 @@ export interface Company {
   'Email': string;
   'Website': string;
   'Patent File': string;
-  [key: string]: any; // Index signature for dynamic property access
+  [key: string]: any;
 }
 
 export interface Contact {
@@ -106,7 +102,7 @@ export interface Contact {
   'Address (Khmer)': string;
   'Created By': string;
   'Remarks': string;
-  [key: string]: any; // Index signature for dynamic property access
+  [key: string]: any;
 }
 
 export interface ContactLog {
@@ -163,8 +159,6 @@ export interface UnifiedActivity {
   original: Meeting | ContactLog;
 }
 
-
-
 export interface PendingWorkItem {
   id: string;
   type: 'quotation' | 'saleOrder' | 'pipeline' | 'invoice' | 'meeting' | 'survey' | 'contactLog';
@@ -188,10 +182,7 @@ export interface Notification {
   description: string;
   timestamp: Date;
   severity: 'low' | 'medium' | 'high';
-  link: {
-    view: string;
-    filter: string;
-  };
+  link: { view: string; filter: string };
   read?: boolean;
 }
 
@@ -237,7 +228,6 @@ export interface SaleOrder {
   'Total Amount': string;
   'Commission': string;
   'Status': 'Pending' | 'Completed' | 'Cancel';
-  // Note: 'SO No' column renamed from 'SO No.' in Supabase
   'Delivery Date'?: string;
   'Payment Term'?: string;
   'Bill Invoice'?: 'VAT' | 'NON-VAT';
@@ -253,6 +243,99 @@ export interface SaleOrder {
   'Remark'?: string;
   'Terms and Conditions'?: string;
   'ItemsJSON'?: any;
+  [key: string]: any;
+}
+
+export interface Invoice {
+  'Inv No': string;
+  'Inv Date': string;
+  'Due Date'?: string;
+  'File': string;
+  'SO No': string;
+  'Company Name': string;
+  'Company Name (Khmer)'?: string;
+  'Contact Name': string;
+  'Phone Number': string;
+  'Email': string;
+  'Amount': string;
+  'Taxable': string;
+  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Status': 'Draft' | 'Processing' | 'Completed' | 'Cancel';
+  'Created By'?: string;
+  'Currency'?: 'USD' | 'KHR';
+  'Attachment'?: string;
+  'Company Address'?: string;
+  'Payment Term'?: string;
+  'Tin No'?: string;
+  'Deposit'?: number;
+  'Exchange Rate'?: string;
+  'Prepared By'?: string;
+  'Approved By'?: string;
+  'Prepared By Position'?: string;
+  'Approved By Position'?: string;
+  'ItemsJSON'?: any;
+  'created_at'?: string;
+  'updated_at'?: string;
+  [key: string]: any;
+}
+
+export interface DeliveryOrder {
+  'DO No': string;
+  'DO Date': string;
+  'Inv No'?: string;
+  'SO No'?: string;
+  'Company Name': string;
+  'Company Address'?: string;
+  'Contact Name': string;
+  'Phone Number': string;
+  'Email'?: string;
+  'Currency'?: 'USD' | 'KHR';
+  'Status': 'Pending' | 'Delivered' | 'Cancelled';
+  'Payment Term'?: string;
+  'Delivery Date'?: string;
+  'Prepared By'?: string;
+  'Approved By'?: string;
+  'Prepared By Position'?: string;
+  'Approved By Position'?: string;
+  'Remark'?: string;
+  'Terms and Conditions'?: string;
+  'File'?: string;
+  'Created By'?: string;
+  'ItemsJSON'?: any;
+  'created_at'?: string;
+  'updated_at'?: string;
+  [key: string]: any;
+}
+
+export interface Receipt {
+  'RV No': string;
+  'RV Date': string;
+  'Inv No'?: string;
+  'SO No'?: string;
+  'DO No'?: string;
+  'Company Name': string;
+  'Company Address'?: string;
+  'Contact Name': string;
+  'Phone Number': string;
+  'Email'?: string;
+  'Amount'?: number;
+  'Currency'?: 'USD' | 'KHR';
+  'Payment Method'?: 'Cash' | 'Bank Transfer' | 'Cheque' | 'ABA' | 'KHQR' | 'Other';
+  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Status': 'Draft' | 'Issued' | 'Cancelled';
+  'Payment Term'?: string;
+  'Tin No'?: string;
+  'Prepared By'?: string;
+  'Approved By'?: string;
+  'Prepared By Position'?: string;
+  'Approved By Position'?: string;
+  'Remark'?: string;
+  'Terms and Conditions'?: string;
+  'File'?: string;
+  'Created By'?: string;
+  'ItemsJSON'?: any;
+  'created_at'?: string;
+  'updated_at'?: string;
   [key: string]: any;
 }
 
@@ -289,7 +372,7 @@ export interface VendorPricelistItem {
   created_at: string;
   updated_at: string;
   created_by?: string;
-  vendor_name?: string; // Virtual field for display
+  vendor_name?: string;
 }
 
 export interface PricelistItem {
@@ -314,28 +397,6 @@ export interface PricelistItem {
   [key: string]: any;
 }
 
-export interface Invoice {
-  'Inv No': string;
-  'Inv Date': string;
-  'File': string;
-  'SO No': string;
-  'Company Name': string;
-  'Contact Name': string;
-  'Phone Number': string;
-  'Email': string;
-  'Amount': string;
-  'Taxable': string;
-  'Status': 'Draft' | 'Processing' | 'Completed' | 'Cancel';
-  'Created By'?: string;
-  'Currency'?: 'USD' | 'KHR';
-  'Attachment'?: string;
-  'Company Address'?: string;
-  'Payment Term'?: string;
-  'Tin No'?: string;
-  'ItemsJSON'?: any;
-  [key: string]: any;
-}
-
 export interface PurchaseOrderItem {
   id?: string;
   po_id?: string;
@@ -344,7 +405,7 @@ export interface PurchaseOrderItem {
   description: string;
   qty: number;
   unit_price: number;
-  total?: number; // computed: qty * unit_price
+  total?: number;
 }
 
 export interface PurchaseOrder {
@@ -375,6 +436,6 @@ export interface PurchaseOrder {
   created_by?: string;
   created_at?: string;
   updated_at?: string;
-  items?: PurchaseOrderItem[]; // virtual - loaded separately
+  items?: PurchaseOrderItem[];
   [key: string]: any;
 }

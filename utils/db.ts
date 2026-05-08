@@ -2,7 +2,7 @@ import { openDB, IDBPDatabase } from 'idb';
 
 
 const DB_NAME = 'limperial-db';
-const DB_VERSION = 8; // Consolidated pricelist Status column (removed lowercase status, normalised to Available/Out of Stock/Pre-order)
+const DB_VERSION = 9; // Added deliveryOrders and receipts stores
 
 const STORE_CONFIG = {
     projects: { keyPath: 'Pipeline No' },
@@ -15,6 +15,8 @@ const STORE_CONFIG = {
     saleOrders: { keyPath: 'SO No' },
     pricelist: { keyPath: 'Code' },
     invoices: { keyPath: 'Inv No' },
+    deliveryOrders: { keyPath: 'DO No' },
+    receipts: { keyPath: 'RV No' },
     vendors: { keyPath: 'id' },
     vendorPricelist: { keyPath: 'id' },
     purchaseOrders: { keyPath: 'id' },
@@ -26,24 +28,17 @@ export type StoreName = keyof typeof STORE_CONFIG;
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 const initDB = () => {
-    if (dbPromise) {
-        return dbPromise;
-    }
+    if (dbPromise) return dbPromise;
     dbPromise = openDB(DB_NAME, DB_VERSION, {
         upgrade(db, _oldVersion, _newVersion, transaction) {
             STORE_NAMES.forEach(storeName => {
                 if (db.objectStoreNames.contains(storeName)) {
-                    // Only rebuild if the existing store uses an inline keyPath.
-                    // Rebuilding unnecessarily wipes cached data, so we skip it when
-                    // the store is already out-of-line (keyPath === null).
                     const store = transaction.objectStore(storeName);
                     if (store.keyPath !== null) {
                         db.deleteObjectStore(storeName);
-                        db.createObjectStore(storeName); // Recreate with out-of-line keys
+                        db.createObjectStore(storeName);
                     }
-                    // Already correct — leave it alone.
                 } else {
-                    // Store doesn't exist yet — create it fresh with out-of-line keys.
                     db.createObjectStore(storeName);
                 }
             });
@@ -63,8 +58,8 @@ export const batchGetStoreData = async (storeNames: readonly StoreName[]): Promi
         await tx.done;
         return data;
     } catch (error) {
-        console.error("Failed to get data from IndexedDB:", error);
-        return {}; // Return empty object on error
+        console.error('Failed to get data from IndexedDB:', error);
+        return {};
     }
 };
 
@@ -83,19 +78,15 @@ export const batchSetStoreData = async (data: Partial<Record<StoreName, any[]>>)
             await Promise.all((data[name] || []).map(item => {
                 if (item && typeof item === 'object' && keyPath in item) {
                     const key = item[keyPath];
-                    // We must provide the key separately now (out-of-line).
-                    // Also ensure the key is not null/undefined/empty to avoid errors.
                     if (key !== null && key !== undefined && key !== '') {
                         return store.put(item, key);
                     }
                 }
-                // If item is invalid or has no key, just skip it.
                 return Promise.resolve();
             }));
         }));
         await tx.done;
     } catch (error) {
-        console.error("Failed to set data in IndexedDB:", error);
-        // This could be a QuotaExceededError or other transaction failures.
+        console.error('Failed to set data in IndexedDB:', error);
     }
 };

@@ -12,12 +12,9 @@ import { getSetting, saveSetting } from "../../../services/api";
 import { formatToInputDate } from "../../../utils/time";
 import Spinner from "../../common/Spinner";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
-import PrintableQuotation from "../../pdf/PrintableQuotation";
+import QuotationPDFPreview from "./QuotationPDFPreview";
 import { Trash2, AlertTriangle, Download, SlidersHorizontal, PanelRight, Send, Save, Plus, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
-import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
 import { generatePDF } from "@/lib/pdfClient";
-import PDFConfigModal from "../../modals/PDFConfigModal";
-import PDFControlField from "../../pdf/PDFControlField";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { parseSheetValue } from "../../../utils/formatters";
@@ -217,13 +214,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             }
         }
     }, []);
-    const [showPdfConfig, setShowPdfConfig] = useState(false);
-    const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
-    const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
-    const [hoveredPath, setHoveredPath] = useState<string | null>(null);
     const [previewScale, setPreviewScale] = useState(1);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [showPdfControls, setShowPdfControls] = useState(false);
     const [showRightPanel, setShowRightPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
     const [pricelistSearch, setPricelistSearch] = useState('');
@@ -244,96 +236,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setSortConfig({ key: direction ? key : '', direction });
     };
 
-
-
-    const updateLayout = (path: string, value: number) => {
-        setPdfLayout(prev => {
-            const newState = JSON.parse(JSON.stringify(prev));
-
-            // Helper to set value at path
-            const setVal = (obj: any, p: string, v: number) => {
-                const k = p.split('.');
-                let c = obj;
-                for (let i = 0; i < k.length - 1; i++) c = c[k[i]];
-                c[k[k.length - 1]] = Number(v);
-            };
-
-            setVal(newState, path, value);
-
-            // Smart updates for Header Grouping
-            if (path === 'header.companyName.x') {
-                const newX = Number(value);
-                setVal(newState, 'header.contactInfo.x', newX);
-                setVal(newState, 'header.address.x', newX);
-            }
-            if (path === 'header.companyName.y') {
-                const oldY = prev.header.companyName.y;
-                const newY = Number(value);
-                const delta = newY - oldY;
-
-                setVal(newState, 'header.contactInfo.y', prev.header.contactInfo.y + delta);
-                setVal(newState, 'header.address.y', prev.header.address.y + delta);
-                setVal(newState, 'header.separatorLine.y', prev.header.separatorLine.y + delta);
-                setVal(newState, 'title.y', prev.title.y + delta);
-            }
-
-            // Sync to localStorage
-            localStorage.setItem('global_pdf_layout', JSON.stringify(newState));
-            return newState;
-        });
-    };
-
-    // Load layout from database or localStorage
-    useEffect(() => {
-        const loadGlobalLayout = async () => {
-            // Priority 1: Database
-            const dbLayout = await getSetting('global_pdf_layout');
-            if (dbLayout && typeof dbLayout === 'object' && Object.keys(dbLayout).length > 0) {
-                // Migration: Update old layouts with low footer.y to new default
-                if (dbLayout.footer && dbLayout.footer.y < 260) {
-                    console.log('📝 Migrating old PDF layout: updating footer.y from', dbLayout.footer.y, 'to', defaultLayoutConfig.footer.y);
-                    dbLayout.footer.y = defaultLayoutConfig.footer.y;
-                    // Save the migrated layout back to database
-                    await saveSetting('global_pdf_layout', dbLayout);
-                }
-                setPdfLayout(dbLayout);
-                localStorage.setItem('global_pdf_layout', JSON.stringify(dbLayout));
-                return;
-            }
-
-            // Priority 2: LocalStorage
-            const savedLayout = localStorage.getItem('global_pdf_layout');
-            if (savedLayout) {
-                try {
-                    const parsed = JSON.parse(savedLayout);
-                    if (parsed && typeof parsed === 'object') {
-                        // Migration: Update old layouts with low footer.y to new default
-                        if (parsed.footer && parsed.footer.y < 260) {
-                            console.log('📝 Migrating old PDF layout from localStorage: updating footer.y from', parsed.footer.y, 'to', defaultLayoutConfig.footer.y);
-                            parsed.footer.y = defaultLayoutConfig.footer.y;
-                            localStorage.setItem('global_pdf_layout', JSON.stringify(parsed));
-                            // Also save to database
-                            await saveSetting('global_pdf_layout', parsed);
-                        }
-                        setPdfLayout(parsed);
-                    }
-                } catch (e) {
-                    console.error("Failed to load global PDF layout", e);
-                }
-            }
-        };
-
-        loadGlobalLayout();
-    }, []);
-
-    const handleSaveLayout = async () => {
-        try {
-            await saveSetting('global_pdf_layout', pdfLayout);
-            addToast('Layout saved as global default!', 'success');
-        } catch (e: any) {
-            addToast(`Failed to save layout: ${e.message}`, 'error');
-        }
-    };
 
     useEffect(() => {
         const updateScale = () => {
@@ -356,7 +258,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setTimeout(updateScale, 350);
         window.addEventListener('resize', updateScale);
         return () => window.removeEventListener('resize', updateScale);
-    }, [showPdfControls, showRightPanel]);
+    }, [showRightPanel]);
 
     // Calculate the next ID based on the MAX number in the list.
     // B2B and B2C have separate sequences
@@ -819,43 +721,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         });
     };
 
-    const generateFinalPDF = (layout: PDFLayoutConfig) => {
-        setPdfLayout(layout);
-        setShowPdfConfig(false);
-        generatePDF({
-            type: 'Quotation',
-            headerData: {
-                ...quote,
-                'Quotation ID': quote['Quote No'],
-                'Quote Date': quote['Quote Date'],
-                'Validity Date': quote['Validity Date'],
-                'Company Name': quote['Company Name'],
-                'Company Address': quote['Company Address'],
-                'Contact Person': quote['Contact Name'],
-                'Contact Tel': quote['Contact Number'],
-                'Contact Email': quote['Contact Email'],
-                'Stock Status': quote['Stock Status'],
-            },
-            items: items.filter(item => item.no > 0).map(item => ({
-                no: item.no,
-                itemCode: item.itemCode,
-                modelName: item.modelName,
-                description: item.description,
-                qty: item.qty,
-                unitPrice: item.unitPrice,
-                amount: item.amount,
-                commission: item.commission
-            })),
-            totals: {
-                subTotal: totals.subTotal,
-                tax: totals.vat,
-                vat: totals.vat,
-                grandTotal: totals.grandTotal
-            },
-            currency: quote.Currency || 'USD',
-            filename: `Quotation_${quote['Quote No']}.pdf`,
-        });
-    };
 
     const printableProps = {
         headerData: {
@@ -908,14 +773,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                         }
                     </span>
                 </button>
-                <button
-                    onClick={() => setShowPdfControls(!showPdfControls)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showPdfControls ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                    title="Toggle Layout Controls"
-                >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span className="hidden lg:inline">{showPdfControls ? 'Hide Controls' : 'Layout'}</span>
-                </button>
+
                 <button
                     onClick={() => setShowRightPanel(!showRightPanel)}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showRightPanel ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
@@ -967,277 +825,47 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 {/* Three-Panel Layout */}
                 <div className="screen-only h-full flex relative overflow-hidden">
                     {/* Center: PDF Layout Configuration Container */}
-                    <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview && !showPdfControls) ? 'hidden' : ''}`}>
-                        {/* Top: Collapsible Layout Controls */}
-                        <div className={`w-full border-b border-border flex flex-col bg-card transition-all duration-300 ease-in-out flex-shrink-0 ${showPdfControls ? 'h-[320px] opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
-                            <div className="flex px-4 items-center justify-between border-b border-border bg-muted/30 h-10">
-                                <div className="flex gap-1 h-full items-center">
-                                    {[
-                                        { id: 'header', label: 'Header', activeColor: 'bg-blue-500', textColor: 'text-blue-500' },
-                                        { id: 'table', label: 'Table', activeColor: 'bg-emerald-500', textColor: 'text-emerald-500' },
-                                        { id: 'footer', label: 'Footer', activeColor: 'bg-purple-500', textColor: 'text-purple-500' }
-                                    ].map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-4 h-7 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab.id
-                                                ? `bg-background ${tab.textColor} shadow-sm border border-border`
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                                                }`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full ${activeTab === tab.id ? tab.activeColor : 'bg-muted-foreground/30'}`} />
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-                                <button
-                                    onClick={handleSaveLayout}
-                                    className="px-4 h-8 bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 transition-all shadow-sm active:scale-95"
-                                >
-                                    <Save className="w-3 h-3" />
-                                    Save Default
-                                </button>
-                            </div>
-
-                            <ScrollArea className="flex-1 p-4">
-                                {activeTab === 'header' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Logo Positioning</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.logo.x', defaultLayoutConfig.header.logo.x);
-                                                    updateLayout('header.logo.y', defaultLayoutConfig.header.logo.y);
-                                                    updateLayout('header.logo.width', defaultLayoutConfig.header.logo.width);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <div className="grid grid-cols-1 gap-1">
-                                                    <PDFControlField label="X (mm)" path="header.logo.x" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Y (mm)" path="header.logo.y" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Width (mm)" path="header.logo.width" min={10} max={120} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-foreground uppercase flex items-center gap-1.5 opacity-80"><Type className="w-3.5 h-3.5" /> Company Name</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.companyName.x', defaultLayoutConfig.header.companyName.x);
-                                                    updateLayout('header.companyName.y', defaultLayoutConfig.header.companyName.y);
-                                                    updateLayout('header.companyName.fontSize', defaultLayoutConfig.header.companyName.fontSize);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm">
-                                                <div className="divide-y divide-blue-50/50">
-                                                    <PDFControlField label="X Position" path="header.companyName.x" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Y Position" path="header.companyName.y" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Co. Font" path="header.companyName.fontSize" min={8} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Contact Font" path="header.contactInfo.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                    <PDFControlField label="Address Font" path="header.address.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Separator & Title</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('header.separatorLine.y', defaultLayoutConfig.header.separatorLine.y);
-                                                    updateLayout('title.y', defaultLayoutConfig.title.y);
-                                                    updateLayout('title.fontSize', defaultLayoutConfig.title.fontSize);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Separator Y" path="header.separatorLine.y" min={10} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Title Y" path="title.y" min={20} max={150} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Title Size" path="title.fontSize" min={12} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-700 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Customer Info</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('info.startY', defaultLayoutConfig.info.startY);
-                                                    updateLayout('info.fontSize', defaultLayoutConfig.info.fontSize);
-                                                    updateLayout('info.rowHeight', defaultLayoutConfig.info.rowHeight);
-                                                }} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Start Y" path="info.startY" min={30} max={150} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Font Size" path="info.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Row Spacing" path="info.rowHeight" min={4} max={12} step={0.5} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'table' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Layout className="w-3.5 h-3.5" /> Table Setup</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.startY', defaultLayoutConfig.table.startY);
-                                                    updateLayout('table.fontSize', defaultLayoutConfig.table.fontSize);
-                                                    updateLayout('table.descriptionFontSize', defaultLayoutConfig.table.descriptionFontSize);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Start Y" path="table.startY" min={60} max={250} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Header Size" path="table.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Content Size" path="table.descriptionFontSize" min={6} max={12} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Margins</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.margins.left', defaultLayoutConfig.table.margins.left);
-                                                    updateLayout('table.margins.right', defaultLayoutConfig.table.margins.right);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Left Margin" path="table.margins.left" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Right Margin" path="table.margins.right" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                            </div>
-                                        </div>
-
-                                        <div className="lg:col-span-2 space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Layout className="w-3.5 h-3.5" /> Column Widths</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('table.columnWidths.no', defaultLayoutConfig.table.columnWidths.no);
-                                                    updateLayout('table.columnWidths.itemCode', defaultLayoutConfig.table.columnWidths.itemCode);
-                                                    updateLayout('table.columnWidths.qty', defaultLayoutConfig.table.columnWidths.qty);
-                                                    updateLayout('table.columnWidths.unitPrice', defaultLayoutConfig.table.columnWidths.unitPrice);
-                                                    updateLayout('table.columnWidths.total', defaultLayoutConfig.table.columnWidths.total);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm">
-                                                <div className="divide-y divide-border/20">
-                                                    <PDFControlField label="No. Column" path="table.columnWidths.no" min={5} max={30} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Code Column" path="table.columnWidths.itemCode" min={10} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Qty Column" path="table.columnWidths.qty" min={10} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Price Column" path="table.columnWidths.unitPrice" min={15} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Total Column" path="table.columnWidths.total" min={15} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'footer' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-purple-500 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Terms & Conditions</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('terms.spacingBefore', defaultLayoutConfig.terms.spacingBefore);
-                                                    updateLayout('terms.titleFontSize', defaultLayoutConfig.terms.titleFontSize);
-                                                    updateLayout('terms.contentFontSize', defaultLayoutConfig.terms.contentFontSize);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Spacing Above" path="terms.spacingBefore" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Title Size" path="terms.titleFontSize" min={8} max={16} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Content Size" path="terms.contentFontSize" min={6} max={12} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-purple-500 uppercase flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> Signatures</h3>
-                                                <button onClick={() => {
-                                                    updateLayout('footer.y', defaultLayoutConfig.footer.y);
-                                                    updateLayout('footer.preparedBy.x', defaultLayoutConfig.footer.preparedBy.x);
-                                                    updateLayout('footer.approvedBy.x', defaultLayoutConfig.footer.approvedBy.x);
-                                                }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group">
-                                                    <RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default
-                                                </button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Vertical Y" path="footer.y" min={150} max={290} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Prepared X" path="footer.preparedBy.x" min={10} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Approved X" path="footer.approvedBy.x" min={100} max={200} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </ScrollArea>
-                        </div>
+                    <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview) ? 'hidden' : ''}`}>
 
                         {/* Center: PDF Preview OR Pricelist (B2B Only) */}
                         {showPdfPreview || !isB2B ? (
                             <div ref={containerRef} className="flex-1 flex flex-col bg-muted/20 relative overflow-hidden">
-                                {/* Preview toolbar */}
-                                <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border shrink-0">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-1.5 h-5 bg-brand-500 rounded-full"></div>
-                                        <div>
-                                            <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
-                                            <p className="text-[10px] text-muted-foreground">{quote['Quote No']} • {quote['Company Name'] || 'No Company'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                            <span className="text-[10px] text-muted-foreground font-medium">Live Preview</span>
-                                        </div>
-                                        <div className="text-[10px] font-mono text-muted-foreground/60 bg-muted px-2 py-0.5 rounded-md border border-border">
-                                            {Math.round(previewScale * 100)}%
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Scrollable preview area */}
-                                <div className="flex-1 overflow-auto">
-                                    <div className="min-h-full flex items-start justify-center py-6 px-4">
-                                        <div className="shadow-[0_2px_16px_rgba(0,0,0,0.10)]">
-                                            <PrintableQuotation
-                                                headerData={{
-                                                    'Quotation ID': quote['Quote No'],
-                                                    'Quote Date': quote['Quote Date'],
-                                                    'Validity Date': quote['Validity Date'],
-                                                    'Company Name': quote['Company Name'],
-                                                    'Company Address': quote['Company Address'],
-                                                    'Contact Person': quote['Contact Name'],
-                                                    'Contact Tel': quote['Contact Number'],
-                                                    'Contact Email': quote['Contact Email'],
-                                                    'Payment Term': quote['Payment Term'],
-                                                    'Stock Status': quote['Stock Status'],
-                                                    'Prepared By': quote['Prepared By'],
-                                                    'Prepared By Position': quote['Prepared By Position'],
-                                                    'Approved By': quote['Approved By'],
-                                                    'Approved By Position': quote['Approved By Position'],
-                                                    'Remark': quote.Remark,
-                                                    'Terms and Conditions': quote['Terms and Conditions'],
-                                                }}
-                                                items={items}
-                                                totals={{ subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal }}
-                                                currency={(quote.Currency as 'USD' | 'KHR') || 'USD'}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                <QuotationPDFPreview
+                                    quoteNo={quote['Quote No'] || ''}
+                                    companyName={quote['Company Name'] || ''}
+                                    printableProps={{
+                                        headerData: {
+                                            'Quotation ID': quote['Quote No'],
+                                            'Quote Date': quote['Quote Date'],
+                                            'Validity Date': quote['Validity Date'],
+                                            'Company Name': quote['Company Name'],
+                                            'Company Address': quote['Company Address'],
+                                            'Contact Person': quote['Contact Name'],
+                                            'Contact Tel': quote['Contact Number'],
+                                            'Contact Email': quote['Contact Email'],
+                                            'Payment Term': quote['Payment Term'],
+                                            'Stock Status': quote['Stock Status'],
+                                            'Tax Type': quote['Tax Type'],
+                                            'Prepared By': quote['Prepared By'],
+                                            'Prepared By Position': quote['Prepared By Position'],
+                                            'Approved By': quote['Approved By'],
+                                            'Approved By Position': quote['Approved By Position'],
+                                            'Remark': quote.Remark,
+                                            'Terms and Conditions': quote['Terms and Conditions'],
+                                        },
+                                        items: items.filter(i => i.no > 0).map(i => ({
+                                            no: i.no,
+                                            itemCode: i.itemCode,
+                                            modelName: i.modelName,
+                                            description: i.description,
+                                            qty: i.qty,
+                                            unitPrice: i.unitPrice,
+                                            amount: i.amount,
+                                        })),
+                                        totals: { subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal },
+                                        currency: (quote.Currency as 'USD' | 'KHR') || 'USD',
+                                    }}
+                                />
                             </div>
                         ) : (
                             <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
@@ -1731,9 +1359,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     </div>
                 </div >
 
-                <div className="print-only">
-                    <PrintableQuotation {...printableProps} />
-                </div>
             </DocumentEditorContainer >
             {successInfo && (
                 <SuccessModal
@@ -1763,12 +1388,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 />
             )
             }
-            <PDFConfigModal
-                isOpen={showPdfConfig}
-                onClose={() => setShowPdfConfig(false)}
-                onGenerate={generateFinalPDF}
-                currentLayout={pdfLayout}
-            />
+
         </>
     );
 };

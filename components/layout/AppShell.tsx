@@ -7,6 +7,9 @@ import Header from './Header';
 import Footer from './Footer';
 import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '@/contexts/AuthContext';
+
+export const FINANCE_ALLOWED_PATHS = ['/invoices', '/delivery-orders', '/receipts'];
+
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
 import PasscodeLock from '@/components/common/PasscodeLock';
@@ -27,7 +30,7 @@ const CONSTRAINED_ROUTES = [
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isAuthLoading } = useAuth();
+    const { isAuthenticated, isAuthLoading, currentUser } = useAuth();
     const { width } = useWindowSize();
     const pathname = usePathname();
     const router = useRouter();
@@ -59,6 +62,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             router.replace('/login');
         }
     }, [isAuthenticated, isAuthLoading, router]);
+
+    // Finance role: redirect to /invoices if they land on a forbidden route
+    useEffect(() => {
+        if (isAuthLoading || !isAuthenticated) return;
+        if (currentUser?.Role === 'Finance') {
+            const allowed = FINANCE_ALLOWED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+            if (!allowed) router.replace('/invoices');
+        }
+    }, [isAuthLoading, isAuthenticated, currentUser, pathname, router]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();

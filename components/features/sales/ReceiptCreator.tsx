@@ -1,0 +1,550 @@
+'use client';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Receipt, Invoice, DeliveryOrder, SaleOrder } from '../../../types';
+import { useData } from '../../../contexts/DataContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { createRecord, updateRecord, uploadFile } from '../../../services/api';
+import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
+import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
+import SearchableSelect from '../../common/SearchableSelect';
+import { ScrollArea } from '../../ui/scroll-area';
+import SuccessModal from '../../modals/SuccessModal';
+import Spinner from '../../common/Spinner';
+import DocumentEditorContainer from '../../layout/DocumentEditorContainer';
+import { Trash2, X, Upload, Plus, Download, PanelRight } from 'lucide-react';
+import { useToast } from '../../../contexts/ToastContext';
+import { generatePDF } from '@/lib/pdfClient';
+import PrintableReceipt from '../../pdf/PrintableReceipt';
+import PdfPreviewPane from '../../pdf/PdfPreviewPane';
+
+const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
+const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
+const PAYMENT_METHOD_OPTIONS = ['Cash', 'Bank Transfer', 'Cheque', 'ABA', 'KHQR', 'Other'];
+const TAX_TYPE_OPTIONS = ['VAT', 'NON-VAT'];
+
+const getTodayDateString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+interface LineItem {
+    id: string;
+    no: number;
+    itemCode: string;
+    modelName: string;
+    description: string;
+    qty: number | string;
+    unitPrice: number | string;
+    amount: number;
+    serialNumber?: string;
+}
+
+interface Props {
+    onBack: () => void;
+    existingReceipt?: Receipt | null;
+    initialData?: {
+        action?: string;
+        invoiceData?: Invoice;
+        doData?: DeliveryOrder;
+        soData?: SaleOrder;
+    };
+}
+
+const getCurrencySymbol = (currency?: 'USD' | 'KHR') => currency === 'KHR' ? '៛' : '$';
+
+const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData }) => {
+    const { receipts, setReceipts, invoices, deliveryOrders, saleOrders, companies, contacts } = useData();
+    const { currentUser } = useAuth();
+    const { addToast } = useToast();
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [successInfo, setSuccessInfo] = useState<{ rvNo: string } | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [showFormPanel, setShowFormPanel] = useState(true);
+    const [signaturePadding, setSignaturePadding] = useState(0);
+    const [labelPadding, setLabelPadding] = useState(200);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [items, setItems] = useState<LineItem[]>([
+        { id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }
+    ]);
+    const [doc, setDoc] = useState<Partial<Receipt>>({});
+
+    // Auto-generate RV No
+    const calculatedNextRVNo = useMemo(() => {
+        if (!receipts || receipts.length === 0) return 'RV-250001';
+        const year = new Date().getFullYear().toString().slice(-2);
+        const prefix = `RV-${year}`;
+        const thisYear = (receipts || []).filter(r => r['RV No']?.startsWith(prefix));
+        if (thisYear.length === 0) return `${prefix}0001`;
+        const maxNum = thisYear.reduce((max, r) => {
+            const n = parseInt(r['RV No'].slice(prefix.length), 10);
+            return isNaN(n) ? max : Math.max(max, n);
+        }, 0);
+        return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+    }, [receipts]);
+
+    // Totals
+    const totals = useMemo(() => {
+        const subTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        const isTaxable = doc['Tax Type'] === 'VAT';
+        const tax = isTaxable ? subTotal * 0.1 : 0;
+        const grandTotal = subTotal + tax;
+        return { subTotal, tax, grandTotal };
+    }, [items, doc['Tax Type']]);
+
+    // Initialise
+    useEffect(() => {
+        if (existingReceipt) {
+            setDoc({
+                ...existingReceipt,
+                'RV Date': existingReceipt['RV Date'] ? formatToInputDate(existingReceipt['RV Date']) : getTodayDateString(),
+            });
+            let fetchedItems: LineItem[] = [];
+            try {
+                fetchedItems = typeof existingReceipt.ItemsJSON === 'string'
+                    ? JSON.parse(existingReceipt.ItemsJSON) : existingReceipt.ItemsJSON || [];
+            } catch { }
+            if (fetchedItems.length > 0) setItems(fetchedItems);
+        } else {
+            const inv = initialData?.invoiceData;
+            const doDoc = initialData?.doData;
+            const so = initialData?.soData;
+            const source = inv || doDoc || so;
+            const company = source ? companies?.find(c => c['Company Name'] === source['Company Name']) : null;
+
+            setDoc({
+                'RV No': calculatedNextRVNo,
+                'RV Date': getTodayDateString(),
+                'Inv No': inv?.['Inv No'] || doDoc?.['Inv No'] || '',
+                'SO No': inv?.['SO No'] || doDoc?.['SO No'] || so?.['SO No'] || '',
+                'DO No': doDoc?.['DO No'] || '',
+                'Company Name': source?.['Company Name'] || '',
+                'Company Address': company?.['Address (English)'] || '',
+                'Contact Name': source?.['Contact Name'] || '',
+                'Phone Number': source?.['Phone Number'] || '',
+                'Email': source?.['Email'] || (source as any)?.Email || '',
+                'Amount': inv ? Number(inv['Amount']) : 0,
+                'Currency': source?.['Currency'] || 'USD',
+                'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                'Status': 'Draft',
+                'Payment Term': source?.['Payment Term'] || '',
+                'Tin No': company?.['Patent'] || '',
+                'Prepared By': currentUser?.Name || '',
+                'Prepared By Position': currentUser ? [
+                    currentUser.Role,
+                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                    currentUser.Email,
+                ].filter(Boolean).join(' | ') : '',
+                'Approved By': '',
+                'Approved By Position': '',
+            });
+
+            // Copy items from source
+            let srcItems: any[] = [];
+            try {
+                const raw = (source as any)?.ItemsJSON;
+                srcItems = typeof raw === 'string' ? JSON.parse(raw) : raw || [];
+            } catch { }
+            if (srcItems.length > 0) {
+                setItems(srcItems.map((item: any, idx: number) => ({
+                    id: item.id || `item-${Date.now()}-${idx}`,
+                    no: item.no ?? idx + 1,
+                    itemCode: item.itemCode || '',
+                    modelName: item.modelName || '',
+                    description: item.description || '',
+                    qty: item.qty ?? 1,
+                    unitPrice: item.unitPrice ?? 0,
+                    amount: item.amount ?? 0,
+                })));
+            }
+        }
+    }, [existingReceipt, initialData, calculatedNextRVNo, companies]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setDoc(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCompanySelect = (companyName: string) => {
+        const company = companies?.find(c => c['Company Name'] === companyName);
+        const contact = contacts?.find(c => c['Company Name'] === companyName);
+        setDoc(prev => ({
+            ...prev,
+            'Company Name': companyName,
+            'Company Address': company?.['Address (English)'] || prev['Company Address'],
+            'Contact Name': contact?.Name || prev['Contact Name'],
+            'Phone Number': company?.['Phone Number'] || contact?.['Tel (1)'] || prev['Phone Number'],
+            'Email': company?.Email || contact?.Email || prev['Email'],
+            'Payment Term': company?.['Payment Term'] || prev['Payment Term'],
+            'Tin No': company?.['Patent'] || prev['Tin No'],
+        }));
+    };
+
+    const handleInvoiceSelect = (invNo: string) => {
+        const inv = invoices?.find(i => i['Inv No'] === invNo);
+        if (!inv) { setDoc(prev => ({ ...prev, 'Inv No': invNo })); return; }
+        const company = companies?.find(c => c['Company Name'] === inv['Company Name']);
+        setDoc(prev => ({
+            ...prev,
+            'Inv No': invNo,
+            'SO No': inv['SO No'] || prev['SO No'],
+            'Company Name': inv['Company Name'] || prev['Company Name'],
+            'Company Address': company?.['Address (English)'] || prev['Company Address'],
+            'Contact Name': inv['Contact Name'] || prev['Contact Name'],
+            'Phone Number': inv['Phone Number'] || prev['Phone Number'],
+            'Email': (inv as any)?.Email || prev['Email'],
+            'Amount': Number(inv['Amount']) || prev['Amount'],
+            'Currency': inv['Currency'] || prev['Currency'],
+            'Tax Type': inv['Taxable'] === 'Yes' || inv['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+            'Payment Term': inv['Payment Term'] || prev['Payment Term'],
+            'Tin No': inv['Tin No'] || company?.['Patent'] || prev['Tin No'],
+        }));
+        let invItems: any[] = [];
+        try { invItems = typeof inv.ItemsJSON === 'string' ? JSON.parse(inv.ItemsJSON) : inv.ItemsJSON || []; } catch { }
+        if (invItems.length > 0) {
+            setItems(invItems.map((item: any, idx: number) => ({
+                id: item.id || `item-${Date.now()}-${idx}`,
+                no: item.no ?? idx + 1,
+                itemCode: item.itemCode || '',
+                modelName: item.modelName || '',
+                description: item.description || '',
+                qty: item.qty ?? 1,
+                unitPrice: item.unitPrice ?? 0,
+                amount: item.amount ?? 0,
+            })));
+        }
+        addToast(`Loaded info from ${invNo}`, 'success');
+    };
+
+    const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => {
+        setItems(prev => prev.map(item => {
+            if (item.id !== id) return item;
+            const updated = { ...item, [field]: value };
+            updated.amount = (Number(updated.qty) || 0) * (Number(updated.unitPrice) || 0);
+            return updated;
+        }));
+    };
+
+    const addItem = () => {
+        const nextNo = items.length > 0 ? Math.max(...items.map(i => i.no)) + 1 : 1;
+        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: nextNo, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+    };
+
+    const removeItem = (id: string) => {
+        if (items.length === 1) return;
+        setItems(prev => prev.filter(i => i.id !== id));
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const { url } = await uploadFile(file);
+            setDoc(prev => ({ ...prev, File: url }));
+            addToast('File uploaded successfully', 'success');
+        } catch (err: any) {
+            addToast(`Upload failed: ${err.message}`, 'error');
+        } finally { setIsUploading(false); }
+    };
+
+    const handleSave = async () => {
+        if (!doc['RV No'] || !doc['Company Name']) {
+            addToast('Please fill in RV No. and Company Name', 'error');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                ...doc,
+                'RV Date': doc['RV Date'] ? formatToSheetDate(doc['RV Date']) : null,
+                'Amount': totals.grandTotal,
+                'ItemsJSON': items,
+                'Created By': doc['Created By'] || currentUser?.Name || '',
+                updated_at: new Date().toISOString(),
+            };
+
+            if (existingReceipt) {
+                await updateRecord('Receipts', existingReceipt['RV No'], payload);
+                setReceipts(cur => cur
+                    ? cur.map(r => r['RV No'] === doc['RV No'] ? (payload as Receipt) : r)
+                    : [payload as Receipt]
+                );
+            } else {
+                await createRecord('Receipts', payload);
+                setReceipts(cur => cur ? [payload as Receipt, ...cur] : [payload as Receipt]);
+            }
+            setSuccessInfo({ rvNo: doc['RV No']! });
+        } catch (err: any) {
+            addToast(err.message || 'Failed to save Receipt', 'error');
+        } finally { setIsSubmitting(false); }
+    };
+
+    const handleDownloadPDF = () => {
+        generatePDF({
+            type: 'Receipt',
+            headerData: { ...doc },
+            items: items.map(item => ({
+                no: item.no,
+                itemCode: item.itemCode,
+                modelName: item.modelName,
+                description: item.description,
+                qty: item.qty,
+                unitPrice: item.unitPrice,
+                amount: item.amount,
+            })),
+            totals,
+            currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
+            signaturePadding,
+            previewMode: false,
+            filename: `Receipt_${doc['RV No']}.pdf`,
+        });
+    };
+
+    const invoiceOptions = useMemo(
+        () => (invoices || []).map(i => i['Inv No']).filter(Boolean).sort().reverse(),
+        [invoices]
+    );
+    const companyOptions = useMemo(
+        () => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() as string[] : [],
+        [companies]
+    );
+
+    const headerRight = (
+        <div className="flex items-center gap-3">
+            <button
+                onClick={() => setShowFormPanel(p => !p)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-slate-100 text-slate-900 border-slate-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+            >
+                <PanelRight className="w-4 h-4" />
+                <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
+            </button>
+            <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
+            >
+                <Download className="w-4 h-4" /> Download PDF
+            </button>
+            <button
+                onClick={handleSave}
+                disabled={isSubmitting}
+                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+            >
+                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Receipt'}
+            </button>
+        </div>
+    );
+
+    return (
+        <>
+            <DocumentEditorContainer
+                title={existingReceipt ? `Edit Receipt: ${doc['RV No']}` : 'New Receipt'}
+                onBack={onBack}
+                onSave={handleSave}
+                isSubmitting={isSubmitting}
+                rightActions={headerRight}
+            >
+                <div className="h-full flex overflow-hidden">
+                    {/* PDF Preview */}
+                    <PdfPreviewPane
+                        docLabel={`${doc['RV No'] || ''} • ${doc['Company Name'] || 'No Company Selected'}`}
+                        signaturePadding={signaturePadding}
+                        onSignaturePaddingChange={setSignaturePadding}
+                        labelPadding={labelPadding}
+                        onLabelPaddingChange={setLabelPadding}
+                        pdfOptions={{
+                            type: 'Receipt',
+                            headerData: { ...doc },
+                            items: items.map(i => ({
+                                no: i.no, itemCode: i.itemCode, modelName: i.modelName,
+                                description: i.description, qty: i.qty,
+                                unitPrice: i.unitPrice, amount: i.amount,
+                            })),
+                            totals,
+                            currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
+                        }}
+                    />
+
+                    {/* Form Sidebar */}
+                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-gray-800">Receipt Information</h3>
+                            </div>
+                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md"><X className="w-4 h-4" /></button>
+                        </div>
+
+                        <ScrollArea className="flex-1 px-5 py-4">
+                            <div className="space-y-6">
+                                <FormSection title="Header Details">
+                                    <FormInput label="RV No." name="RV No" value={doc['RV No']} onChange={handleInputChange} required />
+                                    <FormInput label="RV Date" name="RV Date" type="date" value={doc['RV Date']} onChange={handleInputChange} />
+                                    <SearchableSelect
+                                        name="Inv No" label="Invoice Reference"
+                                        value={doc['Inv No'] || ''} options={invoiceOptions}
+                                        onChange={handleInvoiceSelect} placeholder="Select Invoice"
+                                    />
+                                    <FormInput label="DO Reference" name="DO No" value={doc['DO No']} onChange={handleInputChange} />
+                                    <FormInput label="SO Reference" name="SO No" value={doc['SO No']} onChange={handleInputChange} />
+                                    <FormSelect label="Status" name="Status" value={doc['Status']} options={RV_STATUS_OPTIONS} onChange={handleInputChange} />
+                                    <FormSelect label="Tax Type" name="Tax Type" value={doc['Tax Type']} options={TAX_TYPE_OPTIONS} onChange={handleInputChange} />
+                                    <FormSelect label="Currency" name="Currency" value={doc['Currency']} options={CURRENCY_OPTIONS} onChange={handleInputChange} />
+                                    <FormSelect label="Payment Method" name="Payment Method" value={doc['Payment Method']} options={PAYMENT_METHOD_OPTIONS} onChange={handleInputChange} />
+                                    <FormInput label="Payment Term" name="Payment Term" value={doc['Payment Term']} onChange={handleInputChange} />
+                                </FormSection>
+
+                                <FormSection title="Preparation Info">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <FormInput label="Prepared By" name="Prepared By" value={doc['Prepared By']} onChange={handleInputChange} />
+                                        <FormInput label="Position" name="Prepared By Position" value={doc['Prepared By Position']} onChange={handleInputChange} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <FormInput label="Approved By" name="Approved By" value={doc['Approved By']} onChange={handleInputChange} />
+                                        <FormInput label="Position" name="Approved By Position" value={doc['Approved By Position']} onChange={handleInputChange} />
+                                    </div>
+                                </FormSection>
+
+                                <FormSection title="Customer Details">
+                                    <SearchableSelect
+                                        name="Company Name" label="Company Name"
+                                        value={doc['Company Name'] || ''} options={companyOptions}
+                                        onChange={handleCompanySelect} placeholder="Select Company" required
+                                    />
+                                    <FormInput label="Contact Name" name="Contact Name" value={doc['Contact Name']} onChange={handleInputChange} />
+                                    <FormInput label="Phone Number" name="Phone Number" value={doc['Phone Number']} onChange={handleInputChange} />
+                                    <FormInput label="Email" name="Email" value={doc['Email']} onChange={handleInputChange} />
+                                    <FormInput label="TIN No." name="Tin No" value={doc['Tin No']} onChange={handleInputChange} />
+                                    <FormTextarea label="Company Address" name="Company Address" value={doc['Company Address']} onChange={handleInputChange} rows={3} />
+                                </FormSection>
+
+                                {/* Line Items with pricing */}
+                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                                    <div className="space-y-3">
+                                        {items.map(item => (
+                                            <div key={item.id} className="relative p-4 bg-slate-50 rounded-xl border border-slate-200 group hover:border-brand-300 transition-all">
+                                                <button onClick={() => removeItem(item.id)}
+                                                    className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <div className="flex gap-3 pr-8 mb-3">
+                                                    <div className="w-10 flex flex-col items-center justify-center">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
+                                                        <div className="h-9 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600">{item.no}</div>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
+                                                        <input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
+                                                            className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                    </div>
+                                                    <div className="flex-[1.5]">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
+                                                        <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
+                                                            className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Description</label>
+                                                    <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                        className="w-full text-sm p-3 rounded-lg border border-slate-200 bg-white" rows={2} />
+                                                </div>
+                                                <div className="flex flex-wrap gap-3">
+                                                    <div className="w-20">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
+                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
+                                                            className="w-full h-9 px-2 text-center text-sm bg-white border border-slate-200 rounded-lg" />
+                                                    </div>
+                                                    <div className="w-32">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
+                                                        <input type="number" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)}
+                                                            className="w-full h-9 px-3 text-right text-sm bg-white border border-slate-200 rounded-lg" />
+                                                    </div>
+                                                    <div className="w-full">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Serial Numbers <span className="normal-case font-normal text-slate-300">(one per line)</span></label>
+                                                        <textarea
+                                                            value={item.serialNumber || ''}
+                                                            onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
+                                                            className="w-full text-xs p-2 font-mono rounded-lg border border-slate-200 bg-white resize-y min-h-[60px]"
+                                                            rows={3}
+                                                            placeholder={`SN001\nSN002\nSN003...`}
+                                                        />
+                                                        <div className="text-[9px] text-slate-400 mt-0.5">{(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered</div>
+                                                    </div>
+                                                    <div className="flex-1 text-right pt-4">
+                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Total</div>
+                                                        <div className="text-lg font-bold text-slate-700">
+                                                            {getCurrencySymbol(doc['Currency'] as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button onClick={addItem}
+                                            className="w-full py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 font-bold text-sm flex items-center justify-center gap-2">
+                                            <Plus className="w-4 h-4" /> Add Item
+                                        </button>
+
+                                        {/* Totals */}
+                                        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mt-4 space-y-3">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500 font-medium">Sub Total</span>
+                                                <span className="font-bold text-slate-700">{getCurrencySymbol(doc['Currency'] as any)}{totals.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500 font-medium">VAT (10%)</span>
+                                                <span className="font-bold text-slate-700">{getCurrencySymbol(doc['Currency'] as any)}{totals.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between pt-3 border-t border-slate-300">
+                                                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Grand Total</span>
+                                                <span className="text-xl font-black text-brand-600">{getCurrencySymbol(doc['Currency'] as any)}{totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <FormSection title="Remarks">
+                                    <FormTextarea label="Remark" name="Remark" value={doc['Remark']} onChange={handleInputChange} rows={3} />
+                                    <FormTextarea label="Terms and Conditions" name="Terms and Conditions" value={doc['Terms and Conditions']} onChange={handleInputChange} rows={3} />
+                                </FormSection>
+
+                                <FormSection title="Attachment">
+                                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+                                    {isUploading ? (
+                                        <div className="flex items-center gap-3 text-sm text-slate-600 p-4 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200">
+                                            <Spinner size="sm" /><span className="font-bold">Uploading...</span>
+                                        </div>
+                                    ) : doc['File'] ? (
+                                        <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                                            <a href={doc['File']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-700 hover:underline truncate max-w-[200px]">View Uploaded File</a>
+                                            <button onClick={() => setDoc(prev => ({ ...prev, File: '' }))} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-full"><X className="w-4 h-4" /></button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => fileInputRef.current?.click()}
+                                            className="w-full text-center p-4 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-2">
+                                            <Upload className="w-5 h-5 text-slate-400" />
+                                            <span className="text-[10px] uppercase tracking-widest text-slate-400">Click to Upload File</span>
+                                        </button>
+                                    )}
+                                </FormSection>
+                            </div>
+                        </ScrollArea>
+                    </div>
+                </div>
+            </DocumentEditorContainer>
+
+            {successInfo && (
+                <SuccessModal
+                    isOpen={!!successInfo}
+                    onClose={onBack}
+                    title="Receipt Saved!"
+                    message={`${successInfo.rvNo} has been saved successfully.`}
+                />
+            )}
+        </>
+    );
+};
+
+export default ReceiptCreator;

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Commercial Invoice - Corporate Finance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@100;300;400;700;900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#3f465c",
+                    "tertiary-container": "#0b1c30",
+                    "surface-container-highest": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#76777d",
+                    "primary-fixed": "#dae2fd",
+                    "secondary": "#0051d5",
+                    "surface-variant": "#ffffff",
+                    "surface-bright": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "surface-container-low": "#ffffff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "surface-container": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "primary-fixed-dim": "#bec6e0",
+                    "surface-container-high": "#ffffff",
+                    "on-secondary-container": "#fefcff",
+                    "surface-tint": "#565e74",
+                    "surface": "#ffffff",
+                    "on-secondary-fixed": "#00174b",
+                    "primary": "#000000",
+                    "on-background": "#191c1e",
+                    "on-error-container": "#93000a",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed-dim": "#b4c5ff",
+                    "on-primary-container": "#7c839b",
+                    "tertiary-fixed": "#d3e4fe",
+                    "secondary-container": "#316bf3",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#191c1e",
+                    "primary-container": "#131b2e",
+                    "on-secondary-fixed-variant": "#003ea8",
+                    "on-error": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#131b2e",
+                    "inverse-primary": "#bec6e0",
+                    "inverse-on-surface": "#eff1f3",
+                    "background": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-dim": "#ffffff",
+                    "error": "#ba1a1a",
+                    "secondary-fixed": "#dbe1ff",
+                    "outline-variant": "#c6c6cd",
+                    "on-surface-variant": "#45464d",
+                    "brand-blue": "#0056b3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "1.5rem",
+                    "stack-lg": "3rem",
+                    "margin-a4": "20mm",
+                    "stack-sm": "0.5rem",
+                    "gutter": "1rem"
+            },
+            "fontFamily": {
+                    "body-main": ["Koh Santepheap"],
+                    "metadata": ["Koh Santepheap"],
+                    "h2-section": ["Koh Santepheap"],
+                    "h1-display": ["Koh Santepheap"],
+                    "table-header": ["Koh Santepheap"],
+                    "label-caps": ["Koh Santepheap"],
+                    "body-strong": ["Koh Santepheap"]
+            },
+            "fontSize": {
+                    "body-main": ["11px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "metadata": ["10px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "h2-section": ["18px", {"lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "h1-display": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "table-header": ["10px", {"lineHeight": "1.4", "fontWeight": "700"}],
+                    "label-caps": ["9px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                    "body-strong": ["11px", {"lineHeight": "1.6", "fontWeight": "700"}]
+            }
+          },
+        },
+      }</script>
+<style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            -webkit-print-color-adjust: exact;
+            font-family: 'Koh Santepheap', sans-serif;
+            font-size: 11px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .a4-container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+        }
+        table.items-table th, table.items-table td {
+            border: 1px solid #000;
+            padding: 4px 8px;
+        }
+        @media print {
+            .a4-container {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none;
+            }
+            body {
+                background-color: white !important;
+            }
+        }
+    </style>
+</head>
+<body class="font-body-main text-on-surface bg-white">
+<!-- Top Navigation (Shell) -->
+<main class="py-12 bg-white">
+<div class="a4-container px-[20mm] py-[15mm] flex flex-col relative">
+<!-- Document Header (Letterhead Style) -->
+<header class="mb-6">
+<div class="border-b-[3px] border-brand-blue pb-4 text-center relative pt-12 header-info">
+<div class="absolute left-0 top-0"><img alt="Company Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0uhAXChV1zRhQS95LPzBoKQvG65rS386B7kqWOau8UfdJ0xW3R-6iYSTpbnU4ZozMF2jYMwSToO0rkFQCyrc7VwZqH89JFrFXMwvGJXvtaBmzd8jMbAOp0P60th5rVxqnJ2OwBy9VjjqeQRbvEk0X5OHcjkRLUOrfK-PAR_GLHPv2QDP-UCGNG2aX07stRW63iHjsd3CvbzcRFO2Ab2OMaJQ7gnoTLbNhqelddG3e6cBCCgZD-9Au5TUpV_PtIlDZzdl43_VbOWCDg"/></div>
+<h1 class="text-xl font-bold mb-1">លីមភើរៀល ថេកណឡជី ឯ.ក</h1>
+<h2 class="text-lg font-bold mb-1 uppercase">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
+<p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</p>
+<p class="text-[8px] whitespace-nowrap">Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
+<p class="text-[10px]">E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</p>
+</div>
+</header>
+<!-- Document Title -->
+<div class="text-center mb-6"><h3 class="text-xl font-bold"><div>វិក្កយបត្រ</div><div class="uppercase mt-1">Commercial Invoice</div></h3></div>
+<!-- Information Sections (Aligned Colons) -->
+<div class="flex justify-between gap-8 mb-6">
+<!-- Left Column: Customer Details -->
+<div class="w-[55%]">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[40%]">អតិថិជន / Customer</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]">GLOBAL TRADE PARTNERS CO., LTD.</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 align-top w-[40%]">អាសយដ្ឋាន / Address</td>
+<td class="border-none py-1 align-top w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]">No. 88, Vattanac Capital, Phnom Penh, Cambodia.</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[40%]">អ៊ីម៉ែល / E-mail</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%] bg-white">procurement@gtpartners.com</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Right Column: Invoice Details -->
+<div class="w-[40%]">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">លេខរៀងវិក្កយបត្រ / Invoice Nº</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]">ML-2024-00892</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">កាលបរិច្ឆេទ / Date</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]">October 24, 2024</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">ទំនាក់ទំនង / Contact Person</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]">Mr. Sophea Rathana</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">លេខទូរស័ព្ទ / Telephone</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%] bg-white">(+855) 12 345 678</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Item Table (Bilingual Two-Row Headers) -->
+<div class="flex-grow mb-12">
+<table class="items-table w-full mx-auto border-collapse">
+<thead>
+<tr class="bg-brand-blue text-white text-center text-[9px]">
+<th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center">
+<div>ល.រ</div>
+<div>N°</div>
+</th>
+<th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center">
+<div>លេខកូដទំនិញ</div>
+<div>Part Number</div>
+</th>
+<th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center">
+<div>បរិយាយទំនិញ</div>
+<div>Description</div>
+</th>
+<th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center">
+<div>បរិមាណ</div>
+<div>Quantity</div>
+</th>
+<th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center">
+<div>តម្លៃឯកតា</div>
+<div>Unit Price</div>
+</th>
+<th class="w-[13%] py-2 whitespace-nowrap leading-tight text-center">
+<div>តម្លៃសរុប</div>
+<div>Amount</div>
+</th>
+</tr>
+</thead>
+<tbody class="text-[10px]">
+<tr class="h-10 text-center">
+<td class="">01</td>
+<td class="">CPU-I7-12700K</td>
+<td class="text-left">Intel Core i7-12700K 12th Gen Processor</td>
+<td class="">10</td>
+<td class="">$450.00</td>
+<td class="font-bold text-right pr-2">$4,500.00</td>
+</tr>
+<tr class="h-10 text-center">
+<td class="">02</td>
+<td class="">RAM-DDR5-32G</td>
+<td class="text-left">Corsair Vengeance 32GB DDR5 5200MHz</td>
+<td class="">20</td>
+<td class="">$185.00</td>
+<td class="font-bold text-right pr-2">$3,700.00</td>
+</tr>
+<tr class="h-10 text-center">
+<td class="">03</td>
+<td class="">SSD-NVME-1TB</td>
+<td class="text-left">Samsung 980 Pro 1TB M.2 NVMe SSD</td>
+<td class="">15</td>
+<td class="">$120.00</td>
+<td class="font-bold text-right pr-2">$1,800.00</td>
+</tr>
+<!-- Empty rows for spacing -->
+<tr class="h-24">
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+</tr>
+<!-- Bottom Section: Payment Info and Totals Side-by-Side -->
+<tr>
+<td class="align-top p-4" colspan="3" rowspan="4" style="border: none;">
+<!-- Updated Terms and Payment Information -->
+<div class="w-full text-[10px] space-y-4">
+<div>
+<h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
+<ul class="list-disc list-inside space-y-0.5"><li>For warranty details, please look at details below items.</li><li>Warranty void if: Electric shock, accident, Seal broken, misuse, or modification by anyone other than LIMPERIAL TECHNOLOGY.</li><li>Goods sold are not returnable and received in good condition.</li><li>We look forward to hearing from you.</li></ul>
+</div>
+<div>
+<h4 class="font-bold text-[11px] underline uppercase mb-1">Payment Information:</h4>
+<p><span class="font-bold">Bank:</span> Adance Bank of Asia Ltd (ABA Bank)</p>
+<p><span class="font-bold">Account Name:</span> LIMPERIAL TECHNOLOGY CO., LTD.</p>
+<p><span class="font-bold">Account Number:</span> 003 916 564</p>
+</div>
+</div>
+</td>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុប / Grand Total</td>
+<td class="text-right pr-2 font-bold">$10,000.00</td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right pr-2" colspan="2">ប្រាក់កក់ / Deposit</td>
+<td class="text-right pr-2 font-bold">$1,000.00</td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right pr-2" colspan="2">ប្រាក់នៅសល់ / Balance Due</td>
+<td class="text-right pr-2 font-bold">$9,000.00</td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right pr-2" colspan="2">ប្រាក់នៅសល់ជាប្រាក់រៀល / Balance Due in Riel (x4,100)</td>
+<td class="text-right pr-2 font-bold bg-white">៛36,900,000</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Signature Section at the very bottom -->
+<div class="mt-16 flex justify-between px-16 pb-8 w-full">
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black mb-4"></div>
+<div class="font-body-strong text-[11px] leading-tight text-on-surface">
+<div>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
+<div class="font-normal">Customer's Signature &amp; Name</div>
+</div>
+</div>
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black mb-4"></div>
+<div class="font-body-strong text-[11px] leading-tight text-on-surface">
+<div>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>
+<div class="font-normal">Seller's Signature &amp; Name</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Navigation (Shell) -->
+</body></html>

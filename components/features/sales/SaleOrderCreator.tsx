@@ -11,14 +11,12 @@ import { createSaleOrderSheet, readQuotationSheetData, uploadFile, getSetting, s
 import { formatToInputDate } from "../../../utils/time";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
 import PrintableSaleOrder from "../../pdf/PrintableSaleOrder";
+import PdfPreviewPane from "../../pdf/PdfPreviewPane";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
-import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, List, Loader2 } from 'lucide-react';
+import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, ChevronDown, ChevronUp, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, List, Loader2 } from 'lucide-react';
 import Spinner from "../../common/Spinner";
 import SuccessModal from "../../modals/SuccessModal";
-import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
 import { generatePDF } from "@/lib/pdfClient";
-import PDFConfigModal from "../../modals/PDFConfigModal";
-import PDFControlField from "../../pdf/PDFControlField";
 import { useToast } from "../../../contexts/ToastContext";
 import SearchableSelect from "../../common/SearchableSelect";
 import { ScrollArea } from "../../ui/scroll-area";
@@ -181,13 +179,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
     const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
 
-    const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
-    const [showPdfConfig, setShowPdfConfig] = useState(false);
-    const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
-    const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
-    const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+    const [signaturePadding, setSignaturePadding] = useState(0);
+    const [labelPadding, setLabelPadding] = useState(200);
 
     const applyBullet = (itemId: string, bulletChar: string) => {
         setItems(prev => prev.map(item => {
@@ -206,75 +200,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         }));
     };
 
-    const updateLayout = (path: string, value: any) => {
-        setPdfLayout(prev => {
-            const next = JSON.parse(JSON.stringify(prev));
-            const setVal = (obj: any, p: string, v: any) => {
-                const k = p.split('.');
-                let c = obj;
-                for (let i = 0; i < k.length - 1; i++) c = c[k[i]];
-                c[k[k.length - 1]] = v;
-            };
-            setVal(next, path, value);
-            if (path === 'header.companyName.x') {
-                const newX = Number(value);
-                setVal(next, 'header.contactInfo.x', newX);
-                setVal(next, 'header.address.x', newX);
-            }
-            if (path === 'header.companyName.y') {
-                const oldY = prev.header.companyName.y;
-                const newY = Number(value);
-                const delta = newY - oldY;
-                setVal(next, 'header.contactInfo.y', prev.header.contactInfo.y + delta);
-                setVal(next, 'header.address.y', prev.header.address.y + delta);
-                setVal(next, 'header.separatorLine.y', prev.header.separatorLine.y + delta);
-                setVal(next, 'title.y', prev.title.y + delta);
-            }
-            localStorage.setItem('global_pdf_layout', JSON.stringify(next));
-            return next;
-        });
-    };
-
-    useEffect(() => {
-        const loadGlobalLayout = async () => {
-            const dbLayout = await getSetting('global_pdf_layout');
-            if (dbLayout && typeof dbLayout === 'object' && Object.keys(dbLayout).length > 0) {
-                if (dbLayout.footer && dbLayout.footer.y < 260) {
-                    dbLayout.footer.y = defaultLayoutConfig.footer.y;
-                    await saveSetting('global_pdf_layout', dbLayout);
-                }
-                setPdfLayout(dbLayout);
-                localStorage.setItem('global_pdf_layout', JSON.stringify(dbLayout));
-                return;
-            }
-            const savedLayout = localStorage.getItem('global_pdf_layout');
-            if (savedLayout) {
-                try {
-                    const parsed = JSON.parse(savedLayout);
-                    if (parsed && typeof parsed === 'object') {
-                        if (parsed.footer && parsed.footer.y < 260) {
-                            parsed.footer.y = defaultLayoutConfig.footer.y;
-                            localStorage.setItem('global_pdf_layout', JSON.stringify(parsed));
-                            await saveSetting('global_pdf_layout', parsed);
-                        }
-                        setPdfLayout(parsed);
-                    }
-                } catch (e) {
-                    console.error("Failed to load global PDF layout", e);
-                }
-            }
-        };
-        loadGlobalLayout();
-    }, []);
-
-    const handleSaveLayout = async () => {
-        try {
-            await saveSetting('global_pdf_layout', pdfLayout);
-            addToast('Layout saved as global default!', 'success');
-        } catch (e: any) {
-            addToast(`Failed to save layout: ${e.message}`, 'error');
-        }
-    };
 
     const isFromQuote = useMemo(() => !!existingSaleOrder?.['Quote No'], [existingSaleOrder]);
 
@@ -757,6 +682,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             })),
             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
+            signaturePadding,
             previewMode: false,
             filename: `SaleOrder_${saleOrder['SO No']}.pdf`
         });
@@ -798,22 +724,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 border-r border-border pr-3 mr-1">
                 <button
-                    onClick={() => setShowPdfPreview(!showPdfPreview)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showPdfPreview ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="hidden lg:inline">{showPdfPreview ? 'Hide PDF' : 'PDF'}</span>
-                </button>
-                <button
-                    onClick={() => setShowLayoutControls(!showLayoutControls)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showLayoutControls ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span className="hidden lg:inline">{showLayoutControls ? 'Hide Controls' : 'Layout'}</span>
-                </button>
-                <button
                     onClick={() => setShowFormPanel(!showFormPanel)}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showFormPanel ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
                 >
@@ -848,183 +758,45 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 rightActions={headerRight}
             >
                 <div className="screen-only h-full flex relative overflow-hidden">
-                    {/* Center area: PDF Layout + Preview */}
-                    <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview && !showLayoutControls) ? 'hidden' : ''}`}>
-                        {/* Layout Controls */}
-                        <div className={`w-full border-b border-border flex flex-col bg-card transition-all duration-300 ease-in-out flex-shrink-0 ${showLayoutControls ? 'h-[320px] opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
-                            <div className="flex px-4 items-center justify-between border-b border-border bg-muted/30 h-10">
-                                <div className="flex gap-1 h-full items-center">
-                                    {[
-                                        { id: 'header', label: 'Header', activeColor: 'bg-blue-500', textColor: 'text-blue-600' },
-                                        { id: 'table', label: 'Table', activeColor: 'bg-emerald-500', textColor: 'text-emerald-600' },
-                                        { id: 'footer', label: 'Footer', activeColor: 'bg-purple-500', textColor: 'text-purple-600' }
-                                    ].map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-4 h-7 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? `bg-background ${tab.textColor} shadow-sm border border-border` : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full ${activeTab === tab.id ? tab.activeColor : 'bg-muted-foreground/30'}`} />
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setShowPdfConfig(true)} className="px-3 h-8 text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-tight flex items-center gap-1.5">
-                                        Advanced
-                                    </button>
-                                    <button onClick={handleSaveLayout} className="px-4 h-8 bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 transition-all shadow-sm active:scale-95">
-                                        <Save className="w-3 h-3" /> Save Default
-                                    </button>
-                                </div>
-                            </div>
+                    <div className="flex-1 flex flex-col relative overflow-hidden">
 
-                            <ScrollArea className="flex-1 p-4">
-                                {activeTab === 'header' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Logo</h3>
-                                                <button onClick={() => { updateLayout('header.logo.x', defaultLayoutConfig.header.logo.x); updateLayout('header.logo.y', defaultLayoutConfig.header.logo.y); updateLayout('header.logo.width', defaultLayoutConfig.header.logo.width); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="X (mm)" path="header.logo.x" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Y (mm)" path="header.logo.y" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Width (mm)" path="header.logo.width" min={10} max={120} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><Type className="w-3.5 h-3.5" /> Company Name</h3>
-                                                <button onClick={() => { updateLayout('header.companyName.fontSize', defaultLayoutConfig.header.companyName.fontSize); updateLayout('header.contactInfo.fontSize', defaultLayoutConfig.header.contactInfo.fontSize); updateLayout('header.address.fontSize', defaultLayoutConfig.header.address.fontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Co. Font" path="header.companyName.fontSize" min={8} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Contact Font" path="header.contactInfo.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Address Font" path="header.address.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Separator & Title</h3>
-                                                <button onClick={() => { updateLayout('header.separatorLine.y', defaultLayoutConfig.header.separatorLine.y); updateLayout('title.y', defaultLayoutConfig.title.y); updateLayout('title.fontSize', defaultLayoutConfig.title.fontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Separator Y" path="header.separatorLine.y" min={10} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Title Y" path="title.y" min={20} max={150} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Title Size" path="title.fontSize" min={12} max={24} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Order Info</h3>
-                                                <button onClick={() => { updateLayout('info.startY', defaultLayoutConfig.info.startY); updateLayout('info.fontSize', defaultLayoutConfig.info.fontSize); updateLayout('info.rowHeight', defaultLayoutConfig.info.rowHeight); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Start Y" path="info.startY" min={30} max={150} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Font Size" path="info.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                                <PDFControlField label="Row Spacing" path="info.rowHeight" min={4} max={12} step={0.5} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="blue" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {activeTab === 'table' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Table Setup</h3>
-                                                <button onClick={() => { updateLayout('table.startY', defaultLayoutConfig.table.startY); updateLayout('table.fontSize', defaultLayoutConfig.table.fontSize); updateLayout('table.descriptionFontSize', defaultLayoutConfig.table.descriptionFontSize); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Start Y" path="table.startY" min={60} max={250} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Header Size" path="table.fontSize" min={6} max={14} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Content Size" path="table.descriptionFontSize" min={6} max={12} step={0.5} unit="pt" layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Margins</h3>
-                                                <button onClick={() => { updateLayout('table.margins.left', defaultLayoutConfig.table.margins.left); updateLayout('table.margins.right', defaultLayoutConfig.table.margins.right); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Left Margin" path="table.margins.left" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                <PDFControlField label="Right Margin" path="table.margins.right" min={5} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                            </div>
-                                        </div>
-                                        <div className="lg:col-span-2 space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1.5"><Layout className="w-3.5 h-3.5" /> Column Widths</h3>
-                                                <button onClick={() => { updateLayout('table.columnWidths.no', defaultLayoutConfig.table.columnWidths.no); updateLayout('table.columnWidths.itemCode', defaultLayoutConfig.table.columnWidths.itemCode); updateLayout('table.columnWidths.qty', defaultLayoutConfig.table.columnWidths.qty); updateLayout('table.columnWidths.unitPrice', defaultLayoutConfig.table.columnWidths.unitPrice); updateLayout('table.columnWidths.total', defaultLayoutConfig.table.columnWidths.total); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm">
-                                                <div className="divide-y divide-border/20">
-                                                    <PDFControlField label="No. Column" path="table.columnWidths.no" min={5} max={30} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Code Column" path="table.columnWidths.itemCode" min={10} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Qty Column" path="table.columnWidths.qty" min={10} max={40} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Price Column" path="table.columnWidths.unitPrice" min={15} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                    <PDFControlField label="Total Column" path="table.columnWidths.total" min={15} max={60} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="emerald" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {activeTab === 'footer' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h3 className="text-xs font-bold text-purple-500 uppercase flex items-center gap-1.5"><ScrollText className="w-3.5 h-3.5" /> Terms & Signature</h3>
-                                                <button onClick={() => { updateLayout('terms.spacingBefore', defaultLayoutConfig.terms.spacingBefore); updateLayout('footer.y', defaultLayoutConfig.footer.y); updateLayout('footer.preparedBy.x', defaultLayoutConfig.footer.preparedBy.x); updateLayout('footer.approvedBy.x', defaultLayoutConfig.footer.approvedBy.x); }} className="text-[9px] font-bold text-muted-foreground hover:text-brand-500 flex items-center gap-1 group"><RotateCcw className="w-2.5 h-2.5 group-hover:rotate-[-45deg] transition-transform" /> Default</button>
-                                            </div>
-                                            <div className="bg-muted/40 p-2 rounded-xl border border-border/50 shadow-sm space-y-1">
-                                                <PDFControlField label="Terms Spacing" path="terms.spacingBefore" min={0} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Vertical Y" path="footer.y" min={150} max={290} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Prepared X" path="footer.preparedBy.x" min={10} max={100} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                                <PDFControlField label="Approved X" path="footer.approvedBy.x" min={100} max={200} layout={pdfLayout} onUpdate={updateLayout} onHover={setHoveredPath} hoveredPath={hoveredPath} accentColor="purple" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </ScrollArea>
-                        </div>
 
                         {/* PDF Preview */}
-                        <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
-                            <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
-                                        <p className="text-[10px] text-muted-foreground">{saleOrder['SO No'] || 'SO-0000000'} • {saleOrder['Company Name'] || 'No Company'}</p>
-                                    </div>
-                                </div>
-                                <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
-                            </div>
-                            <div className="flex-1 overflow-auto bg-muted/30 p-4 flex justify-center">
-                                <div className="w-[794px] min-h-[1123px] bg-white shadow-lg">
-                                    <PrintableSaleOrder
-                                        headerData={{
-                                            ...saleOrder,
-                                            'Sale Order ID': saleOrder['SO No'],
-                                            'Order Date': saleOrder['SO Date'],
-                                            'Delivery Date': saleOrder['Delivery Date'],
-                                            'Company Name': saleOrder['Company Name'],
-                                            'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
-                                            'Contact Person': saleOrder['Contact Name'],
-                                            'Contact Tel': saleOrder['Phone Number'],
-                                            'Payment Term': saleOrder['Payment Term'],
-                                            'Bill Invoice': saleOrder['Bill Invoice'],
-                                        }}
-                                        items={items.filter(item => item.no > 0)}
-                                        totals={{ subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal }}
-                                        currency={(saleOrder.Currency as 'USD' | 'KHR') || 'USD'}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        <PdfPreviewPane
+                            docLabel={`${saleOrder['SO No'] || 'SO-0000000'} • ${saleOrder['Company Name'] || 'No Company Selected'}`}
+                            signaturePadding={signaturePadding}
+                            onSignaturePaddingChange={setSignaturePadding}
+                            labelPadding={labelPadding}
+                            onLabelPaddingChange={setLabelPadding}
+                            pdfOptions={{
+                                type: 'Sale Order',
+                                headerData: {
+                                    ...saleOrder,
+                                    'Sale Order ID': saleOrder['SO No'],
+                                    'Order Date': saleOrder['SO Date'],
+                                    'Delivery Date': saleOrder['Delivery Date'],
+                                    'Company Name': saleOrder['Company Name'],
+                                    'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+                                    'Contact Person': saleOrder['Contact Name'],
+                                    'Contact Tel': saleOrder['Phone Number'],
+                                    'Payment Term': saleOrder['Payment Term'],
+                                    'Bill Invoice': saleOrder['Bill Invoice'],
+                                    'Install Software': saleOrder['Install Software'],
+                                    'Remark': saleOrder['Remark'] || '',
+                                },
+                                items: items.filter(i => i.no > 0).map(i => ({
+                                    no: i.no, itemCode: i.itemCode, modelName: i.modelName,
+                                    description: i.description, qty: i.qty,
+                                    unitPrice: i.unitPrice, amount: i.amount,
+                                })),
+                                totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
+                                currency: (saleOrder.Currency as 'USD' | 'KHR') || 'USD',
+                            }}
+                        />
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <div className={`bg-background transition-all duration-300 ease-in-out flex flex-col ${showFormPanel ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'} ${showPdfPreview ? 'border-l border-border flex-shrink-0 w-[500px]' : 'flex-1 max-w-4xl mx-auto'}`}>
+                    <div className={`bg-background border-l border-border transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
@@ -1063,7 +835,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <FormInput name="Prepared By Position" label="Position" value={saleOrder['Prepared By Position']} onChange={handleHeaderChange} />
                                     <FormInput name="Approved By Position" label="Position" value={saleOrder['Approved By Position']} onChange={handleHeaderChange} />
                                     <FormTextarea name="Remark" label="Remark" value={saleOrder.Remark} onChange={handleHeaderChange} rows={3} />
+                                </FormSection>
 
+                                <FormSection title="Software Setup">
                                     <div className="mb-4 md:col-span-2">
                                         <label className="block text-xs font-bold text-muted-foreground/70 uppercase tracking-wide mb-2">Set up software</label>
                                         <div className="flex gap-2 mb-3">
@@ -1270,14 +1044,10 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 />
             )}
 
-            <PDFConfigModal
-                isOpen={showPdfConfig}
-                onClose={() => setShowPdfConfig(false)}
-                onGenerate={(layout) => { setPdfLayout(layout); setShowPdfConfig(false); }}
-                currentLayout={pdfLayout}
-            />
+
         </>
     );
 };
 
 export default SaleOrderCreator;
+

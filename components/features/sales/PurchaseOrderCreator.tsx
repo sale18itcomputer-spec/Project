@@ -1,26 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import { PurchaseOrder, PurchaseOrderItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { supabase } from "../../../lib/supabase";
-import { Plus, Trash2, Save, ShoppingCart, PanelRight, Download, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, ShoppingCart, PanelRight, Download, Loader2 } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from "../../common/FormControls";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { formatToInputDate } from "../../../utils/time";
-import { getSetting, saveSetting } from "../../../services/api";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
-import PDFControlField from "../../pdf/PDFControlField";
-import { PDFLayoutConfig, defaultLayoutConfig } from "../../pdf/pdfGenerator";
 import { generatePDF } from "@/lib/pdfClient";
-// Dynamically import browser-only libraries
-// Dynamically import browser-only libraries
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-import 'react-quill/dist/quill.snow.css';
-
 
 const STRIP_HTML = (html: string) => {
     if (!html) return '';
@@ -33,14 +24,10 @@ const STRIP_HTML = (html: string) => {
             } else if (node.nodeType === Node.ELEMENT_NODE) {
                 const el = node as HTMLElement;
                 const tagName = el.tagName.toLowerCase();
-
                 if (tagName === 'br') text += '\n';
-
-                // Add newline before block elements if not already there
                 if ((tagName === 'p' || tagName === 'div' || tagName === 'ul' || tagName === 'ol' || tagName.match(/^h[1-6]$/)) && text.length > 0 && !text.endsWith('\n')) {
                     text += '\n';
                 }
-
                 if (tagName === 'li') {
                     if (text.length > 0 && !text.endsWith('\n')) text += '\n';
                     const parent = el.parentElement;
@@ -51,64 +38,16 @@ const STRIP_HTML = (html: string) => {
                         text += '  - ';
                     }
                 }
-
-                // Handle indentation classes from Quill
-                if (el.className && typeof el.className === 'string' && el.className.includes('ql-indent-')) {
-                    const match = el.className.match(/ql-indent-(\d+)/);
-                    if (match && match[1]) {
-                        const indentLevel = parseInt(match[1], 10);
-                        text += '    '.repeat(indentLevel);
-                    }
-                }
-
                 node.childNodes.forEach(processNode);
-
-                // Add newline after block elements
                 if (tagName === 'p' || tagName === 'div' || tagName === 'li' || tagName.match(/^h[1-6]$/)) {
                     if (!text.endsWith('\n')) text += '\n';
                 }
             }
         };
         doc.body.childNodes.forEach(processNode);
-
         return text.replace(/\n{3,}/g, '\n\n').trim();
     } catch {
-        let fallback = html.replace(/<br\s*[\/]?>/gi, '\n');
-        fallback = fallback.replace(/<\/p><p>/gi, '\n');
-        fallback = fallback.replace(/<li[^>]*>/gi, '  - ');
-        fallback = fallback.replace(/<\/div><div>/gi, '\n');
-        fallback = fallback.replace(/<\/p>/gi, '\n');
-        fallback = fallback.replace(/<\/div>/gi, '\n');
-        fallback = fallback.replace(/<\/li>/gi, '\n');
-        fallback = fallback.replace(/<[^>]+>/ig, '');
-        return fallback.trim();
-    }
-};
-
-const CustomToolbar = () => (
-    <div id="global-quill-toolbar" className="ql-toolbar ql-snow flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 w-full !border-0 border-b">
-        <span className="ql-formats">
-            <select className="ql-header" defaultValue="normal">
-                <option value="normal">Normal</option>
-                <option value="1">Heading 1</option>
-                <option value="2">Heading 2</option>
-            </select>
-        </span>
-        <span className="ql-formats">
-            <button className="ql-list" value="ordered"></button>
-            <button className="ql-list" value="bullet"></button>
-            <button className="ql-indent" value="-1"></button>
-            <button className="ql-indent" value="+1"></button>
-        </span>
-        <span className="ql-formats">
-            <button className="ql-clean"></button>
-        </span>
-    </div>
-);
-
-const QUILL_MODULES = {
-    toolbar: {
-        container: '#global-quill-toolbar'
+        return html.replace(/<[^>]+>/ig, '').trim();
     }
 };
 
@@ -137,7 +76,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         remarks: '',
         prepared_by: currentUser?.Name || '',
         prepared_by_position: currentUser ? (
-            currentUser.Name?.toLowerCase().includes('sreyneang') 
+            currentUser.Name?.toLowerCase().includes('sreyneang')
                 ? '017 594 524 | 010 345 994'
                 : [
                     currentUser.Role,
@@ -154,7 +93,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
         { line_number: 1, item_number: '', description: '', qty: 1, unit_price: 0 }
     ]);
 
-    // Restore items from sessionStorage when duplicating
     useEffect(() => {
         if (!existingPO && initialData) {
             const stored = sessionStorage.getItem('duplicate_purchase_order_items');
@@ -164,7 +102,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     if (Array.isArray(parsedItems) && parsedItems.length > 0) {
                         setItems(parsedItems.map((item: any, idx: number) => ({
                             ...item,
-                            id: undefined, // Let DB generate new IDs
+                            id: undefined,
                             purchase_order_id: undefined,
                             line_number: idx + 1
                         })));
@@ -179,84 +117,16 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
     }, [existingPO, initialData]);
 
     const [isSaving, setIsSaving] = useState(false);
-
-    // PDF Configuration State
-    const [pdfLayout, setPdfLayout] = useState<PDFLayoutConfig>(defaultLayoutConfig);
-    const [showLayoutControls, setShowLayoutControls] = useState(false);
     const [showFormPanel] = useState(true);
     const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [activeTab, setActiveTab] = useState<'header' | 'table' | 'footer'>('header');
-    const [hoveredPath, setHoveredPath] = useState<string | null>(null);
-
-    const updateLayout = (path: string, value: any) => {
-        setPdfLayout(prev => {
-            const next = JSON.parse(JSON.stringify(prev));
-            const setVal = (obj: any, p: string, v: any) => {
-                const k = p.split('.');
-                let c = obj;
-                for (let i = 0; i < k.length - 1; i++) c = c[k[i]];
-                c[k[k.length - 1]] = v;
-            };
-            setVal(next, path, value);
-
-            if (path === 'header.companyName.x') {
-                const newX = Number(value);
-                setVal(next, 'header.contactInfo.x', newX);
-                setVal(next, 'header.address.x', newX);
-            }
-            if (path === 'header.companyName.y') {
-                const oldY = prev.header.companyName.y;
-                const newY = Number(value);
-                const delta = newY - oldY;
-
-                setVal(next, 'header.contactInfo.y', prev.header.contactInfo.y + delta);
-                setVal(next, 'header.address.y', prev.header.address.y + delta);
-                setVal(next, 'header.separatorLine.y', prev.header.separatorLine.y + delta);
-                setVal(next, 'title.y', prev.title.y + delta);
-            }
-
-            localStorage.setItem('global_pdf_layout', JSON.stringify(next));
-            return next;
-        });
-    };
-
-    useEffect(() => {
-        const loadGlobalLayout = async () => {
-            const dbLayout = await getSetting('global_pdf_layout');
-            if (dbLayout && typeof dbLayout === 'object' && Object.keys(dbLayout).length > 0) {
-                setPdfLayout(dbLayout);
-                return;
-            }
-            const savedLayout = localStorage.getItem('global_pdf_layout');
-            if (savedLayout) {
-                try {
-                    const parsed = JSON.parse(savedLayout);
-                    if (parsed && typeof parsed === 'object') {
-                        setPdfLayout(parsed);
-                    }
-                } catch { }
-            }
-        };
-        loadGlobalLayout();
-    }, []);
-
-    const handleSaveLayout = async () => {
-        try {
-            await saveSetting('global_pdf_layout', pdfLayout);
-            addToast('Layout saved as global default!', 'success');
-        } catch (e: any) {
-            addToast(`Failed to save layout: ${e.message}`, 'error');
-        }
-    };
 
     const totals = useMemo(() => {
         const sub_total = items.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
         const isVAT = formData.tax_type === 'VAT';
-        const vat_amount = isVAT ? sub_total * 0.1 : 0; // 10% VAT
+        const vat_amount = isVAT ? sub_total * 0.1 : 0;
         const grand_total = sub_total + vat_amount;
         return { sub_total, vat_amount, grand_total };
     }, [items, formData.tax_type]);
-
 
     useEffect(() => {
         if (existingPO) {
@@ -285,7 +155,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             const lastNumber = parseInt(lastPO.split('-').pop() || '0');
             nextNumber = lastNumber + 1;
         }
-
         setFormData(prev => ({ ...prev, po_number: `PO-${dateStr}-${String(nextNumber).padStart(3, '0')}` }));
     };
 
@@ -295,17 +164,12 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             .select('*')
             .eq('po_id', poId)
             .order('line_number', { ascending: true });
-
-        if (data) {
-            setItems(data);
-        }
+        if (data) setItems(data);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-
-        // Auto-fill vendor info if vendor_id changes
         if (name === 'vendor_id' && vendors) {
             const vendor = vendors.find(v => v.id === value);
             if (vendor) {
@@ -342,16 +206,12 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             addToast('Please select a vendor', 'error');
             return;
         }
-
         setIsSaving(true);
         try {
-            // Clean up payload by removing fields that shouldn't be in the update/insert object
             const { items: _, id: __, created_at: ___, updated_at: ____, ...cleanFormData } = formData as any;
-
             const poPayload = {
                 ...cleanFormData,
                 ...totals,
-                // Ensure dates and UUIDs are sent as null if empty to avoid Postgres errors
                 order_date: cleanFormData.order_date || null,
                 delivery_date: cleanFormData.delivery_date || null,
                 vendor_id: cleanFormData.vendor_id || null,
@@ -360,7 +220,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             };
 
             let poId = formData.id;
-
             if (poId) {
                 const { error } = await supabase.from('purchase_orders').update(poPayload).eq('id', poId);
                 if (error) throw error;
@@ -370,8 +229,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 poId = (data as any)[0].id;
             }
 
-            // Upsert Items
-            // For simplicity, delete and re-insert items for existing POs
             if (formData.id) {
                 await supabase.from('purchase_order_items').delete().eq('po_id', poId);
             }
@@ -388,14 +245,13 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
             if (itemsError) throw itemsError;
 
-            // If PO is Completed, push items to vendor_pricelist
             if (formData.status === 'Completed') {
                 try {
                     const pricelistPayload = items
                         .filter(item => item.item_number || item.description)
                         .map(item => ({
                             vendor_id: formData.vendor_id,
-                            brand: '', // To be added by user later
+                            brand: '',
                             model_name: item.item_number || STRIP_HTML(item.description).substring(0, 50) || 'N/A',
                             specification: STRIP_HTML(item.description),
                             dealer_price: item.unit_price,
@@ -410,7 +266,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                         addToast('Items automatically added to Vendor Pricelist!', 'success');
                     }
                 } catch (pe: any) {
-                    console.error("Pricelist sync error:", pe);
                     addToast(`PO saved, but pricelist sync failed: ${pe.message}`, 'info');
                 }
             }
@@ -419,7 +274,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             onBack();
         } catch (err: any) {
             addToast(`Error saving PO: ${err.message}`, 'error');
-            console.error(err);
         } finally {
             setIsSaving(false);
         }
@@ -465,7 +319,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 type: 'Purchase Order',
             });
         } catch (error: any) {
-            console.error("PDF Download Error", error);
             addToast(`Error downloading PDF: ${error.message}`, 'error');
         }
     };
@@ -484,13 +337,6 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition text-sm font-semibold shrink-0 shadow-sm ${showPdfPreview ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border'}`}
             >
                 <PanelRight className="w-4 h-4" /> {showPdfPreview ? 'Hide Preview' : 'Show Preview'}
-            </button>
-            <button
-                type="button"
-                onClick={() => setShowLayoutControls(!showLayoutControls)}
-                className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition text-sm font-semibold shrink-0 shadow-sm ${showLayoutControls ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border'}`}
-            >
-                <SlidersHorizontal className="w-4 h-4" /> {showLayoutControls ? 'Hide Layout' : 'Layout Controls'}
             </button>
             <button
                 type="button"
@@ -516,189 +362,34 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             rightActions={headerRight}
         >
             <div className="h-full flex relative overflow-hidden screen-only">
-                {/* PDF Area */}
-                <div className={`flex-1 flex flex-col relative overflow-hidden ${(!showPdfPreview && !showLayoutControls) ? 'hidden' : ''}`}>
-                    {/* Top: Collapsible Layout Controls with Horizontal Tabs */}
-                    <div className={`w-full border-b border-border flex flex-col bg-card transition-all duration-300 ease-in-out flex-shrink-0 ${showLayoutControls ? 'h-[320px] opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
-                        <div className="flex px-4 items-center justify-between border-b border-border bg-muted/30 h-10">
-                            <div className="flex gap-1 h-full items-center">
-                                {[
-                                    { id: 'header', label: 'Header', activeColor: 'bg-blue-500', textColor: 'text-blue-600' },
-                                    { id: 'table', label: 'Table', activeColor: 'bg-emerald-500', textColor: 'text-emerald-600' },
-                                    { id: 'footer', label: 'Footer', activeColor: 'bg-purple-500', textColor: 'text-purple-600' }
-                                ].map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id as any)}
-                                        className={`px-4 h-7 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab.id
-                                            ? `bg-background ${tab.textColor} shadow-sm border border-border`
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                                            }`}
-                                    >
-                                        <div className={`w-2 h-2 rounded-full ${activeTab === tab.id ? tab.activeColor : 'bg-muted-foreground/30'}`} />
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            {activeTab === 'header' && (
-                                <div className="space-y-4">
-                                    <div className="space-y-3 pb-4 border-b border-border">
-                                        <h4 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Logo & Company Name</h4>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <PDFControlField
-                                                label="Logo Size"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={10} max={100}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="header.logo.width"
-                                            />
-                                            <PDFControlField
-                                                label="Title Font Size"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={8} max={24}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="title.fontSize"
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4 mt-2">
-                                            <PDFControlField
-                                                label="Header Content Left/Right"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={10} max={100}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="header.companyName.x"
-                                            />
-                                            <PDFControlField
-                                                label="Header Content Up/Down"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={0} max={50}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="header.companyName.y"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 pb-4 border-b border-border">
-                                        <h4 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Document Information Grid</h4>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <PDFControlField
-                                                label="Grid Y Position"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={10} max={100}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="info.startY"
-                                            />
-                                            <PDFControlField
-                                                label="Grid Font Size"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={6} max={14}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="info.fontSize"
-                                            />
-                                            <PDFControlField
-                                                label="Row Height"
-                                                layout={pdfLayout}
-                                                onUpdate={updateLayout}
-                                                min={4} max={15} step={0.5}
-                                                onHover={setHoveredPath} hoveredPath={hoveredPath} path="info.rowHeight"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'table' && (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <PDFControlField
-                                            label="Table Start Position (Y)"
-                                            layout={pdfLayout}
-                                            onUpdate={updateLayout}
-                                            min={30} max={150}
-                                            onHover={setHoveredPath} hoveredPath={hoveredPath} path="table.startY"
-                                        />
-                                        <PDFControlField
-                                            label="Base Font Size"
-                                            layout={pdfLayout}
-                                            onUpdate={updateLayout}
-                                            min={6} max={14}
-                                            onHover={setHoveredPath} hoveredPath={hoveredPath} path="table.fontSize"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'footer' && (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <PDFControlField
-                                            label="Footer Y Position"
-                                            layout={pdfLayout}
-                                            onUpdate={updateLayout}
-                                            min={100} max={280}
-                                            onHover={setHoveredPath} hoveredPath={hoveredPath} path="footer.y"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="mt-4 flex justify-end gap-2 p-2 bg-muted/30 rounded-lg">
-                                <button
-                                    onClick={handleSaveLayout}
-                                    className="px-3 py-1.5 bg-foreground text-background text-xs font-semibold rounded hover:opacity-80 transition"
-                                >
-                                    Save as Default Layout
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setPdfLayout(defaultLayoutConfig);
-                                        localStorage.setItem('global_pdf_layout', JSON.stringify(defaultLayoutConfig));
-                                    }}
-                                    className="px-3 py-1.5 bg-rose-500/10 text-rose-500 text-xs font-semibold rounded hover:bg-rose-500/20 transition"
-                                >
-                                    Reset Settings
-                                </button>
+                {/* PDF Preview Panel */}
+                <div className={`flex-1 flex flex-col relative overflow-hidden ${!showPdfPreview ? 'hidden' : ''}`}>
+                    <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
+                                <p className="text-[10px] text-muted-foreground">{formData.po_number || 'PO-0000000'} • {vendors?.find(v => v.id === formData.vendor_id)?.vendor_name || 'No Vendor'}</p>
                             </div>
                         </div>
                     </div>
-
-                    {/* Center: PDF Preview */}
-                    <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
-                            <div className="flex items-center gap-3">
-                                <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-foreground">PDF Layout Preview</h3>
-                                    <p className="text-[10px] text-muted-foreground">{formData.po_number || 'PO-0000000'} • {vendors?.find(v => v.id === formData.vendor_id)?.vendor_name || 'No Vendor'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="text-xs text-muted-foreground font-medium px-2">Real-time Preview</div>
-                            </div>
+                    <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 p-8 text-center gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center">
+                            <Download className="w-8 h-8 text-brand-500" />
                         </div>
-
-                        <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 p-8 text-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center">
-                                <Download className="w-8 h-8 text-brand-500" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-foreground">Live Preview Unavailable</h3>
-                                <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                                    Click <strong>Download PDF</strong> above to generate the final Puppeteer-rendered PDF.
-                                </p>
-                            </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-foreground">Live Preview Unavailable</h3>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                                Click <strong>Download PDF</strong> above to generate the final PDF.
+                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Form Area */}
-                <div className={`flex flex-col relative bg-background transition-all duration-300 ease-in-out ${(!showPdfPreview && !showLayoutControls) ? 'w-full' : (showFormPanel ? 'w-full lg:w-[600px] 2xl:w-[700px] border-l border-border' : 'w-0 opacity-0 overflow-hidden border-none')}`}>
+                <div className={`flex flex-col relative bg-background transition-all duration-300 ease-in-out ${(!showPdfPreview) ? 'w-full' : (showFormPanel ? 'w-full lg:w-[600px] 2xl:w-[700px] border-l border-border' : 'w-0 opacity-0 overflow-hidden border-none')}`}>
                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                         <div className="grid grid-cols-1 gap-6">
-                            {/* Vendor & Details Section */}
                             <FormSection title="Vendor Information">
                                 <div className="flex flex-col md:col-span-2 mb-2">
                                     <label className="text-sm font-medium text-foreground mb-1.5">Load from Database</label>
@@ -726,20 +417,8 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                             <FormSection title="Order Details">
                                 <FormInput name="po_number" label="PO Number #" value={formData.po_number || ''} onChange={handleInputChange} readOnly />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <FormSelect
-                                        name="status"
-                                        label="Status"
-                                        value={formData.status || 'Draft'}
-                                        onChange={handleInputChange}
-                                        options={['Draft', 'Approved', 'Sent', 'Completed', 'Cancelled']}
-                                    />
-                                    <FormSelect
-                                        name="tax_type"
-                                        label="Tax Type"
-                                        value={formData.tax_type || 'VAT'}
-                                        onChange={handleInputChange}
-                                        options={['VAT', 'NON-VAT']}
-                                    />
+                                    <FormSelect name="status" label="Status" value={formData.status || 'Draft'} onChange={handleInputChange} options={['Draft', 'Approved', 'Sent', 'Completed', 'Cancelled']} />
+                                    <FormSelect name="tax_type" label="Tax Type" value={formData.tax_type || 'VAT'} onChange={handleInputChange} options={['VAT', 'NON-VAT']} />
                                 </div>
                                 <FormInput name="order_date" label="Order Date" value={formData.order_date || ''} onChange={handleInputChange} type="date" />
                                 <FormInput name="delivery_date" label="Delivery Date" value={formData.delivery_date || ''} onChange={handleInputChange} type="date" />
@@ -756,15 +435,9 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                             <div className="bg-muted/30 px-4 py-3 border-b border-border flex justify-between items-center">
                                 <h3 className="font-bold flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-brand-500" /> Line Items</h3>
-                                <div className="flex items-center gap-4">
-                                    <button onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
-                                        <Plus className="w-4 h-4" /> Add Item
-                                    </button>
-                                </div>
-                            </div>
-                            {/* Global Sticky Toolbar */}
-                            <div className="border-b border-border sticky top-0 z-10 w-full overflow-x-auto bg-muted/50 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:!px-2 [&_.ql-toolbar]:!py-1.5 [&_.ql-toolbar]:w-full [&_.ql-picker]:font-sans">
-                                <CustomToolbar />
+                                <button onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
+                                    <Plus className="w-4 h-4" /> Add Item
+                                </button>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse min-w-[700px]">
@@ -792,16 +465,13 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                                     />
                                                 </td>
                                                 <td className="px-2 py-3 min-w-[300px]">
-                                                    <div className="bg-background rounded border border-border/50 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all shadow-sm overflow-hidden" style={{ minHeight: '60px' }}>
-                                                        <ReactQuill
-                                                            theme="snow"
-                                                            value={item.description}
-                                                            onChange={(val) => handleItemChange(index, 'description', val)}
-                                                            modules={QUILL_MODULES}
-                                                            placeholder="Add detailed description..."
-                                                            className="h-full border-none [&_.ql-toolbar]:hidden [&_.ql-container]:border-none [&_.ql-editor]:min-h-[50px] [&_.ql-editor]:text-sm [&_.ql-editor]:px-3 [&_.ql-editor]:py-2"
-                                                        />
-                                                    </div>
+                                                    <textarea
+                                                        className="w-full bg-background rounded border border-border/50 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm text-sm px-3 py-2 resize-y min-h-[60px] outline-none"
+                                                        value={item.description}
+                                                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                                        placeholder="Add detailed description..."
+                                                        rows={2}
+                                                    />
                                                 </td>
                                                 <td className="px-2 py-3">
                                                     <input
@@ -833,8 +503,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                     </tbody>
                                 </table>
                             </div>
-
-                            <div className="bg-muted/10 p-6 flex flex-col justify-end items-end gap-6">
+                            <div className="bg-muted/10 p-6">
                                 <div className="w-full border-t border-border pt-4">
                                     <div className="flex justify-between text-sm py-1">
                                         <span className="text-muted-foreground font-medium">Sub Total:</span>
@@ -875,4 +544,3 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 };
 
 export default PurchaseOrderCreator;
-

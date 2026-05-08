@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tax Invoice - LIMPERIAL TECHNOLOGY CO., LTD.</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Moul&family=Koh+Santepheap:wght@400;700&display=swap" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    body {
+      font-family: 'Koh Santepheap', sans-serif;
+      font-size: 11px;
+      color: #000;
+    }
+
+    .moul-font {
+      font-family: 'Moul', serif;
+    }
+
+    .brand-blue {
+      color: #0056b3;
+    }
+    .bg-brand-blue {
+      background-color: #0056b3;
+    }
+    .border-brand-blue {
+      border-color: #0056b3;
+    }
+
+    table.items-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    table.items-table th, table.items-table td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+    }
+    
+    .header-info p {
+      margin-bottom: 2px;
+    }
+
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background-color: white !important;
+        padding: 0 !important;
+      }
+      .a4-container {
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center py-8">
+<!-- BEGIN: MainInvoiceContainer -->
+<div class="bg-white p-8 w-[210mm] shadow-lg a4-container flex flex-col relative mx-auto" style="min-height: 297mm;">
+<!-- BEGIN: HeaderSection -->
+<header class="mb-6">
+<div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
+<div class="absolute left-0 top-0">
+<img alt="LIMPERIAL Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0uhAXChV1zRhQS95LPzBoKQvG65rS386B7kqWOau8UfdJ0xW3R-6iYSTpbnU4ZozMF2jYMwSToO0rkFQCyrc7VwZqH89JFrFXMwvGJXvtaBmzd8jMbAOp0P60th5rVxqnJ2OwBy9VjjqeQRbvEk0X5OHcjkRLUOrfK-PAR_GLHPv2QDP-UCGNG2aX07stRW63iHjsd3CvbzcRFO2Ab2OMaJQ7gnoTLbNhqelddG3e6cBCCgZD-9Au5TUpV_PtIlDZzdl43_VbOWCDg"/>
+</div>
+<h1 class="text-xl font-bold mb-1 moul-font">លីមភើ រៀ ល ថេ កណឡូជី ឯ.ក</h1>
+<h2 class="text-lg font-bold mb-1 moul-font">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
+<p class="font-bold">លេខអត្តសញ្ញាណកម្មអតប (VAT TIN) : K003-902201968</p>
+<p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី ១ ជាន់ទី ២ ជាន់ទី ៣ និង ជាន់ទី ៤) ផ្លូវ អយស្ម័យយានបូព៌ (១៣៩), ភូមិ១ សង្កាត់ ស្រះចក ខណ្ឌ ដូនពេញ រាជធានីភ្នំពេញ</p>
+<p class="text-[8px] whitespace-nowrap">Address: #B15 ( Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor ), East Railway ( 139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
+<p class="text-[10px]">E-mail: linfo@limperialtech.com || ទូរស័ព្ទ (Telephone): +855 92 218 333</p>
+</div>
+</header>
+<!-- END: HeaderSection -->
+<!-- BEGIN: TitleSection -->
+<div class="text-center mb-6">
+<h3 class="text-xl font-bold moul-font">វិក្កយបត្រអាករ</h3>
+<h4 class="text-lg font-bold moul-font">TAX INVOICE</h4>
+</div>
+<!-- END: TitleSection -->
+<!-- BEGIN: InfoSection - Borderless with Aligned Colons -->
+<div class="flex justify-between gap-8 mb-6">
+<!-- Left Column: Customer Details -->
+<div class="w-[55%]">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[40%]">អតិថិជន / Customer</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]"></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 align-top w-[40%]">អាសយដ្ឋាន / Address</td>
+<td class="border-none py-1 align-top w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]"></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[40%]">លេខអត្តសញ្ញាណកម្ម / VAT TIN</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]"></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[40%]">អ៊ីម៉ែល / E-mail</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[55%]"></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Right Column: Invoice Details -->
+<div class="w-[40%]">
+<table class="w-full border-none">
+<tbody class="text-[10px]">
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">លេខរៀងវិក្កយបត្រ / Invoice Nº</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]">2026-00001</td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">កាលបរិច្ឆេទ / Date</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]"></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">ទំនាក់ទំនង / Contact Person</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]"></td>
+</tr>
+<tr>
+<td class="font-bold border-none py-1 w-[60%]">លេខទូរស័ព្ទ / Telephone</td>
+<td class="border-none py-1 w-[5%] text-center">:</td>
+<td class="border-none py-1 w-[35%]"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- END: InfoSection -->
+<!-- BEGIN: ItemsTableSection -->
+<div class="flex-grow mb-12">
+<table class="items-table w-full mx-auto">
+<thead>
+<tr class="bg-brand-blue text-white text-center text-[9px]">
+<th class="w-[5%] py-2 whitespace-nowrap leading-tight text-center">
+<div>ល.រ</div>
+<div>Nº</div>
+</th>
+<th class="w-[15%] py-2 whitespace-nowrap leading-tight text-center">
+<div>លេខសម្គាល់ទំនិញ</div>
+<div>Part Number</div>
+</th>
+<th class="w-[45%] py-2 whitespace-nowrap leading-tight text-center">
+<div>បរិយាយទំនិញ</div>
+<div>Description</div>
+</th>
+<th class="w-[10%] py-2 whitespace-nowrap leading-tight text-center">
+<div>បរិមាណ</div>
+<div>Qty</div>
+</th>
+<th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center">
+<div>តម្លៃឯកតា</div>
+<div>Unit Price</div>
+</th>
+<th class="w-[13%] py-2 whitespace-nowrap leading-tight text-center">
+<div>តម្លៃទំនិញ</div>
+<div>Amount</div>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr class="h-16 text-center">
+<td class="">1</td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class="align-bottom"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr class="h-16 text-center">
+<td class="">2</td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class="align-bottom"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr class="h-16 text-center">
+<td class="">3</td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class=""></td>
+<td class="align-bottom"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr>
+<td class="align-top p-4" colspan="3" rowspan="6" style="border: none;"><div class="w-full text-[10px] space-y-4">
+<div>
+<h4 class="font-bold text-[11px] underline uppercase mb-1">លក្ខខណ្ឌ / Term &amp; Condition:</h4>
+<ul class="list-disc list-inside space-y-0.5">
+<li>ការធានា (Warranty) សូមមើលព័ត៌មានលម្អិតខាងក្រោមបញ្ជីទំនិញ។ / For warranty details, please refer to the information below the item list.</li>
+<li>ការធានានឹងត្រូវបាត់បង់ប្រសិនបើ: ភ្លើងឆក់, គ្រោះថ្នាក់, បំបែកស្នឹង, ប្រើប្រាស់ខុស, ឬកែប្រែដោយអ្នកណាដែលមិនមែនជា "លីមភើ រៀ ល ថេ កណឡូជី ឯ.ក"។ / Warranty is void if: electric shock, accident, broken seal, misuse, or modification by anyone other than "លីមភើ រៀ ល ថេ កណឡូជី ឯ.ក".</li>
+<li>ទំនិញដែលបានលក់រួចមិនអាចត្រឡប់មកវិញបានទេ ហើយត្រូវបានទទួលក្នុងស្ថានភាពល្អ។ / Goods sold are non-returnable and are received in good condition.</li>
+<li>តម្លៃទំនិញ និងសេវាកម្មត្រូវបង់ក្នុងរយៈពេល ៣០ ថ្ងៃ គិតចាប់ពីកាលបរិច្ឆេទវិក្កយបត្រ។ / Payment is due within 30 days from the invoice date.</li>
+<li>យើងរីករាយរង់ចាំការឆ្លើយតបពីលោក/លោកស្រី។ / We look forward to hearing from you.</li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-[11px] underline uppercase mb-1">ព័ត៌មានការទូទាត់ / Payment Information:</h4>
+<p><span class="font-bold">ធនាគារ / Bank:</span> Advanced Bank of Asia Ltd (ABA Bank)</p>
+<p><span class="font-bold">ឈ្មោះគណនី / Account Name:</span> LIMPERIAL TECHNOLOGY CO., LTD.</p>
+<p><span class="font-bold">លេខគណនី / Account Number:</span> 003 916 564</p>
+</div>
+</div></td>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">ប្រាក់កក់ / Deposit</td>
+<td class="align-middle"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">សរុប / Sub Total</td>
+<td class="align-middle"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">អាករលើតម្លៃបន្ថែម / VAT (10%)</td>
+<td class="align-middle"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">សរុបរួមជាប្រាក់ដុល្លារ / Grand Total in Dollar</td>
+<td class="align-middle"><div class="flex justify-between"><span>$</span><span>-</span></div></td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">អត្រាប្តូរប្រាក់រៀល / Exchange Rate</td>
+<td class="align-middle"></td>
+</tr>
+<tr>
+<td class="font-bold whitespace-nowrap text-[10px] py-1.5 leading-tight text-right" colspan="2">សរុបរួមជាប្រាក់រៀល / Grand Total in Riel</td>
+<td class="align-middle"><div class="flex justify-between"><span>R</span><span>-</span></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- END: ItemsTableSection -->
+<!-- BEGIN: SignatureSection -->
+<div class="mt-auto flex justify-between px-4 pb-8 mx-auto w-full">
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black mb-2"></div>
+<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>
+<p class="font-bold text-[11px]">Customer's Signature &amp; Name</p>
+</div>
+<div class="w-[35%] text-center">
+<div class="border-t-2 border-black mb-2"></div>
+<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកលក់</p>
+<p class="font-bold text-[11px]">Seller's Signature &amp; Name</p>
+</div>
+</div>
+<!-- END: SignatureSection --></div>
+<!-- END: MainInvoiceContainer -->
+</body></html>

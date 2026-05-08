@@ -9,7 +9,7 @@
  */
 
 export interface PdfClientOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Delivery Order' | 'Purchase Order';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Commercial Invoice' | 'Delivery Order' | 'Purchase Order' | 'Receipt';
     headerData: Record<string, any>;
     items: Array<{
         no: number | string;
@@ -23,6 +23,8 @@ export interface PdfClientOptions {
     }>;
     totals: { subTotal: number; tax?: number; vat?: number; grandTotal: number };
     currency: 'USD' | 'KHR';
+    signaturePadding?: number;
+    labelPadding?: number;
     filename?: string;
     /** If true, returns a blob URL instead of auto-downloading */
     previewMode?: boolean;
@@ -43,6 +45,8 @@ export async function generatePDF(opts: PdfClientOptions): Promise<string | void
             items: opts.items,
             totals: opts.totals,
             currency: opts.currency,
+            signaturePadding: opts.signaturePadding,
+            labelPadding: opts.labelPadding,
         }),
     });
 

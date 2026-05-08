@@ -21,6 +21,7 @@ interface PrintableSaleOrderProps {
         grandTotal: number;
     };
     currency: 'USD' | 'KHR';
+    signaturePadding?: number;
 }
 
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
@@ -31,7 +32,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
     }
 };
 
-const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, totals, currency }) => {
+const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, totals, currency, signaturePadding = 0 }) => {
     const actualItems = items.filter(item => item.no > 0);
     const currencySymbol = getCurrencySymbol(currency);
 
@@ -45,7 +46,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
         if (!dateString) return '';
         const date = new Date(dateString + 'T00:00:00');
         if (isNaN(date.getTime())) return '';
-        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
     return (
@@ -103,7 +104,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
 
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
                     <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
+                    <div style={{ fontWeight: 'normal', lineHeight: '1.4' }}><div style={{ maxWidth: 220, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', whiteSpace: 'normal' }}>{headerData['Company Address'] || ''}</div></div>
                     
                     <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Date</div>
                     <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
@@ -251,7 +252,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                 </div>
 
                 {/* Signatures */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: 'avoid' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: signaturePadding, pageBreakInside: 'avoid', pageBreakBefore: 'avoid' }}>
                     <div style={{ textAlign: 'center', width: '35%' }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>ORDERED BY</div>
                         <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>

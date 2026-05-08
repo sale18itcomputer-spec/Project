@@ -20,232 +20,477 @@ interface PrintableInvoiceProps {
         grandTotal: number;
     };
     currency: 'USD' | 'KHR';
+    signaturePadding?: number;
 }
 
-const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
-    switch (currency) {
-        case 'USD': return '$';
-        case 'KHR': return '៛';
-        default: return '$';
+const LOGO_URL = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png';
+const BRAND_BLUE = '#0056b3';
+
+const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string =>
+    currency === 'KHR' ? '៛' : '$';
+
+const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100 }) => {
+    const sym = getCurrencySymbol(currency);
+    const isTaxInvoice = headerData['Taxable'] === 'VAT';
+    const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';
+    const hasVatTin = !!(headerData['Tin No'] || headerData['Tin No.'] || headerData['VAT TIN']);
+
+    const fmtNum = (v: number | string) => {
+        const n = typeof v === 'number' ? v : parseFloat(String(v)) || 0;
+        return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const fmtDate = (ds?: string) => {
+        if (!ds) return '';
+        const d = new Date(ds + 'T00:00:00');
+        if (isNaN(d.getTime())) return ds;
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    // Pad items to at least 3 rows
+    const displayItems = [...items.filter(i => i.no > 0)];
+    while (displayItems.length < 3) {
+        displayItems.push({
+            id: `pad-${displayItems.length}`,
+            no: displayItems.length + 1,
+            itemCode: '', modelName: '', description: '',
+            qty: '', unitPrice: 0, amount: 0,
+        });
     }
-};
 
-const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency }) => {
-    const actualItems = items.filter(item => item.no > 0);
-    const currencySymbol = getCurrencySymbol(currency);
+    const subTotal = totals.subTotal;
+    const vatAmount = isTaxInvoice ? (totals.tax > 0 ? totals.tax : subTotal * 0.1) : 0;
+    // grandUsd: includes VAT for tax invoice, plain subTotal otherwise
+    const grandUsd = isTaxInvoice ? subTotal + vatAmount : subTotal;
 
-    const formatCurrency = (value: number | string) => {
-        const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-        if (typeof numValue !== 'number' || isNaN(numValue)) return `${currencySymbol} 0.00`;
-        return `${currencySymbol} ${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const deposit = parseFloat(String(headerData['Deposit'] || 0)) || 0;
+    const hasDeposit = deposit > 0;
+    const totalLessDeposit = subTotal - deposit;
+    const exchangeRate = headerData['Exchange Rate'] || headerData['ExchangeRate'] || '';
+    const rateNum = parseFloat(String(exchangeRate).replace(/,/g, '')) || 0;
+
+    // Commercial: Sub Total shown = grandTotal - deposit (balance after deposit)
+    // Non-VAT / Tax: Grand Total in Riel = grandUsd * rate
+    const comSubTotal = subTotal - deposit;          // commercial balance after deposit
+    const grandRiel = rateNum > 0 ? Math.round((isCommercial ? comSubTotal : grandUsd) * rateNum) : 0;
+
+    // ── Shared styles ──
+    const tdBorder: React.CSSProperties = { border: '1px solid #000', padding: '4px 8px' };
+
+    const thStyle: React.CSSProperties = {
+        background: BRAND_BLUE, color: '#fff',
+        border: '1px solid #000', padding: '5px 4px',
+        textAlign: 'center', fontSize: 9, lineHeight: '1.3',
+        whiteSpace: 'nowrap',
     };
 
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return '';
-        const date = new Date(dateString + 'T00:00:00');
-        if (isNaN(date.getTime())) return '';
-        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    // Tax invoice totals row styles (compact, flex money display)
+    const taxTotLbl: React.CSSProperties = {
+        ...tdBorder, fontWeight: 'bold', whiteSpace: 'nowrap',
+        textAlign: 'right', fontSize: 9, lineHeight: '1.4', padding: '6px 8px',
     };
+    const taxTotVal: React.CSSProperties = { ...tdBorder, verticalAlign: 'middle', fontSize: 10 };
+
+    // Commercial totals row styles (right-aligned, bold value)
+    const comTotLbl: React.CSSProperties = {
+        ...tdBorder, fontWeight: 'bold', whiteSpace: 'nowrap',
+        textAlign: 'right', fontSize: 9, lineHeight: '1.4', padding: '6px 8px',
+    };
+    const comTotVal: React.CSSProperties = {
+        ...tdBorder, textAlign: 'right', fontWeight: 'bold',
+        paddingRight: 8, fontSize: 10,
+    };
+
+    const moneyFlex = (s: string, v: number | null) => (
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+            <span>{s}</span>
+            <span>{v !== null && v !== 0 ? fmtNum(v) : '-'}</span>
+        </div>
+    );
+
+    // ── Shared: Terms + Payment block content ──
+    const TermsPaymentBlock = () => (
+        <div style={{ fontSize: 10 }}>
+            <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 'bold', fontSize: 11, textDecoration: 'underline', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Term Condition:
+                </div>
+                <ul style={{ paddingLeft: 16, margin: 0, listStyleType: 'disc' }}>
+                    <li style={{ marginBottom: 2 }}><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                    <li style={{ marginBottom: 2 }}><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                    <li><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+                </ul>
+            </div>
+            <div>
+                <div style={{ fontWeight: 'bold', fontSize: 11, textDecoration: 'underline', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Payment Information:
+                </div>
+                <p style={{ margin: '2px 0' }}><strong>Bank:</strong> Adance Bank of Asia Ltd (ABA Bank)</p>
+                <p style={{ margin: '2px 0' }}><strong>Account Name:</strong> LIMPERIAL TECHNOLOGY CO., LTD.</p>
+                <p style={{ margin: '2px 0' }}><strong>Account Number:</strong> 003 916 564</p>
+            </div>
+        </div>
+    );
+
+    // ── Shared: Letterhead ──
+    const Header = () => (
+        <div style={{
+            position: 'relative', textAlign: 'center',
+            borderBottom: `3px solid ${BRAND_BLUE}`,
+            paddingBottom: 10, marginBottom: 14, paddingTop: 4,
+        }}>
+            <div style={{ position: 'absolute', left: 0, top: 0 }}>
+                <img src={LOGO_URL} alt="Limperial Logo" style={{ height: 24, width: 'auto', objectFit: 'contain' }} />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 2, fontFamily: "'Moul', serif" }}>លីមភើរៀល ថេកណូឡូជី ឯ.ក</div>
+            <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 2, textTransform: 'uppercase', fontFamily: "'Times New Roman', serif" }}>LIMPERIAL TECHNOLOGY CO., LTD.</div>
+            {isTaxInvoice && (
+                <div style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN)៖ K003-902201968</div>
+            )}
+            <div style={{ fontSize: 9, marginBottom: 1 }}>អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</div>
+            <div style={{ fontSize: 7, whiteSpace: 'nowrap', overflow: 'hidden', marginBottom: 2 }}>Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</div>
+            <div style={{ fontSize: 9 }}>E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</div>
+        </div>
+    );
+
+    // ── Shared: Document title ──
+    const DocTitle = () => {
+        if (isCommercial) {
+            return (
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ fontSize: 15, fontWeight: 'bold' }}>វិក្កយបត្រ</div>
+                    <div style={{ fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 }}>Commercial Invoice</div>
+                </div>
+            );
+        }
+        return (
+            <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                <div style={{ fontSize: 15, fontWeight: 'bold' }}>{isTaxInvoice ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</div>
+                <div style={{ fontSize: 13, fontWeight: 'bold' }}>{isTaxInvoice ? 'TAX INVOICE' : 'INVOICE'}</div>
+            </div>
+        );
+    };
+
+    // ── Shared: Info section (customer + invoice details) ──
+    const InfoSection = () => (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 0, marginBottom: 20 }}>
+            {/* Left: Customer */}
+            <div style={{ width: '55%' }}>
+                <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: 10 }}>
+                    <tbody>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>អតិថិជន</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Company Name (Khmer)'] || headerData['Company Name'] || ''}</td>
+                        </tr>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>Customer</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Company Name'] || ''}</td>
+                        </tr>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap', verticalAlign: 'top' }}>អាសយដ្ឋាន (Address)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center', verticalAlign: 'top' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}><div style={{ maxWidth: 220, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', whiteSpace: 'normal' }}>{headerData['Company Address'] || ''}</div></td>
+                        </tr>
+                        {isTaxInvoice && (
+                            <tr>
+                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខអត្តសញ្ញាណកម្ម (VAT TIN)</td>
+                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                                <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Tin No'] || headerData['Tin No.'] || headerData['VAT TIN'] || ''}</td>
+                            </tr>
+                        )}
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>ទំនាក់ទំនង (Contact Person)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Contact Name'] || ''}</td>
+                        </tr>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខទូរស័ព្ទ (Telephone)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Phone Number'] || ''}</td>
+                        </tr>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>អ៊ីម៉ែល (E-mail)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Email'] || ''}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {/* Right: Invoice meta */}
+            <div style={{ width: '45%', display: 'flex', flexDirection: 'column' }}>
+                <table style={{ width: 'auto', marginLeft: 'auto', borderCollapse: 'collapse', fontSize: 10 }}>
+                    <tbody>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខរៀងវិក្កយបត្រ (Invoice Nº)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto', verticalAlign: 'middle' }}>{headerData['Inv No'] || headerData['Inv No.'] || headerData['Invoice No'] || ''}</td>
+                        </tr>
+                        <tr>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>កាលបរិច្ឆេទ (Date)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                            <td style={{ border: 'none', padding: '3px 0', width: 'auto', verticalAlign: 'middle' }}>{fmtDate(headerData['Inv Date'])}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
+    // ── Shared: items rows (header + data rows, no footer rows) ──
+    const ItemRows = () => (
+        <>
+            <thead>
+                <tr>
+                    <th style={thStyle}><div>ល.រ</div><div>Nº</div></th>
+                    <th style={thStyle}>
+                        <div>{isCommercial ? 'លេខកូដទំនិញ' : 'លេខសម្គាល់ទំនិញ'}</div>
+                        <div>Part Number</div>
+                    </th>
+                    <th style={thStyle}><div>បរិយាយទំនិញ</div><div>Description</div></th>
+                    <th style={thStyle}><div>បរិមាណ</div><div>{isCommercial ? 'Quantity' : 'Qty'}</div></th>
+                    <th style={thStyle}><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
+                    <th style={thStyle}>
+                        <div>{isCommercial ? 'តម្លៃសរុប' : 'តម្លៃទំនិញ'}</div>
+                        <div>Amount</div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {displayItems.map((item, idx) => {
+                    const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
+                    const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+                    return (
+                        <React.Fragment key={item.id || idx}>
+                            <tr className="break-inside-avoid" style={{ height: isCommercial ? 40 : 'auto', textAlign: 'center' }}>
+                                <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.no > 0 ? item.no : ''}</td>
+                                <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.itemCode}</td>
+                                <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>
+                                    <div style={{ fontWeight: item.modelName ? 'bold' : 'normal' }}>{item.modelName}</div>
+                                    {item.description && (
+                                        <div style={{ fontSize: 8, whiteSpace: 'pre-wrap', marginTop: 4, fontWeight: 'normal' }}>
+                                            {item.description}
+                                        </div>
+                                    )}
+                                </td>
+                                <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.qty || ''}</td>
+                                <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>
+                                    {price !== 0
+                                        ? <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>{sym}</span><span>{fmtNum(price)}</span></div>
+                                        : null}
+                                </td>
+                                <td style={{ ...tdBorder, verticalAlign: 'top', textAlign: isCommercial ? 'right' : 'left', fontWeight: isCommercial ? 'bold' : 'normal', paddingTop: 8, paddingBottom: 8, paddingRight: isCommercial ? 8 : undefined }}>
+                                    {isCommercial
+                                        ? (amt !== 0 ? `${sym}${fmtNum(amt)}` : '')
+                                        : <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>{sym}</span><span>{amt !== 0 ? fmtNum(amt) : '-'}</span></div>
+                                    }
+                                </td>
+                            </tr>
+                        </React.Fragment>
+                    );
+                })}
+            </tbody>
+        </>
+    );
+
+    // ── Shared: Signature block ──
+    const Signatures = ({ wide = false }: { wide?: boolean }) => (
+        <div className="break-inside-avoid" style={{
+            marginTop: signaturePadding,
+            display: 'flex', justifyContent: 'space-between',
+            paddingBottom: 32,
+            paddingLeft: wide ? 64 : 16,
+            paddingRight: wide ? 64 : 16,
+        }}>
+            <div style={{ width: '35%', textAlign: 'center' }}>
+                <div style={{ borderTop: '2px solid #000', marginBottom: wide ? 16 : 4 }}></div>
+                <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
+                <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>Customer's Signature &amp; Name</div>
+            </div>
+            <div style={{ width: '35%', textAlign: 'center' }}>
+                <div style={{ borderTop: '2px solid #000', marginBottom: wide ? 16 : 4 }}></div>
+                <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>
+                <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>Seller's Signature &amp; Name</div>
+            </div>
+        </div>
+    );
 
     return (
         <>
-            <style>
-                {`
-          @media print {
-            @page {
-              margin: 20mm;
-              size: A4;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              background: white;
-            }
-            body * {
-              visibility: hidden;
-            }
-            .printable-area, .printable-area * {
-              visibility: visible !important;
-            }
-            .printable-area {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100% !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              box-sizing: border-box;
-              max-width: none !important;
-              box-shadow: none !important;
-              border: none !important;
-              background: white;
-            }
-          }
-        `}
-            </style>
-            <div className="printable-area bg-white p-8 font-[serif] text-sm text-black" style={{ fontFamily: "'Times New Roman', serif", fontSize: '12px', maxWidth: '900px', margin: '0 auto', minHeight: '277mm', display: 'flex', flexDirection: 'column' }}>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
+                @media print {
+                    @page { size: A4; margin: 0; }
+                    body { margin: 0; padding: 0; background: white; }
+                    body * { visibility: hidden; }
+                    .printable-area, .printable-area * { visibility: visible !important; }
+                    .printable-area {
+                        position: absolute; left: 0; top: 0;
+                        width: 100% !important; margin: 0 !important;
+                        padding: 15mm 20mm !important;
+                        box-sizing: border-box; max-width: none !important;
+                        box-shadow: none !important; border: none !important; background: white;
+                    }
+                }
+            `}</style>
 
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '30px', gap: '20px' }}>
-                    <img
-                        src="https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png"
-                        alt="Limperial Company Logo"
-                        style={{
-                            height: '40px',
-                            width: 'auto'
-                        }}
-                    />
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: 1.5 }}>
-                        <div style={{ fontWeight: 'bold', color: '#004aad', fontSize: '13px', marginBottom: '3px' }}>LIMPERIAL TECHNOLOGY CO., LTD.</div>
-                        <div>Tel : (+855) 92 218 333 | Email : info@limperialtech.com | Website : www.limperialtech.com</div>
-                        <div>Address : Building #15, Street Ayeaksamrjean Bo (139), Sangkat Srah Chak, Khan Daun Penh, Phnom Penh, Cambodia.</div>
-                    </div>
-                </div>
+            <div
+                className="printable-area"
+                style={{
+                    fontFamily: "'Koh Santepheap', 'Times New Roman', serif",
+                    fontSize: 11,
+                    color: '#000',
+                    background: '#fff',
+                    padding: '15mm 20mm',
+                    boxSizing: 'border-box',
+                    minHeight: '297mm',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
+                <Header />
+                <DocTitle />
+                <InfoSection />
 
-                {/* Title */}
-                <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>INVOICE</h1>
+                {/* ── Items table + footer totals ── */}
+                <div style={{ flexGrow: 1, marginBottom: isCommercial ? 48 : 12 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                        <colgroup>
+                            <col style={{ width: '5%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '45%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '13%' }} />
+                        </colgroup>
 
-                {/* Info Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: '85px 10px 1fr 85px 10px 130px', gap: '8px 0', marginBottom: '20px', fontSize: '12px' }}>
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Company Name</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}><strong>{headerData['Company Name'] || ''}</strong></div>
-                    
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Inv No</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Inv No'] || ''}</div>
+                        <ItemRows />
 
-                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'left' }}>Address</div>
-                    <div style={{ fontWeight: 'normal', alignSelf: 'start', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{headerData['Company Address'] || ''}</div>
-                    
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Inv Date</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{formatDate(headerData['Inv Date'])}</div>
-
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Contact Person</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Contact Name'] || ''}</div>
-                    
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>SO Ref.</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['SO No'] || ''}</div>
-
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tel</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Phone Number'] || ''}</div>
-                    
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Tin No</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Tin No'] || ''}</div>
-
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Email</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Email'] || ''}</div>
-                    
-                    <div style={{ fontWeight: 'normal', textAlign: 'left' }}>Payment Term</div>
-                    <div style={{ fontWeight: 'normal', textAlign: 'center' }}>:</div>
-                    <div style={{ fontWeight: 'normal' }}>{headerData['Payment Term'] || ''}</div>
-                </div>
-
-                {/* Items Table */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0', fontSize: '11px' }}>
-                    <thead>
-                        <tr>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '40px' }}>No.</th>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '120px' }}>Item Code</th>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad' }}>Item Description</th>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '50px' }}>Qty</th>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '90px' }}>Unit Price</th>
-                            <th style={{ background: '#004aad', color: 'white', padding: '8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #004aad', width: '100px' }}>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {actualItems.map((item, index) => (
-                            <React.Fragment key={item.id || `item-${index}`}>
-                                <tr>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
-                                        {item.no || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
-                                        {item.itemCode || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
-                                        {item.modelName || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
-                                        {item.qty || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                        {item.unitPrice ? formatCurrency(item.unitPrice) : ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                        {item.amount ? formatCurrency(item.amount) : ''}
-                                    </td>
+                        {/* ── COMMERCIAL footer ── */}
+                        {/* Order: Sub Total → [Deposit → Total Less Deposit] → Grand Total in Dollar → Exchange Rate → Grand Total in Riel */}
+                        {isCommercial && (
+                            <tbody className="break-inside-avoid">
+                                <tr style={{ height: 96 }}>
+                                    {[...Array(6)].map((_, i) => <td key={i} style={tdBorder}></td>)}
                                 </tr>
-                                {item.description && (
-                                    <tr>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
-                                            {item.description}
-                                        </td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                    </tr>
+                                <tr>
+                                    <td colSpan={3} rowSpan={hasDeposit ? 6 : 4} style={{ border: 'none', verticalAlign: 'top', padding: 16 }}>
+                                        <TermsPaymentBlock />
+                                    </td>
+                                    <td colSpan={2} style={comTotLbl}>សរុប (Sub Total)</td>
+                                    <td style={comTotVal}>{`${sym}${fmtNum(subTotal)}`}</td>
+                                </tr>
+                                {hasDeposit && (
+                                    <>
+                                        <tr>
+                                            <td colSpan={2} style={comTotLbl}>ប្រាក់កក់ (Deposit)</td>
+                                            <td style={comTotVal}>{`${sym}${fmtNum(deposit)}`}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} style={comTotLbl}>សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+                                            <td style={comTotVal}>{comSubTotal > 0 ? `${sym}${fmtNum(comSubTotal)}` : '-'}</td>
+                                        </tr>
+                                    </>
                                 )}
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                    <tfoot style={{ fontSize: '12px' }}>
-                        <tr>
-                            <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                Sub Total ({currency})
-                            </td>
-                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                {formatCurrency(totals.subTotal)}
-                            </td>
-                        </tr>
-                        {totals.tax > 0 && (
-                            <tr>
-                                <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                    VAT 10% ({currency})
-                                </td>
-                                <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                    {formatCurrency(totals.tax)}
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td colSpan={2} style={comTotLbl}>សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+                                    <td style={comTotVal}>{`${sym}${fmtNum(hasDeposit ? comSubTotal : subTotal)}`}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={comTotLbl}>អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
+                                    <td style={comTotVal}>{exchangeRate ? `៛${exchangeRate}` : '-'}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={comTotLbl}>សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+                                    <td style={{ ...comTotVal, background: '#fff' }}>{grandRiel > 0 ? `៛${grandRiel.toLocaleString('en-US')}` : '-'}</td>
+                                </tr>
+                            </tbody>
                         )}
-                        <tr style={{ background: '#f0f0f0' }}>
-                            <td colSpan={5} style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
-                                Grand Total ({currency})
-                            </td>
-                            <td style={{ padding: '8px', border: '1px solid #000', borderTop: '2px solid #000', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold' }}>
-                                {formatCurrency(totals.grandTotal)}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
 
-                {/* Signatures - Positioned near bottom of page */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '40px', gap: '40px', pageBreakInside: 'avoid', pageBreakBefore: 'avoid', paddingLeft: '8px', paddingRight: '8px' }}>
-                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>PREPARED BY</div>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            {headerData['Prepared By'] || headerData['Created By'] || 'Signature and Name'}<br />
-                            {headerData['Prepared By Position'] || '\u00A0'}
-                        </div>
-                    </div>
-                    <div style={{ textAlign: 'center', flex: '1', maxWidth: '200px' }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '60px' }}>RECEIVED BY</div>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                            {headerData['Approved By'] || 'Signature and Name'}<br />
-                            {headerData['Approved By Position'] || '\u00A0'}
-                        </div>
-                    </div>
+                        {/* ── TAX INVOICE footer ── */}
+                        {/* Order: Sub Total → [Deposit → Total Less Deposit] → VAT 10% → Grand Total in Dollar → Exchange Rate → Grand Total in Riel */}
+                        {isTaxInvoice && !isCommercial && (
+                            <tbody className="break-inside-avoid">
+                                <tr>
+                                    <td colSpan={3} rowSpan={hasDeposit ? 7 : 5} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
+                                        <TermsPaymentBlock />
+                                    </td>
+                                    <td colSpan={2} style={taxTotLbl}>សរុប (Sub Total)</td>
+                                    <td style={taxTotVal}>{moneyFlex(sym, subTotal > 0 ? subTotal : null)}</td>
+                                </tr>
+                                {hasDeposit && (
+                                    <>
+                                        <tr>
+                                            <td colSpan={2} style={taxTotLbl}>ប្រាក់កក់ (Deposit)</td>
+                                            <td style={taxTotVal}>{moneyFlex(sym, deposit)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} style={taxTotLbl}>សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+                                            <td style={taxTotVal}>{moneyFlex(sym, totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
+                                        </tr>
+                                    </>
+                                )}
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>អាករលើតម្លៃបន្ថែម (VAT 10%)</td>
+                                    <td style={taxTotVal}>{moneyFlex(sym, vatAmount > 0 ? vatAmount : null)}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+                                    <td style={taxTotVal}>{moneyFlex(sym, grandUsd > 0 ? grandUsd : null)}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>អត្រាប្តូរប្រាក់រៀល (Exchange Rate)</td>
+                                    <td style={{ ...taxTotVal, verticalAlign: 'middle' }}>{exchangeRate}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+                                    <td style={taxTotVal}>{moneyFlex('R', grandRiel > 0 ? grandRiel : null)}</td>
+                                </tr>
+                            </tbody>
+                        )}
+
+                        {/* ── NON-VAT INVOICE footer ── */}
+                        {/* Order: Sub Total → [Deposit → Total Less Deposit] → Grand Total in Dollar → Exchange Rate → Grand Total in Riel */}
+                        {!isTaxInvoice && !isCommercial && (
+                            <tbody className="break-inside-avoid">
+                                <tr>
+                                    <td colSpan={3} rowSpan={hasDeposit ? 6 : 4} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
+                                        <TermsPaymentBlock />
+                                    </td>
+                                    <td colSpan={2} style={taxTotLbl}>សរុប (Sub Total)</td>
+                                    <td style={taxTotVal}>{moneyFlex(sym, subTotal > 0 ? subTotal : null)}</td>
+                                </tr>
+                                {hasDeposit && (
+                                    <>
+                                        <tr>
+                                            <td colSpan={2} style={taxTotLbl}>ប្រាក់កក់ (Deposit)</td>
+                                            <td style={taxTotVal}>{moneyFlex(sym, deposit)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} style={taxTotLbl}>សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+                                            <td style={taxTotVal}>{moneyFlex(sym, totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
+                                        </tr>
+                                    </>
+                                )}
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+                                    <td style={taxTotVal}>{moneyFlex(sym, grandUsd > 0 ? grandUsd : null)}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>អត្រាប្តូរប្រាក់រៀល (Exchange Rate)</td>
+                                    <td style={{ ...taxTotVal, verticalAlign: 'middle' }}>{exchangeRate}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+                                    <td style={taxTotVal}>{moneyFlex('R', grandRiel > 0 ? grandRiel : null)}</td>
+                                </tr>
+                            </tbody>
+                        )}
+                    </table>
                 </div>
 
+                <Signatures wide={isCommercial} />
             </div>
         </>
     );

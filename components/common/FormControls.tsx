@@ -24,7 +24,7 @@ export const FormInput: React.FC<{ name: string; label: string; value: any; onCh
                 type={type}
                 name={name}
                 id={name}
-                value={value || ''}
+                value={value ?? ''}
                 onChange={onChange}
                 required={required}
                 placeholder={placeholder}

@@ -12,7 +12,7 @@ import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Sci
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import Spinner from "../../common/Spinner";
-import InvoiceCreator from "../../features/sales/InvoiceCreator";
+import InvoiceCreator from "../../features/sales/invoice/InvoiceCreator";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
@@ -40,10 +40,10 @@ const StatusBadge: React.FC<{ status: Invoice['Status'] }> = ({ status }) => {
     );
 };
 
-const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoice-columns-visibility';
+const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'board' | 'detail';
 
-const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload }) => {
+const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload }) => {
     const { invoices = [], setInvoices, loading, error } = useData();
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
@@ -79,19 +79,19 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const handleNewInvoice = () => {
         setInitialData(null);
-        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'create' });
+        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'create' });
     };
 
     const handleEditInvoice = (invoice: Invoice) => {
         setInitialData(null);
-        handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'edit', id: invoice['Inv No'] });
+        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'edit', id: invoice['Inv No'] });
     };
 
     const handleViewInvoice = (invoice: Invoice) => {
         if (isMobile) {
             handleEditInvoice(invoice);
         } else {
-            handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: invoice['Inv No'] });
+            handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'view', id: invoice['Inv No'] });
         }
     };
 
@@ -116,7 +116,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
 
     const handleBackToDashboard = () => {
         setInitialData(null);
-        handleNavigation({ view: 'invoice-do', filter: navigation.filter });
+        handleNavigation({ view: 'invoices', filter: navigation.filter });
     };
 
     const filteredData = useMemo(() => {
@@ -270,7 +270,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
         <div className="h-full flex flex-col bg-background">
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-foreground">INVOICE & DO Record</h1>
+                    <h1 className="text-xl font-bold text-foreground">Invoices</h1>
                 </div>
                 <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
                     <div className="relative w-full lg:w-64 flex-shrink-0">
@@ -372,7 +372,7 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
                             {filteredData.map(inv => (
                                 <button
                                     key={inv['Inv No']}
-                                    onClick={() => handleNavigation({ view: 'invoice-do', filter: navigation.filter, action: 'view', id: inv['Inv No'] })}
+                                    onClick={() => handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'view', id: inv['Inv No'] })}
                                     className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
@@ -515,5 +515,5 @@ const InvoiceDODashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload 
     );
 };
 
-export default InvoiceDODashboard;
+export default InvoiceDashboard;
 

@@ -4,55 +4,25 @@ import React, { createContext, useContext, useMemo, useState, useCallback, useEf
 import { batchReadRecords } from '../services/api';
 import { supabase } from '../lib/supabase';
 import {
-  PipelineProject,
-  Company,
-  Contact,
-  ContactLog,
-  SiteSurveyLog,
-  Meeting,
-  Quotation,
-  SaleOrder,
-  PricelistItem,
-  Invoice,
-  Vendor,
-  VendorPricelistItem,
-  PurchaseOrder
+  PipelineProject, Company, Contact, ContactLog, SiteSurveyLog, Meeting,
+  Quotation, SaleOrder, PricelistItem, Invoice, DeliveryOrder, Receipt,
+  Vendor, VendorPricelistItem, PurchaseOrder
 } from '../types';
 import {
-  PIPELINE_HEADERS,
-  COMPANY_HEADERS,
-  CONTACT_HEADERS,
-  CONTACT_LOG_HEADERS,
-  SITE_SURVEY_LOG_HEADERS,
-  MEETING_HEADERS,
-  QUOTATION_HEADERS,
-  SALE_ORDER_HEADERS,
-  PRICELIST_HEADERS,
-  INVOICE_HEADERS,
-  VENDOR_HEADERS,
-  VENDOR_PRICELIST_HEADERS,
-  PURCHASE_ORDER_HEADERS
+  PIPELINE_HEADERS, COMPANY_HEADERS, CONTACT_HEADERS, CONTACT_LOG_HEADERS,
+  SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS, QUOTATION_HEADERS, SALE_ORDER_HEADERS,
+  PRICELIST_HEADERS, INVOICE_HEADERS, DELIVERY_ORDER_HEADERS, RECEIPT_HEADERS,
+  VENDOR_HEADERS, VENDOR_PRICELIST_HEADERS, PURCHASE_ORDER_HEADERS
 } from '../schemas';
 import { useAuth } from './AuthContext';
 import * as db from '../utils/db';
 
-// ---------------------------------------------------------------------------
-// Fetch strategy
-//
-// CRITICAL tables are fetched immediately on login — they're needed by the
-// dashboard and sidebar counts.
-//
-// LAZY tables are fetched only when explicitly requested via `fetchModule()`.
-// They may still be served from IndexedDB cache on first call, so the UI
-// stays responsive while the network request completes in the background.
-// ---------------------------------------------------------------------------
 const CRITICAL_SHEETS = [
   'Pipelines',
   'Company List',
   'Contact_List',
 ] as const;
 
- 
 const LAZY_SHEETS = [
   'Contact_Logs',
   'Site_Survey_Logs',
@@ -61,6 +31,8 @@ const LAZY_SHEETS = [
   'Sale Orders',
   'Raw',
   'Invoices',
+  'Delivery Orders',
+  'Receipts',
   'Vendors',
   'Vendor Pricelist',
   'Purchase Orders',
@@ -68,7 +40,6 @@ const LAZY_SHEETS = [
 
 type LazySheet = typeof LAZY_SHEETS[number];
 
-// Which modules have been fetched this session (avoids duplicate network hits)
 const fetchedModules = new Set<LazySheet>();
 
 interface DataContextProps {
@@ -92,6 +63,10 @@ interface DataContextProps {
   setPricelist: React.Dispatch<React.SetStateAction<PricelistItem[] | null>>;
   invoices: Invoice[] | null;
   setInvoices: React.Dispatch<React.SetStateAction<Invoice[] | null>>;
+  deliveryOrders: DeliveryOrder[] | null;
+  setDeliveryOrders: React.Dispatch<React.SetStateAction<DeliveryOrder[] | null>>;
+  receipts: Receipt[] | null;
+  setReceipts: React.Dispatch<React.SetStateAction<Receipt[] | null>>;
   vendors: Vendor[] | null;
   setVendors: React.Dispatch<React.SetStateAction<Vendor[] | null>>;
   vendorPricelist: VendorPricelistItem[] | null;
@@ -104,7 +79,6 @@ interface DataContextProps {
   activeContactNames: Set<string>;
   activePipelineIds: Set<string>;
   refetchData: () => void;
-  /** Call this inside a module page to ensure its data is fetched. */
   fetchModule: (...sheets: LazySheet[]) => Promise<void>;
 }
 
@@ -114,13 +88,9 @@ const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
   if (!Array.isArray(items)) return [];
   return items.map(item => {
     const trimmedKeyItem: Record<string, any> = {};
-    for (const key in item) {
-      trimmedKeyItem[key.trim()] = item[key];
-    }
+    for (const key in item) trimmedKeyItem[key.trim()] = item[key];
     const normalizedItem = {} as T;
-    headers.forEach(header => {
-      (normalizedItem as any)[header] = trimmedKeyItem[header] ?? '';
-    });
+    headers.forEach(header => { (normalizedItem as any)[header] = trimmedKeyItem[header] ?? ''; });
     return normalizedItem;
   });
 };
@@ -136,6 +106,8 @@ const storeToSheetMap: Record<db.StoreName, string> = {
   saleOrders: 'Sale Orders',
   pricelist: 'Raw',
   invoices: 'Invoices',
+  deliveryOrders: 'Delivery Orders',
+  receipts: 'Receipts',
   vendors: 'Vendors',
   vendorPricelist: 'Vendor Pricelist',
   purchaseOrders: 'Purchase Orders',
@@ -154,6 +126,8 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
   'Sale Orders': SALE_ORDER_HEADERS,
   'Raw': PRICELIST_HEADERS,
   'Invoices': INVOICE_HEADERS,
+  'Delivery Orders': DELIVERY_ORDER_HEADERS,
+  'Receipts': RECEIPT_HEADERS,
   'Vendors': VENDOR_HEADERS,
   'Vendor Pricelist': VENDOR_PRICELIST_HEADERS,
   'Purchase Orders': PURCHASE_ORDER_HEADERS,
@@ -178,10 +152,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [saleOrders, setSaleOrders] = useState<SaleOrder[] | null>(null);
   const [pricelist, setPricelist] = useState<PricelistItem[] | null>(null);
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrder[] | null>(null);
+  const [receipts, setReceipts] = useState<Receipt[] | null>(null);
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,16 +171,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saleOrders: setSaleOrders,
     pricelist: setPricelist,
     invoices: setInvoices,
+    deliveryOrders: setDeliveryOrders,
+    receipts: setReceipts,
     vendors: setVendors,
     vendorPricelist: setVendorPricelist,
     purchaseOrders: setPurchaseOrders,
   }), []);
 
-  // ---------------------------------------------------------------------------
-  // Core normalise-and-store helper (shared by boot fetch and lazy fetch)
-  // ---------------------------------------------------------------------------
-  // vendorsRef gives applyNormalizedData access to the latest vendors state
-  // without making it a dependency (which would cause unnecessary re-renders).
   const vendorsRef = React.useRef<Vendor[] | null>(null);
   useEffect(() => { vendorsRef.current = vendors; }, [vendors]);
 
@@ -221,25 +193,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const normalized = normalize(data, headers);
 
       if (storeName === 'vendorPricelist') {
-        // Prefer vendors fetched in the same batch; fall back to current state
-        const currentVendors =
-          (normalizedData['vendors'] as Vendor[] | undefined) ??
-          vendorsRef.current ??
-          [];
+        const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) ?? vendorsRef.current ?? [];
         const withNames = (normalized as VendorPricelistItem[]).map(item => {
-          const vendor = currentVendors.find(
-            v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase()
-          );
+          const vendor = currentVendors.find(v => String(v.id || '').toLowerCase() === String(item.vendor_id || '').toLowerCase());
           return { ...item, vendor_name: vendor?.vendor_name ?? 'Unknown Vendor' };
         });
         stateSetters[storeName](withNames);
         normalizedData[storeName] = withNames;
       } else if (storeName === 'purchaseOrders') {
-        // Prefer vendors fetched in the same batch; fall back to current state
-        const currentVendors =
-          (normalizedData['vendors'] as Vendor[] | undefined) ??
-          vendorsRef.current ??
-          [];
+        const currentVendors = (normalizedData['vendors'] as Vendor[] | undefined) ?? vendorsRef.current ?? [];
         const pos = (normalized as PurchaseOrder[]).map(po => {
           const vendor = currentVendors.find(v => v.id === po.vendor_id);
           return { ...po, vendor_name: po.vendor_name || vendor?.vendor_name || '' };
@@ -266,30 +228,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: readonly string[];
       primaryKey: string;
     }> = {
-      pipelines:        { setter: setProjects,       headers: PIPELINE_HEADERS,        primaryKey: 'Pipeline No' },
-      companies:        { setter: setCompanies,      headers: COMPANY_HEADERS,         primaryKey: 'Company ID' },
-      contacts:         { setter: setContacts,       headers: CONTACT_HEADERS,         primaryKey: 'Customer ID' },
-      meeting_logs:     { setter: setMeetings,       headers: MEETING_HEADERS,         primaryKey: 'Meeting ID' },
-      contact_logs:     { setter: setContactLogs,    headers: CONTACT_LOG_HEADERS,     primaryKey: 'Log ID' },
-      site_survey_logs: { setter: setSiteSurveys,    headers: SITE_SURVEY_LOG_HEADERS, primaryKey: 'Site ID' },
-      quotations:       { setter: setQuotations,     headers: QUOTATION_HEADERS,       primaryKey: 'Quote No' },
-      sale_orders:      { setter: setSaleOrders,     headers: SALE_ORDER_HEADERS,      primaryKey: 'SO No' },
-      pricelist:        { setter: setPricelist,      headers: PRICELIST_HEADERS,       primaryKey: 'Code' },
-      invoices:         { setter: setInvoices,       headers: INVOICE_HEADERS,         primaryKey: 'Inv No' },
-      vendors:          { setter: setVendors,        headers: VENDOR_HEADERS,          primaryKey: 'id' },
-      vendor_pricelist: { setter: setVendorPricelist, headers: VENDOR_PRICELIST_HEADERS, primaryKey: 'id' },
-      purchase_orders:  { setter: setPurchaseOrders, headers: PURCHASE_ORDER_HEADERS,  primaryKey: 'id' },
+      pipelines:        { setter: setProjects,       headers: PIPELINE_HEADERS,          primaryKey: 'Pipeline No' },
+      companies:        { setter: setCompanies,      headers: COMPANY_HEADERS,           primaryKey: 'Company ID' },
+      contacts:         { setter: setContacts,       headers: CONTACT_HEADERS,           primaryKey: 'Customer ID' },
+      meeting_logs:     { setter: setMeetings,       headers: MEETING_HEADERS,           primaryKey: 'Meeting ID' },
+      contact_logs:     { setter: setContactLogs,    headers: CONTACT_LOG_HEADERS,       primaryKey: 'Log ID' },
+      site_survey_logs: { setter: setSiteSurveys,    headers: SITE_SURVEY_LOG_HEADERS,   primaryKey: 'Site ID' },
+      quotations:       { setter: setQuotations,     headers: QUOTATION_HEADERS,         primaryKey: 'Quote No' },
+      sale_orders:      { setter: setSaleOrders,     headers: SALE_ORDER_HEADERS,        primaryKey: 'SO No' },
+      pricelist:        { setter: setPricelist,      headers: PRICELIST_HEADERS,         primaryKey: 'Code' },
+      invoices:         { setter: setInvoices,       headers: INVOICE_HEADERS,           primaryKey: 'Inv No' },
+      delivery_orders:  { setter: setDeliveryOrders, headers: DELIVERY_ORDER_HEADERS,    primaryKey: 'DO No' },
+      receipts:         { setter: setReceipts,       headers: RECEIPT_HEADERS,           primaryKey: 'RV No' },
+      vendors:          { setter: setVendors,        headers: VENDOR_HEADERS,            primaryKey: 'id' },
+      vendor_pricelist: { setter: setVendorPricelist,headers: VENDOR_PRICELIST_HEADERS,  primaryKey: 'id' },
+      purchase_orders:  { setter: setPurchaseOrders, headers: PURCHASE_ORDER_HEADERS,    primaryKey: 'id' },
     };
 
-    // Unique channel name avoids conflicts between browser tabs
-    // crypto.randomUUID() is only available in secure contexts (HTTPS);
-    // fall back to a manual UUID-like string for local HTTP dev.
     const uuid =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    const channelName = `db_changes_${uuid}`;
-    const channel = supabase!.channel(channelName)
+
+    const channel = supabase!.channel(`db_changes_${uuid}`)
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
         const { table, eventType, new: newRecord, old: oldRecord } = payload;
         const config = tableConfig[table];
@@ -306,10 +267,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         } else if (eventType === 'UPDATE') {
           const item = normalize([newRecord], headers)[0];
-          setter(prev => prev
-            ? prev.map(r => r[primaryKey] === item[primaryKey] ? item : r)
-            : [item]
-          );
+          setter(prev => prev ? prev.map(r => r[primaryKey] === item[primaryKey] ? item : r) : [item]);
         } else if (eventType === 'DELETE') {
           const deletedId = oldRecord[primaryKey];
           if (deletedId) setter(prev => prev ? prev.filter(r => r[primaryKey] !== deletedId) : prev);
@@ -337,7 +295,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       let loadedFromCache = false;
 
-      // 1. Serve cache immediately so the UI isn't blank
       try {
         const criticalStoreNames = CRITICAL_SHEETS.map(s => sheetToStoreMap[s]) as db.StoreName[];
         const cachedData = await db.batchGetStoreData(criticalStoreNames);
@@ -352,7 +309,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('[DataContext] Failed to load cache from IndexedDB:', dbError);
       }
 
-      // 2. Fetch fresh data from network for critical tables
       try {
         const freshData = await batchReadRecords<Record<string, any[]>>([...CRITICAL_SHEETS]);
         applyNormalizedData([...CRITICAL_SHEETS], freshData);
@@ -366,11 +322,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadCriticalData();
-     
   }, [isAuthenticated, refetchCounter]);
 
   // ---------------------------------------------------------------------------
-  // fetchModule — called by individual module pages for lazy data
+  // fetchModule — lazy loading for individual module pages
   // ---------------------------------------------------------------------------
   const fetchModule = useCallback(async (...sheets: LazySheet[]) => {
     const toFetch = sheets.filter(s => !fetchedModules.has(s));
@@ -378,7 +333,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     toFetch.forEach(s => fetchedModules.add(s));
 
-    // Serve from IndexedDB cache first
     try {
       const storeNames = toFetch.map(s => sheetToStoreMap[s]) as db.StoreName[];
       const cachedData = await db.batchGetStoreData(storeNames);
@@ -393,7 +347,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('[DataContext] Cache read failed for lazy modules:', dbError);
     }
 
-    // Fetch fresh from network
     try {
       const freshData = await batchReadRecords<Record<string, any[]>>(toFetch);
       applyNormalizedData(toFetch, freshData);
@@ -403,19 +356,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [stateSetters, applyNormalizedData]);
 
   // ---------------------------------------------------------------------------
-  // Derived sets from pipeline data (memoised)
+  // Derived sets
   // ---------------------------------------------------------------------------
   const { activeCompanyNames, activeContactNames, activePipelineIds } = useMemo(() => {
     const activeCompanyNames = new Set<string>();
     const activeContactNames = new Set<string>();
     const activePipelineIds = new Set<string>();
-
     projects?.forEach(project => {
       if (project['Company Name']) activeCompanyNames.add(project['Company Name']);
       if (project['Contact Name']) activeContactNames.add(project['Contact Name']);
       if (project['Pipeline No']) activePipelineIds.add(project['Pipeline No']);
     });
-
     return { activeCompanyNames, activeContactNames, activePipelineIds };
   }, [projects]);
 
@@ -430,16 +381,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saleOrders, setSaleOrders,
     pricelist, setPricelist,
     invoices, setInvoices,
+    deliveryOrders, setDeliveryOrders,
+    receipts, setReceipts,
     vendors, setVendors,
     vendorPricelist, setVendorPricelist,
     purchaseOrders, setPurchaseOrders,
-    loading,
-    error,
-    activeCompanyNames,
-    activeContactNames,
-    activePipelineIds,
-    refetchData,
-    fetchModule,
+    loading, error,
+    activeCompanyNames, activeContactNames, activePipelineIds,
+    refetchData, fetchModule,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
