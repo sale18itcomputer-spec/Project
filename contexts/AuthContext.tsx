@@ -64,13 +64,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let isMounted = true;
 
-    // Safety net: if the network never responds, unblock the UI after 20s
+    // Safety net: unblock UI after 8s if something still hangs unexpectedly
     const timeoutId = setTimeout(() => {
       if (isMounted) {
-        console.error('[Auth] Bootstrap timed out after 20s — check network or Supabase config.');
+        console.warn('[Auth] Bootstrap timed out — check Supabase connectivity.');
         setIsAuthLoading(false);
       }
-    }, 20000);
+    }, 8000);
 
     const bootstrapAuth = async () => {
       try {
@@ -83,15 +83,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setIsAuthLoading(false);
         }
 
-        // Step 1: Get the active session (anon or authenticated)
-        const { data: { session }, error: sessionError } = await supabase!.auth.getSession();
+        // Step 1: Get the active session with a 5s timeout
+        const { data: { session }, error: sessionError } = await Promise.race([
+          supabase!.auth.getSession(),
+          new Promise<{ data: { session: null }, error: Error }>((resolve) =>
+            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 5000)
+          )
+        ]);
         if (sessionError) {
           console.error('[Auth] Session error:', sessionError);
-          // Stale/invalid refresh token — wipe local storage and start clean
-          if (sessionError.message?.toLowerCase().includes('refresh token')) {
+          if (sessionError.message?.toLowerCase().includes('refresh token') ||
+              sessionError.message?.toLowerCase().includes('timed out')) {
             localStorageRemove(AUTH_STORAGE_KEY);
             deleteCookie('limperial_legacy_session');
-            await supabase!.auth.signOut({ scope: 'local' });
+            await supabase!.auth.signOut({ scope: 'local' }).catch(() => {});
             if (isMounted) { setCurrentUser(null); setIsAuthLoading(false); }
             return;
           }

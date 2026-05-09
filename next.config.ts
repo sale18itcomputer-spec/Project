@@ -32,8 +32,8 @@ const nextConfig: NextConfig = {
                         value: [
                             "default-src 'self'",
                             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://fonts.googleapis.com",
-                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                            "font-src 'self' https://fonts.gstatic.com data:",
+                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://rsms.me",
+                            "font-src 'self' https://fonts.gstatic.com https://rsms.me data:",
                             "img-src 'self' data: blob: https: http:",
                             "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://production-sfo.browserless.io",
                             "frame-src 'self' blob: data:",
