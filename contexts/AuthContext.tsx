@@ -92,14 +92,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ]);
         if (sessionError) {
           console.error('[Auth] Session error:', sessionError);
-          if (sessionError.message?.toLowerCase().includes('refresh token') ||
-              sessionError.message?.toLowerCase().includes('timed out')) {
-            localStorageRemove(AUTH_STORAGE_KEY);
-            deleteCookie('limperial_legacy_session');
+          if (sessionError.message?.toLowerCase().includes('refresh token')) {
+            // Invalid token — clear Supabase session, fall back to PIN
             await supabase!.auth.signOut({ scope: 'local' }).catch(() => {});
-            if (isMounted) { setCurrentUser(null); setIsAuthLoading(false); }
-            return;
+            // Keep currentUser from localStorage so PasscodeLock handles re-auth
           }
+          // For timeout or other errors, continue with savedUserId below
         }
         if (!isMounted) return;
 
@@ -142,13 +140,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Listener handles subsequent sign-in / sign-out events AFTER initial bootstrap.
     // It reuses usersRef — no duplicate fetch needed.
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
-      // Stale refresh token — clear everything and force re-login
+      // Stale refresh token — clear Supabase session but keep local user
+      // so PasscodeLock handles re-auth instead of forcing full login
       if (event === 'TOKEN_REFRESHED' && !session) {
-        console.warn('[Auth] Refresh token invalid — clearing session.');
-        setCurrentUser(null);
-        localStorageRemove(AUTH_STORAGE_KEY);
-        deleteCookie('limperial_legacy_session');
-        await supabase!.auth.signOut({ scope: 'local' });
+        console.warn('[Auth] Refresh token invalid — falling back to PIN.');
+        await supabase!.auth.signOut({ scope: 'local' }).catch(() => {});
+        // Do NOT clear currentUser or AUTH_STORAGE_KEY here —
+        // PasscodeLock will lock and ask for PIN, then re-validate
         return;
       }
 
