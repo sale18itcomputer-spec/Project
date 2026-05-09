@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
-import { createClient, resetSupabaseBrowserClient } from '../utils/supabase/client';
+import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
@@ -41,6 +41,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // without creating a new effect dependency that would cause re-runs
   const usersRef = useRef<User[] | null>(null);
   useEffect(() => { usersRef.current = users; }, [users]);
+
+  // Tracks whether a deliberate logout is in progress.
+  // Prevents the async SIGNED_OUT event from wiping state that was already
+  // overwritten by a subsequent login (race condition: signOut fires late).
+  const isLoggingOutRef = useRef(false);
 
   // Sync a Supabase email to our custom Users table record
   const syncUser = useCallback((email: string, allUsers: User[]) => {
@@ -117,9 +122,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!usersRef.current && isMounted) setUsers(usersList);
         syncUser(session.user.email, usersList);
       } else if (event === 'SIGNED_OUT') {
-        // FIX: clear ALL auth state — localStorage, cookie, and React state.
-        // Previously the cookie was not cleared here, leaving the middleware
-        // seeing a valid limperial_legacy_session and blocking re-login.
+        // Only clear state if this is a deliberate logout.
+        // If isLoggingOutRef is false, the SIGNED_OUT fired late from a previous
+        // session's signOut call — a new login has already set fresh state, so
+        // we must NOT wipe it.
+        if (!isLoggingOutRef.current) return;
+        isLoggingOutRef.current = false;
         setCurrentUser(null);
         localStorageRemove(AUTH_STORAGE_KEY);
         deleteCookie('limperial_legacy_session');
@@ -172,26 +180,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [supabase]);
 
   const logout = useCallback(async () => {
-    // 1. Clear local state and the middleware cookie FIRST so any redirects
-    //    that happen during the async signOut don't see a stale session.
+    // Signal that this SIGNED_OUT event is intentional so the listener
+    // knows it is safe to clear auth state.
+    isLoggingOutRef.current = true;
+
+    // Clear local state and the middleware cookie immediately so any
+    // redirects during the async signOut don't see a stale session.
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
     deleteCookie('limperial_legacy_session');
 
-    // 2. Sign out from Supabase (invalidates the server session).
-    await supabase!.auth.signOut();
-
-    // 3. Clear all Supabase-owned localStorage keys (sb-* tokens).
-    //    Without this, the next signInWithPassword call may pick up a
-    //    stale/expired token and fail with an invalid session error.
-    if (typeof window !== 'undefined') {
-      Object.keys(localStorage)
-        .filter(k => k.startsWith('sb-'))
-        .forEach(k => localStorage.removeItem(k));
-    }
-
-    // 4. Reset the singleton so the next login gets a clean client instance.
-    resetSupabaseBrowserClient();
+    // scope: 'local' clears only THIS tab's tokens without invalidating
+    // other active sessions on other devices.
+    await supabase!.auth.signOut({ scope: 'local' });
   }, [supabase]);
 
   return (
