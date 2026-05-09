@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../../../contexts/AuthContext";
-import { useData } from "../../../contexts/DataContext";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Eye, EyeOff, AlertCircle, Mail, Loader2 } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
@@ -21,7 +20,6 @@ const LoginPage: React.FC = () => {
     const { login, loginWithGoogle, isAuthenticated } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { loading: isDataLoading } = useData();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -75,7 +73,7 @@ const LoginPage: React.FC = () => {
 
 
 
-    const isLoading = isDataLoading || isLoggingIn;
+    const isLoading = isLoggingIn;
 
     return (
         <div className="w-full min-h-screen bg-background lg:grid lg:grid-cols-2">
