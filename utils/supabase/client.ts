@@ -33,3 +33,12 @@ export function getSupabaseBrowserClient(): SupabaseClient {
 
 /** @deprecated Use getSupabaseBrowserClient() directly. Kept for AuthContext compatibility. */
 export const createClient = getSupabaseBrowserClient;
+
+/**
+ * Resets the singleton so the next call to getSupabaseBrowserClient()
+ * creates a fresh client. Call this on sign-out to avoid stale auth state
+ * from persisting in the cached instance.
+ */
+export function resetSupabaseBrowserClient(): void {
+    client = null;
+}

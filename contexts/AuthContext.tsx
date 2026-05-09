@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
-import { createClient } from '../utils/supabase/client';
+import { createClient, resetSupabaseBrowserClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
@@ -117,8 +117,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!usersRef.current && isMounted) setUsers(usersList);
         syncUser(session.user.email, usersList);
       } else if (event === 'SIGNED_OUT') {
+        // FIX: clear ALL auth state — localStorage, cookie, and React state.
+        // Previously the cookie was not cleared here, leaving the middleware
+        // seeing a valid limperial_legacy_session and blocking re-login.
         setCurrentUser(null);
         localStorageRemove(AUTH_STORAGE_KEY);
+        deleteCookie('limperial_legacy_session');
       }
     });
 
@@ -168,12 +172,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [supabase]);
 
   const logout = useCallback(async () => {
-    // Clear local state and the middleware cookie FIRST so any redirects
-    // that happen during the async signOut don't see a stale session.
+    // 1. Clear local state and the middleware cookie FIRST so any redirects
+    //    that happen during the async signOut don't see a stale session.
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
     deleteCookie('limperial_legacy_session');
+
+    // 2. Sign out from Supabase (invalidates the server session).
     await supabase!.auth.signOut();
+
+    // 3. Clear all Supabase-owned localStorage keys (sb-* tokens).
+    //    Without this, the next signInWithPassword call may pick up a
+    //    stale/expired token and fail with an invalid session error.
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-'))
+        .forEach(k => localStorage.removeItem(k));
+    }
+
+    // 4. Reset the singleton so the next login gets a clean client instance.
+    resetSupabaseBrowserClient();
   }, [supabase]);
 
   return (
