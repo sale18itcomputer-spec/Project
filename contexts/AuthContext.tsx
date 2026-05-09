@@ -64,25 +64,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let isMounted = true;
 
-    // Safety net: if the network never responds, unblock the UI after 10s
+    // Safety net: if the network never responds, unblock the UI after 20s
     const timeoutId = setTimeout(() => {
       if (isMounted) {
-        console.error('[Auth] Bootstrap timed out after 10s — check network or Supabase config.');
+        console.error('[Auth] Bootstrap timed out after 20s — check network or Supabase config.');
         setIsAuthLoading(false);
       }
-    }, 10000);
+    }, 20000);
 
     const bootstrapAuth = async () => {
       try {
+        // Step 0: Restore from localStorage immediately — unblocks UI for returning users
+        const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
+        if (savedUserId && isMounted) {
+          // Optimistically restore — will be verified/overwritten after Users fetch
+          const cachedUser = { UserID: savedUserId } as User;
+          setCurrentUser(cachedUser);
+          setIsAuthLoading(false);
+        }
+
         // Step 1: Get the active session (anon or authenticated)
         const { data: { session }, error: sessionError } = await supabase!.auth.getSession();
         if (sessionError) console.error('[Auth] Session error:', sessionError);
         if (!isMounted) return;
 
-        // Step 2: Fetch the Users table exactly ONCE here.
+        // Step 2: Fetch the Users table with a 8s timeout.
         // The onAuthStateChange listener reuses this data via usersRef.
-        const fetchedUsers = await readRecords<User>('Users').catch(err => {
-          console.warn('[Auth] Failed to read Users table (RLS/Permissions):', err);
+        const fetchedUsers = await Promise.race([
+          readRecords<User>('Users'),
+          new Promise<User[]>((_, reject) =>
+            setTimeout(() => reject(new Error('Users fetch timed out')), 8000)
+          )
+        ]).catch(err => {
+          console.warn('[Auth] Failed to read Users table:', err);
           return [] as User[];
         });
         if (!isMounted) return;
@@ -93,13 +107,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           syncUser(session.user.email, fetchedUsers);
         } else if (DEV_AUTO_LOGIN_EMAIL) {
           syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
-        } else {
-          // Last resort: restore from localStorage for sessions that survive page refresh
-          const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
-          if (savedUserId) {
-            const user = fetchedUsers.find(u => u.UserID === savedUserId);
-            if (user) setCurrentUser(user);
-          }
+        } else if (savedUserId) {
+          // Restore from localStorage for sessions that survive page refresh
+          const user = fetchedUsers.find(u => u.UserID === savedUserId);
+          if (user) setCurrentUser(user);
         }
       } catch (error) {
         console.error('[Auth] CRITICAL: Bootstrap failed:', error);
