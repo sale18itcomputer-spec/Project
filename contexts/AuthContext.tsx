@@ -85,7 +85,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // Step 1: Get the active session (anon or authenticated)
         const { data: { session }, error: sessionError } = await supabase!.auth.getSession();
-        if (sessionError) console.error('[Auth] Session error:', sessionError);
+        if (sessionError) {
+          console.error('[Auth] Session error:', sessionError);
+          // Stale/invalid refresh token — wipe local storage and start clean
+          if (sessionError.message?.toLowerCase().includes('refresh token')) {
+            localStorageRemove(AUTH_STORAGE_KEY);
+            deleteCookie('limperial_legacy_session');
+            await supabase!.auth.signOut({ scope: 'local' });
+            if (isMounted) { setCurrentUser(null); setIsAuthLoading(false); }
+            return;
+          }
+        }
         if (!isMounted) return;
 
         // Step 2: Fetch the Users table with a 8s timeout.
@@ -127,6 +137,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Listener handles subsequent sign-in / sign-out events AFTER initial bootstrap.
     // It reuses usersRef — no duplicate fetch needed.
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
+      // Stale refresh token — clear everything and force re-login
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('[Auth] Refresh token invalid — clearing session.');
+        setCurrentUser(null);
+        localStorageRemove(AUTH_STORAGE_KEY);
+        deleteCookie('limperial_legacy_session');
+        await supabase!.auth.signOut({ scope: 'local' });
+        return;
+      }
+
       if (session?.user?.email) {
         // Use already-fetched list; only fetch if somehow still null (edge case)
         const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
