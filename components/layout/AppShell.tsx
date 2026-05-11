@@ -9,6 +9,7 @@ import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
+import PasscodeLock from '@/components/common/PasscodeLock';
 
 export const FINANCE_ALLOWED_PATHS = ['/invoices', '/delivery-orders', '/receipts'];
 
@@ -113,7 +114,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (isMobile) {
         return (
-            <div className="relative min-h-screen bg-background">
+            <PasscodeLock>
+                <div className="relative min-h-screen bg-background">
                 <Header onMenuClick={() => setSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} isMobile={true} />
                 {isSidebarOpen && (
                     <div onClick={closeSidebar} className="fixed inset-0 bg-black/60 z-[90] lg:hidden" aria-hidden="true" />
@@ -128,12 +130,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </main>
                 <MobileBottomNav />
             </div>
+            </PasscodeLock>
         );
     }
 
     return (
-        <div
-            className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
+        <PasscodeLock>
+            <div
+                className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
             style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}
         >
             <Sidebar
@@ -152,5 +156,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {!isConstrained && <Footer />}
             </div>
         </div>
+        </PasscodeLock>
     );
 }

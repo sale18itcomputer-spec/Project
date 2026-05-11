@@ -25,6 +25,8 @@ interface AuthContextType {
   users: User[] | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: () => Promise<void>;
+  loginWithOtp: (email: string) => Promise<{ success: boolean; message: string }>;
+  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
 }
 
@@ -244,6 +246,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [supabase]);
 
+  const loginWithOtp = useCallback(async (email: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const { error } = await supabase!.auth.signInWithOtp({ 
+        email,
+        options: {
+          shouldCreateUser: false // Adjust if you want to allow auto-signups
+        }
+      });
+      if (error) return { success: false, message: error.message };
+      return { success: true, message: 'OTP sent successfully!' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  }, [supabase]);
+
+  const verifyOtp = useCallback(async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const { data, error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' });
+      if (error) return { success: false, message: error.message };
+      
+      if (data?.user?.email) {
+        const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
+        if (!usersRef.current) setUsers(usersList);
+        const matched = syncUser(data.user.email, usersList);
+        if (!matched) {
+          await supabase!.auth.signOut();
+          return { success: false, message: 'Your account is not active or not registered. Please contact your administrator.' };
+        }
+      }
+      return { success: true, message: 'OTP verified successfully!' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  }, [supabase, syncUser]);
+
   const logout = useCallback(async () => {
     // Signal that this SIGNED_OUT event is intentional so the listener
     // knows it is safe to clear auth state.
@@ -269,6 +306,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       users,
       login,
       loginWithGoogle,
+      loginWithOtp,
+      verifyOtp,
       logout,
     }}>
       {children}
