@@ -251,7 +251,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { error } = await supabase!.auth.signInWithOtp({ 
         email,
         options: {
-          shouldCreateUser: false // Adjust if you want to allow auto-signups
+          shouldCreateUser: false, // Only allow pre-existing Supabase Auth users
+          emailRedirectTo: undefined, // Prevents magic link fallback — forces 6-digit OTP
         }
       });
       if (error) return { success: false, message: error.message };
