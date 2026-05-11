@@ -7,6 +7,7 @@ import { readRecords } from '../services/api';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
+const AUTH_USER_CACHE_KEY = 'limperial_auth_user_data';
 // Only active in development builds. Guard prevents accidental use in production.
 const DEV_AUTO_LOGIN_EMAIL =
   process.env.NODE_ENV === 'development'
@@ -55,6 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user && user.Status === 'Active') {
       setCurrentUser(user);
       localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+      localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
       setCookie('limperial_legacy_session', user.UserID, 7);
       return user;
     }
@@ -74,13 +76,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const bootstrapAuth = async () => {
       try {
-        // Step 0: Restore from localStorage immediately — unblocks UI for returning users
+        // Step 0: Restore full user from cache — real object, not a stub
         const savedUserId = localStorageGet(AUTH_STORAGE_KEY);
-        if (savedUserId && isMounted) {
-          // Optimistically restore — will be verified/overwritten after Users fetch
-          const cachedUser = { UserID: savedUserId } as User;
-          setCurrentUser(cachedUser);
-          setIsAuthLoading(false);
+        const savedUserRaw = localStorageGet(AUTH_USER_CACHE_KEY);
+        let cachedUser: User | null = null;
+        if (savedUserRaw) {
+          try {
+            cachedUser = JSON.parse(savedUserRaw) as User;
+            if (cachedUser?.UserID && isMounted) {
+              setCurrentUser(cachedUser);
+              // Don't set isAuthLoading false yet — let full verify complete
+            }
+          } catch { cachedUser = null; }
         }
 
         // Step 1: Get the active session with a 5s timeout
@@ -121,9 +128,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (DEV_AUTO_LOGIN_EMAIL) {
           syncUser(DEV_AUTO_LOGIN_EMAIL, fetchedUsers);
         } else if (savedUserId) {
-          // Restore from localStorage for sessions that survive page refresh
+          // Restore from localStorage — verify the user still exists and is active
           const user = fetchedUsers.find(u => u.UserID === savedUserId);
-          if (user) setCurrentUser(user);
+          if (user && user.Status === 'Active') {
+            setCurrentUser(user);
+            // Refresh the cache with latest user data
+            localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+          } else if (!user && cachedUser) {
+            // Supabase fetch failed/empty but we have cached user — keep them
+            setCurrentUser(cachedUser);
+          } else {
+            // User no longer active or found — clear everything
+            setCurrentUser(null);
+            localStorageRemove(AUTH_STORAGE_KEY);
+            localStorageRemove(AUTH_USER_CACHE_KEY);
+            deleteCookie('limperial_legacy_session');
+          }
         }
       } catch (error) {
         console.error('[Auth] CRITICAL: Bootstrap failed:', error);
@@ -164,6 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isLoggingOutRef.current = false;
         setCurrentUser(null);
         localStorageRemove(AUTH_STORAGE_KEY);
+        localStorageRemove(AUTH_USER_CACHE_KEY);
         deleteCookie('limperial_legacy_session');
       }
     });
@@ -230,6 +251,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // redirects during the async signOut don't see a stale session.
     setCurrentUser(null);
     localStorageRemove(AUTH_STORAGE_KEY);
+    localStorageRemove(AUTH_USER_CACHE_KEY);
     deleteCookie('limperial_legacy_session');
 
     // scope: 'local' clears only THIS tab's tokens without invalidating
