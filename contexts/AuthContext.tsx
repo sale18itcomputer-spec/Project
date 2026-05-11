@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('[Auth] Bootstrap timed out — check Supabase connectivity.');
         setIsAuthLoading(false);
       }
-    }, 8000);
+    }, 60000);
 
     const bootstrapAuth = async () => {
       try {
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { session }, error: sessionError } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null }, error: Error }>((resolve) =>
-            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 5000)
+            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 60000)
           )
         ]);
         if (sessionError) {
