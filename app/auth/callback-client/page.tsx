@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../../utils/supabase/client';
 import { readRecords } from '../../../services/api';
 import { localStorageSet, setCookie } from '../../../utils/storage';
@@ -11,29 +11,20 @@ import type { User } from '../../../types';
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
 const AUTH_USER_CACHE_KEY = 'limperial_auth_user_data';
 
-export default function AuthCallbackPage() {
+export default function AuthCallbackClientPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [error, setError] = useState('');
     const didRun = useRef(false);
 
     useEffect(() => {
-        // Prevent double-run in React strict mode
         if (didRun.current) return;
         didRun.current = true;
 
         const supabase = getSupabaseBrowserClient();
-        let redirected = false;
-
-        const doRedirect = () => {
-            if (redirected) return;
-            redirected = true;
-            router.replace('/');
-        };
 
         const handleSession = async (email: string) => {
             try {
-                // Fetch + cache user while still on the callback page
-                // so AppShell finds it in localStorage instantly — no extra fetch needed
                 const users = await readRecords<User>('Users');
                 const user = users.find(
                     u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
@@ -43,42 +34,34 @@ export default function AuthCallbackPage() {
                     localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
                     setCookie('limperial_legacy_session', user.UserID, 7);
                 }
-            } catch {
-                // Best effort — AuthContext will re-fetch if cache is missing
-            } finally {
-                doRedirect();
-            }
+            } catch {}
+            router.replace('/');
         };
 
-        // Listen for the SIGNED_IN event (fires after code exchange)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session?.user?.email) {
-                subscription.unsubscribe();
-                handleSession(session.user.email);
-            } else if (event === 'SIGNED_IN' && session) {
-                subscription.unsubscribe();
-                doRedirect();
-            }
-        });
+        const code = searchParams.get('code');
 
-        // Check if session already exists (e.g. page reload on callback)
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user?.email) {
-                subscription.unsubscribe();
-                handleSession(session.user.email);
-            }
-        });
-
-        // Timeout fallback
-        const timeout = setTimeout(() => {
-            setError('Sign in timed out. Please try again.');
-        }, 12000);
-
-        return () => {
-            subscription.unsubscribe();
-            clearTimeout(timeout);
-        };
-    }, [router]);
+        if (code) {
+            // PKCE flow
+            supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+                if (error) { setError(error.message); return; }
+                const email = data.session?.user?.email;
+                if (email) handleSession(email);
+                else router.replace('/');
+            });
+        } else {
+            // Implicit flow — token arrives via hash, onAuthStateChange fires automatically
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session?.user?.email) {
+                    subscription.unsubscribe();
+                    handleSession(session.user.email);
+                }
+            });
+            // Timeout fallback
+            setTimeout(() => {
+                setError('Sign in timed out. Please try again.');
+            }, 10000);
+        }
+    }, [router, searchParams]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background">

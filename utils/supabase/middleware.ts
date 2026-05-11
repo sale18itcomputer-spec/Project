@@ -9,7 +9,7 @@ export async function updateSession(request: NextRequest) {
 
     // Protection logic
     const { pathname } = request.nextUrl
-    const PUBLIC_ROUTES = ['/login']
+    const PUBLIC_ROUTES = ['/login', '/auth/callback', '/auth/callback-client']
     const ALWAYS_ALLOW = ['/_next', '/favicon.ico', '/api/', '/public/']
 
     if (ALWAYS_ALLOW.some(p => pathname.startsWith(p))) {

@@ -251,8 +251,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { error } = await supabase!.auth.signInWithOtp({ 
         email,
         options: {
-          shouldCreateUser: false, // Only allow pre-existing Supabase Auth users
-          emailRedirectTo: undefined, // Prevents magic link fallback — forces 6-digit OTP
+          shouldCreateUser: false,
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
         }
       });
       if (error) return { success: false, message: error.message };
@@ -262,7 +262,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [supabase]);
 
-  const verifyOtp = useCallback(async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
+    const verifyOtp = useCallback(async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
     try {
       const { data, error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' });
       if (error) return { success: false, message: error.message };
