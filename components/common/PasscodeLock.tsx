@@ -408,15 +408,15 @@ export default function PasscodeLock({ children }: PasscodeLockProps) {
                             <input 
                                 type="text" 
                                 value={otpToken}
-                                onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                placeholder="00000000"
+                                onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                placeholder="000000"
                                 className="w-full bg-slate-900 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg px-4 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none transition-all placeholder:text-slate-600"
-                                onKeyDown={(e) => e.key === 'Enter' && otpToken.length === 8 && handleVerifyOtp()}
+                                onKeyDown={(e) => e.key === 'Enter' && otpToken.length === 6 && handleVerifyOtp()}
                                 autoFocus
                             />
                             <button
                                 onClick={handleVerifyOtp}
-                                disabled={otpLoading || otpToken.length < 8}
+                                disabled={otpLoading || otpToken.length < 6}
                                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.2)]"
                             >
                                 {otpLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Code'}

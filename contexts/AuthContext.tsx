@@ -252,7 +252,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         email,
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
         }
       });
       if (error) return { success: false, message: error.message };
