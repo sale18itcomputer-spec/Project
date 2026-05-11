@@ -108,20 +108,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         if (!isMounted) return;
 
-        // Step 2: Fetch the Users table with a 8s timeout.
-        // The onAuthStateChange listener reuses this data via usersRef.
-        const fetchedUsers = await Promise.race([
-          readRecords<User>('Users'),
-          new Promise<User[]>((_, reject) =>
-            setTimeout(() => reject(new Error('Users fetch timed out')), 8000)
-          )
-        ]).catch(err => {
-          console.warn('[Auth] Failed to read Users table:', err);
-          return [] as User[];
-        });
+        // Step 2: Fetch Users — skip if cache is already warm from callback
+        // This avoids a duplicate network call when signing in via Google OAuth
+        const cacheIsWarm = !!cachedUser && !!savedUserId;
+        const fetchedUsers = cacheIsWarm && !session
+          ? [] // will use cachedUser path below
+          : await Promise.race([
+              readRecords<User>('Users'),
+              new Promise<User[]>((_, reject) =>
+                setTimeout(() => reject(new Error('Users fetch timed out')), 8000)
+              )
+            ]).catch(err => {
+              console.warn('[Auth] Failed to read Users table:', err);
+              return [] as User[];
+            });
         if (!isMounted) return;
-
-        setUsers(fetchedUsers);
+        if (fetchedUsers.length > 0) setUsers(fetchedUsers);
 
         if (session?.user?.email) {
           syncUser(session.user.email, fetchedUsers);

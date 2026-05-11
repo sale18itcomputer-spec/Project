@@ -1,39 +1,78 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../../utils/supabase/client';
+import { readRecords } from '../../../services/api';
+import { localStorageSet, setCookie } from '../../../utils/storage';
 import { Loader2 } from 'lucide-react';
+import type { User } from '../../../types';
+
+const AUTH_STORAGE_KEY = 'limperial_auth_user';
+const AUTH_USER_CACHE_KEY = 'limperial_auth_user_data';
 
 export default function AuthCallbackPage() {
     const router = useRouter();
     const [error, setError] = useState('');
+    const didRun = useRef(false);
 
     useEffect(() => {
+        // Prevent double-run in React strict mode
+        if (didRun.current) return;
+        didRun.current = true;
+
         const supabase = getSupabaseBrowserClient();
+        let redirected = false;
 
-        // Supabase JS automatically parses the code/token from the URL
-        // and exchanges it for a session. onAuthStateChange fires when done.
+        const doRedirect = () => {
+            if (redirected) return;
+            redirected = true;
+            router.replace('/');
+        };
+
+        const handleSession = async (email: string) => {
+            try {
+                // Fetch + cache user while still on the callback page
+                // so AppShell finds it in localStorage instantly — no extra fetch needed
+                const users = await readRecords<User>('Users');
+                const user = users.find(
+                    u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
+                );
+                if (user && user.Status === 'Active') {
+                    localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+                    localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+                    setCookie('limperial_legacy_session', user.UserID, 7);
+                }
+            } catch {
+                // Best effort — AuthContext will re-fetch if cache is missing
+            } finally {
+                doRedirect();
+            }
+        };
+
+        // Listen for the SIGNED_IN event (fires after code exchange)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session) {
+            if (event === 'SIGNED_IN' && session?.user?.email) {
                 subscription.unsubscribe();
-                router.replace('/');
+                handleSession(session.user.email);
+            } else if (event === 'SIGNED_IN' && session) {
+                subscription.unsubscribe();
+                doRedirect();
             }
         });
 
-        // Also handle the case where session is already established
-        // (e.g. user lands on callback page after redirect)
+        // Check if session already exists (e.g. page reload on callback)
         supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
+            if (session?.user?.email) {
                 subscription.unsubscribe();
-                router.replace('/');
+                handleSession(session.user.email);
             }
         });
 
-        // Timeout — if nothing happens in 10s, something went wrong
+        // Timeout fallback
         const timeout = setTimeout(() => {
             setError('Sign in timed out. Please try again.');
-        }, 10000);
+        }, 12000);
 
         return () => {
             subscription.unsubscribe();
@@ -47,17 +86,14 @@ export default function AuthCallbackPage() {
                 {error ? (
                     <>
                         <p className="text-destructive font-medium">{error}</p>
-                        <button
-                            onClick={() => router.replace('/login')}
-                            className="text-primary hover:underline text-sm"
-                        >
+                        <button onClick={() => router.replace('/login')} className="text-primary hover:underline text-sm">
                             Back to login
                         </button>
                     </>
                 ) : (
                     <>
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Completing sign in...</p>
+                        <p className="text-sm text-muted-foreground">Signing you in...</p>
                     </>
                 )}
             </div>
