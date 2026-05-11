@@ -7,24 +7,34 @@ import { useAuth } from '../../../../../contexts/AuthContext';
 import { SETUP_PHASE_KEY } from '../../../../../utils/security';
 
 export default function VerifyOtpPage() {
-    const { currentUser, verifyOtp } = useAuth();
+    const { currentUser, verifyOtp, logout } = useAuth();
     const [token, setToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
 
     const handleVerify = async () => {
-        if (token.length < 6 || !currentUser?.Email) return;
+        const email = currentUser?.Email || sessionStorage.getItem('limperial_otp_email');
+        if (token.length < 6 || !email) {
+            if (!email) setError('Session expired. Please try sending the code again.');
+            return;
+        }
+        
         setLoading(true);
         setError('');
-        const res = await verifyOtp(currentUser.Email, token);
-        setLoading(false);
-        if (res.success) {
-            sessionStorage.setItem(SETUP_PHASE_KEY, 'pin_create');
-            router.push('/unlock/pin/create');
-        } else {
-            setError(res.message);
-            setToken('');
+        try {
+            const res = await verifyOtp(email, token);
+            if (res.success) {
+                sessionStorage.setItem(SETUP_PHASE_KEY, 'pin_create');
+                router.replace('/unlock/pin/create');
+            } else {
+                setError(res.message);
+                setToken('');
+                setLoading(false);
+            }
+        } catch (err) {
+            setError('Verification failed. Please try again.');
+            setLoading(false);
         }
     };
 
@@ -37,7 +47,7 @@ export default function VerifyOtpPage() {
                 
                 <h2 className="text-2xl font-semibold tracking-tight text-white mb-2 text-center">Enter Login Code</h2>
                 <p className="text-sm text-slate-400 text-center mb-8 px-4 leading-relaxed">
-                    We sent a 6-digit code to {currentUser?.Email || 'your email'}.
+                    We sent a 6-digit code to {currentUser?.Email || sessionStorage.getItem('limperial_otp_email') || 'your email'}.
                 </p>
 
                 {error && (
@@ -69,6 +79,19 @@ export default function VerifyOtpPage() {
                         className="w-full py-2 text-slate-500 hover:text-white text-sm transition-colors"
                     >
                         Resend Code
+                    </button>
+                    <button
+                        onClick={async () => {
+                            try {
+                                await logout();
+                                window.location.href = '/login';
+                            } catch {
+                                window.location.href = '/login';
+                            }
+                        }}
+                        className="w-full py-2 text-rose-500/80 hover:text-rose-400 text-sm transition-colors"
+                    >
+                        Sign Out
                     </button>
                 </div>
             </div>

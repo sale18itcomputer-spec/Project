@@ -22,6 +22,7 @@ export default function RequestOtpPage() {
         const res = await loginWithOtp(currentUser.Email);
         setLoading(false);
         if (res.success) {
+            sessionStorage.setItem('limperial_otp_email', currentUser.Email);
             sessionStorage.setItem(SETUP_PHASE_KEY, 'otp_verify');
             router.push('/unlock/otp/verify');
         } else {
@@ -69,8 +70,13 @@ export default function RequestOtpPage() {
 
                     <button
                         onClick={async () => {
-                            await logout();
-                            router.replace('/login');
+                            try {
+                                await logout();
+                                // Force hard reload to login to ensure all state is cleared
+                                window.location.href = '/login';
+                            } catch (err) {
+                                window.location.href = '/login';
+                            }
                         }}
                         className="w-full py-2 text-rose-500/80 hover:text-rose-400 text-sm transition-colors flex items-center justify-center gap-2"
                     >

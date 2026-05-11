@@ -4,11 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, RefreshCw, AlertCircle, Delete } from 'lucide-react';
 import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, hashPin } from '../../../utils/security';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function UnlockPage() {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [isChecking, setIsChecking] = useState(true);
+    const { logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -101,10 +103,25 @@ export default function UnlockPage() {
                 
                 <p className="hidden md:block text-slate-500 text-sm mt-8">Use your keyboard to enter the PIN</p>
 
-                <button onClick={() => { localStorage.removeItem(PIN_STORAGE_KEY); router.push('/unlock/otp'); }} className="text-slate-500 hover:text-white text-sm transition-colors mt-8 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5">
-                    <RefreshCw className="w-4 h-4" />
-                    Forgot PIN?
-                </button>
+                <div className="flex flex-col items-center gap-2 mt-8">
+                    <button onClick={() => { localStorage.removeItem(PIN_STORAGE_KEY); router.push('/unlock/otp'); }} className="text-slate-500 hover:text-white text-sm transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5">
+                        <RefreshCw className="w-4 h-4" />
+                        Forgot PIN?
+                    </button>
+                    <button
+                        onClick={async () => {
+                            try {
+                                await logout();
+                                window.location.href = '/login';
+                            } catch {
+                                window.location.href = '/login';
+                            }
+                        }}
+                        className="text-rose-500/60 hover:text-rose-400 text-sm transition-colors px-4 py-2"
+                    >
+                        Sign Out
+                    </button>
+                </div>
             </div>
         </div>
     );
