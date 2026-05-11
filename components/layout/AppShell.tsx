@@ -9,7 +9,7 @@ import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
-import PasscodeLock from '@/components/common/PasscodeLock';
+import { UNLOCK_STORAGE_KEY, AUTOLOCK_STORAGE_KEY } from '@/utils/security';
 
 export const FINANCE_ALLOWED_PATHS = ['/invoices', '/delivery-orders', '/receipts'];
 
@@ -58,6 +58,51 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (!isAuthenticated) router.replace('/login');
     }, [isAuthenticated, isAuthLoading, router]);
 
+    // Local Passcode Lock logic
+    useEffect(() => {
+        if (isAuthLoading || !isAuthenticated) return;
+        
+        // Skip lock check if on unlock or login routes
+        if (pathname.startsWith('/unlock') || pathname === '/login') return;
+
+        const checkLock = () => {
+            const isUnlocked = sessionStorage.getItem(UNLOCK_STORAGE_KEY) === 'true';
+            if (!isUnlocked) {
+                router.replace('/unlock');
+            }
+        };
+
+        checkLock();
+        
+        // Listen for lock events or focus
+        window.addEventListener('focus', checkLock);
+        return () => window.removeEventListener('focus', checkLock);
+    }, [isAuthLoading, isAuthenticated, pathname, router]);
+
+    // Auto-lock monitor (moved from PasscodeLock)
+    useEffect(() => {
+        if (isAuthLoading || !isAuthenticated || pathname.startsWith('/unlock')) return;
+
+        let lastActivity = Date.now();
+        const autoLockMs = parseInt(localStorage.getItem(AUTOLOCK_STORAGE_KEY) || '3600000', 10);
+
+        const handleActivity = () => { lastActivity = Date.now(); };
+        const events = ['mousedown', 'keydown', 'touchstart', 'mousemove'];
+        events.forEach(e => window.addEventListener(e, handleActivity));
+
+        const interval = setInterval(() => {
+            if (Date.now() - lastActivity > autoLockMs) {
+                sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
+                router.replace('/unlock');
+            }
+        }, 30000); // Check every 30s
+
+        return () => {
+            events.forEach(e => window.removeEventListener(e, handleActivity));
+            clearInterval(interval);
+        };
+    }, [isAuthLoading, isAuthenticated, pathname, router]);
+
     // Finance role guard
     useEffect(() => {
         if (isAuthLoading || !isAuthenticated) return;
@@ -100,8 +145,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         document.body.style.cursor = isResizing ? 'col-resize' : '';
         document.body.style.userSelect = isResizing ? 'none' : '';
-        return () => { document.body.style.cursor = ''; document.body.style.userSelect = ''; };
-    }, [isResizing]);
+
+        const handleManualLock = () => {
+            sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
+            router.replace('/unlock');
+        };
+        window.addEventListener('lock-app', handleManualLock);
+
+        return () => { 
+            document.body.style.cursor = ''; 
+            document.body.style.userSelect = ''; 
+            window.removeEventListener('lock-app', handleManualLock);
+        };
+    }, [isResizing, router]);
 
     if (isAuthLoading) return <BrandedLoader />;
     if (!isAuthenticated) return <>{children}</>;
@@ -114,8 +170,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (isMobile) {
         return (
-            <PasscodeLock>
-                <div className="relative min-h-screen bg-background">
+            <div className="relative min-h-screen bg-background">
                 <Header onMenuClick={() => setSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} isMobile={true} />
                 {isSidebarOpen && (
                     <div onClick={closeSidebar} className="fixed inset-0 bg-black/60 z-[90] lg:hidden" aria-hidden="true" />
@@ -130,14 +185,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </main>
                 <MobileBottomNav />
             </div>
-            </PasscodeLock>
         );
     }
 
     return (
-        <PasscodeLock>
-            <div
-                className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
+        <div
+            className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
             style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}
         >
             <Sidebar
@@ -156,6 +209,5 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {!isConstrained && <Footer />}
             </div>
         </div>
-        </PasscodeLock>
     );
 }
