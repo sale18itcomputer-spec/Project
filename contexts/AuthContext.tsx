@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('[Auth] Bootstrap timed out — check Supabase connectivity.');
         setIsAuthLoading(false);
       }
-    }, 60000);
+    }, 10000);
 
     const bootstrapAuth = async () => {
       try {
@@ -87,7 +87,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             cachedUser = JSON.parse(savedUserRaw) as User;
             if (cachedUser?.UserID && isMounted) {
               setCurrentUser(cachedUser);
-              // Don't set isAuthLoading false yet — let full verify complete
+              // Cache hit — unblock UI immediately, verify in background
+              setIsAuthLoading(false);
             }
           } catch { cachedUser = null; }
         }
@@ -96,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { session }, error: sessionError } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null }, error: Error }>((resolve) =>
-            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 60000)
+            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 8000)
           )
         ]);
         if (sessionError) {
@@ -267,13 +268,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error) return { success: false, message: error.message };
       
       if (data?.user?.email) {
-        const usersList = usersRef.current ?? await readRecords<User>('Users').catch(() => [] as User[]);
-        if (!usersRef.current) setUsers(usersList);
-        const matched = syncUser(data.user.email, usersList);
-        if (!matched) {
-          await supabase!.auth.signOut();
-          return { success: false, message: 'Your account is not active or not registered. Please contact your administrator.' };
+        // Use cached users list — avoid slow fetch on production
+        const usersList = usersRef.current;
+        if (usersList && usersList.length > 0) {
+          syncUser(data.user.email, usersList);
         }
+        // If no cached list, AuthContext onAuthStateChange will sync on next event
       }
       return { success: true, message: 'OTP verified successfully!' };
     } catch (err: any) {

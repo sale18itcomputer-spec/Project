@@ -1,12 +1,12 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import ContentSkeleton from '@/components/common/ContentSkeleton';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-const Dashboard = dynamic(() => import('@/components/dashboards/shared/Dashboard'), {
-    loading: () => <ContentSkeleton />,
-});
-
-export default function DashboardPage() {
-    return <Dashboard />;
+export default function RootPage() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace('/dashboard');
+    }, [router]);
+    return null;
 }

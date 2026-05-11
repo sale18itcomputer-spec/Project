@@ -26,9 +26,9 @@ const LoginPage: React.FC = () => {
                 /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
 
             if (isLocal) {
-                router.push(redirectPath);
+                router.push(redirectPath === '/' ? '/dashboard' : redirectPath);
             } else {
-                window.location.href = 'https://project.limperialtech.com';
+                window.location.href = 'https://project.limperialtech.com/dashboard';
             }
         }
     }, [isAuthenticated, router, redirectPath]);

@@ -35,7 +35,7 @@ export default function AuthCallbackClientPage() {
                     setCookie('limperial_legacy_session', user.UserID, 7);
                 }
             } catch {}
-            router.replace('/');
+            router.replace('/dashboard');
         };
 
         const code = searchParams.get('code');
@@ -49,17 +49,25 @@ export default function AuthCallbackClientPage() {
                 else router.replace('/');
             });
         } else {
-            // Implicit flow — token arrives via hash, onAuthStateChange fires automatically
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-                if (event === 'SIGNED_IN' && session?.user?.email) {
-                    subscription.unsubscribe();
+            // Implicit flow — check session immediately first, then listen
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if (session?.user?.email) {
                     handleSession(session.user.email);
+                    return;
                 }
+                // Session not ready yet — wait for onAuthStateChange
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_IN' && session?.user?.email) {
+                        subscription.unsubscribe();
+                        handleSession(session.user.email);
+                    }
+                });
+                // Timeout fallback
+                setTimeout(() => {
+                    subscription.unsubscribe();
+                    setError('Sign in timed out. Please try again.');
+                }, 15000);
             });
-            // Timeout fallback
-            setTimeout(() => {
-                setError('Sign in timed out. Please try again.');
-            }, 10000);
         }
     }, [router, searchParams]);
 
