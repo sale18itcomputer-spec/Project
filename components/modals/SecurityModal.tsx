@@ -9,6 +9,7 @@ import { Label } from "../ui/label";
 import { useAuth } from "../../contexts/AuthContext";
 import { readRecords, createRecord, updateRecord, deleteRecord } from "../../services/api";
 import Spinner from "../common/Spinner";
+import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, hashPin } from "../../utils/security";
 
 interface UserPasscode {
     UserID: string;
@@ -45,11 +46,16 @@ const SecurityModal: React.FC = () => {
             const records = await readRecords<UserPasscode>('User_Passcodes');
             const userRecord = records.find(r => r.UserID === currentUser.UserID);
             setCurrentRecord(userRecord || null);
-            if (!userRecord && view === 'settings') {
+
+            // A local PIN hash is the source of truth for the lock screen.
+            // If Supabase has no record but localStorage does, treat it as existing
+            // (e.g. Supabase was unreachable during initial setup).
+            const hasLocalPin = !!localStorage.getItem(PIN_STORAGE_KEY);
+            if (!userRecord && !hasLocalPin && view === 'settings') {
                 setView('create');
             }
         } catch (_err) {
-            console.error("Failed to fetch security data:", _err);
+            console.error('Failed to fetch security data:', _err);
         } finally {
             setIsLoading(false);
         }
@@ -85,6 +91,11 @@ const SecurityModal: React.FC = () => {
             } else {
                 await createRecord('User_Passcodes', { UserID: currentUser.UserID, Passcode: passcode, AutoLockTimeout: '1h' });
             }
+
+            // Keep localStorage in sync so the unlock screen uses the new PIN immediately
+            const hashed = await hashPin(passcode);
+            localStorage.setItem(PIN_STORAGE_KEY, hashed);
+
             setSuccess('Passcode saved successfully!');
             window.dispatchEvent(new CustomEvent('security-settings-updated'));
             setPasscode('');
@@ -125,7 +136,10 @@ const SecurityModal: React.FC = () => {
             await deleteRecord('User_Passcodes', currentUser.UserID);
             setCurrentRecord(null);
             setView('create');
-            sessionStorage.removeItem(`limperial_unlocked_${currentUser.UserID}`);
+            // Clear the local hash so the unlock screen redirects to OTP setup
+            localStorage.removeItem(PIN_STORAGE_KEY);
+            // Clear session unlock flag (uses the shared constant key)
+            sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
             setSuccess('Passcode disabled');
             window.dispatchEvent(new CustomEvent('security-settings-updated'));
             setTimeout(() => setSuccess(''), 2000);

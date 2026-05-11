@@ -2,54 +2,89 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Delete, AlertCircle } from 'lucide-react';
-import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, SETUP_PHASE_KEY, hashPin } from '../../../../../utils/security';
+import { Lock, AlertCircle } from 'lucide-react';
+import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, SETUP_PHASE_KEY, TEMP_PIN_KEY, hashPin } from '../../../../../utils/security';
+import { PinDots, PinPad } from '../../../../../components/common/PinPad';
+import { useAuth } from '../../../../../contexts/AuthContext';
+import { readRecords, createRecord, updateRecord } from '../../../../../services/api';
 
 export default function ConfirmPinPage() {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
+    const { currentUser } = useAuth();
     const router = useRouter();
+    
+    // Get the length of the first PIN to know when to auto-submit
+    const [expectedLength, setExpectedLength] = useState(4);
+
+    useEffect(() => {
+        const firstPin = sessionStorage.getItem(TEMP_PIN_KEY);
+        if (firstPin) {
+            setExpectedLength(firstPin.length);
+        } else {
+            // If no temp pin, go back to create
+            router.replace('/unlock/pin/create');
+        }
+    }, [router]);
 
     const processPin = useCallback(async (currentPin: string) => {
-        const firstPin = sessionStorage.getItem('temp_pin');
-        
+        const firstPin = sessionStorage.getItem(TEMP_PIN_KEY);
+
         if (currentPin === firstPin) {
             const hashed = await hashPin(currentPin);
             localStorage.setItem(PIN_STORAGE_KEY, hashed);
             sessionStorage.setItem(UNLOCK_STORAGE_KEY, 'true');
-            sessionStorage.removeItem('temp_pin');
+            sessionStorage.removeItem(TEMP_PIN_KEY);
             sessionStorage.removeItem(SETUP_PHASE_KEY);
+
+            // Sync to Supabase so SecurityModal sees the PIN exists
+            if (currentUser?.UserID) {
+                try {
+                    const existing = await readRecords<{ UserID: string }>('User_Passcodes');
+                    const hasRecord = existing.some(r => r.UserID === currentUser.UserID);
+                    if (hasRecord) {
+                        await updateRecord('User_Passcodes', currentUser.UserID, { Passcode: currentPin });
+                    } else {
+                        await createRecord('User_Passcodes', { UserID: currentUser.UserID, Passcode: currentPin, AutoLockTimeout: '1h' });
+                    }
+                } catch {
+                    // Non-fatal — local PIN still works
+                }
+            }
+
             router.replace('/dashboard');
         } else {
             setError('PINs do not match. Try again.');
             setPin('');
-            setTimeout(() => {
-                router.replace('/unlock/pin/create');
-            }, 1500);
+            setTimeout(() => router.replace('/unlock/pin/create'), 1500);
         }
-    }, [router]);
+    }, [currentUser, router]);
 
     useEffect(() => {
-        if (pin.length === 4) {
+        if (pin.length === expectedLength) {
             const timeout = setTimeout(() => processPin(pin), 150);
             return () => clearTimeout(timeout);
         }
-    }, [pin, processPin]);
+    }, [pin, expectedLength, processPin]);
 
-    const handleKeyPress = useCallback((e: KeyboardEvent) => {
-        if (/^[0-9]$/.test(e.key)) {
-            setPin(prev => prev.length < 4 ? prev + e.key : prev);
-            setError('');
-        } else if (e.key === 'Backspace') {
-            setPin(prev => prev.slice(0, -1));
-            setError('');
-        }
+    const appendDigit = useCallback((d: string) => {
+        setPin(prev => prev.length < expectedLength ? prev + d : prev);
+        setError('');
+    }, [expectedLength]);
+
+    const deleteDigit = useCallback(() => {
+        setPin(prev => prev.slice(0, -1));
+        setError('');
     }, []);
 
     useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (/^[0-9]$/.test(e.key)) appendDigit(e.key);
+            else if (e.key === 'Backspace') deleteDigit();
+        };
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [handleKeyPress]);
+    }, [appendDigit, deleteDigit]);
 
     return (
         <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans selection:bg-transparent">
@@ -60,33 +95,22 @@ export default function ConfirmPinPage() {
                     </div>
                     <div className="text-center">
                         <h2 className="text-2xl font-semibold tracking-tight text-white">Confirm PIN</h2>
-                        <p className="text-sm text-slate-400 mt-2">Re-enter your 4-digit PIN to confirm.</p>
+                        <p className="text-sm text-slate-400 mt-2">Re-enter your {expectedLength}-digit PIN to confirm.</p>
                     </div>
                 </div>
 
-                <div className="flex justify-center gap-6 mb-12 h-6 items-center">
-                    {[0, 1, 2, 3].map((index) => (
-                        <div key={index} className={`w-4 h-4 rounded-full transition-all duration-300 ${index < pin.length ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'bg-slate-700/50 border border-slate-600'}`} />
-                    ))}
-                </div>
+                <PinDots length={expectedLength} filled={pin.length} />
 
                 <div className="h-6 mb-6 w-full flex justify-center">
                     {error && (
                         <div className="flex items-center gap-2 text-rose-400 text-sm font-medium animate-shake px-4 py-1.5 bg-rose-500/10 rounded-full border border-rose-500/20">
-                            <AlertCircle className="w-4 h-4" />
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
                             <span>{error}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-x-8 gap-y-4 max-w-[280px] mx-auto w-full md:hidden">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                        <button key={num} onClick={() => setPin(p => p.length < 4 ? p + num : p)} className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto">{num}</button>
-                    ))}
-                    <div />
-                    <button onClick={() => setPin(p => p.length < 4 ? p + '0' : p)} className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto">0</button>
-                    <button onClick={() => setPin(p => p.slice(0, -1))} className="w-16 h-16 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto"><Delete className="w-6 h-6" /></button>
-                </div>
+                <PinPad onDigit={appendDigit} onDelete={deleteDigit} />
             </div>
         </div>
     );

@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, RefreshCw, AlertCircle, Delete } from 'lucide-react';
+import { Lock, RefreshCw, AlertCircle } from 'lucide-react';
 import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, hashPin } from '../../../utils/security';
 import { useAuth } from '../../../contexts/AuthContext';
+import { PinDots, PinPad } from '../../../components/common/PinPad';
 
 export default function UnlockPage() {
     const [pin, setPin] = useState('');
@@ -26,9 +27,43 @@ export default function UnlockPage() {
         }
     }, [router]);
 
-    const processPin = useCallback(async (currentPin: string) => {
+    // Check PIN against stored hash on every keystroke when length is 4-6
+    useEffect(() => {
+        const checkPin = async () => {
+            if (pin.length >= 4) {
+                const storedHash = localStorage.getItem(PIN_STORAGE_KEY);
+                const inputHash = await hashPin(pin);
+                
+                if (storedHash === inputHash) {
+                    sessionStorage.setItem(UNLOCK_STORAGE_KEY, 'true');
+                    router.replace('/dashboard');
+                } else if (pin.length === 6) {
+                    // Only show error and reset if they reached the maximum length
+                    setError('Incorrect PIN');
+                    setPin('');
+                }
+            }
+        };
+        
+        checkPin();
+    }, [pin, router]);
+
+    const appendDigit = useCallback((d: string) => {
+        if (isChecking) return;
+        setPin(prev => prev.length < 6 ? prev + d : prev);
+        setError('');
+    }, [isChecking]);
+
+    const deleteDigit = useCallback(() => {
+        if (isChecking) return;
+        setPin(prev => prev.slice(0, -1));
+        setError('');
+    }, [isChecking]);
+
+    const handleManualSubmit = useCallback(async () => {
+        if (pin.length < 4) return;
         const storedHash = localStorage.getItem(PIN_STORAGE_KEY);
-        const inputHash = await hashPin(currentPin);
+        const inputHash = await hashPin(pin);
         
         if (storedHash === inputHash) {
             sessionStorage.setItem(UNLOCK_STORAGE_KEY, 'true');
@@ -37,30 +72,27 @@ export default function UnlockPage() {
             setError('Incorrect PIN');
             setPin('');
         }
-    }, [router]);
+    }, [pin, router]);
 
     useEffect(() => {
-        if (pin.length === 4) {
-            const timeout = setTimeout(() => processPin(pin), 150);
-            return () => clearTimeout(timeout);
-        }
-    }, [pin, processPin]);
-
-    const handleKeyPress = useCallback((e: KeyboardEvent) => {
-        if (isChecking) return;
-        if (/^[0-9]$/.test(e.key)) {
-            setPin(prev => prev.length < 4 ? prev + e.key : prev);
-            setError('');
-        } else if (e.key === 'Backspace') {
-            setPin(prev => prev.slice(0, -1));
-            setError('');
-        }
-    }, [isChecking]);
-
-    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (/^[0-9]$/.test(e.key)) appendDigit(e.key);
+            else if (e.key === 'Backspace') deleteDigit();
+            else if (e.key === 'Enter') handleManualSubmit();
+        };
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [handleKeyPress]);
+    }, [appendDigit, deleteDigit, handleManualSubmit]);
+
+    const handleForgotPin = () => {
+        localStorage.removeItem(PIN_STORAGE_KEY);
+        router.push('/unlock/otp');
+    };
+
+    const handleSignOut = async () => {
+        try { await logout(); } catch { /* ignore */ }
+        window.location.href = '/login';
+    };
 
     if (isChecking) return null;
 
@@ -73,50 +105,42 @@ export default function UnlockPage() {
                     </div>
                     <div className="text-center">
                         <h2 className="text-2xl font-semibold tracking-tight text-white">Enter your PIN</h2>
-                        <p className="text-sm text-slate-400 mt-2">Please enter your 4-digit PIN to unlock.</p>
+                        <p className="text-sm text-slate-400 mt-2">Please enter your 4 to 6-digit PIN to unlock.</p>
                     </div>
                 </div>
 
-                <div className="flex justify-center gap-6 mb-12 h-6 items-center">
-                    {[0, 1, 2, 3].map((index) => (
-                        <div key={index} className={`w-4 h-4 rounded-full transition-all duration-300 ${index < pin.length ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'bg-slate-700/50 border border-slate-600'}`} />
-                    ))}
-                </div>
+                <PinDots length={6} filled={pin.length} />
 
                 <div className="h-6 mb-6 w-full flex justify-center">
                     {error && (
                         <div className="flex items-center gap-2 text-rose-400 text-sm font-medium animate-shake px-4 py-1.5 bg-rose-500/10 rounded-full border border-rose-500/20">
-                            <AlertCircle className="w-4 h-4" />
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
                             <span>{error}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-x-8 gap-y-4 max-w-[280px] mx-auto w-full md:hidden">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                        <button key={num} onClick={() => setPin(p => p.length < 4 ? p + num : p)} className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto">{num}</button>
-                    ))}
-                    <div />
-                    <button onClick={() => setPin(p => p.length < 4 ? p + '0' : p)} className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto">0</button>
-                    <button onClick={() => setPin(p => p.slice(0, -1))} className="w-16 h-16 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto"><Delete className="w-6 h-6" /></button>
-                </div>
-                
-                <p className="hidden md:block text-slate-500 text-sm mt-8">Use your keyboard to enter the PIN</p>
+                <PinPad 
+                    onDigit={appendDigit} 
+                    onDelete={deleteDigit} 
+                    onSubmit={handleManualSubmit}
+                    submitDisabled={pin.length < 4}
+                />
+
+                <p className="hidden md:block text-slate-500 text-sm mt-8 text-center px-6 leading-relaxed">
+                    Use your keyboard or the on-screen pad. Press Enter or Check to submit.
+                </p>
 
                 <div className="flex flex-col items-center gap-2 mt-8">
-                    <button onClick={() => { localStorage.removeItem(PIN_STORAGE_KEY); router.push('/unlock/otp'); }} className="text-slate-500 hover:text-white text-sm transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5">
+                    <button
+                        onClick={handleForgotPin}
+                        className="text-slate-500 hover:text-white text-sm transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5"
+                    >
                         <RefreshCw className="w-4 h-4" />
                         Forgot PIN?
                     </button>
                     <button
-                        onClick={async () => {
-                            try {
-                                await logout();
-                                window.location.href = '/login';
-                            } catch {
-                                window.location.href = '/login';
-                            }
-                        }}
+                        onClick={handleSignOut}
                         className="text-rose-500/60 hover:text-rose-400 text-sm transition-colors px-4 py-2"
                     >
                         Sign Out
