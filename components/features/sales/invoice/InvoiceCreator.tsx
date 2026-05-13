@@ -71,7 +71,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 };
 
 const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice, initialData }) => {
-    const { invoices, setInvoices, companies, contacts, saleOrders } = useData();
+    const { invoices, setInvoices, companies, contacts, saleOrders, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -331,6 +331,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 await createRecord('Invoices', payload);
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
             }
+            refetchModule('Invoices');
 
             setSuccessInfo({ invNo: invoice['Inv No'] });
         } catch (err: any) {

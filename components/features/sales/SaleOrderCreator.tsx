@@ -164,7 +164,7 @@ const PricelistCombobox: React.FC<{
 
 
 const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder, initialData }) => {
-    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist } = useData();
+    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
@@ -576,6 +576,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             };
             const payload = { ...masterSheetData, 'ItemsJSON': items };
             await createSaleOrderSheet(masterSheetData['SO No'], payload);
+            refetchModule('Sale Orders');
             if (existingSaleOrder && existingSaleOrder['SO No']) {
                 setSaleOrders(current => current ? current.map(so => so['SO No'] === masterSheetData['SO No'] ? masterSheetData : so) : [masterSheetData]);
             } else {

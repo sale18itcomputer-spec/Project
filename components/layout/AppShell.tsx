@@ -4,7 +4,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import Footer from './Footer';
 import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
@@ -206,7 +205,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         {children}
                     </div>
                 </main>
-                {!isConstrained && <Footer />}
             </div>
         </div>
     );

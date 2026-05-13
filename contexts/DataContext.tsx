@@ -80,6 +80,7 @@ interface DataContextProps {
   activePipelineIds: Set<string>;
   refetchData: () => void;
   fetchModule: (...sheets: LazySheet[]) => Promise<void>;
+  refetchModule: (...sheets: LazySheet[]) => void;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
@@ -327,6 +328,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ---------------------------------------------------------------------------
   // fetchModule — lazy loading for individual module pages
   // ---------------------------------------------------------------------------
+  const refetchModule = useCallback((...sheets: LazySheet[]) => {
+    sheets.forEach(s => fetchedModules.delete(s));
+  }, []);
+
   const fetchModule = useCallback(async (...sheets: LazySheet[]) => {
     const toFetch = sheets.filter(s => !fetchedModules.has(s));
     if (toFetch.length === 0) return;
@@ -388,7 +393,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purchaseOrders, setPurchaseOrders,
     loading, error,
     activeCompanyNames, activeContactNames, activePipelineIds,
-    refetchData, fetchModule,
+    refetchData, fetchModule, refetchModule,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

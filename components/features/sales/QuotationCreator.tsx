@@ -180,7 +180,7 @@ const PricelistCombobox: React.FC<{
 
 
 const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation, initialData }) => {
-    const { quotations, setQuotations, companies, contacts, pricelist } = useB2BData();
+    const { quotations, setQuotations, companies, contacts, pricelist, refetchModule } = useB2BData();
     const { isB2B } = useB2B();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
@@ -599,7 +599,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'Contact Name': quote['Contact Name'] || '',
                 'Contact Number': quote['Contact Number'] || '',
                 'Contact Email': quote['Contact Email'] || '',
-                'Amount': String(totals.grandTotal),
+                'Amount': totals.grandTotal,
                 'CM': String(totals.commission),
                 'Status': quote.Status || 'Open',
                 'Reason': quote.Reason || '',
@@ -623,10 +623,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'ItemsJSON': JSON.stringify(items),
             };
 
-            // This now saves to Supabase directly
+            // Save to Supabase
             await createQuotationSheet(masterSheetData['Quote No'], sheetGenerationData, isB2B);
 
-            console.log('🚀 Quotation saved, adding to list optimistically:', masterSheetData['Quote No']);
+            // Clear the module cache so the dashboard re-fetches fresh data on next visit
+            refetchModule('Quotations');
 
             // Optimistic update: Add quotation to list immediately
             setQuotations(current => {

@@ -47,7 +47,7 @@ interface Props {
 }
 
 const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData }) => {
-    const { deliveryOrders, setDeliveryOrders, invoices, saleOrders, companies, contacts } = useData();
+    const { deliveryOrders, setDeliveryOrders, invoices, saleOrders, companies, contacts, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -252,6 +252,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 await createRecord('Delivery Orders', payload);
                 setDeliveryOrders(cur => cur ? [payload as DeliveryOrder, ...cur] : [payload as DeliveryOrder]);
             }
+            refetchModule('Delivery Orders');
             setSuccessInfo({ doNo: doc['DO No']! });
         } catch (err: any) {
             addToast(err.message || 'Failed to save Delivery Order', 'error');

@@ -54,7 +54,7 @@ interface Props {
 const getCurrencySymbol = (currency?: 'USD' | 'KHR') => currency === 'KHR' ? '៛' : '$';
 
 const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData }) => {
-    const { receipts, setReceipts, invoices, deliveryOrders, saleOrders, companies, contacts } = useData();
+    const { receipts, setReceipts, invoices, deliveryOrders, saleOrders, companies, contacts, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -276,6 +276,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 await createRecord('Receipts', payload);
                 setReceipts(cur => cur ? [payload as Receipt, ...cur] : [payload as Receipt]);
             }
+            refetchModule('Receipts');
             setSuccessInfo({ rvNo: doc['RV No']! });
         } catch (err: any) {
             addToast(err.message || 'Failed to save Receipt', 'error');
