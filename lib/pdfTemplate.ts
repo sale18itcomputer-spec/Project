@@ -106,11 +106,23 @@ const LAYOUT = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Font embedding ────────────────────────────────────────────────────────────
+let _fontsCache: { khmer: string; times: string; timesBold: string } | null = null;
+let _logoCache: string | null = null;
+
 function getFontsB64(): { khmer: string; times: string; timesBold: string } {
+    if (_fontsCache) return _fontsCache;
     const khmer     = fs.readFileSync(path.join(process.cwd(), 'public', 'KhmerOS.ttf')).toString('base64');
     const times     = fs.readFileSync(path.join(process.cwd(), 'public', 'times.ttf')).toString('base64');
     const timesBold = fs.readFileSync(path.join(process.cwd(), 'public', 'timesbd.ttf')).toString('base64');
-    return { khmer, times, timesBold };
+    _fontsCache = { khmer, times, timesBold };
+    return _fontsCache;
+}
+
+function getLogoB64(): string {
+    if (_logoCache) return _logoCache;
+    const logo = fs.readFileSync(path.join(process.cwd(), 'public', 'Limperial Technology Logo01.png(004aad).png')).toString('base64');
+    _logoCache = `data:image/png;base64,${logo}`;
+    return _logoCache;
 }
 
 // ── Base CSS ──────────────────────────────────────────────────────────────────
@@ -250,7 +262,7 @@ function moneyTd(v: number | string, sym: string, extraStyle = ''): string {
     return `<td style="${style}">${moneyInner(v, sym)}</td>`;
 }
 
-const LOGO = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png';
+const LOGO = getLogoB64();
 
 function companyHeader(): string {
     return `

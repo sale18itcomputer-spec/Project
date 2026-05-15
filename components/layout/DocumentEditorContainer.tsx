@@ -91,12 +91,14 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto relative bg-background">
-        {/* Mobile Header Actions (Visible only on small screens if provided) */}
-        <div className="lg:hidden p-4 pb-0">
-          {leftActions}
-        </div>
+        {/* Mobile left actions bar — compact, no bottom padding */}
+        {leftActions && (
+          <div className="lg:hidden px-3 pt-2 pb-0">
+            {leftActions}
+          </div>
+        )}
 
-        <div className="p-4 sm:p-6 lg:p-10 h-full">
+        <div className="p-2 sm:p-4 lg:p-10 h-full">
           <div className="max-w-[1920px] mx-auto h-full">
             {children}
           </div>

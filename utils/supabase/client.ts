@@ -1,18 +1,19 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 // Minimal Database stub — lets all .from() calls accept any payload.
 // Replace with generated types from `supabase gen types typescript` when ready.
 type Database = { [key: string]: any };
 
-type SupabaseClient = ReturnType<typeof createSupabaseClient<Database>>;
+type SupabaseClient = ReturnType<typeof createBrowserClient<Database>>;
 
 let client: SupabaseClient | null = null;
 
 /**
- * Returns the Supabase browser client singleton.
+ * Returns the Supabase browser client singleton using @supabase/ssr.
+ * createBrowserClient handles cookie-based session storage correctly in Next.js,
+ * preventing getSession from hanging on page reload.
  * Throws at runtime if env vars are missing — this is intentional,
  * as missing env vars are a fatal misconfiguration.
- * Return type is non-nullable so callers never have to guard against null.
  */
 export function getSupabaseBrowserClient(): SupabaseClient {
     if (client) return client;
@@ -23,11 +24,13 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     if (!url || !anon) {
         const msg = '[Supabase] Missing env vars: NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY';
         console.error(msg);
-        // Throw so the error surface is clear at startup rather than silent null refs later
         throw new Error(msg);
     }
 
-    client = createSupabaseClient<Database>(url, anon);
+    // createBrowserClient from @supabase/ssr is cookie-aware — it correctly
+    // reads/writes session tokens via cookies in Next.js, fixing getSession
+    // timeouts that occur with the plain supabase-js client on page reload.
+    client = createBrowserClient<Database>(url, anon);
     return client;
 }
 

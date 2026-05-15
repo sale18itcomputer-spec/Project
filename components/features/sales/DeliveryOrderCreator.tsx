@@ -66,16 +66,15 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
 
     // Auto-generate DO No
     const calculatedNextDONo = useMemo(() => {
-        if (!deliveryOrders || deliveryOrders.length === 0) return 'DO-250001';
-        const year = new Date().getFullYear().toString().slice(-2);
-        const prefix = `DO-${year}`;
+        const year = new Date().getFullYear().toString();
+        const prefix = `DN${year}-`;
         const thisYear = (deliveryOrders || []).filter(d => d['DO No']?.startsWith(prefix));
-        if (thisYear.length === 0) return `${prefix}0001`;
+        if (thisYear.length === 0) return `${prefix}00002`;
         const maxNum = thisYear.reduce((max, d) => {
             const n = parseInt(d['DO No'].slice(prefix.length), 10);
             return isNaN(n) ? max : Math.max(max, n);
-        }, 0);
-        return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+        }, 1);
+        return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
     }, [deliveryOrders]);
 
     // Initialise form
@@ -99,27 +98,30 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             const source = inv || so;
             const company = source ? companies?.find(c => c['Company Name'] === source['Company Name']) : null;
 
-            setDoc({
-                'DO No': calculatedNextDONo,
-                'DO Date': getTodayDateString(),
-                'Inv No': inv?.['Inv No'] || '',
-                'SO No': inv?.['SO No'] || so?.['SO No'] || '',
-                'Company Name': source?.['Company Name'] || '',
-                'Company Address': company?.['Address (English)'] || '',
-                'Contact Name': source?.['Contact Name'] || '',
-                'Phone Number': source?.['Phone Number'] || '',
-                'Email': source?.['Email'] || (source as any)?.Email || '',
-                'Currency': source?.['Currency'] || 'USD',
-                'Status': 'Pending',
-                'Payment Term': source?.['Payment Term'] || '',
-                'Prepared By': currentUser?.Name || '',
-                'Prepared By Position': currentUser ? [
-                    currentUser.Role,
-                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                    currentUser.Email,
-                ].filter(Boolean).join(' | ') : '',
-                'Approved By': '',
-                'Approved By Position': '',
+            setDoc(prev => {
+                if (Object.keys(prev).length > 0 && prev['DO No']) return prev;
+                return {
+                    'DO No': calculatedNextDONo,
+                    'DO Date': getTodayDateString(),
+                    'Inv No': inv?.['Inv No'] || '',
+                    'SO No': inv?.['SO No'] || so?.['SO No'] || '',
+                    'Company Name': source?.['Company Name'] || '',
+                    'Company Address': company?.['Address (English)'] || '',
+                    'Contact Name': source?.['Contact Name'] || '',
+                    'Phone Number': source?.['Phone Number'] || '',
+                    'Email': source?.['Email'] || (source as any)?.Email || '',
+                    'Currency': source?.['Currency'] || 'USD',
+                    'Status': 'Pending',
+                    'Payment Term': source?.['Payment Term'] || '',
+                    'Prepared By': currentUser?.Name || '',
+                    'Prepared By Position': currentUser ? [
+                        currentUser.Role,
+                        [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                        currentUser.Email,
+                    ].filter(Boolean).join(' | ') : '',
+                    'Approved By': '',
+                    'Approved By Position': '',
+                };
             });
 
             // Copy items from invoice/SO if available
@@ -139,7 +141,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 })));
             }
         }
-    }, [existingDO, initialData, calculatedNextDONo, companies]);
+    }, [existingDO, initialData, calculatedNextDONo]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;

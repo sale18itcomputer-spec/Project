@@ -233,10 +233,80 @@ function DataTable<T extends object>({
 
   const handleRowClick = (item: T, index: number) => {
     if (isMobile) {
-      toggleRowExpansion(index);
+      if (onRowClick) {
+        onRowClick(item);
+      } else {
+        toggleRowExpansion(index);
+      }
     } else if (onRowClick) {
       onRowClick(item);
     }
+  };
+
+  // Mobile card renderer — fires when isMobile is true
+  const renderMobileCards = () => {
+    if (loading) return <MobileTableSkeleton columns={columns.length} />;
+    if (paginatedData.length === 0) return (
+      <div className="p-8 flex items-center justify-center">
+        <EmptyState illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />} />
+      </div>
+    );
+    return (
+      <ul className="divide-y divide-border">
+        {paginatedData.map((item, index) => {
+          const globalIndex = startIndex + index;
+          const isHighlighted = highlightedCheck ? highlightedCheck(item) : false;
+          // Split columns into primary (always shown) and secondary (shown below)
+          const primaryCols = columns.filter(c => mobilePrimaryColumns.includes(c.accessorKey));
+          const secondaryCols = columns.filter(c => !mobilePrimaryColumns.includes(c.accessorKey));
+          const [firstPrimary, ...restPrimary] = primaryCols;
+
+          return (
+            <li
+              key={globalIndex}
+              onClick={() => handleRowClick(item, globalIndex)}
+              className={`px-4 py-3 flex items-start gap-3 active:bg-accent/60 transition-colors ${
+                isHighlighted ? 'bg-amber-500/10' : 'bg-card'
+              } ${onRowClick ? 'cursor-pointer' : ''}`}
+            >
+              {/* Left: brand-color accent bar */}
+              <div className="w-0.5 self-stretch rounded-full bg-brand-500/30 flex-shrink-0" />
+
+              {/* Main content */}
+              <div className="flex-1 min-w-0 space-y-0.5">
+                {/* First primary column — headline */}
+                {firstPrimary && (
+                  <div className="font-semibold text-sm text-foreground truncate">
+                    {firstPrimary.cell
+                      ? firstPrimary.cell(item[firstPrimary.accessorKey], item)
+                      : String(item[firstPrimary.accessorKey] ?? '')}
+                  </div>
+                )}
+                {/* Rest of primary columns — subtitle row */}
+                {restPrimary.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    {restPrimary.map(col => (
+                      <span key={String(col.accessorKey)} className="text-xs text-muted-foreground">
+                        {col.cell
+                          ? col.cell(item[col.accessorKey], item)
+                          : String(item[col.accessorKey] ?? '')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: row actions */}
+              {renderRowActions && (
+                <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                  {renderRowActions(item)}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
   };
 
 
@@ -372,25 +442,17 @@ function DataTable<T extends object>({
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-card rounded-lg border border-border shadow-sm overflow-hidden text-foreground scroll-hint-wrapper">
+    <div className="flex flex-col h-full w-full bg-card md:rounded-lg border border-border shadow-sm overflow-hidden text-foreground scroll-hint-wrapper">
       <div
         ref={containerRef}
-        onMouseDown={handleDragDown}
-        onMouseLeave={handleDragLeave}
-        onMouseUp={handleDragUp}
-        onMouseMove={handleDragMove}
+        onMouseDown={!isMobile ? handleDragDown : undefined}
+        onMouseLeave={!isMobile ? handleDragLeave : undefined}
+        onMouseUp={!isMobile ? handleDragUp : undefined}
+        onMouseMove={!isMobile ? handleDragMove : undefined}
         onScroll={handleScroll}
-        className="responsive-table flex-1 w-full overflow-auto horizontal-scroll min-h-0 relative cursor-grab active:cursor-grabbing"
+        className="responsive-table flex-1 w-full overflow-auto horizontal-scroll min-h-0 relative"
       >
-        {showScrollHint && (
-          <div className="scroll-hint-indicator md:flex hidden">
-            <span>Scroll for more</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        )}
-        {loading ? (
-          <TableSkeleton columns={columns.length + (renderRowActions ? 1 : 0)} rows={itemsPerPage} />
-        ) : (
+        {isMobile ? renderMobileCards() : (
           <table ref={tableRef} className="w-full text-sm text-left text-muted-foreground min-w-full table-auto md:border-l md:border-t md:border-border" aria-busy={loading}>
             <colgroup>
               {columns.map(col => (

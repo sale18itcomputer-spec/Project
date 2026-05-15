@@ -7,17 +7,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayoutDashboard, Filter, Building, Users, FileText, Truck, Receipt } from 'lucide-react';
 
 const allNavItems = [
-    { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={24} />, showInB2B: true, financeOnly: false },
-    { path: '/projects', label: 'Pipelines', icon: <Filter size={24} />, showInB2B: true, financeOnly: false },
-    { path: '/companies', label: 'Companies', icon: <Building size={24} />, showInB2B: true, financeOnly: false },
-    { path: '/contacts', label: 'Contacts', icon: <Users size={24} />, showInB2B: false, financeOnly: false },
-    { path: '/quotations', label: 'Quotes', icon: <FileText size={24} />, showInB2B: true, financeOnly: false },
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard, showInB2B: true, financeOnly: false },
+    { path: '/projects', label: 'Pipelines', icon: Filter, showInB2B: true, financeOnly: false },
+    { path: '/companies', label: 'Companies', icon: Building, showInB2B: true, financeOnly: false },
+    { path: '/contacts', label: 'Contacts', icon: Users, showInB2B: false, financeOnly: false },
+    { path: '/quotations', label: 'Quotes', icon: FileText, showInB2B: true, financeOnly: false },
 ];
 
 const financeNavItems = [
-    { path: '/invoices', label: 'Invoices', icon: <FileText size={24} /> },
-    { path: '/delivery-orders', label: 'Delivery', icon: <Truck size={24} /> },
-    { path: '/receipts', label: 'Receipts', icon: <Receipt size={24} /> },
+    { path: '/invoices', label: 'Invoices', icon: FileText },
+    { path: '/delivery-orders', label: 'Delivery', icon: Truck },
+    { path: '/receipts', label: 'Receipts', icon: Receipt },
 ];
 
 const MobileBottomNav: React.FC = () => {
@@ -36,6 +36,7 @@ const MobileBottomNav: React.FC = () => {
         <nav className="mobile-bottom-nav lg:hidden">
             {navItems.map(item => {
                 const isActive = pathname === item.path;
+                const Icon = item.icon;
                 return (
                     <button
                         key={item.path}
@@ -43,7 +44,10 @@ const MobileBottomNav: React.FC = () => {
                         className={`mobile-nav-item ${isActive ? 'active' : ''}`}
                         aria-current={isActive ? 'page' : undefined}
                     >
-                        {item.icon}
+                        {/* Pill / highlight behind icon when active */}
+                        <span className={`mobile-nav-pill ${isActive ? 'active' : ''}`}>
+                            <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+                        </span>
                         <span className="mobile-nav-item-label">{item.label}</span>
                     </button>
                 );

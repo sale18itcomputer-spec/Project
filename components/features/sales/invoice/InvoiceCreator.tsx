@@ -88,22 +88,28 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
 
-    // Improved next invoice number logic
-    const calculatedNextInvNo = useMemo(() => {
-        if (!invoices || invoices.length === 0) return 'INV-250001';
-        const year = new Date().getFullYear().toString().slice(-2);
-        const prefix = `INV-${year}`;
+    const getNextInvNo = (taxableType: string, allInvoices: any[]) => {
+        const year = new Date().getFullYear().toString();
+        let prefix = `INV${year}-`;
+        if (taxableType === 'VAT') prefix = `TI${year}-`;
+        else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
 
-        const thisYearInvoices = invoices.filter(inv => inv['Inv No'].startsWith(prefix));
-        if (thisYearInvoices.length === 0) return `${prefix}0001`;
+        const thisYearInvoices = (allInvoices || []).filter(inv => inv['Inv No']?.startsWith(prefix));
+        if (thisYearInvoices.length === 0) return `${prefix}00002`;
 
         const maxNum = thisYearInvoices.reduce((max, inv) => {
             const numPart = parseInt(inv['Inv No'].slice(prefix.length), 10);
             return isNaN(numPart) ? max : Math.max(max, numPart);
-        }, 0);
+        }, 1);
 
-        return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
-    }, [invoices]);
+        return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
+    };
+
+    // Improved next invoice number logic
+    const calculatedNextInvNo = useMemo(() => {
+        const initialTaxable = initialData?.soData?.['Bill Invoice'] || 'VAT';
+        return getNextInvNo(initialTaxable, invoices || []);
+    }, [invoices, initialData]);
 
     useEffect(() => {
         if (existingInvoice) {
@@ -154,15 +160,18 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 })));
             }
         } else {
-            setInvoice({
-                'Inv No': calculatedNextInvNo,
-                'Inv Date': getTodayDateString(),
-                'Status': 'Draft',
-                'Currency': 'USD',
-                'Taxable': 'VAT',
+            setInvoice(prev => {
+                if (Object.keys(prev).length > 0 && prev['Inv No']) return prev;
+                return {
+                    'Inv No': calculatedNextInvNo,
+                    'Inv Date': getTodayDateString(),
+                    'Status': 'Draft',
+                    'Currency': 'USD',
+                    'Taxable': 'VAT',
+                };
             });
         }
-    }, [existingInvoice, initialData, calculatedNextInvNo, companies]);
+    }, [existingInvoice, initialData, calculatedNextInvNo]);
 
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -182,6 +191,9 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const paymentTerm = name === 'Payment Term' ? value : prev['Payment Term'];
                 const dueDate = calcDueDate(invDate, paymentTerm);
                 if (dueDate) updated['Due Date'] = dueDate;
+            }
+            if (name === 'Taxable' && !existingInvoice) {
+                updated['Inv No'] = getNextInvNo(value, invoices || []);
             }
             return updated;
         });

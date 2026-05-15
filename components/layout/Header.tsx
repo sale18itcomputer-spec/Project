@@ -195,11 +195,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
         )}
         <B2BToggle />
 
-        {/* Dark Mode Toggle */}
+        {/* Dark Mode Toggle — hidden on mobile to save header space */}
         <Button
           variant="ghost"
           size="icon"
-          className="relative text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-accent overflow-hidden"
+          className="relative hidden sm:inline-flex text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-accent overflow-hidden"
           onClick={toggleTheme}
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -218,11 +218,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
           </span>
         </Button>
 
-        {/* Quick Lock Button */}
+        {/* Quick Lock Button — hidden on mobile */}
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-brand-600 transition-all duration-200 hover:bg-accent hover:scale-105"
+          className="hidden sm:inline-flex text-muted-foreground hover:text-brand-600 transition-all duration-200 hover:bg-accent hover:scale-105"
           onClick={() => {
             window.dispatchEvent(new CustomEvent('lock-app'));
           }}

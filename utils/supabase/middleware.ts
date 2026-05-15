@@ -10,7 +10,7 @@ export async function updateSession(request: NextRequest) {
 
     const { pathname } = request.nextUrl
 
-    const ALWAYS_ALLOW = ['/_next', '/favicon.ico', '/api/', '/public/']
+    const ALWAYS_ALLOW = ['/_next', '/favicon.ico', '/api/', '/public/', '/miniapp']
     const AUTH_ROUTES = ['/login']
     const UNLOCK_ROUTES = ['/unlock']
     const AUTH_CALLBACK = ['/auth/callback', '/auth/callback-client']

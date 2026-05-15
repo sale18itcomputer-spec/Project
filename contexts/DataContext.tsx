@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { batchReadRecords } from '../services/api';
 import { supabase } from '../lib/supabase';
 import {
@@ -39,8 +39,6 @@ const LAZY_SHEETS = [
 ] as const;
 
 type LazySheet = typeof LAZY_SHEETS[number];
-
-const fetchedModules = new Set<LazySheet>();
 
 interface DataContextProps {
   projects: PipelineProject[] | null;
@@ -136,10 +134,16 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [refetchCounter, setRefetchCounter] = useState(0);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
+
+  // Tracks which lazy sheets have been fetched this session.
+  // Using useRef so it's scoped to the provider instance (not module-level)
+  // and resets automatically when refetchCounter changes.
+  const fetchedModulesRef = useRef(new Set<LazySheet>());
+  useEffect(() => { fetchedModulesRef.current.clear(); }, [refetchCounter]);
 
   const refetchData = useCallback(() => {
-    fetchedModules.clear();
+    fetchedModulesRef.current.clear();
     setRefetchCounter(c => c + 1);
   }, []);
 
@@ -222,7 +226,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Real-time subscription
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isAuthLoading) return;
 
     const tableConfig: Record<string, {
       setter: React.Dispatch<React.SetStateAction<any[] | null>>;
@@ -277,13 +281,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .subscribe();
 
     return () => { supabase!.removeChannel(channel); };
-  }, [isAuthenticated, stateSetters]);
+  }, [isAuthenticated, isAuthLoading, stateSetters]);
 
   // ---------------------------------------------------------------------------
   // Boot fetch — critical tables only
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const clearData = () => Object.values(stateSetters).forEach(setter => setter(null));
+
+    // Wait for AuthContext to finish its async bootstrap before acting.
+    // Without this guard, DataContext fires with isAuthenticated=false on every
+    // reload (because currentUser starts null), clears all data, sets loading=false,
+    // and then never properly re-fetches when isAuthenticated flips to true.
+    if (isAuthLoading) {
+      setLoading(true);
+      return;
+    }
 
     if (!isAuthenticated) {
       setLoading(false);
@@ -304,7 +317,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (stateSetters[storeName]) stateSetters[storeName](cachedData[storeName]);
           });
           loadedFromCache = true;
-          setLoading(false);
+          // Don't set loading=false here — keep spinner until network resolves
         }
       } catch (dbError) {
         console.error('[DataContext] Failed to load cache from IndexedDB:', dbError);
@@ -323,20 +336,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadCriticalData();
-  }, [isAuthenticated, refetchCounter]);
+  }, [isAuthenticated, isAuthLoading, refetchCounter]);
 
   // ---------------------------------------------------------------------------
   // fetchModule — lazy loading for individual module pages
   // ---------------------------------------------------------------------------
   const refetchModule = useCallback((...sheets: LazySheet[]) => {
-    sheets.forEach(s => fetchedModules.delete(s));
+    sheets.forEach(s => fetchedModulesRef.current.delete(s));
   }, []);
 
   const fetchModule = useCallback(async (...sheets: LazySheet[]) => {
-    const toFetch = sheets.filter(s => !fetchedModules.has(s));
+    const toFetch = sheets.filter(s => !fetchedModulesRef.current.has(s));
     if (toFetch.length === 0) return;
 
-    toFetch.forEach(s => fetchedModules.add(s));
+    toFetch.forEach(s => fetchedModulesRef.current.add(s));
 
     try {
       const storeNames = toFetch.map(s => sheetToStoreMap[s]) as db.StoreName[];

@@ -61,7 +61,7 @@ export interface PipelineProject {
   'Inv Date': string;
   'Quote': string;
   'Quote No'?: string;
-  'Bid Value': string;
+  'Bid Value': string | number;
   'Invoice No': string;
   'SO No'?: string;
   'Remarks': string;
@@ -196,7 +196,7 @@ export interface Quotation {
   'Contact Name': string;
   'Contact Number': string;
   'Contact Email'?: string;
-  'Amount': string;
+  'Amount': string | number;
   'CM'?: string;
   'Status': 'Open' | 'Close (Win)' | 'Close (Lose)' | 'Cancel';
   'Reason'?: string;
@@ -257,7 +257,7 @@ export interface Invoice {
   'Contact Name': string;
   'Phone Number': string;
   'Email': string;
-  'Amount': string;
+  'Amount': string | number;
   'Taxable': string;
   'Tax Type'?: 'VAT' | 'NON-VAT';
   'Status': 'Draft' | 'Processing' | 'Completed' | 'Cancel';

@@ -51,23 +51,23 @@ const Dashboard = () => {
 
   return (
     <div className="w-full lg:h-full lg:overflow-y-auto custom-scrollbar bg-background/50">
-      <div className="p-4 md:p-8 space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="p-3 sm:p-4 md:p-8 space-y-5 sm:space-y-8">
+        {/* Header — compact on mobile */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground">Overview Dashboard</h1>
-            <p className="text-muted-foreground mt-1 font-medium italic">Welcome back to Limperial, ready for a high-performance session?</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground leading-tight">Overview Dashboard</h1>
+            <p className="hidden md:block text-muted-foreground mt-1 font-medium italic">Welcome back to Limperial, ready for a high-performance session?</p>
           </div>
         </div>
 
-        {/* Top metric cards — populated from critical data (already loaded) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-          <MetricCard title="Leads/Projects"      value={formatValue(stats?.projectsCount)}   icon={<Briefcase />} />
-          <MetricCard title="Won Pipelines"        value={formatValue(stats?.wonProjectsCount)} icon={<ClipboardList />} />
-          <MetricCard title="Active Companies"     value={formatValue(stats?.companiesCount)}  icon={<Building />} />
-          <MetricCard title="Registered Contacts"  value={formatValue(stats?.contactsCount)}   icon={<Users />} />
-          {/* These counters come from lazy data; AnalyticsDashboard will fill them */}
-          <MetricCard title="Open Quotations"      value="—"                                   icon={<MessageSquare />} />
-          <MetricCard title="Pending Orders"       value="—"                                   icon={<Calendar />} />
+        {/* Top metric cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-6">
+          <MetricCard title="Leads" value={formatValue(stats?.projectsCount)} icon={<Briefcase />} />
+          <MetricCard title="Won Pipelines" value={formatValue(stats?.wonProjectsCount)} icon={<ClipboardList />} />
+          <MetricCard title="Companies" value={formatValue(stats?.companiesCount)} icon={<Building />} />
+          <MetricCard title="Contacts" value={formatValue(stats?.contactsCount)} icon={<Users />} />
+          <MetricCard title="Open Quotes" value="—" icon={<MessageSquare />} />
+          <MetricCard title="Pending Orders" value="—" icon={<Calendar />} />
         </div>
 
         {/*

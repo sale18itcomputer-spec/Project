@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:full": "concurrently --names \"next,cloudflared,webhook\" --prefix-colors \"cyan,magenta,green\" \"next dev --turbopack\" \"cloudflared tunnel --url http://localhost:3000 2>&1 | tee .cloudflared-url\" \"node auto-webhook.mjs\"",
+    "webhook": "node auto-webhook.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -44,6 +46,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "@types/node": "^22.14.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

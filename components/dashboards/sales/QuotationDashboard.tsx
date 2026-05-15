@@ -8,7 +8,7 @@ import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/ti
 import QuotationCreator from "../../features/sales/QuotationCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
-import { ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2 } from 'lucide-react';
+import { ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import { useToast } from "../../../contexts/ToastContext";
@@ -21,6 +21,7 @@ import EmptyState from "../../common/EmptyState";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { readQuotationSheetData } from '../../../services/b2bDb';
+import { sendQuotationToTelegram } from '../../../utils/telegram';
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -72,6 +73,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
   const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
   const { width } = useWindowSize();
   const isMobile = width < 1024; // lg breakpoint
 
@@ -203,6 +205,27 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
 
   const handleBackToDashboard = () => {
     handleNavigation({ view: 'quotations', filter: navigation.filter });
+  };
+
+  const handleSendToTelegram = async (quotation: Quotation) => {
+    setIsSendingTelegram(true);
+    try {
+      const { items } = await readQuotationSheetData(quotation['Quote No'], isB2B);
+      await sendQuotationToTelegram({
+        quoteNo:         quotation['Quote No'],
+        customerName:    quotation['Company Name']   || '',
+        customerContact: quotation['Contact Number'] || quotation['Contact Name'] || '',
+        currency:        (quotation.Currency as 'USD' | 'KHR') || 'USD',
+        taxType:         (quotation['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
+        note:            quotation.Remark || '',
+        items,
+      });
+      addToast('Quotation sent to Telegram!', 'success');
+    } catch (err: any) {
+      addToast(`Telegram send failed: ${err.message}`, 'error');
+    } finally {
+      setIsSendingTelegram(false);
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -502,6 +525,15 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                     >
                       <Trash2 className="w-4 h-4" /> Delete
                     </button>
+                    <button
+                      onClick={() => handleSendToTelegram(selectedQuotationForDetail)}
+                      disabled={isSendingTelegram}
+                      className="text-sm font-semibold text-sky-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                      title="Send to Telegram (admin)"
+                    >
+                      {isSendingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      Telegram
+                    </button>
                   </div>
                   {selectedQuotationForDetail.Status === 'Close (Win)' && (
                     <button onClick={() => handleCreateSaleOrder(selectedQuotationForDetail)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm">
@@ -627,8 +659,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               </button>
             </div>
 
-            {/* Alignment/Wrap Icons */}
-            <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
+            {/* Alignment/Wrap Icons — desktop only */}
+            <div className="hidden lg:flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
               <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
                 <ArrowRightToLine className="w-4 h-4" />
               </button>
@@ -640,8 +672,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               </button>
             </div>
 
-            {/* Column Toggle */}
-            <div className="flex-shrink-0">
+            {/* Column Toggle — desktop only */}
+            <div className="hidden lg:block flex-shrink-0">
               <DataTableColumnToggle
                 allColumns={allColumns}
                 visibleColumns={visibleColumns}
@@ -660,7 +692,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+      <div className="flex-1 min-h-0 overflow-hidden bg-background p-0 md:p-4">
         {viewMode === 'table' ? (
           <DataTable
             tableId="quotation-table"
@@ -672,16 +704,16 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             mobilePrimaryColumns={['Quote No', 'Company Name', 'Amount', 'Status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-1 md:gap-3">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditQuotation(row);
                   }}
-                  className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                   title="Edit"
                 >
-                  <Pencil size={16} />
+                  <Pencil size={15} />
                 </button>
                 <button
                   onClick={(e) => {
@@ -689,20 +721,31 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                     handleDuplicateQuotation(row);
                   }}
                   disabled={isDuplicating}
-                  className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
+                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
                   title="Duplicate"
                 >
-                  <Copy size={16} />
+                  <Copy size={15} />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteRequest(row);
                   }}
-                  className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
                   title="Delete"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSendToTelegram(row);
+                  }}
+                  disabled={isSendingTelegram}
+                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-sky-500 transition hover:bg-sky-500/10 rounded-full disabled:opacity-50"
+                  title="Send to Telegram"
+                >
+                  {isSendingTelegram ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                 </button>
               </div>
             )}

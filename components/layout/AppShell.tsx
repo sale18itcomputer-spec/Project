@@ -169,17 +169,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (isMobile) {
         return (
-            <div className="relative min-h-screen bg-background">
+            <div className="relative min-h-dvh bg-background">
                 <Header onMenuClick={() => setSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} isMobile={true} />
                 {isSidebarOpen && (
-                    <div onClick={closeSidebar} className="fixed inset-0 bg-black/60 z-[90] lg:hidden" aria-hidden="true" />
+                    <div onClick={closeSidebar} className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[90] lg:hidden" aria-hidden="true" />
                 )}
                 <Sidebar
                     isSidebarOpen={isSidebarOpen} width={280} isResizing={false} isCollapsed={false}
                     onToggleCollapse={() => {}} onNavigate={handleNavigate}
                     onResizeMouseDown={() => {}} onResizeDoubleClick={() => {}}
                 />
-                <main className="mobile-content">
+                <main className="mobile-content px-3">
                     <div className="animate-slide-up">{children}</div>
                 </main>
                 <MobileBottomNav />

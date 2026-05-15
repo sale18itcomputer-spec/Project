@@ -47,6 +47,9 @@ export interface TgSessionData {
   editingField?: 'companyAddress' | 'paymentTerm' | 'contactName' | 'contactNumber' | 'quoteDate' | 'validityDate';
   editingItemIdx?: number;
   editingItemValueType?: 'qty' | 'price';
+  // Candidate lists stored in session so callback_data can use short numeric indices
+  companyCandidates?: string[];
+  contactCandidates?: { name: string; position?: string; phone?: string }[];
 }
 
 export interface TgSession {

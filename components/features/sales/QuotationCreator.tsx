@@ -15,6 +15,7 @@ import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/F
 import QuotationPDFPreview from "./QuotationPDFPreview";
 import { Trash2, AlertTriangle, Download, SlidersHorizontal, PanelRight, Send, Save, Plus, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
 import { generatePDF } from "@/lib/pdfClient";
+import { sendQuotationToTelegram } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { parseSheetValue } from "../../../utils/formatters";
@@ -190,6 +191,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [error, setError] = useState('');
     const [itemsLoading, setItemsLoading] = useState(false);
     const [successInfo, setSuccessInfo] = useState<{ quoteNo: string; isWin?: boolean } | null>(null);
+    const [isSendingTelegram, setIsSendingTelegram] = useState(false);
 
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
 
@@ -674,6 +676,26 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         }
     };
 
+    const handleSendToTelegram = async () => {
+        setIsSendingTelegram(true);
+        try {
+            await sendQuotationToTelegram({
+                quoteNo:         quote['Quote No'] || '',
+                customerName:    quote['Company Name']   || '',
+                customerContact: quote['Contact Number'] || quote['Contact Name'] || '',
+                currency:        (quote.Currency as 'USD' | 'KHR') || 'USD',
+                taxType:         (quote['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
+                note:            quote.Remark || '',
+                items,
+            });
+            addToast('Quotation sent to Telegram!', 'success');
+        } catch (err: any) {
+            addToast(`Telegram send failed: ${err.message}`, 'error');
+        } finally {
+            setIsSendingTelegram(false);
+        }
+    };
+
 
 
 
@@ -757,17 +779,22 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     );
 
     const headerRight = (
-        <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 mr-2 border-r border-border pr-4">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* PDF / Form toggles — icon only on mobile */}
+            <div className="flex items-center gap-1 sm:gap-2 sm:mr-2 sm:border-r sm:border-border sm:pr-4">
                 <button
                     onClick={() => setShowPdfPreview(!showPdfPreview)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showPdfPreview ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
+                    className={`flex items-center gap-2 px-2.5 sm:px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${
+                        showPdfPreview
+                            ? 'bg-brand-500/10 text-brand-600 border-brand-500/30'
+                            : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'
+                    }`}
                     title="Toggle PDF Preview"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span className="hidden lg:inline">
+                    <span className="hidden xl:inline">
                         {isB2B
                             ? (showPdfPreview ? 'Catalog' : 'PDF')
                             : (showPdfPreview ? 'Hide PDF' : 'PDF')
@@ -777,7 +804,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
                 <button
                     onClick={() => setShowRightPanel(!showRightPanel)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showRightPanel ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
+                    className={`hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${
+                        showRightPanel
+                            ? 'bg-brand-500/10 text-brand-600 border-brand-500/30'
+                            : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'
+                    }`}
                     title="Toggle Form Panel"
                 >
                     <PanelRight className="w-4 h-4" />
@@ -785,21 +816,44 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 </button>
             </div>
 
-            <div className="flex items-center gap-2 mr-2">
-                <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-card text-brand-600 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-all active:scale-95 shadow-sm">
-                    <Download className="w-4 h-4" />
-                    Download PDF
-                </button>
-            </div>
-            <div className="flex items-center gap-2">
-                <button onClick={handleRequestApprove} disabled={isSubmitting} className="flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
-                    <Send className="w-4 h-4" />
-                    <span className="hidden sm:inline">Request Approve</span>
-                </button>
-                <button onClick={handleSave} disabled={isSubmitting} className="flex items-center gap-2 px-8 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] min-w-[100px] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save</>}
-                </button>
-            </div>
+            {/* Download PDF — icon only on mobile */}
+            <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-1.5 px-2.5 sm:px-6 py-2 text-sm font-bold bg-card text-brand-600 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-all active:scale-95 shadow-sm"
+            >
+                <Download className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Download PDF</span>
+            </button>
+
+            {/* Request Approve — icon only on mobile */}
+            <button
+                onClick={handleRequestApprove}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-2.5 sm:px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <Send className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Request Approve</span>
+            </button>
+
+            {/* Save */}
+            <button
+                onClick={handleSave}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-3 sm:px-8 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /><span className="hidden sm:inline ml-1">Save</span></>}
+            </button>
+
+            {/* Send to Telegram */}
+            <button
+                onClick={handleSendToTelegram}
+                disabled={isSendingTelegram}
+                className="flex items-center gap-1.5 px-2.5 sm:px-5 py-2 text-sm font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Send to Telegram"
+            >
+                {isSendingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span className="hidden sm:inline">Telegram</span>
+            </button>
         </div>
     );
 
@@ -1144,7 +1198,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                         style={{ width: showRightPanel ? (showPdfPreview ? '500px' : 'auto') : '0px' }}
                     >
                         <div className={`h-full flex flex-col ${showPdfPreview ? 'w-[500px]' : 'w-full'}`}>
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
+                            <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-card">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
                                     <h3 className="text-sm font-bold text-foreground">Quotation Details</h3>
@@ -1159,7 +1213,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                     </svg>
                                 </button>
                             </div>
-                            <ScrollArea className="flex-1 px-5 py-4">
+                            <ScrollArea className="flex-1 px-3 sm:px-5 py-3 sm:py-4">
                                 <div className="space-y-6">
                                     <FormSection title="Customer Info">
                                         <FormInput

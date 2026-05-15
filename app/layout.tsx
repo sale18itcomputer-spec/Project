@@ -22,14 +22,22 @@ export default function RootLayout({
                 <script dangerouslySetInnerHTML={{ __html: `
 (function(){
   try {
-    var saved = localStorage.getItem('limperial-theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (saved === 'dark' || (!saved && prefersDark)) {
-      document.documentElement.classList.add('dark');
+    var tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.disableVerticalSwipes?.();
+      var cs = tg.colorScheme;
+      if (cs === 'dark') document.documentElement.classList.add('dark');
+    } else {
+      var saved = localStorage.getItem('limperial-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) document.documentElement.classList.add('dark');
     }
   } catch(e){}
 })();
                 `}} />
+                {/* Telegram Web App SDK */}
+                <script src="https://telegram.org/js/telegram-web-app.js" async />
                 <link rel="preconnect" href="https://rsms.me/" crossOrigin="anonymous" />
                 <link rel="preload" href="https://rsms.me/inter/inter.css" as="style" />
                 <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />

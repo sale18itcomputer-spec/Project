@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, ComponentProps } from 'react';
 import { useFilter, FilterState } from "../../../contexts/FilterContext";
-import { Filter, Calendar, Tag, User, Building, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Filter, Calendar, Tag, User, Building, ChevronLeft, ChevronRight, X, SlidersHorizontal } from 'lucide-react';
 import { parseDate } from "../../../utils/time";
 import MultiSelectFilter from "../../common/MultiSelectFilter";
 
@@ -313,41 +313,88 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
         { filterKey: 'brand1', label: 'Brand', icon: <Tag className="w-4 h-4" />, options: brands },
     ];
 
-    return (
-        <div ref={filterBarRef} className="bg-card p-3 rounded-xl border border-border shadow-sm flex items-center gap-2">
-            <div className="flex items-center gap-3 pr-3 border-r border-border">
-                <Filter className="w-5 h-5 text-brand-700 flex-shrink-0" />
-                <span className="text-sm font-semibold text-foreground hidden lg:block">Filters</span>
-            </div>
-            <div className="flex-1 flex flex-wrap items-center gap-2">
-                <CurrencyToggle />
-                <DateRangePicker
-                    filters={filters}
-                    setFilter={setFilter}
-                    isOpen={openMenu === 'dateRange'}
-                    onToggle={toggleMenu}
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const activeFilterCount = Object.values(filters).filter(val => Array.isArray(val) ? val.length > 0 : !!val).length;
+
+    const filterChips = (
+        <>
+            <CurrencyToggle />
+            <DateRangePicker
+                filters={filters}
+                setFilter={setFilter}
+                isOpen={openMenu === 'dateRange'}
+                onToggle={toggleMenu}
+                onClose={closeMenu}
+            />
+            {filterConfig.map(config => (
+                <ContextAwareMultiSelectFilter
+                    key={config.filterKey}
+                    {...config}
+                    isOpen={openMenu === config.filterKey}
+                    onToggle={() => toggleMenu(config.filterKey)}
                     onClose={closeMenu}
                 />
-                {filterConfig.map(config => (
-                    <ContextAwareMultiSelectFilter
-                        key={config.filterKey}
-                        {...config}
-                        isOpen={openMenu === config.filterKey}
-                        onToggle={() => toggleMenu(config.filterKey)}
-                        onClose={closeMenu}
-                    />
-                ))}
-            </div>
-            {hasActiveFilters && (
+            ))}
+        </>
+    );
+
+    return (
+        <div ref={filterBarRef} className="bg-card rounded-xl border border-border shadow-sm">
+            {/* Mobile: single row with toggle button */}
+            <div className="flex sm:hidden items-center gap-2 p-2">
                 <button
-                    onClick={clearFilters}
-                    className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                    aria-label="Clear all filters"
-                    title="Clear all filters"
+                    onClick={() => setMobileOpen(prev => !prev)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border ${
+                        mobileOpen || hasActiveFilters
+                            ? 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/20 dark:text-brand-400 dark:border-brand-800'
+                            : 'bg-muted text-muted-foreground border-border'
+                    }`}
                 >
-                    <X className="w-4 h-4" />
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Filters</span>
+                    {activeFilterCount > 0 && (
+                        <span className="ml-0.5 bg-brand-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>
+                    )}
                 </button>
+                <div className="flex-1" />
+                {hasActiveFilters && (
+                    <button
+                        onClick={clearFilters}
+                        className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                        aria-label="Clear all filters"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                )}
+            </div>
+
+            {/* Mobile: expanded chip drawer */}
+            {mobileOpen && (
+                <div className="flex sm:hidden flex-wrap items-center gap-2 px-3 pb-3">
+                    {filterChips}
+                </div>
             )}
+
+            {/* Desktop: full inline row */}
+            <div className="hidden sm:flex items-center gap-2 p-3">
+                <div className="flex items-center gap-3 pr-3 border-r border-border">
+                    <Filter className="w-5 h-5 text-brand-700 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-foreground hidden lg:block">Filters</span>
+                </div>
+                <div className="flex-1 flex flex-wrap items-center gap-2">
+                    {filterChips}
+                </div>
+                {hasActiveFilters && (
+                    <button
+                        onClick={clearFilters}
+                        className="ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                        aria-label="Clear all filters"
+                        title="Clear all filters"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

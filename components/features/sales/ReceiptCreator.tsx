@@ -73,16 +73,15 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
 
     // Auto-generate RV No
     const calculatedNextRVNo = useMemo(() => {
-        if (!receipts || receipts.length === 0) return 'RV-250001';
-        const year = new Date().getFullYear().toString().slice(-2);
-        const prefix = `RV-${year}`;
+        const year = new Date().getFullYear().toString();
+        const prefix = `OR${year}-`;
         const thisYear = (receipts || []).filter(r => r['RV No']?.startsWith(prefix));
-        if (thisYear.length === 0) return `${prefix}0001`;
+        if (thisYear.length === 0) return `${prefix}00002`;
         const maxNum = thisYear.reduce((max, r) => {
             const n = parseInt(r['RV No'].slice(prefix.length), 10);
             return isNaN(n) ? max : Math.max(max, n);
-        }, 0);
-        return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+        }, 1);
+        return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
     }, [receipts]);
 
     // Totals
@@ -114,31 +113,34 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             const source = inv || doDoc || so;
             const company = source ? companies?.find(c => c['Company Name'] === source['Company Name']) : null;
 
-            setDoc({
-                'RV No': calculatedNextRVNo,
-                'RV Date': getTodayDateString(),
-                'Inv No': inv?.['Inv No'] || doDoc?.['Inv No'] || '',
-                'SO No': inv?.['SO No'] || doDoc?.['SO No'] || so?.['SO No'] || '',
-                'DO No': doDoc?.['DO No'] || '',
-                'Company Name': source?.['Company Name'] || '',
-                'Company Address': company?.['Address (English)'] || '',
-                'Contact Name': source?.['Contact Name'] || '',
-                'Phone Number': source?.['Phone Number'] || '',
-                'Email': source?.['Email'] || (source as any)?.Email || '',
-                'Amount': inv ? Number(inv['Amount']) : 0,
-                'Currency': source?.['Currency'] || 'USD',
-                'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
-                'Status': 'Draft',
-                'Payment Term': source?.['Payment Term'] || '',
-                'Tin No': company?.['Patent'] || '',
-                'Prepared By': currentUser?.Name || '',
-                'Prepared By Position': currentUser ? [
-                    currentUser.Role,
-                    [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
-                    currentUser.Email,
-                ].filter(Boolean).join(' | ') : '',
-                'Approved By': '',
-                'Approved By Position': '',
+            setDoc(prev => {
+                if (Object.keys(prev).length > 0 && prev['RV No']) return prev;
+                return {
+                    'RV No': calculatedNextRVNo,
+                    'RV Date': getTodayDateString(),
+                    'Inv No': inv?.['Inv No'] || doDoc?.['Inv No'] || '',
+                    'SO No': inv?.['SO No'] || doDoc?.['SO No'] || so?.['SO No'] || '',
+                    'DO No': doDoc?.['DO No'] || '',
+                    'Company Name': source?.['Company Name'] || '',
+                    'Company Address': company?.['Address (English)'] || '',
+                    'Contact Name': source?.['Contact Name'] || '',
+                    'Phone Number': source?.['Phone Number'] || '',
+                    'Email': source?.['Email'] || (source as any)?.Email || '',
+                    'Amount': inv ? Number(inv['Amount']) : 0,
+                    'Currency': source?.['Currency'] || 'USD',
+                    'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                    'Status': 'Draft',
+                    'Payment Term': source?.['Payment Term'] || '',
+                    'Tin No': company?.['Patent'] || '',
+                    'Prepared By': currentUser?.Name || '',
+                    'Prepared By Position': currentUser ? [
+                        currentUser.Role,
+                        [currentUser['Phone 1'], currentUser['Phone 2']].filter(Boolean).join(' | '),
+                        currentUser.Email,
+                    ].filter(Boolean).join(' | ') : '',
+                    'Approved By': '',
+                    'Approved By Position': '',
+                };
             });
 
             // Copy items from source
@@ -160,7 +162,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 })));
             }
         }
-    }, [existingReceipt, initialData, calculatedNextRVNo, companies]);
+    }, [existingReceipt, initialData, calculatedNextRVNo]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;

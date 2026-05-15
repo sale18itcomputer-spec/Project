@@ -58,13 +58,13 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, subValue, onClick
       {/* Subtle gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-        <CardTitle className="text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-200">{title}</CardTitle>
-        {isCompact && icon && React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { className: 'h-4 w-4 text-muted-foreground group-hover:text-primary/70 transition-colors duration-200' })}
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 relative z-10 px-3 sm:px-6 pt-3 sm:pt-6">
+        <CardTitle className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-200 leading-tight">{title}</CardTitle>
+        {icon && React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { className: 'h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary/70 transition-colors duration-200 flex-shrink-0' })}
       </CardHeader>
-      <CardContent className="relative z-10">
-        <div ref={containerRef} className={`${fontSize} font-bold text-foreground transition-transform duration-200 group-hover:translate-x-0.5`}>{value}</div>
-        {subValue && <div className="text-base font-semibold text-muted-foreground -mt-1">{subValue}</div>}
+      <CardContent className="relative z-10 px-3 sm:px-6 pb-3 sm:pb-6">
+        <div ref={containerRef} className={`${fontSize} font-bold text-foreground transition-transform duration-200 group-hover:translate-x-0.5 truncate`}>{value}</div>
+        {subValue && <div className="text-xs sm:text-base font-semibold text-muted-foreground -mt-1">{subValue}</div>}
       </CardContent>
     </Card>
   );

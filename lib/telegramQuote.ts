@@ -309,7 +309,7 @@ export async function generateQuotationPDF(
         printBackground: true,
         margin: { top: '10mm', right: '11mm', bottom: '14mm', left: '11mm' },
       },
-      gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
+      gotoOptions: { waitUntil: 'load', timeout: 15000 },
     }),
   });
 

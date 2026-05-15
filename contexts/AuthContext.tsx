@@ -93,25 +93,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } catch { cachedUser = null; }
         }
 
-        // Step 1: Get the active session with a 5s timeout
+        // Step 1: Get the active session with a timeout
+        const sessionTimedOut = { current: false };
         const { data: { session }, error: sessionError } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null }, error: Error }>((resolve) =>
-            setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timed out') }), 8000)
+            setTimeout(() => {
+              sessionTimedOut.current = true;
+              resolve({ data: { session: null }, error: new Error('getSession timed out') });
+            }, 8000)
           )
         ]);
         if (sessionError) {
           console.error('[Auth] Session error:', sessionError);
-          if (sessionError.message?.toLowerCase().includes('refresh token')) {
+          if (!sessionTimedOut.current && sessionError.message?.toLowerCase().includes('refresh token')) {
             // Invalid token — clear Supabase session, fall back to PIN
             await supabase!.auth.signOut({ scope: 'local' }).catch(() => {});
             // Keep currentUser from localStorage so PasscodeLock handles re-auth
           }
-          // For timeout or other errors, continue with savedUserId below
         }
         if (!isMounted) return;
 
-        // Step 2: Fetch Users — skip if cache is already warm from callback
+        // Step 2: If getSession timed out AND we already have a cached user,
+        // skip the network fetch entirely — Supabase is unreachable, keep cached state.
+        if (sessionTimedOut.current && cachedUser) {
+          console.warn('[Auth] getSession timed out but cached user found — keeping cached state.');
+          // currentUser was already set from cache above; nothing more to do.
+          return;
+        }
+
+        // Step 3: Fetch Users — skip if cache is already warm from callback
         // This avoids a duplicate network call when signing in via Google OAuth
         const cacheIsWarm = !!cachedUser && !!savedUserId;
         const fetchedUsers = cacheIsWarm && !session

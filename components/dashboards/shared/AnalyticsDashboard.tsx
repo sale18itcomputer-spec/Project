@@ -6,7 +6,6 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useB2B } from "../../../contexts/B2BContext";
 import { parseSheetValue } from "../../../utils/formatters";
 import { useFilter } from "../../../contexts/FilterContext";
-import { DateRangePicker } from "../../common/DateRangePicker";
 import DashboardFilterBar from "../components/DashboardFilterBar";
 import PendingWorks from './PendingWorks';
 import { Clock } from 'lucide-react';
@@ -282,22 +281,25 @@ const AnalyticsDashboard: React.FC = () => {
   }, [filters.brand1, setFilter]);
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
-      {/* Filter bar */}
-      <div className="sticky top-0 z-50">
+    <div className="space-y-8 sm:space-y-12 animate-in fade-in duration-500">
+      {/* Filter bar — sticky on desktop, static on mobile to avoid eating vertical space */}
+      <div className="hidden sm:sticky sm:block top-0 z-50">
+        <DashboardFilterBar {...filterOptions} />
+      </div>
+      {/* Mobile: non-sticky, sits inline */}
+      <div className="sm:hidden">
         <DashboardFilterBar {...filterOptions} />
       </div>
 
       {/* Revenue */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
+        <div className="flex flex-col gap-2 mb-4">
           <SectionHeader title="Revenue Insights" />
-          <div className="ml-auto flex items-center gap-2">
-            <DateRangePicker />
-            <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0 h-9 items-center">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0 h-8 items-center">
               {(['monthly', 'quarterly', 'yearly'] as const).map(p => (
                 <button key={p} onClick={() => setRevenuePeriod(p)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors capitalize ${revenuePeriod === p ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
+                  className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-colors capitalize ${revenuePeriod === p ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
                   {p}
                 </button>
               ))}
