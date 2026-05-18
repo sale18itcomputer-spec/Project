@@ -329,7 +329,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Miniapp runs without AuthProvider — return a safe no-op fallback
+    // so shared dashboard components don't throw and redirect to /login.
+    return {
+      isAuthenticated: true, // miniapp handles its own auth gate
+      isAuthLoading: false,
+      currentUser: null,
+      users: null,
+      login: async () => ({ success: false, message: 'Not available' }),
+      loginWithGoogle: async () => {},
+      loginWithOtp: async () => ({ success: false, message: 'Not available' }),
+      verifyOtp: async () => ({ success: false, message: 'Not available' }),
+      logout: () => {},
+    };
   }
   return context;
 };

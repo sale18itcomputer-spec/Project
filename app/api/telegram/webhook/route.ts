@@ -128,17 +128,14 @@ async function handleMessage(chatId: number, text: string, username: string) {
 }
 
 async function getAppUrl(): Promise<string> {
-  // Always use production URL for the miniapp (Telegram Web App requires HTTPS)
-  const productionUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (productionUrl && !productionUrl.includes('localhost')) {
-    return productionUrl.replace(/\/$/, '');
+  // Production: stable domain, always preferred
+  const prod = process.env.NEXT_PUBLIC_SITE_URL;
+  if (prod && !prod.includes('localhost') && !prod.includes('trycloudflare')) {
+    return prod.replace(/\/$/, '');
   }
 
-  // Dev: use tunnel URL if available
-  const envUrl = process.env.APP_URL;
-  if (envUrl) return envUrl.replace(/\/$/, '');
-
-  // Fallback: read cloudflared URL file
+  // Dev: read the .cloudflared-url file FRESH every call
+  // (process.env.APP_URL is stale after a restart — file is always current)
   try {
     const { readFileSync } = await import('fs');
     const { resolve } = await import('path');
@@ -147,6 +144,10 @@ async function getAppUrl(): Promise<string> {
     const match = content.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
     if (match) return match[0];
   } catch {}
+
+  // Fallback to env (may be stale but better than nothing)
+  const envUrl = process.env.APP_URL;
+  if (envUrl) return envUrl.replace(/\/$/, '');
 
   return 'https://localhost:3000';
 }
@@ -176,11 +177,11 @@ async function handleOpenApp(chatId: number) {
   const appUrl = await getAppUrl();
   await sendTelegramMessage(
     chatId,
-    '\ud83d\udcca *Sales Documents*\n\nTap below to open the sales app:',
+    '📊 *Sales Documents App*\n\n⚠️ _Each /app call gives a fresh link. If the button fails, send /app again._',
     'Markdown',
     JSON.stringify({
       inline_keyboard: [[
-        { text: '\ud83d\udcc2 Open Sales Documents', web_app: { url: `${appUrl}/miniapp` } }
+        { text: '📂 Open Sales Documents', web_app: { url: `${appUrl}/miniapp` } }
       ]]
     })
   );

@@ -54,7 +54,7 @@ export function MiniAppAuthProvider({ children }: { children: ReactNode }) {
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (parsed?.user?.UserID) {
-                    setAuthState({ status: 'authenticated', user: parsed.user, telegramUser: parsed.telegramUser });
+                    safeSet({ status: 'authenticated', user: parsed.user, telegramUser: parsed.telegramUser });
                     return;
                 }
             }

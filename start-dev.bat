@@ -20,6 +20,9 @@ start cmd /k "title Cloudflared ^| Project && cd /d %PROJECT% && powershell -NoP
 start cmd /k "title Webhook ^| Project && cd /d %PROJECT% && node auto-webhook.mjs"
 
 echo.
-echo  3 windows opened. Bot will be live in ~15 seconds.
+echo  3 windows opened.
+echo.
+echo  IMPORTANT: After tunnel is ready, send /app to the bot
+echo  to get a fresh link. Old messages have stale URLs.
 echo.
 pause

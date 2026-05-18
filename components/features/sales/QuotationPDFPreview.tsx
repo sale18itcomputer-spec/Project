@@ -15,6 +15,7 @@ interface QuotationPDFPreviewProps {
             description?: string;
             qty: number | string;
             unitPrice: number | string;
+            commission?: number | string;
             amount: number;
         }>;
         totals: { subTotal: number; vat: number; grandTotal: number };

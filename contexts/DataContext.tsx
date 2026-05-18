@@ -83,6 +83,10 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
+// Exported so MiniAppDataContext can provide into the same context instance,
+// making useData() resolve correctly in the miniapp without DataProvider.
+export { DataContext };
+
 const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
   if (!Array.isArray(items)) return [];
   return items.map(item => {

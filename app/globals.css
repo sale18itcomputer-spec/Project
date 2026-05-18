@@ -344,12 +344,25 @@
         font-variant-numeric: tabular-nums;
         -webkit-text-size-adjust: 100%;
         min-height: 100%;
+        /* Antigravity: Inter optical refinements for a sharper editorial feel */
+        font-feature-settings: "cv02", "cv03", "cv04", "rlig", "calt";
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        letter-spacing: -0.011em;
     }
 
     body {
         background-color: hsl(var(--background));
         color: hsl(var(--foreground));
         min-height: 100%;
+        line-height: 1.6;
+    }
+
+    /* Tighter tracking for headings */
+    h1, h2, h3, h4, h5, h6 {
+        letter-spacing: -0.025em;
+        font-weight: 600;
+        line-height: 1.25;
     }
 
     @supports (font-variation-settings: normal) {
@@ -361,7 +374,7 @@
 
     @media (min-width: 1024px) {
         html {
-            font-size: 15px;
+            font-size: 14px;
         }
     }
 
@@ -744,12 +757,13 @@
 
 .mobile-card {
     background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.75rem;
-    margin-bottom: 1rem;
+    border: 1px solid hsl(var(--border) / 0.7);
+    border-radius: 1rem;
+    margin-bottom: 0.875rem;
     overflow: hidden;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Antigravity: subtle layered shadow for depth */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     color: hsl(var(--card-foreground));
 }
 
@@ -759,13 +773,15 @@
 }
 
 .mobile-card:hover {
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+    border-color: hsl(var(--border));
+    transform: translateY(-1px);
 }
 
 .mobile-card-header {
-    padding: 1rem;
-    background: hsl(var(--muted));
-    border-bottom: 1px solid hsl(var(--border));
+    padding: 0.875rem 1.125rem;
+    background: hsl(var(--muted) / 0.6);
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -784,7 +800,7 @@
 }
 
 .mobile-card-body {
-    padding: 1rem;
+    padding: 1rem 1.125rem;
 }
 
 .mobile-card-row {
@@ -854,21 +870,28 @@
 }
 
 .mobile-tab {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
+    padding: 0.4375rem 1.125rem;
+    font-size: 0.8125rem;
     font-weight: 600;
+    letter-spacing: -0.01em;
     border-radius: 9999px;
     white-space: nowrap;
     background: hsl(var(--muted));
     color: hsl(var(--muted-foreground));
     border: none;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-tab:hover:not(.active) {
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
 }
 
 .mobile-tab.active {
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.35);
 }
 
 .mobile-status {
@@ -887,50 +910,37 @@
     border-radius: 50%;
 }
 
-.mobile-status-success {
-    background: #d1fae5;
-    color: #065f46;
-}
+/* Light mode status colors */
+.mobile-status-success  { background: #d1fae5; color: #065f46; }
+.mobile-status-success .mobile-status-dot  { background: #10b981; }
 
-.mobile-status-success .mobile-status-dot {
-    background: #10b981;
-}
+.mobile-status-warning  { background: #fef3c7; color: #92400e; }
+.mobile-status-warning .mobile-status-dot  { background: #f59e0b; }
 
-.mobile-status-warning {
-    background: #fef3c7;
-    color: #92400e;
-}
+.mobile-status-danger   { background: #fee2e2; color: #991b1b; }
+.mobile-status-danger .mobile-status-dot   { background: #ef4444; }
 
-.mobile-status-warning .mobile-status-dot {
-    background: #f59e0b;
-}
+.mobile-status-info     { background: #dbeafe; color: #1e40af; }
+.mobile-status-info .mobile-status-dot     { background: #3b82f6; }
 
-.mobile-status-danger {
-    background: #fee2e2;
-    color: #991b1b;
-}
+.mobile-status-default  { background: #e5e7eb; color: #374151; }
+.mobile-status-default .mobile-status-dot  { background: #6b7280; }
 
-.mobile-status-danger .mobile-status-dot {
-    background: #ef4444;
-}
+/* Dark mode — translucent, glow-adjacent */
+.dark .mobile-status-success  { background: rgba(16,185,129,0.12); color: #4ade80; }
+.dark .mobile-status-success .mobile-status-dot  { background: #4ade80; }
 
-.mobile-status-info {
-    background: #dbeafe;
-    color: #1e40af;
-}
+.dark .mobile-status-warning  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.dark .mobile-status-warning .mobile-status-dot  { background: #fbbf24; }
 
-.mobile-status-info .mobile-status-dot {
-    background: #3b82f6;
-}
+.dark .mobile-status-danger   { background: rgba(239,68,68,0.12); color: #f87171; }
+.dark .mobile-status-danger .mobile-status-dot   { background: #f87171; }
 
-.mobile-status-default {
-    background: #e5e7eb;
-    color: #374151;
-}
+.dark .mobile-status-info     { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.dark .mobile-status-info .mobile-status-dot     { background: #60a5fa; }
 
-.mobile-status-default .mobile-status-dot {
-    background: #6b7280;
-}
+.dark .mobile-status-default  { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.dark .mobile-status-default .mobile-status-dot  { background: #94a3b8; }
 
 /* ============================================
    RANGE SLIDER
@@ -1029,12 +1039,12 @@ input[type="range"]::-moz-range-track {
 }
 
 .hover-lift {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.18), 0 2px 8px -2px rgba(0,0,0,0.08);
 }
 
 .hover-scale {
@@ -1065,9 +1075,17 @@ input[type="range"]::-moz-range-track {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.btn-press {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+}
+
+.btn-press:hover {
+    transform: translateY(-1px);
+}
+
 .btn-press:active {
-    transform: scale(0.97);
-    transition: transform 0.1s;
+    transform: scale(0.96);
+    transition: transform 0.08s;
 }
 
 .ripple-container {
@@ -1133,16 +1151,18 @@ input[type="range"]::-moz-range-track {
 }
 
 .input-enhanced {
-    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
 .input-enhanced:hover:not(:focus):not(:disabled) {
-    border-color: hsl(var(--primary) / 0.5);
+    border-color: hsl(var(--primary) / 0.45);
+    background-color: hsl(var(--background) / 0.6);
 }
 
 .input-enhanced:focus {
-    border-color: hsl(var(--primary));
-    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+    border-color: hsl(var(--primary) / 0.8);
+    box-shadow: 0 0 0 2.5px hsl(var(--primary) / 0.18);
+    outline: none;
 }
 
 .success-checkmark {
@@ -1427,16 +1447,19 @@ tbody tr:hover {
 }
 
 .fab {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    /* Antigravity: pill shape, tactile press, glow shadow */
+    border-radius: 9999px !important;
+    transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .fab:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px -5px rgba(0, 74, 173, 0.4);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 12px 32px -6px rgba(0, 74, 173, 0.45), 0 4px 12px -2px rgba(0,0,0,0.15);
 }
 
 .fab:active {
-    transform: scale(0.95);
+    transform: scale(0.94);
+    transition: transform 0.08s;
 }
 
 ::selection {
@@ -1447,3 +1470,11 @@ tbody tr:hover {
 img {
     transition: opacity 0.3s ease;
 }
+
+/* ── Miniapp safe-area helpers ──────────────────────────────────────────────── */
+.safe-area-top    { padding-top:    env(safe-area-inset-top); }
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-area-x      { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* Touch: remove 300ms delay everywhere in miniapp */
+[data-miniapp] * { touch-action: manipulation; }

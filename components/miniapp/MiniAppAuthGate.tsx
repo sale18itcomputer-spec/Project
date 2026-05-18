@@ -1,112 +1,161 @@
 'use client';
 
 import { useMiniAppAuth } from '@/contexts/MiniAppAuthContext';
-import { Loader2, ShieldAlert, Link2Off, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldAlert, Link2Off, RefreshCw, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+// ── Shared logo mark ─────────────────────────────────────────────────────────
+function LogoMark({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+    const sz = size === 'lg' ? 'w-20 h-20 text-3xl' : size === 'sm' ? 'w-10 h-10 text-base' : 'w-16 h-16 text-2xl';
+    return (
+        <div className={`${sz} rounded-2xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/20`}>
+            <span className="text-white font-bold">L</span>
+        </div>
+    );
+}
+
+// ── Shared screen wrapper ─────────────────────────────────────────────────────
+function Screen({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 text-center gap-5">
+            {children}
+        </div>
+    );
+}
 
 export default function MiniAppAuthGate({ children }: { children: React.ReactNode }) {
     const { authState, retry } = useMiniAppAuth();
     const [showRetry, setShowRetry] = useState(false);
+    const [retrying, setRetrying] = useState(false);
 
     // Show retry button after 6s if still loading
     useEffect(() => {
-        if (authState.status !== 'loading') { setShowRetry(false); return; }
+        if (authState.status !== 'loading') {
+            setShowRetry(false);
+            setRetrying(false);
+            return;
+        }
         const t = setTimeout(() => setShowRetry(true), 6000);
         return () => clearTimeout(t);
     }, [authState.status]);
 
+    const handleRetry = () => {
+        setRetrying(true);
+        retry();
+    };
+
+    // ── Loading ───────────────────────────────────────────────────────────────
     if (authState.status === 'loading') {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center mb-2">
-                    <span className="text-white font-bold text-2xl">L</span>
+            <Screen>
+                <LogoMark size="lg" />
+                <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                        {retrying ? 'Retrying...' : 'Signing you in…'}
+                    </p>
                 </div>
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Signing you in...</p>
-                {showRetry && (
+                {showRetry && !retrying && (
                     <button
-                        onClick={retry}
-                        className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-foreground active:opacity-70"
+                        onClick={handleRetry}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border
+                                   text-sm text-foreground font-medium active:opacity-70 transition-opacity"
                     >
                         <RefreshCw size={14} />
                         Taking too long? Retry
                     </button>
                 )}
-            </div>
+            </Screen>
         );
     }
 
+    // ── No Telegram context ───────────────────────────────────────────────────
     if (authState.status === 'no_telegram') {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 text-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center mb-2">
-                    <span className="text-white font-bold text-2xl">L</span>
-                </div>
-                <ShieldAlert className="w-10 h-10 text-amber-500" />
-                <div>
-                    <h2 className="text-lg font-bold text-foreground">Telegram Required</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        This app must be opened from the <strong>Limperial Telegram Bot</strong>.
+            <Screen>
+                <LogoMark size="lg" />
+                <div className="flex flex-col items-center gap-1">
+                    <ShieldAlert className="w-8 h-8 text-amber-500" />
+                    <h2 className="text-lg font-bold text-foreground mt-1">Telegram Required</h2>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                        This app must be opened from the{' '}
+                        <strong className="text-foreground">Limperial Telegram Bot</strong>.
                     </p>
                 </div>
                 <a
                     href="https://t.me/LimperialBot"
-                    className="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold"
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-600
+                               text-white text-sm font-semibold active:opacity-80 transition-opacity shadow-md shadow-brand-600/20"
                 >
-                    Open Telegram Bot
+                    <Send size={15} />
+                    Open in Telegram
                 </a>
                 <p className="text-xs text-muted-foreground">
-                    Desktop access →{' '}
-                    <a href="https://project.limperialtech.com" className="underline">
+                    Desktop?{' '}
+                    <a href="https://project.limperialtech.com" className="underline underline-offset-2 text-foreground">
                         project.limperialtech.com
                     </a>
                 </p>
-            </div>
+            </Screen>
         );
     }
 
+    // ── Not linked ────────────────────────────────────────────────────────────
     if (authState.status === 'not_linked') {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 text-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center mb-2">
-                    <span className="text-white font-bold text-2xl">L</span>
-                </div>
-                <Link2Off className="w-10 h-10 text-red-500" />
-                <div>
-                    <h2 className="text-lg font-bold text-foreground">Account Not Linked</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Hi <strong>{authState.firstName}</strong>, your Telegram is not linked to a Limperial account.
+            <Screen>
+                <LogoMark size="lg" />
+                <div className="flex flex-col items-center gap-1">
+                    <Link2Off className="w-8 h-8 text-red-500" />
+                    <h2 className="text-lg font-bold text-foreground mt-1">Account Not Linked</h2>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                        Hi <strong className="text-foreground">{authState.firstName}</strong> — your Telegram
+                        isn't linked to a Limperial account yet.
                     </p>
-                    <p className="text-sm text-muted-foreground mt-2">Ask your admin to link your Telegram ID:</p>
-                    <code className="mt-2 block text-xs bg-muted rounded-lg px-3 py-2 font-mono">
+                </div>
+                <div className="w-full max-w-xs bg-muted rounded-xl px-4 py-3 text-left">
+                    <p className="text-[11px] text-muted-foreground mb-1 font-medium uppercase tracking-wide">Your Telegram ID</p>
+                    <code className="text-sm font-mono text-foreground font-semibold">
                         {authState.telegramId}
                     </code>
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                        Share this ID with your admin to get linked.
+                    </p>
                 </div>
                 <button
-                    onClick={retry}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium"
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border
+                               text-sm font-medium active:opacity-70 transition-opacity disabled:opacity-50"
                 >
-                    <RefreshCw size={15} /> Try Again
+                    <RefreshCw size={14} className={retrying ? 'animate-spin' : ''} />
+                    {retrying ? 'Checking…' : 'Try Again'}
                 </button>
-            </div>
+            </Screen>
         );
     }
 
+    // ── Auth error ────────────────────────────────────────────────────────────
     if (authState.status === 'error') {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 text-center gap-4">
-                <ShieldAlert className="w-10 h-10 text-red-500" />
-                <div>
-                    <h2 className="text-lg font-bold text-foreground">Authentication Error</h2>
-                    <p className="text-sm text-muted-foreground mt-1">{authState.message}</p>
+            <Screen>
+                <LogoMark size="md" />
+                <div className="flex flex-col items-center gap-1">
+                    <ShieldAlert className="w-8 h-8 text-red-500" />
+                    <h2 className="text-lg font-bold text-foreground mt-1">Authentication Failed</h2>
+                    <p className="text-sm text-muted-foreground max-w-xs">{authState.message}</p>
                 </div>
                 <button
-                    onClick={retry}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold"
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-600
+                               text-white text-sm font-semibold active:opacity-80 transition-opacity
+                               disabled:opacity-50 shadow-md shadow-brand-600/20"
                 >
-                    <RefreshCw size={15} /> Retry
+                    <RefreshCw size={14} className={retrying ? 'animate-spin' : ''} />
+                    {retrying ? 'Retrying…' : 'Retry'}
                 </button>
-            </div>
+            </Screen>
         );
     }
 

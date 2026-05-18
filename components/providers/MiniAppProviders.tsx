@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom';
-import { useTheme } from './AppProviders';
 import { MiniAppAuthProvider } from '@/contexts/MiniAppAuthContext';
 import MiniAppAuthGate from '@/components/miniapp/MiniAppAuthGate';
 import MiniAppDataProvider from '@/contexts/MiniAppDataContext';
+import MiniAppCompatProviders from '@/components/miniapp/MiniAppCompatProviders';
+import MiniAppNavigationProvider from '@/components/miniapp/MiniAppNavigationProvider';
 
 // Polyfill findDOMNode
 if (typeof window !== 'undefined' && !(ReactDOM as any).findDOMNode) {
@@ -46,7 +47,18 @@ export default function MiniAppProviders({ children }: { children: React.ReactNo
             <MiniAppAuthProvider>
                 <MiniAppAuthGate>
                     <MiniAppDataProvider>
-                        {children}
+                        {/* MiniAppCompatProviders: shims for useAuth(), useB2B(), useToast()
+                            so shared dashboard components don't throw in the miniapp */}
+                        <MiniAppCompatProviders>
+                            {/* MiniAppNavigationProvider: provides real NavigationContext
+                                mapped to /miniapp/* paths instead of root paths.
+                                Needs Suspense because it calls useSearchParams(). */}
+                            <Suspense fallback={null}>
+                                <MiniAppNavigationProvider>
+                                    {children}
+                                </MiniAppNavigationProvider>
+                            </Suspense>
+                        </MiniAppCompatProviders>
                     </MiniAppDataProvider>
                 </MiniAppAuthGate>
             </MiniAppAuthProvider>

@@ -270,7 +270,25 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 export const useB2B = () => {
     const context = useContext(B2BContext);
     if (context === undefined) {
-        throw new Error('useB2B must be used within a B2BProvider');
+        // Miniapp runs without B2BProvider — return a safe B2C-mode fallback.
+        return {
+            mode: 'B2C' as const,
+            setMode: () => {},
+            toggleMode: () => {},
+            isB2B: false,
+            canAccessB2B: false,
+            b2bTheme: 'light' as const,
+            toggleB2BTheme: () => {},
+            companies: null,
+            projects: null,
+            quotations: null,
+            loading: false,
+            error: null,
+            setCompanies: () => {},
+            setProjects: () => {},
+            setQuotations: () => {},
+            refreshB2BData: async () => {},
+        };
     }
     return context;
 };

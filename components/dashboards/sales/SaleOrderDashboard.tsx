@@ -16,7 +16,8 @@ import SaleOrderListContainer from "../lists/SaleOrderListContainer";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { useToast } from "../../../contexts/ToastContext";
-import { deleteRecord } from "../../../services/api";
+import { deleteRecord, updateRecord } from "../../../services/api";
+import { useAuth } from "../../../contexts/AuthContext";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 
@@ -57,6 +58,7 @@ const SALE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-sale-order-columns-visibili
 type ViewMode = 'table' | 'board' | 'detail';
 
 const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload }) => {
+    const { currentUser } = useAuth();
     const { saleOrders, setSaleOrders, loading, error } = useData();
     const { addToast } = useToast();
     const [saleOrderToDelete, setSaleOrderToDelete] = useState<SaleOrder | null>(null);
@@ -152,6 +154,21 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         } catch {
             addToast('Failed to delete sale order.', 'error');
             setSaleOrders(originalOrders);
+        }
+    };
+
+    const handleStatusChange = async (row: SaleOrder, newStatus: SaleOrder['Status']) => {
+        const id = row['SO No'];
+        const original = saleOrders ? [...saleOrders] : [];
+        const newRemark = `Status changed to ${newStatus} on ${new Date().toISOString().split('T')[0]} by ${currentUser?.Name || 'User'}\n${row.Remark || ''}`.trim();
+        
+        setSaleOrders(prev => prev ? prev.map(so => so['SO No'] === id ? { ...so, Status: newStatus, Remark: newRemark } : so) : null);
+        try {
+            await updateRecord('Sale Orders', id, { Status: newStatus, Remark: newRemark });
+            addToast(`SO status updated to ${newStatus}`, 'success');
+        } catch {
+            addToast('Failed to update status', 'error');
+            setSaleOrders(original);
         }
     };
 
@@ -293,7 +310,23 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             header: 'Created By',
             isSortable: true,
         },
-        { accessorKey: 'Status', header: 'Status', isSortable: true, cell: (value: SaleOrder['Status']) => <StatusBadge status={value} /> },
+        {
+            accessorKey: 'Status', header: 'Status', isSortable: true,
+            cell: (value: SaleOrder['Status'], row: SaleOrder) => (
+                <div onClick={e => e.stopPropagation()}>
+                    <select
+                        value={value}
+                        onChange={e => handleStatusChange(row, e.target.value as SaleOrder['Status'])}
+                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer
+                            ${value === 'Pending' ? 'text-amber-500 bg-amber-500/10' : value === 'Completed' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
+                    >
+                        <option className="text-foreground bg-card" value="Pending">Pending</option>
+                        <option className="text-foreground bg-card" value="Completed">Completed</option>
+                        <option className="text-foreground bg-card" value="Cancel">Cancel</option>
+                    </select>
+                </div>
+            )
+        },
     ], []);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {

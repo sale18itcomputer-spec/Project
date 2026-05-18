@@ -12,7 +12,8 @@ import KanbanView, { KanbanColumn } from '../views/KanbanView';
 import Spinner from '../../common/Spinner';
 import DeliveryOrderCreator from '../../features/sales/DeliveryOrderCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
-import { deleteRecord } from '../../../services/api';
+import { deleteRecord, updateRecord } from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
@@ -37,6 +38,7 @@ const StatusBadge: React.FC<{ status: DeliveryOrder['Status'] }> = ({ status }) 
 interface Props { initialPayload?: any; }
 
 const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
+    const { currentUser } = useAuth();
     const { deliveryOrders = [], setDeliveryOrders, invoices, saleOrders, loading, error } = useData();
     const { addToast } = useToast();
     const [toDelete, setToDelete] = useState<DeliveryOrder | null>(null);
@@ -90,6 +92,26 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
         }
     };
 
+    const handleStatusChange = async (row: DeliveryOrder, newStatus: DeliveryOrder['Status']) => {
+        const id = row['DO No'];
+        const original = deliveryOrders ? [...deliveryOrders] : [];
+        const newRemark = `Status changed to ${newStatus} on ${new Date().toISOString().split('T')[0]} by ${currentUser?.Name || 'User'}\n${row.Remark || ''}`.trim();
+        
+        setDeliveryOrders(prev => prev ? prev.map(d => d['DO No'] === id ? { ...d, Status: newStatus, Remark: newRemark } : d) : null);
+        try {
+            await updateRecord('Delivery Orders', id, { Status: newStatus, Remark: newRemark });
+            addToast(`DO status updated to ${newStatus}`, 'success');
+            
+            // Notify customer if Dispatched/Delivered
+            if (newStatus === 'Delivered') {
+                // Ideally trigger bot notification here
+            }
+        } catch {
+            addToast('Failed to update status', 'error');
+            setDeliveryOrders(original);
+        }
+    };
+
     const filteredData = useMemo(() => {
         let data = deliveryOrders || [];
         if (statusFilter) data = data.filter(d => d['Status'] === statusFilter);
@@ -122,7 +144,20 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
         { accessorKey: 'Created By', header: 'Created By', isSortable: true },
         {
             accessorKey: 'Status', header: 'Status', isSortable: true,
-            cell: (v: DeliveryOrder['Status']) => <StatusBadge status={v} />,
+            cell: (v: DeliveryOrder['Status'], row: DeliveryOrder) => (
+                <div onClick={e => e.stopPropagation()}>
+                    <select
+                        value={v}
+                        onChange={e => handleStatusChange(row, e.target.value as DeliveryOrder['Status'])}
+                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer
+                            ${v === 'Pending' ? 'text-amber-500 bg-amber-500/10' : v === 'Delivered' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
+                    >
+                        <option className="text-foreground bg-card" value="Pending">Pending</option>
+                        <option className="text-foreground bg-card" value="Delivered">Delivered</option>
+                        <option className="text-foreground bg-card" value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+            ),
         },
     ], []);
 

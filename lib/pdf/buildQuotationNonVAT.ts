@@ -33,7 +33,9 @@ export function buildQuotationNonVAT(
     const dataItems = items.filter(i => Number(i.no) > 0);
 
     const makeItemRow = (item: typeof dataItems[0]) => {
-        const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
+        const uPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
+        const comm   = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
+        const price  = uPrice + comm;
         const amt   = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
         const amtDisplay = amt > 0
             ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`

@@ -14,7 +14,7 @@ import Spinner from "../../common/Spinner";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
 import QuotationPDFPreview from "./QuotationPDFPreview";
 import { Trash2, AlertTriangle, Download, SlidersHorizontal, PanelRight, Send, Save, Plus, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
-import { generatePDF } from "@/lib/pdfClient";
+import { generatePDF, sharePdfToTelegram } from "@/lib/pdfClient";
 import { sendQuotationToTelegram } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
@@ -365,12 +365,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
 
     useEffect(() => {
-        if (!existingQuotation || !existingQuotation['Quote No'] || !companies || !contacts) {
-            if (existingQuotation) {
-                setItemsLoading(true);
-            }
-            return;
-        }
+        if (!existingQuotation || !existingQuotation['Quote No']) return;
 
         const fetchDetails = async () => {
             setItemsLoading(true);
@@ -385,17 +380,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
                 let updatedQuoteData = {
                     ...existingQuotation,
-                    // If header has data, use it, otherwise fallback. 
-                    // Note: Supabase readQuotationSheetData returns the full record in 'header'.
                     ...header,
                     'Quote Date': header['Quote Date'] ? formatToInputDate(header['Quote Date']) : formatToInputDate(existingQuotation['Quote Date']),
                     'Validity Date': header['Validity Date'] ? formatToInputDate(header['Validity Date']) : formatToInputDate(existingQuotation['Validity Date']),
                 };
 
+                // Enrich from companies/contacts only if they are loaded (desktop app)
                 const companyName = updatedQuoteData['Company Name'];
                 const contactName = updatedQuoteData['Contact Name'];
 
-                if (companyName) {
+                if (companies && companyName) {
                     const matchedCompany = companies.find(c => c['Company Name'] === companyName);
                     if (matchedCompany) {
                         if (!updatedQuoteData['Company Address']) updatedQuoteData['Company Address'] = matchedCompany['Address (English)'];
@@ -403,7 +397,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     }
                 }
 
-                if (contactName) {
+                if (contacts && contactName) {
                     const matchedContact = contacts.find(c => c.Name === contactName && c['Company Name'] === companyName);
                     if (matchedContact) {
                         if (!updatedQuoteData['Contact Number']) updatedQuoteData['Contact Number'] = matchedContact['Tel (1)'];
@@ -414,11 +408,17 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 setQuote(updatedQuoteData);
 
                 if (fetchedItems && fetchedItems.length > 0) {
-                    const formattedItems = fetchedItems.map((item: any) => ({
-                        ...item,
-                        id: `item-${Date.now()}-${Math.random()}`,
-                        commission: item.commission || 0,
-                    }));
+                    const formattedItems = fetchedItems.map((item: any) => {
+                        const q = parseFloat(String(item.qty)) || 0;
+                        const p = parseFloat(String(item.unitPrice)) || 0;
+                        const c = parseFloat(String(item.commission)) || 0;
+                        return {
+                            ...item,
+                            id: `item-${Date.now()}-${Math.random()}`,
+                            commission: c,
+                            amount: q * (p + c), // Force recalculate amount on load to ensure consistency
+                        };
+                    });
                     setItems(formattedItems);
                 } else {
                     setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
@@ -432,7 +432,10 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
         fetchDetails();
 
-    }, [existingQuotation, companies, contacts]);
+    // Run when the quotation ID changes. companies/contacts are optional enrichment
+    // and must NOT gate this effect — in the miniapp they're never loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [existingQuotation?.['Quote No'], isB2B]);
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);
     const contactOptions = useMemo(() => contacts?.filter(c => c['Company Name'] === quote['Company Name']).map(c => c.Name) || [], [contacts, quote]);
@@ -744,6 +747,50 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         });
     };
 
+    const handleSharePdfBot = async () => {
+        setIsSubmitting(true);
+        try {
+            await sharePdfToTelegram({
+                type: 'Quotation',
+                headerData: {
+                    ...quote,
+                    'Quotation ID': quote['Quote No'],
+                    'Quote Date': quote['Quote Date'],
+                    'Validity Date': quote['Validity Date'],
+                    'Company Name': quote['Company Name'],
+                    'Company Address': quote['Company Address'],
+                    'Contact Person': quote['Contact Name'],
+                    'Contact Tel': quote['Contact Number'],
+                    'Contact Email': quote['Contact Email'],
+                    'Stock Status': quote['Stock Status'],
+                },
+                items: items.filter(item => item.no > 0).map(item => ({
+                    no: item.no,
+                    itemCode: item.itemCode,
+                    modelName: item.modelName,
+                    description: item.description,
+                    qty: item.qty,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                    commission: item.commission
+                })),
+                totals: {
+                    subTotal: totals.subTotal,
+                    tax: totals.vat,
+                    vat: totals.vat,
+                    grandTotal: totals.grandTotal
+                },
+                currency: quote.Currency || 'USD',
+                filename: `Quotation_${quote['Quote No']}.pdf`,
+                caption: `📄 *Quotation ${quote['Quote No']}*\n${quote['Company Name'] || 'Customer'}\nTotal: ${formatCurrency(totals.grandTotal)}`,
+            });
+            addToast('PDF shared to Telegram!', 'success');
+        } catch (err: any) {
+            addToast(`Share PDF failed: ${err.message}`, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const printableProps = {
         headerData: {
@@ -824,6 +871,19 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 <Download className="w-4 h-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Download PDF</span>
             </button>
+
+            {/* Share PDF to Bot — only if Telegram */}
+            {typeof window !== 'undefined' && !!(window as any).Telegram?.WebApp?.initData && (
+                <button
+                    onClick={handleSharePdfBot}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 text-sm font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    title="Send PDF to your Telegram via Bot"
+                >
+                    <Send className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">PDF via Bot</span>
+                </button>
+            )}
 
             {/* Request Approve — icon only on mobile */}
             <button
@@ -916,6 +976,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             qty: i.qty,
                                             unitPrice: i.unitPrice,
                                             amount: i.amount,
+                                            commission: i.commission,
                                         })),
                                         totals: { subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal },
                                         currency: (quote.Currency as 'USD' | 'KHR') || 'USD',

@@ -12,16 +12,22 @@ export const viewport: Viewport = {
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
-    themeColor: '#004aad',
+    themeColor: [
+        { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+        { media: '(prefers-color-scheme: dark)',  color: '#0f172a' },
+    ],
+    viewportFit: 'cover',
 };
 
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
     return (
         <>
             <MiniAppProviders>
-                {children}
+                <div data-miniapp>
+                    {children}
+                </div>
             </MiniAppProviders>
-            <Toaster />
+            <Toaster position="top-center" />
         </>
     );
 }

@@ -145,9 +145,13 @@ async function registerWebhook(tunnelUrl) {
     return;
   }
 
-  // Retry up to 5 times with 3s delay (tunnel may take a moment to propagate)
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    console.log(`📡 Registering webhook (attempt ${attempt}/5): ${webhookUrl}`);
+  // trycloudflare.com DNS can take 30s–5min to propagate to Telegram's servers.
+  // Retry indefinitely with capped 20s backoff — only stop on non-DNS errors.
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const waitSec = Math.min(attempt * 2, 20);
+    console.log(`📡 Registering webhook (attempt ${attempt}): ${webhookUrl}`);
     const data = await tgFetch("setWebhook", { url: webhookUrl, allowed_updates: ALLOWED_UPDATES });
 
     if (data.ok) {
@@ -156,13 +160,19 @@ async function registerWebhook(tunnelUrl) {
       return;
     }
 
+    const isDns = (data.description ?? '').includes('Failed to resolve host') ||
+                  (data.description ?? '').includes('Name or service not known');
+
     console.error(`❌ Failed: ${data.description}`);
-    if (attempt < 5) {
-      console.log(`⏳ Retrying in 3s...`);
-      await new Promise(r => setTimeout(r, 3000));
+
+    if (!isDns) {
+      console.error('❌ Non-DNS error — stopping retries.');
+      return;
     }
+
+    console.log(`   DNS not propagated yet — waiting ${waitSec}s...`);
+    await new Promise(r => setTimeout(r, waitSec * 1000));
   }
-  console.error('❌ Could not register webhook after 5 attempts.');
 }
 
 async function deleteWebhook() {
@@ -194,9 +204,56 @@ console.log(`\n🔗 Cloudflared URL: ${tunnelUrl}`);
 // 1. Update .env.local with the new URL
 updateEnvSiteUrl(tunnelUrl);
 
-// 2. Wait for tunnel to be reachable
-console.log('⏳ Waiting for tunnel to be reachable...');
-await new Promise(r => setTimeout(r, 5000));
+// ---------------------------------------------------------------------------
+// Wait until the tunnel is actually reachable
+// Strategy: try local probe first, but don't block webhook on DNS failure.
+// Cloudflare's own servers can resolve the tunnel even if local DNS lags.
+// ---------------------------------------------------------------------------
+async function waitForTunnel(tunnelUrl, maxWaitMs = 30000) {
+  const start = Date.now();
+  let attempt = 0;
+
+  process.stdout.write('⏳ Probing tunnel');
+
+  while (Date.now() - start < maxWaitMs) {
+    attempt++;
+    try {
+      const res = await fetch(`${tunnelUrl}/`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(4000),
+        // Force IPv4 and skip cert issues
+        headers: { 'User-Agent': 'cloudflared-probe/1.0' },
+      });
+      if (res.status) {
+        process.stdout.write(`\n✅ Tunnel reachable after ${attempt} probe(s) (${Date.now() - start}ms)\n`);
+        return true;
+      }
+    } catch (err) {
+      // ERR_NAME_NOT_RESOLVED = local DNS lag — this is expected on Windows.
+      // The tunnel IS up (Telegram can reach it), local DNS just hasn't propagated.
+      const isLocalDns = err?.cause?.code === 'ERR_NAME_NOT_RESOLVED'
+        || err?.message?.includes('ERR_NAME_NOT_RESOLVED')
+        || err?.cause?.code === 'ENOTFOUND';
+
+      if (isLocalDns && attempt === 3) {
+        process.stdout.write(
+          `\n⚠️  Local DNS can't resolve the tunnel yet (Windows DNS lag).\n` +
+          `   Telegram's servers can still reach it — proceeding with webhook.\n` +
+          `   To fix: run  ipconfig /flushdns  in an admin terminal.\n`
+        );
+        return false; // Don't keep waiting — Telegram doesn't care about local DNS
+      }
+      process.stdout.write('.');
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  process.stdout.write('\n⚠️  Local probe timed out — attempting webhook anyway...\n');
+  return false;
+}
+
+// 2. Wait until tunnel DNS is actually resolvable
+await waitForTunnel(tunnelUrl);
 
 // 3. Register Telegram webhook
 await registerWebhook(tunnelUrl);

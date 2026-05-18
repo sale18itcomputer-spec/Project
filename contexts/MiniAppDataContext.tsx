@@ -1,8 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { batchReadRecords } from '../services/api';
-import { supabase } from '../lib/supabase';
 import {
     Quotation, SaleOrder, PricelistItem, Invoice, DeliveryOrder, Receipt,
     Company, Contact, PurchaseOrder, Vendor, VendorPricelistItem,
@@ -15,51 +14,9 @@ import {
     PIPELINE_HEADERS, CONTACT_LOG_HEADERS, SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS
 } from '../schemas';
 import * as db from '../utils/db';
-
-// Re-export same shape as DataContext so existing dashboard components work unchanged
-interface MiniAppDataContextProps {
-    projects: PipelineProject[] | null;
-    setProjects: React.Dispatch<React.SetStateAction<PipelineProject[] | null>>;
-    companies: Company[] | null;
-    setCompanies: React.Dispatch<React.SetStateAction<Company[] | null>>;
-    contacts: Contact[] | null;
-    setContacts: React.Dispatch<React.SetStateAction<Contact[] | null>>;
-    contactLogs: ContactLog[] | null;
-    setContactLogs: React.Dispatch<React.SetStateAction<ContactLog[] | null>>;
-    siteSurveys: SiteSurveyLog[] | null;
-    setSiteSurveys: React.Dispatch<React.SetStateAction<SiteSurveyLog[] | null>>;
-    meetings: Meeting[] | null;
-    setMeetings: React.Dispatch<React.SetStateAction<Meeting[] | null>>;
-    quotations: Quotation[] | null;
-    setQuotations: React.Dispatch<React.SetStateAction<Quotation[] | null>>;
-    saleOrders: SaleOrder[] | null;
-    setSaleOrders: React.Dispatch<React.SetStateAction<SaleOrder[] | null>>;
-    pricelist: PricelistItem[] | null;
-    setPricelist: React.Dispatch<React.SetStateAction<PricelistItem[] | null>>;
-    invoices: Invoice[] | null;
-    setInvoices: React.Dispatch<React.SetStateAction<Invoice[] | null>>;
-    deliveryOrders: DeliveryOrder[] | null;
-    setDeliveryOrders: React.Dispatch<React.SetStateAction<DeliveryOrder[] | null>>;
-    receipts: Receipt[] | null;
-    setReceipts: React.Dispatch<React.SetStateAction<Receipt[] | null>>;
-    vendors: Vendor[] | null;
-    setVendors: React.Dispatch<React.SetStateAction<Vendor[] | null>>;
-    vendorPricelist: VendorPricelistItem[] | null;
-    setVendorPricelist: React.Dispatch<React.SetStateAction<VendorPricelistItem[] | null>>;
-    purchaseOrders: PurchaseOrder[] | null;
-    setPurchaseOrders: React.Dispatch<React.SetStateAction<PurchaseOrder[] | null>>;
-    loading: boolean;
-    error: string | null;
-    activeCompanyNames: Set<string>;
-    activeContactNames: Set<string>;
-    activePipelineIds: Set<string>;
-    refetchData: () => void;
-    fetchModule: (...sheets: string[]) => Promise<void>;
-    refetchModule: (...sheets: string[]) => void;
-}
-
-// Use the same DataContext key so useData() works unchanged in dashboard components
-const DataContext = createContext<MiniAppDataContextProps | undefined>(undefined);
+// Use the REAL DataContext object from DataContext.tsx so that useData() from
+// DataContext.tsx resolves correctly inside the miniapp — no duplicate context.
+import { DataContext } from './DataContext';
 
 const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
     if (!Array.isArray(items)) return [];
@@ -162,13 +119,11 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         toFetch.forEach(s => fetchedRef.current.add(s));
         setLoading(true);
         try {
-            // Try cache first
             const storeNames = toFetch.map(s => sheetToStoreMap[s]).filter(Boolean) as db.StoreName[];
             const cached = await db.batchGetStoreData(storeNames).catch(() => ({} as any));
             storeNames.forEach(store => {
                 if (cached[store]?.length > 0) stateSetters[store](cached[store]);
             });
-            // Then fetch fresh
             const fresh = await batchReadRecords<Record<string, any[]>>(toFetch);
             applyData(toFetch, fresh);
         } catch (err: any) {
@@ -199,7 +154,7 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         return { activeCompanyNames, activeContactNames, activePipelineIds };
     }, [projects]);
 
-    const value: MiniAppDataContextProps = {
+    const value = {
         projects, setProjects,
         companies, setCompanies,
         contacts, setContacts,
@@ -220,9 +175,12 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         refetchData, fetchModule, refetchModule,
     };
 
-    return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+    // Provide into the REAL DataContext so useData() from DataContext.tsx
+    // resolves correctly in shared dashboard components (QuotationDashboard etc.)
+    return <DataContext.Provider value={value as any}>{children}</DataContext.Provider>;
 }
 
+// useData for miniapp-specific components that import from MiniAppDataContext directly
 export const useData = () => {
     const ctx = useContext(DataContext);
     if (!ctx) throw new Error('useData must be used within MiniAppDataProvider');

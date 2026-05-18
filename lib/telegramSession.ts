@@ -104,7 +104,10 @@ export async function getSession(chatId: number): Promise<TgSession | null> {
   }
   
   if (!data) {
-    console.log(`[getSession] ABSOLUTELY NO session found for chatId: ${chatId}`);
+    // No session is normal for new users — debug level only
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[getSession] No session for chatId: ${chatId} (IDLE state)`);
+    }
   }
   
   return data as TgSession | null;

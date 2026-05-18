@@ -44,7 +44,7 @@ export const PATH_TO_VIEW: Record<string, string> = Object.fromEntries(
 
 const NAV_PAYLOAD_KEY = 'limperial_nav_payload';
 
-const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
+export const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -101,7 +101,13 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 export const useNavigation = () => {
   const context = useContext(NavigationContext);
   if (context === undefined) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
+    // Miniapp runs without NavigationProvider — return a no-op fallback.
+    // Dashboard components use this for CRM-style navigation which doesn't
+    // apply in the miniapp (we use Next.js router directly instead).
+    return {
+      navigation: { view: 'quotations', filter: undefined, action: undefined, id: undefined, payload: undefined },
+      handleNavigation: () => {},
+    };
   }
   return context;
 };
