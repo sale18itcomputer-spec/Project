@@ -25,7 +25,7 @@ export default function AuthCallbackClientPage() {
 
         const handleSession = async (email: string) => {
             try {
-                const users = await readRecords<User>('Users');
+                const users = (await readRecords<any>('Users')) as User[];
                 const user = users.find(
                     u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
                 );
