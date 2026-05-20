@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../../../contexts/AuthContext";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 
 const LoginPage: React.FC = () => {
@@ -12,8 +12,17 @@ const LoginPage: React.FC = () => {
     const searchParams = useSearchParams();
     const [error, setError] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [isInAppBrowser, setIsInAppBrowser] = useState(false);
 
     const redirectPath = searchParams.get('redirect') || '/';
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+            const inApp = /Telegram|Line|FBAN|FBAV|Instagram|WeChat|TikTok/i.test(ua);
+            setIsInAppBrowser(inApp);
+        }
+    }, []);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -80,6 +89,20 @@ const LoginPage: React.FC = () => {
                             <div>
                                 <h3 className="text-sm font-semibold text-destructive">Sign in failed</h3>
                                 <p className="text-sm text-destructive/80 mt-1">{error}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* In-app browser warning */}
+                    {isInAppBrowser && (
+                        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-200 dark:border-amber-900/30 mb-6">
+                            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-400">In-App Browser Detected</h3>
+                                <p className="text-xs text-amber-700 dark:text-amber-500 mt-1 leading-relaxed">
+                                    Secure sign-in via Google may not complete inside this app's browser due to sandbox restrictions. 
+                                    For a smooth login, tap the menu <strong className="font-bold">(&bull;&bull;&bull;)</strong> in the top corner and choose <strong className="font-bold">"Open in Safari"</strong> or <strong className="font-bold">"Open in Chrome"</strong> first.
+                                </p>
                             </div>
                         </div>
                     )}
