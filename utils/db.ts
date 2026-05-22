@@ -43,6 +43,18 @@ const initDB = () => {
                 }
             });
         },
+        blocked(currentVersion, blockedVersion, event) {
+            console.warn(`IndexedDB blocked. Current: ${currentVersion}, Blocked: ${blockedVersion}`);
+        },
+        blocking(currentVersion, blockedVersion, event) {
+            console.warn(`IndexedDB blocking. Closing db. Current: ${currentVersion}, Blocked: ${blockedVersion}`);
+            dbPromise?.then(db => db.close());
+            dbPromise = null;
+        },
+        terminated() {
+            console.warn('IndexedDB terminated');
+            dbPromise = null;
+        }
     });
     return dbPromise;
 };

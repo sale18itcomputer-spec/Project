@@ -315,7 +315,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         const criticalStoreNames = CRITICAL_SHEETS.map(s => sheetToStoreMap[s]) as db.StoreName[];
-        const cachedData = await db.batchGetStoreData(criticalStoreNames);
+        // Add a 3-second timeout to IndexedDB lookup so it never blocks the critical network fetch indefinitely
+        const cachedData = await Promise.race([
+          db.batchGetStoreData(criticalStoreNames),
+          new Promise<Partial<Record<db.StoreName, any[]>>>((_, reject) => 
+            setTimeout(() => reject(new Error('IndexedDB timeout')), 3000)
+          )
+        ]);
         if (Object.values(cachedData).some(arr => arr && arr.length > 0)) {
           criticalStoreNames.forEach(storeName => {
             if (stateSetters[storeName]) stateSetters[storeName](cachedData[storeName]);
@@ -328,7 +334,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const freshData = await batchReadRecords<Record<string, any[]>>([...CRITICAL_SHEETS]);
+        const freshData = await Promise.race([
+          batchReadRecords<Record<string, any[]>>([...CRITICAL_SHEETS]),
+          new Promise<Record<string, any[]>>((_, reject) => 
+            setTimeout(() => reject(new Error('Network request timed out')), 15000)
+          )
+        ]);
         applyNormalizedData([...CRITICAL_SHEETS], freshData);
       } catch (networkError: any) {
         console.error('[DataContext] Failed to fetch critical data:', networkError);
@@ -357,7 +368,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const storeNames = toFetch.map(s => sheetToStoreMap[s]) as db.StoreName[];
-      const cachedData = await db.batchGetStoreData(storeNames);
+      const cachedData = await Promise.race([
+        db.batchGetStoreData(storeNames),
+        new Promise<Partial<Record<db.StoreName, any[]>>>((_, reject) => 
+          setTimeout(() => reject(new Error('IndexedDB lazy timeout')), 3000)
+        )
+      ]);
       if (Object.values(cachedData).some(arr => arr && arr.length > 0)) {
         storeNames.forEach(storeName => {
           if (stateSetters[storeName] && cachedData[storeName]?.length > 0) {
