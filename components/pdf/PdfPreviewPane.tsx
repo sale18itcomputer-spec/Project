@@ -14,6 +14,7 @@ interface PdfPreviewPaneProps {
     labelPadding?: number;
     onLabelPaddingChange?: (v: number) => void;
     defaultLabelPadding?: number;
+    columnWidths?: number[];
 }
 
 const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
@@ -53,6 +54,7 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
     labelPadding = 200,
     onLabelPaddingChange,
     defaultLabelPadding = 200,
+    columnWidths,
 }) => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -70,6 +72,7 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
                     ...pdfOptions,
                     signaturePadding,
                     labelPadding,
+                    columnWidths,
                     previewMode: true,
                 }) as string;
 
@@ -87,7 +90,7 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [JSON.stringify(pdfOptions), signaturePadding, labelPadding]);
+    }, [JSON.stringify(pdfOptions), signaturePadding, labelPadding, columnWidths]);
 
     const handleReset = () => {
         onSignaturePaddingChange(defaultSignaturePadding);

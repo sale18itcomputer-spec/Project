@@ -15,6 +15,8 @@ import DocumentEditorContainer from '../../layout/DocumentEditorContainer';
 import { Trash2, X, Upload, Plus, Download, PanelRight } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
+import { useColumnWidths } from '@/hooks/useColumnWidths';
+import { ColumnWidthPopover } from './ColumnWidthPopover';
 import PrintableReceipt from '../../pdf/PrintableReceipt';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 
@@ -64,6 +66,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('receipt');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [items, setItems] = useState<LineItem[]>([
@@ -324,6 +327,12 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 <PanelRight className="w-4 h-4" />
                 <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
             </button>
+            <ColumnWidthPopover
+                docType="receipt"
+                widths={colWidths}
+                onChange={setColWidths}
+                onReset={resetColWidths}
+            />
             <button
                 onClick={handleDownloadPDF}
                 className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
@@ -357,6 +366,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                         onSignaturePaddingChange={setSignaturePadding}
                         labelPadding={labelPadding}
                         onLabelPaddingChange={setLabelPadding}
+                        columnWidths={colWidths}
                         pdfOptions={{
                             type: 'Receipt',
                             headerData: { ...doc },

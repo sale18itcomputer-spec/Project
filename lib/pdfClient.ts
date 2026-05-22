@@ -31,6 +31,12 @@ export interface PdfClientOptions {
     filename?: string;
     /** If true, returns a blob URL instead of auto-downloading */
     previewMode?: boolean;
+    /**
+     * Optional column width overrides (percentages) for the item table.
+     * Array of 6 numbers matching [No., Code, Description, Qty, Unit Price, Amount].
+     * A width of 0 means the column is omitted from the PDF.
+     */
+    columnWidths?: number[];
 }
 
 /** Read Telegram initData if we're running inside a Telegram WebApp. */
@@ -61,6 +67,7 @@ function buildBody(opts: PdfClientOptions): string {
         currency:         opts.currency,
         signaturePadding: opts.signaturePadding,
         labelPadding:     opts.labelPadding,
+        columnWidths:     opts.columnWidths,
     });
 }
 
@@ -101,13 +108,6 @@ export async function generatePDF(opts: PdfClientOptions): Promise<string | void
 /**
  * Generates the PDF and sends it directly to one or more Telegram chat_ids
  * via the bot. Only works inside a Telegram WebApp — returns false otherwise.
- *
- * Usage:
- *   const ok = await sharePdfToTelegram({
- *     ...pdfOpts,
- *     chat_ids: [user.telegram_id],
- *     caption:  `<b>${quoteNo}</b>\n${companyName}`,
- *   });
  */
 export async function sharePdfToTelegram(
     opts: PdfClientOptions & { chat_ids?: number[]; caption?: string }

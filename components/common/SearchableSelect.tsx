@@ -5,8 +5,8 @@ import { ChevronDown, Search, Check } from 'lucide-react';
 import { ScrollArea } from "../ui/scroll-area";
 
 interface SearchableSelectProps {
-    name: string;
-    label: string;
+    name?: string;
+    label?: string;
     value: string;
     onChange: (value: string) => void;
     options: string[];
@@ -71,12 +71,16 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
     return (
         <div className="flex flex-col relative" ref={wrapperRef}>
-            <div className="flex justify-between items-center mb-2 px-0.5">
-                <label htmlFor={name} className="text-[13px] font-bold text-foreground uppercase tracking-wider">
-                    {label}{required && <span className="text-rose-500 ml-1">*</span>}
-                </label>
-                {actionButton}
-            </div>
+            {(label || actionButton) && (
+                <div className="flex justify-between items-center mb-2 px-0.5">
+                    {label && (
+                        <label htmlFor={name} className="text-[13px] font-bold text-foreground uppercase tracking-wider">
+                            {label}{required && <span className="text-rose-500 ml-1">*</span>}
+                        </label>
+                    )}
+                    {actionButton}
+                </div>
+            )}
 
             <div className={`relative group transition-all duration-300 ${isOpen ? 'z-[9999]' : 'z-10'}`}>
                 <div className="relative">

@@ -21,12 +21,14 @@ interface QuotationPDFPreviewProps {
         totals: { subTotal: number; vat: number; grandTotal: number };
         currency: 'USD' | 'KHR';
     };
+    columnWidths?: number[];
 }
 
 const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
     quoteNo,
     companyName,
     printableProps,
+    columnWidths,
 }) => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -57,6 +59,7 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
                     currency: printableProps.currency,
                     signaturePadding: linePadding,
                     labelPadding: labelPadding,
+                    columnWidths,
                     previewMode: true,
                 }) as string;
 
@@ -73,7 +76,7 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [printableProps, linePadding, labelPadding]);
+    }, [printableProps, linePadding, labelPadding, columnWidths]);
 
     const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
         label: string; value: number; onChange: (v: number) => void;

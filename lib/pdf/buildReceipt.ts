@@ -1,7 +1,9 @@
 /**
  * buildReceipt.ts
  * OFFICIAL RECEIPT PDF builder — bilingual title (Khmer + English).
- * Font sizes and structure aligned with buildQuotationVAT / buildTaxInvoice / buildDeliveryNote.
+ * Receipt uses a 4-column layout: No | Reference | Description | Amount
+ * columnWidths param is accepted for API consistency but the Receipt schema
+ * is fixed (different from the standard 6-column item table).
  */
 import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
 
@@ -59,6 +61,7 @@ export function buildReceipt(
     sym: string,
     signaturePadding = 0,
     labelPadding = 200,
+    columnWidths?: number[], // accepted for API consistency; Receipt has its own 4-col schema
 ): string {
     const rvNo      = esc(hd['RV No'] || hd['Receipt No'] || '');
     const rvDate    = esc(fmtDate(hd['RV Date'] || hd['Receipt Date'] || ''));
@@ -74,7 +77,6 @@ export function buildReceipt(
     const words = currency === 'USD' ? amountInWords(grandTotal) : '';
 
     // ── Payment method checkboxes ─────────────────────────────────────────────
-    // Match: Cash / Bank Transfer / Check
     const pmOptions = ['Cash', 'Bank Transfer', 'Check'];
     const checkboxes = pmOptions.map(opt => {
         const checked = payMethod.toLowerCase().includes(opt.toLowerCase());
@@ -141,7 +143,6 @@ export function buildReceipt(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <!-- ── Header ── -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
@@ -156,16 +157,12 @@ export function buildReceipt(
     </div>
   </header>
 
-  <!-- ── Document Title ── -->
   <div class="text-center mb-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">ប័ណ្ណទទួលប្រាក់</h3>
     <h4 class="text-lg font-bold">OFFICIAL RECEIPT</h4>
   </div>
 
-  <!-- ── Customer Info + Doc Info ── -->
   <div class="flex justify-between gap-0 mb-6">
-
-    <!-- Left: Customer Details -->
     <div class="w-[62%]">
       <table class="w-full border-none">
         <tbody class="text-[10px]">
@@ -203,7 +200,6 @@ export function buildReceipt(
       </table>
     </div>
 
-    <!-- Right: Receipt No / Date / Payment Method -->
     <div class="w-[38%] flex flex-col">
       <table class="w-auto ml-auto border-none table-fixed">
         <tbody class="text-[10px]">
@@ -228,9 +224,8 @@ export function buildReceipt(
       </table>
     </div>
   </div>
-  </div><!-- end no-break -->
+  </div>
 
-  <!-- ── Items Table ── -->
   <div class="mb-4">
     <table class="items-table w-full mx-auto">
       <colgroup>
@@ -269,7 +264,6 @@ export function buildReceipt(
     </table>
   </div>
 
-  <!-- ── Signature Block ── -->
   <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
       <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Payment By:</p>

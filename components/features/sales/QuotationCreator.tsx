@@ -15,6 +15,8 @@ import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/F
 import QuotationPDFPreview from "./QuotationPDFPreview";
 import { Trash2, AlertTriangle, Download, SlidersHorizontal, PanelRight, Send, Save, Plus, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
 import { generatePDF, sharePdfToTelegram } from "@/lib/pdfClient";
+import { useColumnWidths } from "@/hooks/useColumnWidths";
+import { ColumnWidthPopover } from "./ColumnWidthPopover";
 import { sendQuotationToTelegram } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
@@ -192,6 +194,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [itemsLoading, setItemsLoading] = useState(false);
     const [successInfo, setSuccessInfo] = useState<{ quoteNo: string; isWin?: boolean } | null>(null);
     const [isSendingTelegram, setIsSendingTelegram] = useState(false);
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('quotation');
 
     const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
 
@@ -744,6 +747,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             },
             currency: quote.Currency || 'USD',
             filename: `Quotation_${quote['Quote No']}.pdf`,
+            columnWidths: colWidths,
         });
     };
 
@@ -782,6 +786,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 },
                 currency: quote.Currency || 'USD',
                 filename: `Quotation_${quote['Quote No']}.pdf`,
+                columnWidths: colWidths,
                 caption: `📄 *Quotation ${quote['Quote No']}*\n${quote['Company Name'] || 'Customer'}\nTotal: ${formatCurrency(totals.grandTotal)}`,
             });
             addToast('PDF shared to Telegram!', 'success');
@@ -862,6 +867,14 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     <span className="hidden lg:inline">{showRightPanel ? 'Hide Form' : 'Form'}</span>
                 </button>
             </div>
+
+            {/* Column Widths */}
+            <ColumnWidthPopover
+                docType="quotation"
+                widths={colWidths}
+                onChange={setColWidths}
+                onReset={resetColWidths}
+            />
 
             {/* Download PDF — icon only on mobile */}
             <button
@@ -948,6 +961,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                 <QuotationPDFPreview
                                     quoteNo={quote['Quote No'] || ''}
                                     companyName={quote['Company Name'] || ''}
+                                    columnWidths={colWidths}
                                     printableProps={{
                                         headerData: {
                                             'Quotation ID': quote['Quote No'],

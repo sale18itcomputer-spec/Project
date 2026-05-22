@@ -15,6 +15,8 @@ import DocumentEditorContainer from '../../layout/DocumentEditorContainer';
 import { Trash2, X, Upload, Plus, Download, PanelRight } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
+import { useColumnWidths } from '@/hooks/useColumnWidths';
+import { ColumnWidthPopover } from './ColumnWidthPopover';
 import PrintableDO from '../../pdf/PrintableDO';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 
@@ -57,6 +59,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(160);
     const [labelPadding, setLabelPadding] = useState(200);
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('delivery-order');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [items, setItems] = useState<LineItem[]>([
@@ -314,6 +317,12 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 <PanelRight className="w-4 h-4" />
                 <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
             </button>
+            <ColumnWidthPopover
+                docType="delivery-order"
+                widths={colWidths}
+                onChange={setColWidths}
+                onReset={resetColWidths}
+            />
             <button
                 onClick={handleDownloadPDF}
                 className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
@@ -348,6 +357,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         defaultSignaturePadding={160}
                         labelPadding={labelPadding}
                         onLabelPaddingChange={undefined}
+                        columnWidths={colWidths}
                         pdfOptions={{
                             type: 'Delivery Order',
                             headerData: {

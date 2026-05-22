@@ -8,13 +8,13 @@ import { parseSheetValue } from "../../../utils/formatters";
 import { useFilter } from "../../../contexts/FilterContext";
 import DashboardFilterBar from "../components/DashboardFilterBar";
 import PendingWorks from './PendingWorks';
-import { Clock } from 'lucide-react';
 
 import RevenueGrowthChart, { RevenueDataPoint } from '../../charts/analytics/RevenueGrowthChart';
 import PendingDistributionChart, { PendingCounts } from '../../charts/analytics/PendingDistributionChart';
 import AnalyticsTopCustomersChart, { CustomerDataPoint } from '../../charts/analytics/AnalyticsTopCustomersChart';
 import PipelineStatusChart, { PipelineDataPoint } from '../../charts/analytics/PipelineStatusChart';
 import SalesByBrandChart, { BrandDataPoint } from '../../charts/analytics/SalesByBrandChart';
+import QuoteConversionChart, { ConversionDataPoint } from '../../charts/analytics/QuoteConversionChart';
 
 // ---------------------------------------------------------------------------
 // Stable helpers (defined once, outside the component — never recreated)
@@ -255,6 +255,60 @@ const AnalyticsDashboard: React.FC = () => {
   }, [projects, passesFilters]);
 
   // ---------------------------------------------------------------------------
+  // Quote Conversion data — monthly breakdown of quotes issued vs converted
+  // ---------------------------------------------------------------------------
+  const conversionData: ConversionDataPoint[] = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const activeYear  = filters.year?.length ? parseInt(filters.year[0]) : currentYear;
+
+    // Initialise all 12 months
+    const groups: Record<string, { quotes: number; converted: number }> = {};
+    MONTH_SHORT.forEach(m => { groups[`${m} ${activeYear}`] = { quotes: 0, converted: 0 }; });
+
+    // Count all quotations (no passesFilters — we want all quotes, not just current-year filter)
+    (quotations || []).forEach(q => {
+      const d = getBestDate(q);
+      if (!d || d.getFullYear() !== activeYear) return;
+      const key = `${MONTH_SHORT[d.getMonth()]} ${activeYear}`;
+      if (!groups[key]) return;
+      groups[key].quotes++;
+      // A quote is "converted" if its status indicates a win / sale order
+      const status = (q['Status'] || q['Quote Status'] || '').toLowerCase();
+      if (
+        status.includes('win') ||
+        status.includes('done') ||
+        status.includes('invoiced') ||
+        status.includes('order') ||
+        status.includes('confirmed') ||
+        status.includes('sold') ||
+        status.includes('closed')
+      ) {
+        groups[key].converted++;
+      }
+    });
+
+    // Also count won projects as converted leads when in B2B mode
+    if (isB2B) {
+      (projects || []).forEach(p => {
+        const d = getBestDate(p);
+        if (!d || d.getFullYear() !== activeYear) return;
+        const key = `${MONTH_SHORT[d.getMonth()]} ${activeYear}`;
+        if (!groups[key]) return;
+        groups[key].quotes++;
+        const status = (p.Status || '').toLowerCase();
+        if (status.includes('win')) groups[key].converted++;
+      });
+    }
+
+    return Object.entries(groups).map(([name, { quotes, converted }]) => ({
+      name,
+      quotes,
+      converted,
+      rate: quotes > 0 ? (converted / quotes) * 100 : 0,
+    }));
+  }, [quotations, projects, isB2B, filters.year]);
+
+  // ---------------------------------------------------------------------------
   // Filter click handlers
   // ---------------------------------------------------------------------------
   const handleRevenueBarClick = useCallback((name: string) => {
@@ -334,11 +388,7 @@ const AnalyticsDashboard: React.FC = () => {
         <SectionHeader title="Market Intelligence" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SalesByBrandChart data={brandData} onSliceClick={handleBrandClick} />
-          <div className="bg-card rounded-xl border shadow-sm p-8 flex flex-col items-center justify-center text-center space-y-4" style={{ height: '500px' }}>
-            <Clock className="w-16 h-16 text-primary/20" />
-            <h3 className="text-xl font-bold">Real-time Insights</h3>
-            <p className="text-muted-foreground max-w-xs font-medium">Additional metrics will be calculated here based on your CRM activity.</p>
-          </div>
+          <QuoteConversionChart data={conversionData} />
         </div>
       </div>
     </div>

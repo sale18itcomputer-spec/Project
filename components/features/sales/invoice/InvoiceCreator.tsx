@@ -14,6 +14,8 @@ import Spinner from "../../../common/Spinner";
 import DocumentEditorContainer from "../../../layout/DocumentEditorContainer";
 import { Trash2, X, Upload, FileText, Download, PanelRight, Plus } from 'lucide-react';
 import { generatePDF } from "../../../../lib/pdfClient";
+import { useColumnWidths } from "@/hooks/useColumnWidths";
+import { ColumnWidthPopover } from "../ColumnWidthPopover";
 import { useToast } from "../../../../contexts/ToastContext";
 import SearchableSelect from "../../../common/SearchableSelect";
 import { ScrollArea } from "../../../ui/scroll-area";
@@ -87,6 +89,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
     const getNextInvNo = (taxableType: string, allInvoices: any[]) => {
         const year = new Date().getFullYear().toString();
@@ -413,7 +416,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             signaturePadding,
             labelPadding,
             previewMode: false,
-            filename: `${filePrefix}_${invoice['Inv No']}.pdf`
+            filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
+            columnWidths: colWidths,
         });
     };
 
@@ -455,6 +459,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             </div>
 
             <div className="flex items-center gap-2">
+                <ColumnWidthPopover
+                    docType="invoice"
+                    widths={colWidths}
+                    onChange={setColWidths}
+                    onReset={resetColWidths}
+                />
                 <button onClick={() => handleDownloadPDF()} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 hover:border-brand-300 shadow-sm transition-all active:scale-95">
                     <Download className="w-4 h-4" />
                     Download PDF
@@ -493,6 +503,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             onSignaturePaddingChange={setSignaturePadding}
                             labelPadding={labelPadding}
                             onLabelPaddingChange={setLabelPadding}
+                            columnWidths={colWidths}
                         />
                     </div>
 

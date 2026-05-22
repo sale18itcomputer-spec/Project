@@ -1,18 +1,18 @@
 /**
  * buildDeliveryNote.ts
  * DELIVERY NOTE HTML builder — bilingual Khmer/English design template.
- * Matches delivery_note_updated_bilingual_title and delivery_note_non_vat_standard_version.
- * The delivery note uses a 5-column table (no price/amount), receiver/deliverer signatures,
- * "For Customer Only" checkbox section, and a delivery notice.
+ * Delivery Note uses a 5-column layout: No | Part Number | Description | Qty | Serial Number
+ * columnWidths param is accepted for API consistency; DO has its own 5-col schema (no price/amount).
  */
 import { esc, fmtDate, LOGO, PdfItem } from './shared';
 
 export function buildDeliveryNote(
     hd: Record<string, any>,
     items: PdfItem[],
-    signaturePadding = 160, // px — gap between items table and sig block
+    signaturePadding = 160,
+    labelPadding?: number,
+    columnWidths?: number[], // accepted for API consistency; DO schema is fixed 5-col
 ): string {
-    // ── Derived values ────────────────────────────────────────────────────────
     const doNo      = esc(hd['Inv No.'] || hd['Inv No'] || hd['DO No'] || hd['Delivery No'] || '');
     const doDate    = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || hd['DO Date'] || hd['Delivery Date'] || ''));
     const customer  = esc(hd['Company Name'] || hd['Customer'] || '');
@@ -30,7 +30,6 @@ export function buildDeliveryNote(
            </tr>`
         : '';
 
-    // ── Item rows (pad to at least 3) ─────────────────────────────────────────
     const dataItems = items.filter(i => Number(i.no) > 0);
 
     const itemRows = dataItems.map(item => {
@@ -59,11 +58,7 @@ export function buildDeliveryNote(
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
-  body {
-    font-family: 'Koh Santepheap', sans-serif;
-    font-size: 11px;
-    color: #000;
-  }
+  body { font-family: 'Koh Santepheap', sans-serif; font-size: 11px; color: #000; }
   .brand-blue { color: #004aad; }
   .bg-brand-blue { background-color: #004aad; }
   .border-brand-blue { border-color: #004aad; }
@@ -78,7 +73,6 @@ export function buildDeliveryNote(
   .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
-    .a4-container { box-shadow: none !important; margin: 0 !important; }
   }
 </style>
 </head>
@@ -87,7 +81,6 @@ export function buildDeliveryNote(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
@@ -102,15 +95,12 @@ export function buildDeliveryNote(
     </div>
   </header>
 
-  <!-- Title -->
   <div class="text-center mb-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">លិខិតប្រគល់ទំនិញ</h3>
     <h4 class="text-lg font-bold uppercase">Delivery Note</h4>
   </div>
 
-  <!-- Customer / Document Info -->
   <div class="flex justify-between gap-0 mb-6">
-    <!-- Left: Customer Details -->
     <div class="w-[62%]">
       <table class="w-full border-none">
         <tbody class="text-[12px]">
@@ -143,7 +133,6 @@ export function buildDeliveryNote(
         </tbody>
       </table>
     </div>
-    <!-- Right: Document Details -->
     <div class="w-[38%] flex flex-col">
       <table class="w-auto ml-auto border-none table-fixed">
         <tbody class="text-[12px]">
@@ -161,9 +150,8 @@ export function buildDeliveryNote(
       </table>
     </div>
   </div>
-  </div><!-- end no-break -->
+  </div>
 
-  <!-- Items Table -->
   <div class="mb-4">
     <table class="items-table w-full mx-auto">
       <thead>
@@ -181,13 +169,11 @@ export function buildDeliveryNote(
     </table>
   </div>
 
-  <!-- Delivery Notice -->
   <div class="mb-6 text-center text-[10px] font-bold" style="color:#ba1a1a;">
     <div>សូមផ្ដល់ពត៍មានចំពោះការខ្វះខាតផ្នែកសេវាដឹកជញ្ជូនទំនិញ</div>
     <div class="mt-1">Please call, in case of delivery's problem (+855 92 218 333)</div>
   </div>
 
-  <!-- For Customer Only -->
   <div class="mb-12 border border-black p-4 text-[10px]">
     <div class="font-bold mb-2 uppercase underline">For Customer Only:</div>
     <div class="flex flex-col gap-2">
@@ -206,7 +192,6 @@ export function buildDeliveryNote(
     </div>
   </div>
 
-  <!-- Signatures -->
   <div class="flex justify-between px-4 pb-8 mx-auto w-full" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
       <div class="border-t-2 border-black"></div>

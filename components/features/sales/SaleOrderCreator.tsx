@@ -7,19 +7,21 @@ import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useB2B } from "../../../contexts/B2BContext";
-import { createSaleOrderSheet, readQuotationSheetData, uploadFile, getSetting, saveSetting } from "../../../services/api";
+import { createSaleOrderSheet, readQuotationSheetData, uploadFile } from "../../../services/api";
 import { formatToInputDate } from "../../../utils/time";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
 import PrintableSaleOrder from "../../pdf/PrintableSaleOrder";
 import PdfPreviewPane from "../../pdf/PdfPreviewPane";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
-import { Trash2, X, Upload, Printer, Download, SlidersHorizontal, ChevronDown, ChevronUp, PanelRight, Save, RotateCcw, ImageIcon, Type, Ruler, ScrollText, Layout, List, Loader2 } from 'lucide-react';
+import { Trash2, X, Upload, Download, ScrollText, Layout, List, Plus } from 'lucide-react';
 import Spinner from "../../common/Spinner";
 import SuccessModal from "../../modals/SuccessModal";
 import { generatePDF } from "@/lib/pdfClient";
 import { useToast } from "../../../contexts/ToastContext";
 import SearchableSelect from "../../common/SearchableSelect";
 import { ScrollArea } from "../../ui/scroll-area";
+import { useColumnWidths } from "../../../hooks/useColumnWidths";
+import { ColumnWidthPopover } from "./ColumnWidthPopover";
 
 interface SaleOrderCreatorProps {
     onBack: () => void;
@@ -169,6 +171,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
     const { isB2B } = useB2B();
+
+    // ── Column layout ──────────────────────────────────────────────────────────
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('sale-order');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successInfo, setSuccessInfo] = useState<{ soNo: string } | null>(null);
@@ -684,6 +689,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
             signaturePadding,
+            columnWidths: colWidths,
             previewMode: false,
             filename: `SaleOrder_${saleOrder['SO No']}.pdf`
         });
@@ -701,49 +707,60 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             'Email': saleOrder.Email,
             'Payment Term': saleOrder['Payment Term'],
             'Bill Invoice': saleOrder['Bill Invoice'],
+            'Remark': saleOrder['Remark'],
+            'Terms and Conditions': saleOrder['Terms and Conditions'],
             'Install Software': saleOrder['Install Software'],
-            'Remark': saleOrder['Remark'] || '',
+            'Prepared By': saleOrder['Prepared By'],
+            'Prepared By Position': saleOrder['Prepared By Position'],
+            'Approved By': saleOrder['Approved By'],
+            'Approved By Position': saleOrder['Approved By Position'],
         },
-        items: items,
-        totals: totals,
-        currency: saleOrder.Currency || 'USD',
+        items: items.map(item => ({
+            id: item.id, no: item.no, itemCode: item.itemCode, modelName: item.modelName,
+            description: item.description, qty: item.qty, unitPrice: item.unitPrice,
+            amount: item.amount, commission: item.commission
+        })),
+        totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
+        currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',
     };
 
-    const headerLeft = (
-        <div className="flex items-center ml-4">
+    const headerRight = (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={handleViewQuote}
+                disabled={!saleOrder['Quote No']}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                <ScrollText className="w-4 h-4" />
+                <span className="hidden lg:inline text-xs">View Quote</span>
+            </button>
             <button
                 onClick={handleConvertToInvoice}
                 disabled={isSubmitting}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 text-sm min-w-[140px] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all shadow-sm disabled:opacity-40"
             >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Convert to Invoice"}
-            </button>
-        </div>
-    );
-
-    const headerRight = (
-        <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 border-r border-border pr-3 mr-1">
-                <button
-                    onClick={() => setShowFormPanel(!showFormPanel)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 border ${showFormPanel ? 'bg-brand-500/10 text-brand-600 border-brand-500/30' : 'bg-card text-muted-foreground hover:text-foreground border-border shadow-sm'}`}
-                >
-                    <PanelRight className="w-4 h-4" />
-                    <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
-                </button>
-            </div>
-            <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-card text-brand-600 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-all active:scale-95 shadow-sm">
-                <Download className="w-4 h-4" />
-                Download PDF
+                <Layout className="w-4 h-4" />
+                <span className="hidden lg:inline text-xs">Convert to Invoice</span>
             </button>
             <button
-                onClick={handleViewQuote}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 whitespace-nowrap text-sm hover:scale-[1.02] active:scale-[0.98]"
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all shadow-sm"
             >
-                View Quote No.
+                <Download className="w-4 h-4" />
+                <span className="hidden lg:inline text-xs">Download PDF</span>
             </button>
-            <button onClick={handleSave} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-8 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 min-w-[100px] flex items-center justify-center text-sm hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Save</>}
+            <ColumnWidthPopover
+                docType="sale-order"
+                widths={colWidths}
+                onChange={setColWidths}
+                onReset={resetColWidths}
+            />
+            <button
+                onClick={handleSave}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-all shadow-sm shadow-brand-500/20 disabled:bg-muted min-w-[110px] justify-center"
+            >
+                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save SO'}
             </button>
         </div>
     );
@@ -751,108 +768,130 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     return (
         <>
             <DocumentEditorContainer
-                title={existingSaleOrder ? `Edit Sale Order ${existingSaleOrder['SO No']}` : "Create New Sale Order"}
+                title={existingSaleOrder ? `Edit Sale Order: ${saleOrder['SO No']}` : 'New Sale Order'}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
-                leftActions={headerLeft}
                 rightActions={headerRight}
             >
-                <div className="screen-only h-full flex relative overflow-hidden">
-                    <div className="flex-1 flex flex-col relative overflow-hidden">
+                <div className="h-full flex overflow-hidden">
+                    {/* PDF Preview — left side */}
+                    <PdfPreviewPane
+                        docLabel={`${saleOrder['SO No'] || ''} • ${saleOrder['Company Name'] || 'No Company Selected'}`}
+                        signaturePadding={signaturePadding}
+                        onSignaturePaddingChange={setSignaturePadding}
+                        defaultSignaturePadding={0}
+                        labelPadding={labelPadding}
+                        onLabelPaddingChange={setLabelPadding}
+                        defaultLabelPadding={200}
+                        columnWidths={colWidths}
+                        pdfOptions={{
+                            type: 'Sale Order',
+                            headerData: {
+                                ...saleOrder,
+                                'Sale Order ID': saleOrder['SO No'],
+                                'Order Date': saleOrder['SO Date'],
+                                'Delivery Date': saleOrder['Delivery Date'],
+                                'Company Name': saleOrder['Company Name'],
+                                'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
+                                'Contact Person': saleOrder['Contact Name'],
+                                'Contact Tel': saleOrder['Phone Number'],
+                                'Email': saleOrder.Email,
+                                'Payment Term': saleOrder['Payment Term'],
+                                'Bill Invoice': saleOrder['Bill Invoice'],
+                            },
+                            items: items.filter(i => i.no > 0).map(item => ({
+                                no: item.no, itemCode: item.itemCode, modelName: item.modelName,
+                                description: item.description, qty: item.qty, unitPrice: item.unitPrice,
+                                amount: item.amount, commission: item.commission,
+                            })),
+                            totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
+                            currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',
+                        }}
+                    />
 
-
-                        {/* PDF Preview */}
-                        <PdfPreviewPane
-                            docLabel={`${saleOrder['SO No'] || 'SO-0000000'} • ${saleOrder['Company Name'] || 'No Company Selected'}`}
-                            signaturePadding={signaturePadding}
-                            onSignaturePaddingChange={setSignaturePadding}
-                            labelPadding={labelPadding}
-                            onLabelPaddingChange={setLabelPadding}
-                            pdfOptions={{
-                                type: 'Sale Order',
-                                headerData: {
-                                    ...saleOrder,
-                                    'Sale Order ID': saleOrder['SO No'],
-                                    'Order Date': saleOrder['SO Date'],
-                                    'Delivery Date': saleOrder['Delivery Date'],
-                                    'Company Name': saleOrder['Company Name'],
-                                    'Company Address': companies?.find(c => c['Company Name'] === saleOrder['Company Name'])?.['Address (English)'] || '',
-                                    'Contact Person': saleOrder['Contact Name'],
-                                    'Contact Tel': saleOrder['Phone Number'],
-                                    'Payment Term': saleOrder['Payment Term'],
-                                    'Bill Invoice': saleOrder['Bill Invoice'],
-                                    'Install Software': saleOrder['Install Software'],
-                                    'Remark': saleOrder['Remark'] || '',
-                                },
-                                items: items.filter(i => i.no > 0).map(i => ({
-                                    no: i.no, itemCode: i.itemCode, modelName: i.modelName,
-                                    description: i.description, qty: i.qty,
-                                    unitPrice: i.unitPrice, amount: i.amount,
-                                })),
-                                totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
-                                currency: (saleOrder.Currency as 'USD' | 'KHR') || 'USD',
-                            }}
-                        />
-                    </div>
-
-                    {/* Right Panel: Form Sidebar */}
-                    <div className={`bg-background border-l border-border transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
+                    {/* Form Sidebar — right side */}
+                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
-                                <h3 className="text-sm font-bold text-foreground">Sale Order Details</h3>
+                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-gray-800">Sale Order Information</h3>
                             </div>
-                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all">
+                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
                         <ScrollArea className="flex-1 px-5 py-4">
                             <div className="space-y-6">
-                                <FormSection title="Customer Info">
-                                    <SearchableSelect name="Company Name" label="Company Name" value={saleOrder['Company Name'] || ''} onChange={handleCompanySelect} options={companyOptions} required placeholder="Search for a company..." />
-                                    <FormInput name="Contact Name" label="Contact Person" value={saleOrder['Contact Name'] || ''} onChange={handleContactChange} list="contact-list" datalistOptions={contactOptions} placeholder="Type or select a contact..." />
-                                    <FormTextarea name="Company Address" label="Address" value={saleOrder['Company Address']} onChange={handleHeaderChange} rows={3} />
-                                    <FormInput name="Phone Number" label="Tel" value={saleOrder['Phone Number']} onChange={handleHeaderChange} />
-                                    <FormInput name="Email" label="Email" value={saleOrder['Email']} onChange={handleHeaderChange} />
+
+                                <FormSection title="Order Information">
+                                    <FormInput label="SO Number" name="SO No" value={saleOrder['SO No'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="SO Date" name="SO Date" type="date" value={saleOrder['SO Date'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="Delivery Date" name="Delivery Date" type="date" value={saleOrder['Delivery Date'] || ''} onChange={handleHeaderChange} />
+                                    <FormSelect label="Status" name="Status" value={saleOrder.Status || 'Pending'} onChange={handleHeaderChange} options={STATUS_OPTIONS} />
+                                    <FormSelect label="Bill Invoice" name="Bill Invoice" value={saleOrder['Bill Invoice'] || 'VAT'} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
+                                    <FormSelect label="Currency" name="Currency" value={saleOrder.Currency || 'USD'} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} />
+                                    <FormInput label="Payment Term" name="Payment Term" value={saleOrder['Payment Term'] || ''} onChange={handleHeaderChange} />
                                 </FormSection>
 
-                                <FormSection title="Order Info">
-                                    <FormInput name="SO No" label="Sale Order No." value={saleOrder['SO No']} onChange={handleHeaderChange} readOnly required />
-                                    <FormInput name="Pipeline No" label="Pipeline No" value={saleOrder['Pipeline No']} onChange={handleHeaderChange} readOnly />
-                                    <FormSelect name="Currency" label="Currency" value={saleOrder.Currency} onChange={handleHeaderChange} options={CURRENCY_OPTIONS} required />
-                                    <FormSelect name="Bill Invoice" label="Bill Invoice" value={saleOrder['Bill Invoice']} onChange={handleHeaderChange} options={BILL_INVOICE_OPTIONS} />
-                                    <FormInput name="SO Date" label="Order Date" value={saleOrder['SO Date']} onChange={handleHeaderChange} type="date" required />
-                                    <FormInput name="Delivery Date" label="Delivery Date" value={saleOrder['Delivery Date']} onChange={handleHeaderChange} type="date" />
-                                    <FormInput name="Payment Term" label="Payment Term" value={saleOrder['Payment Term']} onChange={handleHeaderChange} />
-                                    <FormSelect name="Status" label="Status" value={saleOrder.Status} onChange={handleHeaderChange} options={STATUS_OPTIONS} />
-                                    <FormSelect name="Quote No" label="From Quotation" value={saleOrder['Quote No']} onChange={handleQuoteChange} options={quoteOptions} disabled={!saleOrder['Company Name']} />
+                                <FormSection title="Customer Information">
+                                    <div className="md:col-span-2">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Company</label>
+                                        <SearchableSelect
+                                            options={companyOptions}
+                                            value={saleOrder['Company Name'] || ''}
+                                            onChange={handleCompanySelect}
+                                            placeholder="Search company..."
+                                        />
+                                    </div>
+                                    <FormInput label="Company Address" name="Company Address" value={saleOrder['Company Address'] || ''} onChange={handleHeaderChange} />
+                                    <div className="md:col-span-1">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Contact Person</label>
+                                        <select
+                                            name="Contact Name"
+                                            value={saleOrder['Contact Name'] || ''}
+                                            onChange={handleContactChange}
+                                            className="w-full text-sm p-2.5 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground"
+                                        >
+                                            <option value="">-- Select Contact --</option>
+                                            {contactOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <FormInput label="Phone" name="Phone Number" value={saleOrder['Phone Number'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="Email" name="Email" type="email" value={saleOrder.Email || ''} onChange={handleHeaderChange} />
                                 </FormSection>
 
-                                <FormSection title="Signatures & Remarks">
-                                    <FormInput name="Prepared By" label="Prepared By" value={saleOrder['Prepared By']} onChange={handleHeaderChange} />
-                                    <FormInput name="Approved By" label="Approved By" value={saleOrder['Approved By']} onChange={handleHeaderChange} />
-                                    <FormInput name="Prepared By Position" label="Position" value={saleOrder['Prepared By Position']} onChange={handleHeaderChange} />
-                                    <FormInput name="Approved By Position" label="Position" value={saleOrder['Approved By Position']} onChange={handleHeaderChange} />
-                                    <FormTextarea name="Remark" label="Remark" value={saleOrder.Remark} onChange={handleHeaderChange} rows={3} />
+                                <FormSection title="Quote Reference">
+                                    <div className="md:col-span-2">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Linked Quotation</label>
+                                        <select
+                                            name="Quote No"
+                                            value={saleOrder['Quote No'] || ''}
+                                            onChange={handleQuoteChange}
+                                            disabled={isFromQuote}
+                                            className="w-full text-sm p-2.5 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground disabled:opacity-50"
+                                        >
+                                            <option value="">-- None --</option>
+                                            {quoteOptions.map(q => <option key={q} value={q}>{q}</option>)}
+                                        </select>
+                                    </div>
+                                </FormSection>
+
+                                <FormSection title="Prepared By">
+                                    <FormInput label="Name" name="Prepared By" value={saleOrder['Prepared By'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="Position / Contact" name="Prepared By Position" value={saleOrder['Prepared By Position'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="Approved By" name="Approved By" value={saleOrder['Approved By'] || ''} onChange={handleHeaderChange} />
+                                    <FormInput label="Approved Position" name="Approved By Position" value={saleOrder['Approved By Position'] || ''} onChange={handleHeaderChange} />
                                 </FormSection>
 
                                 <FormSection title="Software Setup">
-                                    <div className="mb-4 md:col-span-2">
-                                        <label className="block text-xs font-bold text-muted-foreground/70 uppercase tracking-wide mb-2">Set up software</label>
+                                    <div className="md:col-span-2">
                                         <div className="flex gap-2 mb-3">
                                             <input
                                                 type="text"
-                                                placeholder="Add other software..."
-                                                className="flex-1 text-sm px-3 py-1.5 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        const val = e.currentTarget.value.trim();
-                                                        if (val) { handleAddSoftware(val); e.currentTarget.value = ''; }
-                                                    }
-                                                }}
+                                                placeholder="Add custom software..."
+                                                className="flex-1 text-sm p-2 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 text-foreground"
                                                 id="custom-software-input"
                                             />
                                             <button
@@ -1034,14 +1073,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     onClose={() => { setSuccessInfo(null); onBack(); }}
                     title="Sale Order Saved!"
                     message={<p>Sale Order <strong>{successInfo.soNo}</strong> has been successfully saved.</p>}
-                    actionButtonLink={null}
-                    actionButtonText="Back to List"
-                    onAction={() => { setSuccessInfo(null); onBack(); }}
-                    extraActions={
-                        <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-2 bg-brand-600 text-white py-2.5 rounded-md font-semibold hover:bg-brand-700 transition shadow-sm">
-                            <Printer className="w-4 h-4" /> Print Sale Order
-                        </button>
-                    }
                 />
             )}
 
@@ -1051,4 +1082,3 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 };
 
 export default SaleOrderCreator;
-

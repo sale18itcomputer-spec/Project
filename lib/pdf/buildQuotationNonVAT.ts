@@ -1,9 +1,11 @@
 /**
  * buildQuotationNonVAT.ts
  * QUOTATION PDF builder — bilingual Khmer/English, Non-VAT version.
- * Fonts, sizing, colours, layout, terms, signatures aligned to buildTaxInvoice.ts.
+ * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
 import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+
+const DEFAULT_WIDTHS = [4, 16, 33, 12, 16, 19];
 
 export function buildQuotationNonVAT(
     hd: Record<string, any>,
@@ -11,10 +13,13 @@ export function buildQuotationNonVAT(
     totals: PdfTotals,
     currency: string,
     sym: string,
-    signaturePadding = 0, // px — supports negative values
+    signaturePadding = 0,
     labelPadding = 200,
+    columnWidths?: number[],
 ): string {
-    // ── Derived values ────────────────────────────────────────────────────────
+    const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
+    const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
+
     const quoteNo   = esc(hd['Quotation ID'] || hd['Quote No'] || hd['Quotation No'] || '');
     const quoteDate = esc(fmtDate(hd['Quote Date'] || hd['Quotation Date'] || ''));
     const validity  = esc(fmtDate(hd['Validity Date'] || hd['Validity'] || ''));
@@ -27,9 +32,12 @@ export function buildQuotationNonVAT(
     const email     = esc(hd['Contact Email'] || hd['Email'] || '');
 
     const subTotal = totals.subTotal;
-    const grandUsd = subTotal; // No VAT for Non-VAT
+    const grandUsd = subTotal;
 
-    // ── Item rows (pad to at least 3) ─────────────────────────────────────────
+    const visibleCols = cw.filter(w => w > 0).length;
+    const footerLeftSpan = Math.max([wNo, wCode, wDesc].filter(w => w > 0).length, 1);
+    const footerRightSpan = visibleCols - footerLeftSpan;
+
     const dataItems = items.filter(i => Number(i.no) > 0);
 
     const makeItemRow = (item: typeof dataItems[0]) => {
@@ -47,26 +55,24 @@ export function buildQuotationNonVAT(
         if (!item.description) {
             return `
             <tr class="text-center break-inside-avoid">
-              <td class="align-top py-2">${esc(item.no)}</td>
-              <td class="align-top py-2">${esc(item.itemCode)}</td>
-              <td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}</td>
-              <td class="align-top py-2">${esc(item.qty)}</td>
-              <td class="align-top py-2">${priceDisplay}</td>
-              <td class="align-top py-2">${amtDisplay}</td>
+              ${wNo>0   ? `<td class="align-top py-2">${esc(item.no)}</td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-2">${esc(item.itemCode)}</td>` : ''}
+              ${wDesc>0 ? `<td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-2">${esc(item.qty)}</td>` : ''}
+              ${wPrice>0? `<td class="align-top py-2">${priceDisplay}</td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-2">${amtDisplay}</td>` : ''}
             </tr>`;
         }
 
         const descLines = item.description.split('\n');
-        let rows = ``;
-
-        rows += `
+        let rows = `
             <tr class="text-center break-inside-avoid">
-              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.no)}</td>
-              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.itemCode)}</td>
-              <td class="text-left font-bold align-top py-2" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>
-              <td class="align-top py-2" style="border-bottom:none !important;">${esc(item.qty)}</td>
-              <td class="align-top py-2" style="border-bottom:none !important;">${priceDisplay}</td>
-              <td class="align-top py-2" style="border-bottom:none !important;">${amtDisplay}</td>
+              ${wNo>0   ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.itemCode)}</td>` : ''}
+              ${wDesc>0 ? `<td class="text-left font-bold align-top py-2" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.qty)}</td>` : ''}
+              ${wPrice>0? `<td class="align-top py-2" style="border-bottom:none !important;">${priceDisplay}</td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-2" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
             </tr>`;
 
         descLines.forEach((line, idx) => {
@@ -75,15 +81,15 @@ export function buildQuotationNonVAT(
             const padStyle = isLast ? 'padding-bottom: 8px;' : 'padding-bottom: 0;';
             rows += `
             <tr class="text-center break-inside-avoid">
-              <td class="align-top py-0" style="${tdStyle}"></td>
-              <td class="align-top py-0" style="${tdStyle}"></td>
-              <td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${tdStyle} padding-top: 2px; ${padStyle}">${esc(line)}</td>
-              <td class="align-top py-0" style="${tdStyle}"></td>
-              <td class="align-top py-0" style="${tdStyle}"></td>
-              <td class="align-top py-0" style="${tdStyle}"></td>
+              ${wNo>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wDesc>0 ? `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${tdStyle} padding-top: 2px; ${padStyle}">${esc(line)}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wPrice>0? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
             </tr>`;
         });
-        
+
         return rows;
     };
 
@@ -126,7 +132,6 @@ export function buildQuotationNonVAT(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
@@ -140,15 +145,12 @@ export function buildQuotationNonVAT(
     </div>
   </header>
 
-  <!-- Title -->
   <div class="text-center mb-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">សម្រង់តម្លៃ</h3>
     <h4 class="text-lg font-bold">QUOTATION</h4>
   </div>
 
-  <!-- Customer / Quotation Info -->
   <div class="flex justify-between gap-0 mb-6">
-    <!-- Left: Customer Details -->
     <div class="w-[62%]">
       <table class="w-full border-none">
         <tbody class="text-[12px]">
@@ -180,7 +182,6 @@ export function buildQuotationNonVAT(
         </tbody>
       </table>
     </div>
-    <!-- Right: Quotation Details -->
     <div class="w-[38%] flex flex-col">
       <table class="w-auto ml-auto border-none table-fixed">
         <tbody class="text-[12px]">
@@ -213,38 +214,37 @@ export function buildQuotationNonVAT(
       </table>
     </div>
   </div>
-  </div><!-- end no-break -->
+  </div>
 
-  <!-- Items Table -->
   <div class="mb-4">
     <table class="items-table w-full mx-auto" style="table-layout:fixed;">
       <colgroup>
-        <col style="width:4%"/>
-        <col style="width:16%"/>
-        <col style="width:33%"/>
-        <col style="width:12%"/>
-        <col style="width:16%"/>
-        <col style="width:19%"/>
+        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
+        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
+        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
+        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
+        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
+        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
       </colgroup>
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[12px]">
-          <th class="w-[4%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>
-          <th class="w-[16%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
-          <th class="w-[33%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
-          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
-          <th class="w-[16%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
-          <th class="w-[19%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
+          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#176;</div></th>` : ''}
+          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>` : ''}
+          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>` : ''}
+          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>` : ''}
+          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>` : ''}
+          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>` : ''}
         </tr>
       </thead>
       <tfoot style="display: table-footer-group;">
-        <tr><td colspan="6" style="padding:0 !important; border:none !important; border-top:1px solid #000 !important; height:0;"></td></tr>
+        <tr><td colspan="${visibleCols}" style="padding:0 !important; border:none !important; border-top:1px solid #000 !important; height:0;"></td></tr>
       </tfoot>
       <tbody>
         ${itemRows}
       </tbody>
       <tbody class="break-inside-avoid">
         <tr>
-          <td class="align-top p-4" colspan="3" rowspan="2" style="border:none;">
+          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="2" style="border:none;">
             <div class="w-full text-[10px] space-y-4">
               <div>
                 <h4 class="font-bold text-[11px] underline uppercase mb-1">Terms &amp; Conditions:</h4>
@@ -254,21 +254,19 @@ export function buildQuotationNonVAT(
                   <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
                 </ul>
               </div>
-
             </div>
           </td>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="width: 22%; border:1px solid #000;">Sub Total</td>
-          <td class="align-middle" style="width: 13%; border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Sub Total</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="2" style="border:1px solid #000;">Grand Total in Dollar</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Dollar</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Signatures -->
   <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
       <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Prepared By:</p>

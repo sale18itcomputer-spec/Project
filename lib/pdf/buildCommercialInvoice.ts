@@ -3,8 +3,11 @@
  * COMMERCIAL INVOICE HTML builder — bilingual Khmer/English design template.
  * Matches commercial_invoice_refined_terms_conditions and commercial_invoice_non_vat_no_vat_tin.
  * Variant: showVatTin controls whether VAT TIN line appears in header + customer info.
+ * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
 import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+
+const DEFAULT_WIDTHS = [4, 12, 38, 14, 17, 15];
 
 export function buildCommercialInvoice(
     hd: Record<string, any>,
@@ -14,8 +17,18 @@ export function buildCommercialInvoice(
     sym: string,
     tax: number,
     showVatTin = true,
-    signaturePadding = 0, // px — supports negative values
+    signaturePadding = 0,
+    labelPadding?: number,
+    columnWidths?: number[],
 ): string {
+    const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
+    const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
+
+    const visibleCols = cw.filter(w => w > 0).length;
+    const footerLeftSpan = Math.max([wNo, wCode, wDesc].filter(w => w > 0).length, 1);
+    const footerRightSpan = visibleCols - footerLeftSpan;
+    const footerLabelSpan = footerRightSpan > 1 ? footerRightSpan - 1 : 1;
+
     // ── Derived values ────────────────────────────────────────────────────────
     const invNo    = esc(hd['Inv No.'] || hd['Inv No'] || hd['Invoice No'] || '');
     const invDate  = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || ''));
@@ -32,12 +45,11 @@ export function buildCommercialInvoice(
     const exchangeRate = hd['Exchange Rate'] || hd['ExchangeRate'] || '';
     const rateNum      = parseFloat(String(exchangeRate).replace(/,/g, '')) || 0;
 
-    const subTotal    = totals.subTotal;          // Grand Total = sum of item amounts
-    // Both variants: Sub Total = full subTotal, comSubTotal = Total Less Deposit (shown when deposit > 0)
-    const comSubTotal = subTotal - deposit;           // Total Less Deposit (USD)
+    const subTotal    = totals.subTotal;
+    const comSubTotal = subTotal - deposit;
     const grandRiel   = rateNum > 0 ? Math.round(comSubTotal * rateNum) : 0;
 
-    // ── Item rows (pad to at least 3) ─────────────────────────────────────────
+    // ── Item rows ─────────────────────────────────────────────────────────────
     const dataItems = items.filter(i => Number(i.no) > 0);
 
     const itemRows = dataItems.map(item => {
@@ -52,20 +64,18 @@ export function buildCommercialInvoice(
 
         return `
         <tr class="h-10 text-center">
-          <td>${esc(item.no)}</td>
-          <td>${esc(item.itemCode)}</td>
-          <td class="text-left">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px]">${esc(item.description)}</div>` : ''}</td>
-          <td>${esc(item.qty)}</td>
-          <td>${priceDisplay}</td>
-          <td class="align-top">${amtDisplay}</td>
+          ${wNo>0   ? `<td>${esc(item.no)}</td>` : ''}
+          ${wCode>0 ? `<td>${esc(item.itemCode)}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px]">${esc(item.description)}</div>` : ''}</td>` : ''}
+          ${wQty>0  ? `<td>${esc(item.qty)}</td>` : ''}
+          ${wPrice>0? `<td>${priceDisplay}</td>` : ''}
+          ${wAmt>0  ? `<td class="align-top">${amtDisplay}</td>` : ''}
         </tr>`;
     }).join('');
 
     const hasDeposit = deposit > 0;
-    // rowspan: Sub Total + [Deposit + Total Less Deposit] + Grand Total in Dollar + Exchange Rate + Grand Total in Riel
-    // = 6 rows with deposit, 4 without
     const footerRowspan = hasDeposit ? 6 : 4;
-    const grandTotalUsd = hasDeposit ? comSubTotal : subTotal; // Grand Total in Dollar value
+    const grandTotalUsd = hasDeposit ? comSubTotal : subTotal;
     const moneyCell = (s: string, v: number | null) =>
         v !== null && v > 0
             ? `<div class="flex justify-between"><span>${s}</span><span>${fmtNum(v)}</span></div>`
@@ -82,6 +92,29 @@ export function buildCommercialInvoice(
            </tr>`
         : '';
 
+    // Footer right-side rows (shared between VAT / non-VAT branches)
+    const footerRows = `
+        ${hasDeposit ? `<tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">ប្រាក់កក់ (Deposit)</td>
+          <td class="text-right pr-2 font-bold">${sym}${fmtNum(deposit)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+          <td class="text-right pr-2 font-bold">${comSubTotal > 0 ? `${sym}${fmtNum(comSubTotal)}` : '-'}</td>
+        </tr>` : ''}
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+          <td class="text-right pr-2 font-bold">${sym}${fmtNum(grandTotalUsd)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
+          <td class="text-right pr-2 font-bold">${exchangeRate ? `៛${esc(String(exchangeRate))}` : '-'}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+          <td class="text-right pr-2 font-bold bg-white">${grandRiel > 0 ? `៛${fmtNum(grandRiel)}` : '-'}</td>
+        </tr>`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,11 +124,7 @@ export function buildCommercialInvoice(
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
-  body {
-    font-family: 'Koh Santepheap', sans-serif;
-    font-size: 11px;
-    color: #000;
-  }
+  body { font-family: 'Koh Santepheap', sans-serif; font-size: 11px; color: #000; }
   .brand-blue { color: #004aad; }
   .bg-brand-blue { background-color: #004aad; }
   .border-brand-blue { border-color: #004aad; }
@@ -110,7 +139,6 @@ export function buildCommercialInvoice(
   .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; padding: 0 !important; }
-    .a4-container { box-shadow: none !important; margin: 0 !important; }
   }
 </style>
 </head>
@@ -119,7 +147,6 @@ export function buildCommercialInvoice(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <!-- Header -->
   <header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
@@ -134,15 +161,12 @@ export function buildCommercialInvoice(
     </div>
   </header>
 
-  <!-- Title -->
   <div class="text-center mb-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">វិក្កយបត្រ</h3>
     <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">COMMERCIAL INVOICE</h4>
   </div>
 
-  <!-- Customer / Invoice Info -->
   <div class="flex justify-between gap-0 mb-6">
-    <!-- Left: Customer Details -->
     <div class="w-[55%]">
       <table class="w-full border-none">
         <tbody class="text-[12px]">
@@ -180,7 +204,6 @@ export function buildCommercialInvoice(
         </tbody>
       </table>
     </div>
-    <!-- Right: Invoice Details -->
     <div class="w-[45%]">
       <table class="w-auto ml-auto border-none table-fixed">
         <tbody class="text-[12px]">
@@ -203,26 +226,32 @@ export function buildCommercialInvoice(
       </table>
     </div>
   </div>
-  </div><!-- end no-break -->
+  </div>
 
-  <!-- Items Table -->
   <div class="mb-4">
-    <table class="items-table w-full mx-auto">
+    <table class="items-table w-full mx-auto" style="table-layout:fixed;">
+      <colgroup>
+        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
+        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
+        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
+        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
+        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
+        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
+      </colgroup>
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[10px]">
-          <th class="w-[4%] py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#186;</div></th>
-          <th class="w-[12%] py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>
-          <th class="w-[35%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>
-          <th class="w-[14%] py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>
-          <th class="w-[17%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
-          <th class="w-[18%] py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>
+          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>N&#186;</div></th>` : ''}
+          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Part Number</div></th>` : ''}
+          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>` : ''}
+          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Quantity</div></th>` : ''}
+          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>` : ''}
+          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>` : ''}
         </tr>
       </thead>
       <tbody>
         ${itemRows}
-        <!-- rowspan=4: Grand Total / Deposit / Balance Due / Balance Due in Riel -->
         <tr>
-          <td class="align-top p-4" colspan="3" rowspan="${footerRowspan}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important;">
+          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${footerRowspan}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important;">
             <div class="w-full text-[10px] space-y-4">
               <div>
                 <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
@@ -240,60 +269,14 @@ export function buildCommercialInvoice(
               </div>
             </div>
           </td>
-          ${showVatTin ? `
-          <!-- Order: Sub Total → [Deposit → Total Less Deposit] → Grand Total in Dollar → Exchange Rate → Grand Total in Riel -->
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុប (Sub Total)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="${footerLabelSpan}">សរុប (Sub Total)</td>
           <td class="text-right pr-2 font-bold">${sym}${fmtNum(subTotal)}</td>
         </tr>
-        ${hasDeposit ? `<tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">ប្រាក់កក់ (Deposit)</td>
-          <td class="text-right pr-2 font-bold">${sym}${fmtNum(deposit)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
-          <td class="text-right pr-2 font-bold">${comSubTotal > 0 ? `${sym}${fmtNum(comSubTotal)}` : '-'}</td>
-        </tr>` : ''}
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
-          <td class="text-right pr-2 font-bold">${sym}${fmtNum(grandTotalUsd)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
-          <td class="text-right pr-2 font-bold">${exchangeRate ? `៛${esc(String(exchangeRate))}` : '-'}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
-          <td class="text-right pr-2 font-bold bg-white">${grandRiel > 0 ? `៛${fmtNum(grandRiel)}` : '-'}</td>
-          ` : `
-          <!-- Order: Sub Total → [Deposit → Total Less Deposit] → Grand Total in Dollar → Exchange Rate → Grand Total in Riel -->
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុប (Sub Total)</td>
-          <td class="text-right pr-2 font-bold">${subTotal > 0 ? `${sym}${fmtNum(subTotal)}` : '-'}</td>
-        </tr>
-        ${hasDeposit ? `<tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">ប្រាក់កក់ (Deposit)</td>
-          <td class="text-right pr-2 font-bold">${sym}${fmtNum(deposit)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
-          <td class="text-right pr-2 font-bold">${comSubTotal > 0 ? `${sym}${fmtNum(comSubTotal)}` : '-'}</td>
-        </tr>` : ''}
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
-          <td class="text-right pr-2 font-bold">${sym}${fmtNum(grandTotalUsd)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
-          <td class="text-right pr-2 font-bold">${exchangeRate ? `៛${esc(String(exchangeRate))}` : '-'}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right pr-2" colspan="2">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
-          <td class="text-right pr-2 font-bold bg-white">${grandRiel > 0 ? `៛${fmtNum(grandRiel)}` : '-'}</td>
-          `}
+        ${footerRows}
       </tbody>
     </table>
   </div>
 
-  <!-- Signatures -->
   <div class="flex justify-between px-16 pb-8 w-full" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
       <div class="border-t-2 border-black mb-4"></div>

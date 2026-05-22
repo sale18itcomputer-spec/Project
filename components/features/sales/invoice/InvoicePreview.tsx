@@ -14,6 +14,7 @@ interface InvoicePreviewProps {
     onSignaturePaddingChange: (v: number) => void;
     labelPadding: number;
     onLabelPaddingChange: (v: number) => void;
+    columnWidths?: number[];
 }
 
 const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
@@ -43,7 +44,7 @@ const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
     </div>
 );
 
-export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, printableProps, signaturePadding, onSignaturePaddingChange, labelPadding, onLabelPaddingChange }) => {
+export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, printableProps, signaturePadding, onSignaturePaddingChange, labelPadding, onLabelPaddingChange, columnWidths }) => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -79,6 +80,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
                     currency: printableProps.currency,
                     signaturePadding,
                     labelPadding,
+                    columnWidths,
                     previewMode: true,
                 }) as string;
 
@@ -95,7 +97,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [printableProps, items, signaturePadding, labelPadding]);
+    }, [printableProps, items, signaturePadding, labelPadding, columnWidths]);
 
     return (
         <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
