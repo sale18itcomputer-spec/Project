@@ -1,132 +1,144 @@
 
 import { supabase } from '../lib/supabase';
 
-// Map Google Sheet names to Supabase tables
-const TABLE_MAP: { [key: string]: string } = {
-    'Pipelines': 'pipelines',
-    'Company List': 'companies',
-    'Contact_List': 'contacts',
-    'Users': 'users',
-    'Meeting_Logs': 'meeting_logs',
-    'Contact_Logs': 'contact_logs',
-    'Site_Survey_Logs': 'site_survey_logs',
-    'Quotations': 'quotations',
-    'Sale Orders': 'sale_orders',
-    'Raw': 'pricelist',
-    'Invoices': 'invoices',
-    // Procurement / Vendor tables
-    'Vendors': 'vendors',
-    'Vendor Pricelist': 'vendor_pricelist',
+// ── Table routing ─────────────────────────────────────────────────────────────
+const TABLE_MAP: Record<string, string> = {
+    'Pipelines':       'pipelines',
+    'Company List':    'companies',
+    'Contact_List':    'contacts',
+    'Users':           'users',
+    'Meeting_Logs':    'meeting_logs',
+    'Contact_Logs':    'contact_logs',
+    'Site_Survey_Logs':'site_survey_logs',
+    'Quotations':      'quotations',
+    'Sale Orders':     'sale_orders',
+    'Raw':             'pricelist',
+    'Invoices':        'invoices',
+    'Vendors':         'vendors',
+    'Vendor Pricelist':'vendor_pricelist',
     'Purchase Orders': 'purchase_orders',
-    // Delivery & Receipt
     'Delivery Orders': 'delivery_orders',
-    'Receipts': 'receipts',
-    // B2B Mappings
-    'b2b_pipelines': 'b2b_pipelines',
-    'b2b_companies': 'b2b_companies',
-    'b2b_quotations': 'b2b_quotations',
-    'User_Passcodes': 'user_passcodes',
+    'Receipts':        'receipts',
+    'b2b_pipelines':   'b2b_pipelines',
+    'b2b_companies':   'b2b_companies',
+    'b2b_quotations':  'b2b_quotations',
+    'User_Passcodes':  'user_passcodes',
 };
 
-// Configuration for primary keys.
-const SHEET_CONFIG: { [key: string]: { primaryKey: string } } = {
-    'Pipelines': { primaryKey: 'Pipeline No' },
-    'Company List': { primaryKey: 'Company ID' },
-    'Contact_List': { primaryKey: 'Customer ID' },
-    'Users': { primaryKey: 'UserID' },
-    'Meeting_Logs': { primaryKey: 'Meeting ID' },
-    'Contact_Logs': { primaryKey: 'Log ID' },
-    'Site_Survey_Logs': { primaryKey: 'Site ID' },
-    'Quotations': { primaryKey: 'Quote No' },
-    'Sale Orders': { primaryKey: 'SO No' },
-    'Raw': { primaryKey: 'Code' },
-    'Invoices': { primaryKey: 'Inv No' },
-    // Procurement / Vendor tables
-    'Vendors': { primaryKey: 'id' },
-    'Vendor Pricelist': { primaryKey: 'id' },
-    'Purchase Orders': { primaryKey: 'id' },
-    // Delivery & Receipt
-    'Delivery Orders': { primaryKey: 'DO No' },
-    'Receipts': { primaryKey: 'RV No' },
-    // B2B Config
-    'b2b_pipelines': { primaryKey: 'Pipeline No' },
-    'b2b_companies': { primaryKey: 'Company ID' },
-    'b2b_quotations': { primaryKey: 'Quote No' },
-    'User_Passcodes': { primaryKey: 'UserID' },
+// Primary keys — must exactly match the column names in Supabase (no trailing dots)
+const PRIMARY_KEYS: Record<string, string> = {
+    'Pipelines':       'Pipeline No',
+    'Company List':    'Company ID',
+    'Contact_List':    'Customer ID',
+    'Users':           'UserID',
+    'Meeting_Logs':    'Meeting ID',
+    'Contact_Logs':    'Log ID',
+    'Site_Survey_Logs':'Site ID',
+    'Quotations':      'Quote No',
+    'Sale Orders':     'SO No',
+    'Raw':             'Code',
+    'Invoices':        'Inv No',
+    'Vendors':         'id',
+    'Vendor Pricelist':'id',
+    'Purchase Orders': 'id',
+    'Delivery Orders': 'DO No',
+    'Receipts':        'RV No',
+    'b2b_pipelines':   'Pipeline No',
+    'b2b_companies':   'Company ID',
+    'b2b_quotations':  'Quote No',
+    'User_Passcodes':  'UserID',
 };
+
+// Tables that have an updated_at column (trigger keeps them fresh,
+// but we stamp on write too so realtime subscribers see the change immediately)
+const HAS_UPDATED_AT = new Set([
+    'quotations', 'sale_orders', 'invoices', 'delivery_orders',
+    'receipts', 'vendors', 'vendor_pricelist', 'purchase_orders', 'app_settings',
+]);
+
+/** Strip fields that exist in the DB only as computed/read-only or legacy names */
+function cleanPayload(sheetName: string, payload: any): any {
+    const cleaned = { ...payload };
+    // Pipelines have two attachment columns only on the old Google Sheets version
+    if (sheetName === 'Pipelines') {
+        delete cleaned['Attach Invoice'];
+        delete cleaned['Attach DO'];
+    }
+    return cleaned;
+}
+
+function stampedPayload(table: string, payload: any): any {
+    if (HAS_UPDATED_AT.has(table)) {
+        return { ...payload, updated_at: new Date().toISOString() };
+    }
+    return payload;
+}
+
+// ── Generic CRUD ──────────────────────────────────────────────────────────────
 
 export const createRecord = async (sheetName: string, payload: any) => {
     const table = TABLE_MAP[sheetName];
-    if (!table) throw new Error(`Table mapping not found for ${sheetName}`);
+    if (!table) throw new Error(`No table mapping for "${sheetName}"`);
 
-    let cleanedPayload = { ...payload };
-    if (sheetName === 'Pipelines') {
-        const { 'Attach Invoice': _ai, 'Attach DO': _ado, ...rest } = cleanedPayload;
-        cleanedPayload = rest;
-    }
+    const body = stampedPayload(table, cleanPayload(sheetName, payload));
 
     const { data, error } = await supabase
         .from(table)
-        .insert(cleanedPayload)
+        .insert(body)
         .select()
         .single();
 
     if (error) {
-        console.error('Supabase Create Error:', error);
+        console.error('[createRecord] Supabase error:', error);
         throw new Error(error.message);
     }
     return data;
 };
 
-export const readRecords = async <T extends {}>(sheetName: string): Promise<T[]> => {
+export const readRecords = async <T extends object>(sheetName: string): Promise<T[]> => {
     const table = TABLE_MAP[sheetName];
-    if (!table) throw new Error(`Table mapping not found for ${sheetName}`);
+    if (!table) throw new Error(`No table mapping for "${sheetName}"`);
 
-    const { data, error } = await supabase.from(table).select('*');
+    const { data, error } = await supabase.from(table).select('*').order(
+        PRIMARY_KEYS[sheetName] ?? 'id', { ascending: false }
+    );
 
     if (error) {
-        console.error('Supabase Read Error:', error);
+        console.error('[readRecords] Supabase error:', error);
         throw new Error(error.message);
     }
-    return data as T[];
+    return (data ?? []) as T[];
 };
 
-// eslint-disable-next-line unused-imports/no-unused-vars
-export const batchReadRecords = async <T extends {}>(sheetNames: string[]): Promise<any> => {
-    const results: { [key: string]: any[] } = {};
-
+export const batchReadRecords = async <T extends object>(sheetNames: string[]): Promise<Record<string, any[]>> => {
+    const results: Record<string, any[]> = {};
     await Promise.all(sheetNames.map(async (name) => {
         try {
             results[name] = await readRecords(name);
-        } catch (_e) {
-            console.error(`Failed to load ${name}`, _e);
+        } catch (e) {
+            console.error(`[batchReadRecords] Failed to load "${name}":`, e);
             results[name] = [];
         }
     }));
-
     return results;
 };
 
 export const updateRecord = async (sheetName: string, primaryKeyValue: string, payload: any) => {
     const table = TABLE_MAP[sheetName];
-    const primaryKey = SHEET_CONFIG[sheetName]?.primaryKey;
-    if (!table || !primaryKey) throw new Error(`Configuration missing for ${sheetName}`);
+    const pk = PRIMARY_KEYS[sheetName];
+    if (!table || !pk) throw new Error(`No config for "${sheetName}"`);
 
-    let cleanedPayload = { ...payload };
-    if (sheetName === 'Pipelines') {
-        const { 'Attach Invoice': _ai, 'Attach DO': _ado, ...rest } = cleanedPayload;
-        cleanedPayload = rest;
-    }
+    const body = stampedPayload(table, cleanPayload(sheetName, payload));
 
     const { data, error } = await supabase
         .from(table)
-        .update(cleanedPayload)
-        .eq(primaryKey, primaryKeyValue)
+        .update(body)
+        .eq(pk, primaryKeyValue)
         .select()
         .single();
 
     if (error) {
-        console.error('Supabase Update Error:', error);
+        console.error('[updateRecord] Supabase error:', error);
         throw new Error(error.message);
     }
     return data;
@@ -134,32 +146,33 @@ export const updateRecord = async (sheetName: string, primaryKeyValue: string, p
 
 export const deleteRecord = async (sheetName: string, primaryKeyValue: string) => {
     const table = TABLE_MAP[sheetName];
-    const primaryKey = SHEET_CONFIG[sheetName]?.primaryKey;
-    if (!table || !primaryKey) throw new Error(`Configuration missing for ${sheetName}`);
+    const pk = PRIMARY_KEYS[sheetName];
+    if (!table || !pk) throw new Error(`No config for "${sheetName}"`);
 
     const { error } = await supabase
         .from(table)
         .delete()
-        .eq(primaryKey, primaryKeyValue);
+        .eq(pk, primaryKeyValue);
 
     if (error) {
-        console.error('Supabase Delete Error:', error);
+        console.error('[deleteRecord] Supabase error:', error);
         throw new Error(error.message);
     }
     return { deletedId: primaryKeyValue };
 };
 
+// ── File upload ───────────────────────────────────────────────────────────────
+
 export const uploadFile = async (file: File): Promise<{ url: string }> => {
     const fileExt = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
-    const fileName = `${crypto.randomUUID()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const filePath = `${crypto.randomUUID()}.${fileExt}`;
 
-    const { data: _data, error } = await supabase.storage
+    const { error } = await supabase.storage
         .from('attachments')
         .upload(filePath, file);
 
     if (error) {
-        console.error('Supabase Upload Error:', error);
+        console.error('[uploadFile] Supabase error:', error);
         throw new Error(error.message);
     }
 
@@ -170,8 +183,11 @@ export const uploadFile = async (file: File): Promise<{ url: string }> => {
     return { url: publicUrl };
 };
 
+// ── Document-specific helpers ─────────────────────────────────────────────────
+
+/** Read a quotation's header + items in one call */
 export const readQuotationSheetData = async (quoteId: string): Promise<{
-    header: { [key: string]: any };
+    header: Record<string, any>;
     items: any[];
 }> => {
     const { data, error } = await supabase
@@ -182,51 +198,52 @@ export const readQuotationSheetData = async (quoteId: string): Promise<{
 
     if (error) throw new Error(error.message);
 
-    let items = [];
+    let items: any[] = [];
     try {
-        if (typeof data['ItemsJSON'] === 'string') {
-            items = JSON.parse(data['ItemsJSON']);
-        } else {
-            items = data['ItemsJSON'] || [];
-        }
-    } catch (_e) {
+        items = typeof data['ItemsJSON'] === 'string'
+            ? JSON.parse(data['ItemsJSON'])
+            : (data['ItemsJSON'] ?? []);
+    } catch {
         items = [];
     }
 
     return { header: data, items };
 };
 
-export const createQuotationSheet = async (newSheetName: string, data: any): Promise<{ message: string, url?: string }> => {
-    const payload = {
-        ...data,
-        updated_at: new Date().toISOString(),
-    };
+/** Upsert a quotation row (create or update by "Quote No") */
+export const createQuotationSheet = async (_sheetName: string, data: any): Promise<{ message: string }> => {
+    const payload = stampedPayload('quotations', { ...data, updated_at: new Date().toISOString() });
+
     const { error } = await supabase
         .from('quotations')
         .upsert(payload, { onConflict: 'Quote No' });
 
     if (error) {
-        console.error('Supabase Upsert (Quotation) Error:', error);
+        console.error('[createQuotationSheet] Supabase error:', error);
         throw new Error(error.message);
     }
-
-    return { message: 'Quotation saved successfully', url: '#' };
+    return { message: 'Quotation saved successfully' };
 };
 
-export const createSaleOrderSheet = async (newSheetName: string, data: any): Promise<{ message: string, url?: string }> => {
+/** Upsert a sale order row (create or update by "SO No") */
+export const createSaleOrderSheet = async (_sheetName: string, data: any): Promise<{ message: string }> => {
+    const payload = stampedPayload('sale_orders', data);
+
     const { error } = await supabase
         .from('sale_orders')
-        .upsert(data, { onConflict: 'SO No' });
+        .upsert(payload, { onConflict: 'SO No' });
 
     if (error) {
+        console.error('[createSaleOrderSheet] Supabase error:', error);
         throw new Error(`Failed to save Sale Order: ${error.message}`);
     }
-
-    return { message: 'Sale Order saved successfully', url: '#' };
+    return { message: 'Sale Order saved successfully' };
 };
 
+/** Upsert a delivery order (create or update by "DO No") */
 export const createDeliveryOrderSheet = async (data: any): Promise<{ message: string }> => {
-    const payload = { ...data, updated_at: new Date().toISOString() };
+    const payload = stampedPayload('delivery_orders', data);
+
     const { error } = await supabase
         .from('delivery_orders')
         .upsert(payload, { onConflict: 'DO No' });
@@ -235,8 +252,10 @@ export const createDeliveryOrderSheet = async (data: any): Promise<{ message: st
     return { message: 'Delivery Order saved successfully' };
 };
 
+/** Upsert a receipt (create or update by "RV No") */
 export const createReceiptSheet = async (data: any): Promise<{ message: string }> => {
-    const payload = { ...data, updated_at: new Date().toISOString() };
+    const payload = stampedPayload('receipts', data);
+
     const { error } = await supabase
         .from('receipts')
         .upsert(payload, { onConflict: 'RV No' });
@@ -244,6 +263,8 @@ export const createReceiptSheet = async (data: any): Promise<{ message: string }
     if (error) throw new Error(`Failed to save Receipt: ${error.message}`);
     return { message: 'Receipt saved successfully' };
 };
+
+// ── App settings ──────────────────────────────────────────────────────────────
 
 export const getSetting = async (key: string): Promise<any> => {
     const { data, error } = await supabase
@@ -253,18 +274,16 @@ export const getSetting = async (key: string): Promise<any> => {
         .maybeSingle();
 
     if (error) {
-        console.error(`Error fetching setting ${key}:`, error);
+        console.error(`[getSetting] Error fetching "${key}":`, error);
         return null;
     }
-    return data?.value || null;
+    return data?.value ?? null;
 };
 
 export const saveSetting = async (key: string, value: any): Promise<void> => {
     const { error } = await supabase
         .from('app_settings')
-        .upsert({ key, value, updated_at: new Date().toISOString() });
+        .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
 
-    if (error) {
-        throw new Error(`Failed to save setting ${key}: ${error.message}`);
-    }
+    if (error) throw new Error(`Failed to save setting "${key}": ${error.message}`);
 };

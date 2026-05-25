@@ -47,7 +47,7 @@ const normalize = <T,>(items: any[], headers: readonly string[]): T[] => {
         }
         const normalizedItem = {} as T;
         headers.forEach(header => {
-            (normalizedItem as any)[header] = trimmedKeyItem[header] ?? '';
+            (normalizedItem as any)[header] = trimmedKeyItem[header] ?? trimmedKeyItem[header + '.'] ?? '';
         });
         return normalizedItem;
     });
