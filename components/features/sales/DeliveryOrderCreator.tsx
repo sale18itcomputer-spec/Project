@@ -16,6 +16,8 @@ import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 import { Trash2, X, Upload, Plus, Download, PanelRight, Ruler, Type } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
+import { useColumnWidths } from '@/hooks/useColumnWidths';
+import { ColumnWidthPopover } from './ColumnWidthPopover';
 
 const DO_STATUS_OPTIONS: DeliveryOrder['Status'][] = ['Pending', 'Delivered', 'Cancelled'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
@@ -55,6 +57,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const [isUploading, setIsUploading] = useState(false);
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(160);
+    const [labelPadding, setLabelPadding] = useState(200);
+    const [colWidths, setColWidths, resetColWidths] = useColumnWidths('delivery-order');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const initialisedRef = useRef(false);
 
@@ -306,16 +310,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const handleDownloadPDF = () => {
         generatePDF({
             ...buildPdfPayload(),
+            signaturePadding,
+            labelPadding,
+            columnWidths: colWidths,
             previewMode: false,
             filename: `DO_${doc['DO No'] || 'draft'}.pdf`,
         });
     };
-
-    const pdfPreviewOptions = useMemo(() => ({
-        ...buildPdfPayload(),
-        previewMode: true,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), [doc, items, signaturePadding]);
 
     // ── Options ───────────────────────────────────────────────────────────────
     const invoiceOptions = useMemo(
@@ -327,29 +328,100 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
         [companies]
     );
 
+    const headerRight = (
+        <div className="flex items-center gap-3">
+            <button
+                type="button"
+                onClick={() => setShowFormPanel(p => !p)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-slate-100 text-slate-900 border-slate-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+            >
+                <PanelRight className="w-4 h-4" />
+                <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
+            </button>
+            <ColumnWidthPopover
+                docType="delivery-order"
+                widths={colWidths}
+                onChange={setColWidths}
+                onReset={resetColWidths}
+            />
+            <button
+                type="button"
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
+            >
+                <Download className="w-4 h-4" /> Download PDF
+            </button>
+            <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSubmitting}
+                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+            >
+                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Delivery Order'}
+            </button>
+        </div>
+    );
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <>
             <DocumentEditorContainer
                 title={existingDO ? `Edit DO: ${doc['DO No']}` : 'New Delivery Order'}
-                docId={doc['DO No'] || ''}
                 onBack={onBack}
-                showFormPanel={showFormPanel}
-                onToggleFormPanel={() => setShowFormPanel(p => !p)}
-                onDownloadPDF={handleDownloadPDF}
                 onSave={handleSave}
-                isSaving={isSubmitting}
-                previewContent={
-                    <PdfPreviewPane
-                        options={pdfPreviewOptions}
-                        key={JSON.stringify(pdfPreviewOptions)}
-                    />
-                }
+                isSubmitting={isSubmitting}
+                rightActions={headerRight}
             >
-                <div className="flex h-full">
-                    <div className={`transition-all duration-300 ${showFormPanel ? 'w-[380px] min-w-[380px]' : 'w-0 min-w-0 overflow-hidden'}`}>
-                        <ScrollArea className="h-full">
-                            <div className="p-4 space-y-4">
+                <div className="h-full flex overflow-hidden">
+                    {/* PDF Preview */}
+                    <PdfPreviewPane
+                        docLabel={`${doc['DO No'] || ''} • ${doc['Company Name'] || 'No Company Selected'}`}
+                        signaturePadding={signaturePadding}
+                        onSignaturePaddingChange={setSignaturePadding}
+                        labelPadding={labelPadding}
+                        onLabelPaddingChange={setLabelPadding}
+                        columnWidths={colWidths}
+                        pdfOptions={{
+                            type: 'Delivery Order',
+                            headerData: {
+                                ...doc,
+                                'DO No':          doc['DO No'] || '',
+                                'DO Date':        doc['DO Date'] || '',
+                                'Inv No':         doc['Inv No'] || '',
+                                'SO No':          doc['SO No'] || '',
+                                'Company Name':   doc['Company Name'] || '',
+                                'Company Address':doc['Company Address'] || '',
+                                'Contact Name':   doc['Contact Name'] || '',
+                                'Phone Number':   doc['Phone Number'] || '',
+                                'Email':          doc['Email'] || '',
+                            },
+                            items: items.map(item => ({
+                                no: item.no,
+                                itemCode: item.itemCode,
+                                modelName: item.modelName,
+                                description: item.description,
+                                qty: item.qty,
+                                serialNumber: item.serialNumber || '',
+                                unitPrice: 0,
+                                amount: 0,
+                            })),
+                            totals: { subTotal: 0, tax: 0, grandTotal: 0 },
+                            currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
+                        }}
+                    />
+
+                    {/* Form Sidebar */}
+                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-gray-800">Delivery Order Information</h3>
+                            </div>
+                            <button type="button" onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md"><X className="w-4 h-4" /></button>
+                        </div>
+
+                        <ScrollArea className="flex-1 p-4">
+                            <div className="space-y-4">
 
                                 <FormSection title="Header Details">
                                     <FormInput label="DO No." name="DO No" value={doc['DO No'] || ''} onChange={handleInputChange} required />
