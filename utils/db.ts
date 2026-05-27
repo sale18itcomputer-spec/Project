@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME    = 'limperial-db';
-const DB_VERSION = 10; // Bumped: purchase_orders now stored by uuid 'id'
+const DB_VERSION = 11; // Bumped: added inventory store
 
 // keyPath must match the primary key field used in each TypeScript type
 const STORE_CONFIG = {
@@ -20,6 +20,7 @@ const STORE_CONFIG = {
     vendors:        { keyPath: 'id' },
     vendorPricelist:{ keyPath: 'id' },
     purchaseOrders: { keyPath: 'id' },
+    inventory:      { keyPath: 'id' },
 } as const;
 
 export const STORE_NAMES = Object.keys(STORE_CONFIG) as (keyof typeof STORE_CONFIG)[];
@@ -146,5 +147,22 @@ export const deleteStoreItem = async (storeName: StoreName, key: string): Promis
         await db.delete(storeName, key);
     } catch (err) {
         console.error(`[IDB] deleteStoreItem failed for "${storeName}":`, err);
+    }
+};
+
+/**
+ * Clears every cached store. Called when B2B/B2C mode is toggled so we never
+ * serve the wrong-mode rows from cache on the next boot or navigation. The
+ * IDB cache is shared by both modes; rather than maintaining two parallel
+ * store sets, we wipe and refetch on the (rare) mode flip.
+ */
+export const clearAllStores = async (): Promise<void> => {
+    try {
+        const db = await initDB();
+        const tx = db.transaction(STORE_NAMES as StoreName[], 'readwrite');
+        await Promise.all(STORE_NAMES.map(name => tx.objectStore(name).clear()));
+        await tx.done;
+    } catch (err) {
+        console.error('[IDB] clearAllStores failed:', err);
     }
 };

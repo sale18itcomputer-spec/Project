@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { prepare, layout } from '@chenglou/pretext';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock, Moon, Sun } from 'lucide-react';
+import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
 
 import { useNotification } from "../../contexts/NotificationContext";
 import { Notification } from "../../types";
@@ -17,7 +17,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { formatRelativeTime } from "../../utils/time";
 import { getInitials } from "../../utils/formatters";
 import B2BToggle from "../common/B2BToggle";
-import { useTheme } from "../providers/AppProviders";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -56,7 +55,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   const { currentUser, logout } = useAuth();
   const { isOnline } = useConnectivity();
-  const { isDark, toggle: toggleTheme } = useTheme();
   const [isAvatarError, setAvatarError] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -76,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
         'dashboard': '/', 'projects': '/projects', 'companies': '/companies',
         'contacts': '/contacts', 'contact-logs': '/contact-logs', 'site-surveys': '/site-surveys',
         'meetings': '/meetings', 'quotations': '/quotations', 'sale-orders': '/sale-orders',
-        'pricelist': '/pricelist', 'b2b-pricelist': '/b2b-pricelist', 'invoice-do': '/invoice-do',
+        'pricelist': '/pricelist', 'b2b-pricelist': '/b2b-pricelist',
         'users': '/users', 'vendors': '/vendors', 'vendor-pricelist': '/vendor-pricelist',
         'purchase-orders': '/purchase-orders',
       };
@@ -95,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
       '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
       '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
-      '/b2b-pricelist': 'B2B Pricelist', '/invoice-do': 'Invoice & DO', '/vendors': 'Vendors',
+      '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
       '/vendor-pricelist': 'Vendor Pricelist', '/purchase-orders': 'Purchase Orders',
       '/users': 'Users', '/': 'Dashboard',
     };
@@ -143,7 +141,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
       '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
       '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
-      '/b2b-pricelist': 'B2B Pricelist', '/invoice-do': 'Invoice & DO', '/vendors': 'Vendors',
+      '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
       '/vendor-pricelist': 'Vendor Price', '/users': 'Users', '/purchase-orders': 'Purchase Orders',
     };
     return pathMap[pathname] || 'Dashboard';
@@ -194,29 +192,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
           </div>
         )}
         <B2BToggle />
-
-        {/* Dark Mode Toggle — hidden on mobile to save header space */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative hidden sm:inline-flex text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-accent overflow-hidden"
-          onClick={toggleTheme}
-          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          <span
-            className="absolute inset-0 flex items-center justify-center transition-all duration-300"
-            style={{ opacity: isDark ? 1 : 0, transform: isDark ? 'rotate(0deg) scale(1)' : 'rotate(-90deg) scale(0.5)' }}
-          >
-            <Sun className="w-5 h-5 text-amber-400" />
-          </span>
-          <span
-            className="absolute inset-0 flex items-center justify-center transition-all duration-300"
-            style={{ opacity: isDark ? 0 : 1, transform: isDark ? 'rotate(90deg) scale(0.5)' : 'rotate(0deg) scale(1)' }}
-          >
-            <Moon className="w-5 h-5" />
-          </span>
-        </Button>
 
         {/* Quick Lock Button — hidden on mobile */}
         <Button

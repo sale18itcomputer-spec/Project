@@ -370,11 +370,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     useEffect(() => {
         if (!existingQuotation || !existingQuotation['Quote No']) return;
 
+        // Cancellation guard — if the user navigates to a different quotation
+        // before this fetch resolves, the stale response must NOT clobber state.
+        let cancelled = false;
+
         const fetchDetails = async () => {
             setItemsLoading(true);
             setError('');
             try {
                 const response = await readQuotationSheetData(existingQuotation['Quote No'], isB2B);
+                if (cancelled) return;
                 if (!response) {
                     throw new Error('Failed to fetch quotation details: empty response.');
                 }
@@ -427,13 +432,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     setItems([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
                 }
             } catch (err: any) {
+                if (cancelled) return;
                 setError(`Failed to load quotation details: ${err.message}`);
             } finally {
-                setItemsLoading(false);
+                if (!cancelled) setItemsLoading(false);
             }
         };
 
         fetchDetails();
+
+        return () => { cancelled = true; };
 
     // Run when the quotation ID changes. companies/contacts are optional enrichment
     // and must NOT gate this effect — in the miniapp they're never loaded.

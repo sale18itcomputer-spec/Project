@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import EmptyState from "./EmptyState";
 import { parseDate } from "../../utils/time";
 import { parseSheetValue } from "../../utils/formatters";
@@ -285,8 +285,8 @@ function DataTable<T extends object>({
                 {/* Rest of primary columns — subtitle row */}
                 {restPrimary.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                    {restPrimary.map(col => (
-                      <span key={String(col.accessorKey)} className="text-xs text-muted-foreground">
+                    {restPrimary.map((col, colIdx) => (
+                      <span key={`${String(col.accessorKey)}-${colIdx}`} className="text-xs text-muted-foreground">
                         {col.cell
                           ? col.cell(item[col.accessorKey], item)
                           : String(item[col.accessorKey] ?? '')}
@@ -415,13 +415,13 @@ function DataTable<T extends object>({
 
   const emptyRowsToRender = itemsPerPage - paginatedData.length;
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!sortedData.length) return;
 
     // Filter columns to only those that have headers and accessorKeys
     const exportColumns = columns.filter(col => col.header && col.accessorKey);
 
-    // Transform data to a simple format for SheetJS
+    // Transform data to a simple format
     const exportData = sortedData.map(row => {
       const formattedRow: Record<string, any> = {};
       exportColumns.forEach(col => {
@@ -430,15 +430,31 @@ function DataTable<T extends object>({
       return formattedRow;
     });
 
-    // Create a worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // Create workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data');
 
-    // Create a workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+    // Set columns from headers
+    if (exportData.length > 0) {
+      worksheet.columns = Object.keys(exportData[0]).map(key => ({ header: key, key }));
+    }
+
+    // Add data rows
+    exportData.forEach(row => worksheet.addRow(row));
 
     // Generate buffer and trigger download
-    XLSX.writeFile(workbook, `${tableId || 'export'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${tableId || 'export'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -455,9 +471,9 @@ function DataTable<T extends object>({
         {isMobile ? renderMobileCards() : (
           <table ref={tableRef} className="w-full text-sm text-left text-muted-foreground min-w-full table-auto md:border-l md:border-t md:border-border" aria-busy={loading}>
             <colgroup>
-              {columns.map(col => (
+              {columns.map((col, colIdx) => (
                 <col
-                  key={String(col.accessorKey)}
+                  key={`${String(col.accessorKey)}-${colIdx}`}
                   data-col-key={String(col.accessorKey)}
                   style={{ width: columnWidths[String(col.accessorKey)] || 'auto' }}
                 />
@@ -470,7 +486,7 @@ function DataTable<T extends object>({
               <tr>
                 {columns.map((col, i) => (
                   <th
-                    key={String(col.accessorKey)}
+                    key={`${String(col.accessorKey)}-${i}`}
                     scope="col"
                     className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:border-brand-700/50 transition-colors 
                         sticky top-0 
@@ -549,7 +565,7 @@ function DataTable<T extends object>({
 
                           return (
                             <td
-                              key={String(col.accessorKey)}
+                              key={`${String(col.accessorKey)}-${colIndex}`}
                               className={cellClass}
                               data-label={col.header}
                             >
@@ -577,8 +593,8 @@ function DataTable<T extends object>({
                   })}
                   {emptyRowsToRender > 0 && Array.from({ length: emptyRowsToRender }).map((_, index) => (
                     <tr key={`empty-${index}`} className="hidden md:table-row">
-                      {columns.map(col => (
-                        <td key={`empty-${index}-${String(col.accessorKey)}`} className="px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-border text-foreground">
+                      {columns.map((col, colIdx) => (
+                        <td key={`empty-${index}-${colIdx}`} className="px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-border text-foreground">
                           &nbsp;
                         </td>
                       ))}

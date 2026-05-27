@@ -17,6 +17,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 const DO_COLUMNS_KEY = 'limperial-do-columns-visibility';
 type ViewMode = 'table' | 'board' | 'detail';
@@ -258,10 +259,12 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                                 </button>
                             }
                         />
-                        <button onClick={handleNew}
+                        <PermissionGate module="delivery_orders" action="create">
+                          <button onClick={handleNew}
                             className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0">
                             <Plus size={16} /> New DO
-                        </button>
+                          </button>
+                        </PermissionGate>
                     </div>
                 </div>
             </header>

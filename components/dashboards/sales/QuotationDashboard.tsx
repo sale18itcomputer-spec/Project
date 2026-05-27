@@ -20,6 +20,7 @@ import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 import { readQuotationSheetData } from '../../../services/b2bDb';
 import { sendQuotationToTelegram } from '../../../utils/telegram';
 
@@ -134,8 +135,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     setQuotations(current => current ? current.filter(q => q['Quote No'] !== quoteToDeleteId) : null);
 
     try {
-      const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
-      await deleteRecord(tableName, quoteToDeleteId); // primaryKey is now 'Quote No' (no dot)
+      await deleteRecord('Quotations', quoteToDeleteId, isB2B);
       addToast('Quotation deleted!', 'success');
     } catch {
       addToast('Failed to delete quotation.', 'error');
@@ -157,8 +157,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     });
 
     try {
-      const tableName = isB2B ? 'b2b_quotations' : 'Quotations';
-      await updateRecord(tableName, quoteNo, { 'Status': newStatus });
+      await updateRecord('Quotations', quoteNo, { 'Status': newStatus }, isB2B);
       addToast('Quotation moved successfully!', 'success');
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -458,6 +457,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       <>
         <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           <ItemActionsMenu
+            module="quotations"
             onView={() => handleViewQuotation(item)}
             onEdit={() => handleEditQuotation(item)}
             onDelete={() => handleDeleteRequest(item)}
@@ -682,12 +682,14 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             </div>
 
             {/* New Quotation Button */}
-            <button
-              onClick={handleNewQuotation}
-              className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-            >
-              <span className="text-xl leading-none">+</span> New
-            </button>
+            <PermissionGate module="quotations" action="create">
+              <button
+                onClick={handleNewQuotation}
+                className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
+              >
+                <span className="text-xl leading-none">+</span> New
+              </button>
+            </PermissionGate>
           </div>
         </div>
       </header>

@@ -80,8 +80,8 @@ export default function AppProviders({ children }: { children: React.ReactNode }
     return (
         <ThemeProvider>
             <AuthProvider>
-                <DataProvider>
-                    <B2BProvider>
+                <B2BProvider>
+                    <DataProvider>
                         <NavigationProvider>
                             <NotificationProvider>
                                 <ConnectivityProvider>
@@ -89,8 +89,8 @@ export default function AppProviders({ children }: { children: React.ReactNode }
                                 </ConnectivityProvider>
                             </NotificationProvider>
                         </NavigationProvider>
-                    </B2BProvider>
-                </DataProvider>
+                    </DataProvider>
+                </B2BProvider>
             </AuthProvider>
         </ThemeProvider>
     );

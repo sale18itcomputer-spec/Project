@@ -7,10 +7,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayoutDashboard, Filter, Building, Users, FileText, Truck, Receipt } from 'lucide-react';
 
 const allNavItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard, showInB2B: true, financeOnly: false },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, showInB2B: true, financeOnly: false },
     { path: '/projects', label: 'Pipelines', icon: Filter, showInB2B: true, financeOnly: false },
     { path: '/companies', label: 'Companies', icon: Building, showInB2B: true, financeOnly: false },
-    { path: '/contacts', label: 'Contacts', icon: Users, showInB2B: false, financeOnly: false },
+    // Contacts now available in B2B mode (backed by b2b_contacts table).
+    { path: '/contacts', label: 'Contacts', icon: Users, showInB2B: true, financeOnly: false },
     { path: '/quotations', label: 'Quotes', icon: FileText, showInB2B: true, financeOnly: false },
 ];
 

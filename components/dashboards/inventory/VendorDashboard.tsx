@@ -10,6 +10,7 @@ import { useWindowSize } from "../../../hooks/useWindowSize";
 import NewVendorModal from "../../modals/NewVendorModal";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 
@@ -139,13 +140,15 @@ const VendorDashboard: React.FC = () => {
                                 <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
                             </div>
                             <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-                            <button
+                            <PermissionGate module="vendors" action="create">
+                              <button
                                 onClick={handleOpenNewVendor}
                                 className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-sm ml-auto lg:ml-0"
-                            >
+                              >
                                 <UserPlus className="w-5 h-5 mr-2" />
                                 <span>New Vendor</span>
-                            </button>
+                              </button>
+                            </PermissionGate>
                         </div>
                     </div>
                 </div>

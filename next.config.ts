@@ -3,8 +3,8 @@ import path from 'path';
 
 const nextConfig: NextConfig = {
     outputFileTracingRoot: path.resolve(__dirname),
-    // Allow cross-origin requests from cloudflared tunnel in dev
-    allowedDevOrigins: ['*.trycloudflare.com'],
+    // Allow cross-origin requests from local dev port and cloudflared tunnel
+    allowedDevOrigins: ['localhost:3001', '*.trycloudflare.com'],
     // Exclude browser-only packages from server-side bundling
     serverExternalPackages: [
         '@fortune-sheet/react',
@@ -25,10 +25,11 @@ const nextConfig: NextConfig = {
                     { key: 'X-XSS-Protection', value: '1; mode=block' },
                     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
                     { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-                    {
+                    // HSTS only in production — browsers exempt localhost but it's cleaner
+                    ...(process.env.NODE_ENV === 'production' ? [{
                         key: 'Strict-Transport-Security',
                         value: 'max-age=63072000; includeSubDomains; preload',
-                    },
+                    }] : []),
                     {
                         key: 'Content-Security-Policy',
                         value: [

@@ -18,6 +18,7 @@ import { parseSheetValue, formatMixedCurrency, determineCurrency } from "../../.
 import { useToast } from "../../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -73,7 +74,7 @@ const ContactCard: React.FC<{
   return (
     <div className="w-full bg-card rounded-lg shadow-sm border border-border hover:shadow-md hover:border-brand-500/30 transition-all duration-200 relative group flex flex-col">
       <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} />
+        <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} module="contacts" />
       </div>
       <button
         onClick={onView}
@@ -393,13 +394,15 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   />
                 </>
               )}
-              <button
-                onClick={handleOpenNewContact}
-                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-              >
-                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                <span className="hidden sm:inline">New</span>
-              </button>
+              <PermissionGate module="contacts" action="create">
+                <button
+                  onClick={handleOpenNewContact}
+                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+                >
+                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span className="hidden sm:inline">New</span>
+                </button>
+              </PermissionGate>
             </div>
           </div>
         </div>

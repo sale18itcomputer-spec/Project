@@ -68,13 +68,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let isMounted = true;
 
-    // Safety net: unblock UI after 8s if something still hangs unexpectedly
+    // Safety net: unblock UI after 15s if something still hangs unexpectedly
     const timeoutId = setTimeout(() => {
       if (isMounted) {
         console.warn('[Auth] Bootstrap timed out — check Supabase connectivity.');
         setIsAuthLoading(false);
       }
-    }, 10000);
+    }, 15000);
 
     const bootstrapAuth = async () => {
       try {
@@ -93,19 +93,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } catch { cachedUser = null; }
         }
 
-        // Step 1: Get the active session with a timeout
+        // Step 1: Fire getSession + Users fetch IN PARALLEL.
+        // Previously Users was fetched only after getSession() resolved, adding
+        // ~500-1000ms of serial latency on every first load. Now both start at
+        // the same moment and we only wait for whichever finishes last.
         const sessionTimedOut = { current: false };
+
+        // Users fetch promise — started immediately alongside getSession so the
+        // two network calls overlap. We decide whether to consume the result
+        // below once the session state is known.
+        const usersFetchPromise = readRecords<User>('Users').catch(err => {
+          console.warn('[Auth] Failed to read Users table:', err);
+          return [] as User[];
+        });
+
         const { data: { session }, error: sessionError } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null }, error: Error }>((resolve) =>
             setTimeout(() => {
               sessionTimedOut.current = true;
               resolve({ data: { session: null }, error: new Error('getSession timed out') });
-            }, 8000)
+            }, 12000)
           )
         ]);
         if (sessionError) {
-          console.error('[Auth] Session error:', sessionError);
+          // Use warn (not error) for timeouts — it's expected on slow connections
+          // and doesn't represent a code bug. console.error shows in Next.js overlay.
+          if (sessionTimedOut.current) {
+            console.warn('[Auth] getSession timed out — Supabase may be slow or unreachable.');
+          } else {
+            console.error('[Auth] Session error:', sessionError);
+          }
           if (!sessionTimedOut.current && sessionError.message?.toLowerCase().includes('refresh token')) {
             // Invalid token — clear Supabase session, fall back to PIN
             await supabase!.auth.signOut({ scope: 'local' }).catch(() => {});
@@ -117,23 +135,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Step 2: If getSession timed out AND we already have a cached user,
         // skip the network fetch entirely — Supabase is unreachable, keep cached state.
         if (sessionTimedOut.current && cachedUser) {
-          console.warn('[Auth] getSession timed out but cached user found — keeping cached state.');
           // currentUser was already set from cache above; nothing more to do.
           return;
         }
 
-        // Step 3: Fetch Users — skip if cache is already warm from callback
-        // This avoids a duplicate network call when signing in via Google OAuth
+        // Step 3: Collect the Users result that was already in-flight.
+        // If cache is warm and there's no active session, skip it (same logic
+        // as before — the cached user path below handles that case).
         const cacheIsWarm = !!cachedUser && !!savedUserId;
-        const fetchedUsers = cacheIsWarm && !session
+        const fetchedUsers = (cacheIsWarm && !session)
           ? [] // will use cachedUser path below
           : await Promise.race([
-              readRecords<User>('Users'),
+              usersFetchPromise, // already in-flight — may already be resolved!
               new Promise<User[]>((_, reject) =>
                 setTimeout(() => reject(new Error('Users fetch timed out')), 8000)
               )
             ]).catch(err => {
-              console.warn('[Auth] Failed to read Users table:', err);
+              console.warn('[Auth] Users fetch timed out — using cache:', err);
               return [] as User[];
             });
         if (!isMounted) return;

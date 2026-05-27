@@ -9,8 +9,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
 import { UNLOCK_STORAGE_KEY, AUTOLOCK_STORAGE_KEY } from '@/utils/security';
+import { buildAllowedPaths, getDefaultRoute } from '@/utils/permissions';
 
-export const FINANCE_ALLOWED_PATHS = ['/invoices', '/delivery-orders', '/receipts'];
+/**
+ * @deprecated Use buildAllowedPaths(user) from utils/permissions instead.
+ * Kept temporarily for any imports that still reference this export.
+ */
+export const FINANCE_ALLOWED_PATHS = ['/invoices', '/delivery-orders', '/receipts', '/collection'];
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'limperial-sidebar-width';
 const SIDEBAR_COLLAPSED_WIDTH = 80;
@@ -22,7 +27,7 @@ const CONSTRAINED_ROUTES = [
     '/projects', '/companies', '/contacts', '/contact-logs',
     '/site-surveys', '/meetings', '/pricelist', '/b2b-pricelist',
     '/quotations', '/sale-orders', '/invoices', '/delivery-orders',
-    '/receipts', '/users', '/vendors', '/vendor-pricelist',
+    '/receipts', '/collection', '/users', '/vendors', '/vendor-pricelist',
     '/purchase-orders', '/weekly-report',
     '/',
 ];
@@ -51,18 +56,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const sidebarWidthRef = useRef(sidebarWidth);
     sidebarWidthRef.current = sidebarWidth;
 
-    // Auth redirect
+    // Auth redirect — preserve the intended URL so after login the user
+    // lands back on the page they requested, not always on /dashboard.
     useEffect(() => {
         if (isAuthLoading) return;
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, isAuthLoading, router]);
+        if (!isAuthenticated) {
+            const redirect = encodeURIComponent(pathname);
+            router.replace(`/login?redirect=${redirect}`);
+        }
+    }, [isAuthenticated, isAuthLoading, router, pathname]);
+
+    // In local development, auto-set the unlock flag so the passcode lock
+    // never blocks navigation. Controlled by NEXT_PUBLIC_DEV_BYPASS_LOCK in
+    // .env.development — that file is never loaded in production builds.
+    const isDevBypass =
+        process.env.NODE_ENV === 'development' &&
+        process.env.NEXT_PUBLIC_DEV_BYPASS_LOCK === 'true';
 
     // Local Passcode Lock logic
     useEffect(() => {
         if (isAuthLoading || !isAuthenticated) return;
-        
+
         // Skip lock check if on unlock or login routes
         if (pathname.startsWith('/unlock') || pathname === '/login') return;
+
+        // Dev bypass: auto-unlock so local development is never blocked
+        if (isDevBypass) {
+            sessionStorage.setItem(UNLOCK_STORAGE_KEY, 'true');
+            return;
+        }
 
         const checkLock = () => {
             const isUnlocked = sessionStorage.getItem(UNLOCK_STORAGE_KEY) === 'true';
@@ -72,15 +94,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         };
 
         checkLock();
-        
+
         // Listen for lock events or focus
         window.addEventListener('focus', checkLock);
         return () => window.removeEventListener('focus', checkLock);
-    }, [isAuthLoading, isAuthenticated, pathname, router]);
+    }, [isAuthLoading, isAuthenticated, pathname, router, isDevBypass]);
 
     // Auto-lock monitor (moved from PasscodeLock)
     useEffect(() => {
         if (isAuthLoading || !isAuthenticated || pathname.startsWith('/unlock')) return;
+
+        // Dev bypass: skip auto-lock timer so the session never expires locally
+        if (isDevBypass) return;
 
         let lastActivity = Date.now();
         const autoLockMs = parseInt(localStorage.getItem(AUTOLOCK_STORAGE_KEY) || '3600000', 10);
@@ -100,14 +125,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             events.forEach(e => window.removeEventListener(e, handleActivity));
             clearInterval(interval);
         };
-    }, [isAuthLoading, isAuthenticated, pathname, router]);
+    }, [isAuthLoading, isAuthenticated, pathname, router, isDevBypass]);
 
-    // Finance role guard
+    // Permission-based route guard — replaces the old Finance-only hardcoded guard.
+    // Runs whenever the user, auth state, or pathname changes.
+    // Skips special routes (/unlock, /login, /miniapp) that don't need module permissions.
     useEffect(() => {
-        if (isAuthLoading || !isAuthenticated) return;
-        if (currentUser?.Role === 'Finance') {
-            const allowed = FINANCE_ALLOWED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
-            if (!allowed) router.replace('/invoices');
+        if (isAuthLoading || !isAuthenticated || !currentUser) return;
+
+        const skipPrefixes = ['/unlock', '/login', '/miniapp'];
+        if (skipPrefixes.some(p => pathname.startsWith(p))) return;
+
+        // Root redirect is handled by the dashboard layout; skip it here
+        if (pathname === '/') return;
+
+        const allowedPaths = buildAllowedPaths(currentUser);
+
+        // Check if the current path matches any allowed route (exact or prefix match)
+        const isAllowed = allowedPaths.some(
+            p => pathname === p || pathname.startsWith(p + '/')
+        );
+
+        if (!isAllowed) {
+            const fallback = getDefaultRoute(currentUser);
+            router.replace(fallback);
         }
     }, [isAuthLoading, isAuthenticated, currentUser, pathname, router]);
 

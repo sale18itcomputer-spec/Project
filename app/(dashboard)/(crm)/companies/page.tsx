@@ -1,17 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, useEffect } from 'react';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
-
-const CompanyDashboard = dynamic(() => import('@/components/dashboards/crm/CompanyDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import { useData } from '@/contexts/DataContext';
+import CompanyDashboard from '@/components/dashboards/crm/CompanyDashboard';
 
 function CompaniesContent() {
     const searchParams = useSearchParams();
     const filter = searchParams.get('filter') ?? undefined;
+    const { fetchModule } = useData();
+
+    useEffect(() => { fetchModule('Company List'); }, [fetchModule]);
+
     return <CompanyDashboard initialFilter={filter} />;
 }
 

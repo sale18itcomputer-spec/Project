@@ -20,6 +20,7 @@ import { deleteRecord, updateRecord } from "../../../services/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 
 interface SaleOrderDashboardProps {
@@ -580,12 +581,14 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         </div>
 
                         {/* New Sale Order Button */}
-                        <button
+                        <PermissionGate module="sale_orders" action="create">
+                          <button
                             onClick={handleNewSaleOrder}
                             className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                        >
+                          >
                             <span className="text-xl leading-none">+</span> New SO
-                        </button>
+                          </button>
+                        </PermissionGate>
                     </div>
                 </div>
             </header>

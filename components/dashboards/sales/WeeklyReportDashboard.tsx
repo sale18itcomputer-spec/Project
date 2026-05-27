@@ -5,6 +5,7 @@ import { useData } from '../../../contexts/DataContext';
 import { exportWeeklyReport } from '../../../utils/exportWeeklyReport';
 import { buildFuzzyQuoteMap } from '../../../utils/matchQuoteToSO';
 import { useToast } from '../../../contexts/ToastContext';
+import { PermissionGate } from '../../common/PermissionGate';
 import { supabase } from '../../../lib/supabase';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 import {
@@ -776,9 +777,11 @@ const WeeklyReportDashboard: React.FC = () => {
                             <span className="text-[10px] text-muted-foreground font-semibold uppercase">Prepared by</span>
                             <input type="text" value={preparedBy} onChange={e => setPreparedBy(e.target.value)} className="bg-transparent text-sm font-semibold text-foreground focus:outline-none w-36" />
                         </div>
-                        <button onClick={handleExport} className="flex items-center gap-2 text-white font-bold py-2 px-4 rounded-md transition shadow text-sm" style={{ background: BLUE }}>
-                            <Download size={14} />Export PDF
-                        </button>
+                        <PermissionGate module="weekly_report" action="export">
+                          <button onClick={handleExport} className="flex items-center gap-2 text-white font-bold py-2 px-4 rounded-md transition shadow text-sm" style={{ background: BLUE }}>
+                              <Download size={14} />Export PDF
+                          </button>
+                        </PermissionGate>
                     </div>
                 </div>
             </header>

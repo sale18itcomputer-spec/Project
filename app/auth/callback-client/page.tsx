@@ -38,7 +38,10 @@ export default function AuthCallbackClientPage() {
             } catch (e) {
                 console.error('Error handling session details:', e);
             }
-            router.replace('/dashboard');
+            // Honour the `next` param forwarded by the server route so the user
+            // lands back on the page they requested before being redirected to login.
+            const next = searchParams.get('next');
+            router.replace(next && next !== '/' ? next : '/dashboard');
         };
 
         const code = searchParams.get('code');

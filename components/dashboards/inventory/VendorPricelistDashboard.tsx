@@ -9,13 +9,15 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import NewVendorPricelistItemModal from "../../modals/NewVendorPricelistItemModal";
 import { Badge } from "../../ui/badge";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import { usePermissions } from '../../../hooks/usePermissions';
 import { insertRecord } from "../../../services/b2bDb";
 import { useNavigation } from "../../../contexts/NavigationContext";
 
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate, FieldGate } from '../../common/PermissionGate';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
 
@@ -25,6 +27,7 @@ const VendorPricelistDashboard: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { handleNavigation, navigation } = useNavigation();
+    const { showField, can } = usePermissions();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [vendorFilter, setVendorFilter] = useState<string>('all');
@@ -44,15 +47,26 @@ const VendorPricelistDashboard: React.FC = () => {
     const handleViewItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'view', id: item.id });
     const handleEditItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'edit', id: item.id });
 
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
         const headers = [
             'Vendor Name', 'Brand', 'Model Name', 'Specification',
             'Dealer Price', 'User Price', 'Promotion', 'Currency', 'Status', 'Remarks'
         ];
-        const ws = XLSX.utils.aoa_to_sheet([headers]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Template');
-        XLSX.writeFile(wb, 'vendor_pricelist_template.xlsx');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Template');
+        worksheet.addRow(headers);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'vendor_pricelist_template.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         addToast('Template downloaded!', 'success');
     };
 
@@ -62,72 +76,83 @@ const VendorPricelistDashboard: React.FC = () => {
         if (!file || !vendors) return;
 
         setIsUploading(true);
-        const reader = new FileReader();
 
-        reader.onload = async (e) => {
-            try {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+        try {
+            const buffer = await file.arrayBuffer();
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(buffer);
+            const worksheet = workbook.worksheets[0];
 
-                if (jsonData.length === 0) {
-                    addToast('The file is empty', 'error');
-                    setIsUploading(false);
-                    return;
+            // Read headers from the first row
+            const headerRow = worksheet.getRow(1);
+            const headers: string[] = [];
+            headerRow.eachCell((cell) => {
+                headers.push(cell.text);
+            });
+
+            // Read data rows into JSON
+            const jsonData: Record<string, any>[] = [];
+            worksheet.eachRow((row, rowIndex) => {
+                if (rowIndex === 1) return; // skip header row
+                const rowData: Record<string, any> = {};
+                row.eachCell((cell, colIndex) => {
+                    rowData[headers[colIndex - 1]] = cell.value;
+                });
+                if (Object.keys(rowData).length > 0) {
+                    jsonData.push(rowData);
                 }
+            });
 
-                let successCount = 0;
-                let errorCount = 0;
-
-                for (const row of jsonData) {
-                    const vendorName = row['Vendor Name'];
-                    const vendorId = vendors.find(v => v.vendor_name === vendorName)?.id;
-
-                    if (!vendorId) {
-                        console.error(`Vendor not found: ${vendorName}`);
-                        errorCount++;
-                        continue;
-                    }
-
-                    const newItem = {
-                        vendor_id: vendorId,
-                        brand: row['Brand'] || '',
-                        model_name: row['Model Name'] || 'Unnamed Item',
-                        specification: row['Specification'] || '',
-                        dealer_price: parseFloat(row['Dealer Price']) || 0,
-                        user_price: parseFloat(row['User Price']) || 0,
-                        promotion: row['Promotion'] || '',
-                        currency: row['Currency'] || 'USD',
-                        status: row['Status'] || 'Available',
-                        remarks: row['Remarks'] || '',
-                        created_by: currentUser?.Name || ''
-                    };
-
-
-                    try {
-                        await insertRecord('vendor_pricelist', newItem, false);
-                        successCount++;
-                    } catch (err) {
-                        console.error(err);
-                        errorCount++;
-                    }
-                }
-
-                addToast(`Bulk upload complete! ${successCount} items added, ${errorCount} failed.`, errorCount > 0 ? 'info' : 'success');
-                refetchData();
-            } catch (err) {
-
-                console.error(err);
-                addToast('Failed to process file', 'error');
-            } finally {
-                setIsUploading(false);
-                event.target.value = ''; // Reset input
+            if (jsonData.length === 0) {
+                addToast('The file is empty', 'error');
+                return;
             }
-        };
 
-        reader.readAsArrayBuffer(file);
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const row of jsonData) {
+                const vendorName = row['Vendor Name'];
+                const vendorId = vendors.find(v => v.vendor_name === vendorName)?.id;
+
+                if (!vendorId) {
+                    console.error(`Vendor not found: ${vendorName}`);
+                    errorCount++;
+                    continue;
+                }
+
+                const newItem = {
+                    vendor_id: vendorId,
+                    brand: row['Brand'] || '',
+                    model_name: row['Model Name'] || 'Unnamed Item',
+                    specification: row['Specification'] || '',
+                    dealer_price: parseFloat(row['Dealer Price']) || 0,
+                    user_price: parseFloat(row['User Price']) || 0,
+                    promotion: row['Promotion'] || '',
+                    currency: row['Currency'] || 'USD',
+                    status: row['Status'] || 'Available',
+                    remarks: row['Remarks'] || '',
+                    created_by: currentUser?.Name || ''
+                };
+
+                try {
+                    await insertRecord('vendor_pricelist', newItem, false);
+                    successCount++;
+                } catch (err) {
+                    console.error(err);
+                    errorCount++;
+                }
+            }
+
+            addToast(`Bulk upload complete! ${successCount} items added, ${errorCount} failed.`, errorCount > 0 ? 'info' : 'success');
+            refetchData();
+        } catch (err) {
+            console.error(err);
+            addToast('Failed to process file', 'error');
+        } finally {
+            setIsUploading(false);
+            event.target.value = ''; // Reset input
+        }
     };
 
     const filteredData = useMemo(() => {
@@ -151,6 +176,7 @@ const VendorPricelistDashboard: React.FC = () => {
     }, [vendorPricelist, searchQuery, vendorFilter]);
 
     const allColumns = useMemo<ColumnDef<VendorPricelistItem>[]>(() => {
+        const canSeeVendorPricing = showField('showVendorPricing');
         const columns: ColumnDef<VendorPricelistItem>[] = [
             { accessorKey: 'brand', header: 'Brand', isSortable: true },
             {
@@ -160,26 +186,28 @@ const VendorPricelistDashboard: React.FC = () => {
                 cell: (value: string) => <span className="font-semibold text-foreground">{value}</span>
             },
             { accessorKey: 'specification', header: 'Specification', isSortable: true },
-            {
-                accessorKey: 'dealer_price',
-                header: 'Dealer Price',
-                isSortable: true,
-                cell: (value: number, row) => (
-                    <span className="text-right block w-full font-medium">
-                        {row.currency === 'KHR' ? `៛${value?.toLocaleString()}` : `$${value?.toLocaleString()}`}
-                    </span>
-                )
-            },
-            {
-                accessorKey: 'user_price',
-                header: 'User Price',
-                isSortable: true,
-                cell: (value: number, row) => (
-                    <span className="text-right block w-full font-medium text-brand-600">
-                        {row.currency === 'KHR' ? `៛${value?.toLocaleString()}` : `$${value?.toLocaleString()}`}
-                    </span>
-                )
-            },
+            ...(canSeeVendorPricing ? [
+                {
+                    accessorKey: 'dealer_price',
+                    header: 'Dealer Price',
+                    isSortable: true,
+                    cell: (value: number, row: VendorPricelistItem) => (
+                        <span className="text-right block w-full font-medium">
+                            {row.currency === 'KHR' ? `៛${value?.toLocaleString()}` : `$${value?.toLocaleString()}`}
+                        </span>
+                    )
+                } as ColumnDef<VendorPricelistItem>,
+                {
+                    accessorKey: 'user_price',
+                    header: 'User Price',
+                    isSortable: true,
+                    cell: (value: number, row: VendorPricelistItem) => (
+                        <span className="text-right block w-full font-medium text-brand-600">
+                            {row.currency === 'KHR' ? `៛${value?.toLocaleString()}` : `$${value?.toLocaleString()}`}
+                        </span>
+                    )
+                } as ColumnDef<VendorPricelistItem>,
+            ] : []),
             { accessorKey: 'promotion', header: 'Promotion', isSortable: true },
             { accessorKey: 'vendor_name', header: 'Vendor', isSortable: true },
             {
@@ -196,7 +224,7 @@ const VendorPricelistDashboard: React.FC = () => {
         ];
 
         return columns;
-    }, []);
+    }, [showField]);
 
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
@@ -297,13 +325,15 @@ const VendorPricelistDashboard: React.FC = () => {
                                 </label>
                             </div>
 
-                            <button
+                            <PermissionGate module="vendor_pricelist" action="create">
+                              <button
                                 onClick={handleOpenNewItem}
                                 className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-sm"
-                            >
+                              >
                                 <Tag className="w-5 h-5 mr-2" />
                                 <span>Add Item</span>
-                            </button>
+                              </button>
+                            </PermissionGate>
                         </div>
                     </div>
                 </div>

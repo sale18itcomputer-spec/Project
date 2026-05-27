@@ -18,6 +18,8 @@ import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 interface InvoiceDODashboardProps {
     initialPayload?: any;
@@ -46,6 +48,7 @@ type ViewMode = 'table' | 'board' | 'detail';
 const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload }) => {
     const { invoices = [], setInvoices, loading, error } = useData();
     const { addToast } = useToast();
+    const { can } = usePermissions();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [initialData, setInitialData] = useState<any>(initialPayload);
     const [searchQuery, setSearchQuery] = useState('');
@@ -309,12 +312,14 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
                             />
                         </div>
 
-                        <button
-                            onClick={handleNewInvoice}
-                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                        >
-                            <span className="text-xl leading-none">+</span> New Invoice
-                        </button>
+                        <PermissionGate module="invoices" action="create">
+                          <button
+                              onClick={handleNewInvoice}
+                              className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
+                          >
+                              <span className="text-xl leading-none">+</span> New Invoice
+                          </button>
+                        </PermissionGate>
                     </div>
                 </div>
             </header>
@@ -337,26 +342,30 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
                                 >
                                     <Info size={16} />
                                 </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditInvoice(row);
-                                    }}
-                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                    title="Edit"
-                                >
-                                    <Pencil size={16} />
-                                </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteRequest(row);
-                                    }}
-                                    className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                                    title="Delete"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {can('invoices', 'edit') && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditInvoice(row);
+                                        }}
+                                        className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                                        title="Edit"
+                                    >
+                                        <Pencil size={16} />
+                                    </button>
+                                )}
+                                {can('invoices', 'delete') && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteRequest(row);
+                                        }}
+                                        className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
                         )}
                     />
@@ -399,18 +408,22 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
                                                 <div className="px-6 py-4 bg-muted border-b border-border flex justify-between items-center">
                                                     <h2 className="text-lg font-bold text-foreground">Invoice Details</h2>
                                                     <div className="flex items-center gap-4">
-                                                        <button
-                                                            onClick={() => handleEditInvoice(selectedInv)}
-                                                            className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"
-                                                        >
-                                                            <Pencil size={16} /> Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteRequest(selectedInv)}
-                                                            className="flex items-center gap-2 text-rose-500 font-semibold hover:underline"
-                                                        >
-                                                            <Trash2 size={16} /> Delete
-                                                        </button>
+                                                        {can('invoices', 'edit') && (
+                                                            <button
+                                                                onClick={() => handleEditInvoice(selectedInv)}
+                                                                className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"
+                                                            >
+                                                                <Pencil size={16} /> Edit
+                                                            </button>
+                                                        )}
+                                                        {can('invoices', 'delete') && (
+                                                            <button
+                                                                onClick={() => handleDeleteRequest(selectedInv)}
+                                                                className="flex items-center gap-2 text-rose-500 font-semibold hover:underline"
+                                                            >
+                                                                <Trash2 size={16} /> Delete
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">

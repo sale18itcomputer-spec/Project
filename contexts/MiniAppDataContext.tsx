@@ -5,13 +5,14 @@ import { batchReadRecords } from '../services/api';
 import {
     Quotation, SaleOrder, PricelistItem, Invoice, DeliveryOrder, Receipt,
     Company, Contact, PurchaseOrder, Vendor, VendorPricelistItem,
-    PipelineProject, ContactLog, SiteSurveyLog, Meeting
+    PipelineProject, ContactLog, SiteSurveyLog, Meeting, InventoryItem
 } from '../types';
 import {
     QUOTATION_HEADERS, SALE_ORDER_HEADERS, PRICELIST_HEADERS, INVOICE_HEADERS,
     DELIVERY_ORDER_HEADERS, RECEIPT_HEADERS, COMPANY_HEADERS, CONTACT_HEADERS,
     PURCHASE_ORDER_HEADERS, VENDOR_HEADERS, VENDOR_PRICELIST_HEADERS,
-    PIPELINE_HEADERS, CONTACT_LOG_HEADERS, SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS
+    PIPELINE_HEADERS, CONTACT_LOG_HEADERS, SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS,
+    INVENTORY_HEADERS
 } from '../schemas';
 import * as db from '../utils/db';
 // Use the REAL DataContext object from DataContext.tsx so that useData() from
@@ -45,6 +46,7 @@ const sheetToStoreMap: Record<string, db.StoreName> = {
     'Vendors': 'vendors',
     'Vendor Pricelist': 'vendorPricelist',
     'Purchase Orders': 'purchaseOrders',
+    'Inventory': 'inventory',
 };
 
 const sheetToHeadersMap: Record<string, readonly string[]> = {
@@ -63,6 +65,7 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
     'Vendors': VENDOR_HEADERS,
     'Vendor Pricelist': VENDOR_PRICELIST_HEADERS,
     'Purchase Orders': PURCHASE_ORDER_HEADERS,
+    'Inventory': INVENTORY_HEADERS,
 };
 
 export default function MiniAppDataProvider({ children }: { children: React.ReactNode }) {
@@ -81,6 +84,7 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
     const [vendors, setVendors] = useState<Vendor[] | null>(null);
     const [vendorPricelist, setVendorPricelist] = useState<VendorPricelistItem[] | null>(null);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fetchedRef = useRef(new Set<string>());
@@ -101,6 +105,7 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         vendors: setVendors,
         vendorPricelist: setVendorPricelist,
         purchaseOrders: setPurchaseOrders,
+        inventory: setInventoryItems,
     }), []);
 
     const applyData = useCallback((sheetNames: string[], freshData: Record<string, any[]>) => {
@@ -170,6 +175,7 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         vendors, setVendors,
         vendorPricelist, setVendorPricelist,
         purchaseOrders, setPurchaseOrders,
+        inventoryItems, setInventoryItems,
         loading, error,
         activeCompanyNames, activeContactNames, activePipelineIds,
         refetchData, fetchModule, refetchModule,

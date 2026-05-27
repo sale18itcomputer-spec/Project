@@ -10,6 +10,8 @@ import { parseSheetValue } from "../../../utils/formatters";
 import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
+import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
 import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { ShieldCheck, TrendingUp, Info } from 'lucide-react';
@@ -91,7 +93,7 @@ const PricelistCard: React.FC<{
         aria-label={`Product card for ${item.Model}`}
     >
         <div className="absolute top-3 right-3 z-10 opacity-100 transition-opacity duration-300">
-            <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} />
+            <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} module="b2b_pricelist" />
         </div>
 
         <CardHeader className="pb-2">
@@ -219,6 +221,7 @@ const B2BPricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
     const { currentUser } = useAuth();
     const { isB2B } = useB2B();
+    const { showField, can } = usePermissions();
 
     // Restricted access for B2B Pricelist
     const canAccess = useMemo(() => {
@@ -463,7 +466,7 @@ const B2BPricelistDashboard: React.FC = () => {
                                 onView={() => handleViewItem(item)}
                                 onEdit={() => handleEditItem(item)}
                                 onDelete={() => handleDeleteItem(item)}
-                                showDealerPrice={true}
+                                showDealerPrice={showField('showDealerPrice')}
                             />
                         ))}
                     </div>
@@ -481,7 +484,7 @@ const B2BPricelistDashboard: React.FC = () => {
                                     onViewItem={handleViewItem}
                                     onEditItem={handleEditItem}
                                     onDeleteItem={handleDeleteItem}
-                                    showDealerPrice={true}
+                                    showDealerPrice={showField('showDealerPrice')}
                                 />
                             ))}
                     </div>
@@ -584,13 +587,15 @@ const B2BPricelistDashboard: React.FC = () => {
                                     />
                                 </>
                             )}
-                            <button
+                            <PermissionGate module="b2b_pricelist" action="create">
+                              <button
                                 onClick={handleNewItem}
                                 className="flex-shrink-0 flex items-center justify-center bg-brand-700 hover:bg-brand-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all duration-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_15px_-3px_rgba(0,0,0,0.3)] transform hover:-translate-y-0.5 active:translate-y-0 ml-auto lg:ml-0"
-                            >
+                              >
                                 <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                                 <span className="hidden sm:inline">Add B2B Product</span>
-                            </button>
+                              </button>
+                            </PermissionGate>
                         </div>
                     </div>
                 </div>

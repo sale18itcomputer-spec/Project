@@ -1,14 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const InvoiceDashboard = dynamic(() => import('@/components/dashboards/sales/InvoiceDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import InvoiceDashboard from '@/components/dashboards/sales/InvoiceDashboard';
 
 function InvoiceContent() {
     const searchParams = useSearchParams();

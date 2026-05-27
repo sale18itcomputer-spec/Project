@@ -26,19 +26,9 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (isAuthenticated) {
-            const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-            const isLocal =
-                hostname === 'localhost' ||
-                hostname === '127.0.0.1' ||
-                /^192\.168\./.test(hostname) ||
-                /^10\./.test(hostname) ||
-                /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
-
-            if (isLocal) {
-                router.push(redirectPath === '/' ? '/dashboard' : redirectPath);
-            } else {
-                window.location.href = 'https://project.limperialtech.com/dashboard';
-            }
+            // Always use client-side routing — OAuth already returns to the correct origin
+            // so there is no need to hard-code a production domain here.
+            router.push(redirectPath === '/' ? '/dashboard' : redirectPath);
         }
     }, [isAuthenticated, router, redirectPath]);
 

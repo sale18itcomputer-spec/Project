@@ -44,7 +44,11 @@ export function buildTaxInvoice(
     const grandRiel = rateNum > 0 ? Math.round(grandUsd * rateNum) : 0;
     const hasDeposit = deposit > 0;
     const totalLessDeposit = subTotal - deposit;
-    const footerRows = showVat ? (hasDeposit ? 7 : 5) : (hasDeposit ? 6 : 4);
+    // Non-VAT footer is simplified to just a "Total" row (+ Deposit/Less Deposit when present).
+    // VAT footer keeps the full breakdown: Sub Total, [Deposit, Less Deposit], VAT, Grand USD, Exchange Rate, Grand Riel.
+    const footerRows = showVat
+        ? (hasDeposit ? 7 : 5)
+        : (hasDeposit ? 3 : 1);
 
     const dataItems = items.filter(i => Number(i.no) > 0);
 
@@ -109,19 +113,19 @@ export function buildTaxInvoice(
 <body>
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
   <div class="no-break">
-  <header class="mb-6">
+  ${showVat ? `<header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0"><img alt="Logo" class="h-10 w-auto object-contain" src="${LOGO}"/></div>
       <h1 class="text-xl font-bold mb-1" style="font-family:'Moul',serif;">លីមភើរៀលថេកណឡជីឯ.ក</h1>
       <h2 class="text-lg font-bold mb-1" style="font-family:'Times New Roman',serif;">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
-      ${showVat ? `<p class="font-bold">លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN) : K003-902201968</p>` : ''}
+      <p class="font-bold">លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN) : K003-902201968</p>
       <p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</p>
       <p class="text-[10px]">Address: #B15, East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
       <p class="text-[10px]">E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</p>
     </div>
-  </header>
-  <div class="text-center mb-6">
-    <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">${showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>
+  </header>` : ''}
+  <div class="text-center mb-6${showVat ? '' : ' pt-6'}">
+    <h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>
     <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">${showVat ? 'TAX INVOICE' : 'INVOICE'}</h4>
   </div>
   <div class="flex justify-between gap-0 mb-6">
@@ -167,7 +171,7 @@ export function buildTaxInvoice(
         </tr>
       </thead>
       <tbody>${itemRows}</tbody>
-      <tbody class="break-inside-avoid">
+      ${showVat ? `<tbody class="break-inside-avoid">
         <tr>
           <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${footerRows}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important;">
             <div class="w-full text-[10px] space-y-4">
@@ -199,10 +203,10 @@ export function buildTaxInvoice(
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Total Less Deposit</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
         </tr>` : ''}
-        ${showVat ? `<tr>
+        <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">អាករ (VAT 10%)</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount > 0 ? vatAmount : null)}</td>
-        </tr>` : ''}
+        </tr>
         <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Dollar</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
@@ -215,8 +219,30 @@ export function buildTaxInvoice(
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Riel</td>
           <td class="align-middle" style="border:1px solid #000;">${grandRiel > 0 ? `<div class="flex justify-between"><span>&#x17DB;</span><span>${fmtNum(grandRiel)}</span></div>` : `<div class="flex justify-between"><span>&#x17DB;</span><span>-</span></div>`}</td>
         </tr>
-      </tbody>
+      </tbody>` : `<tbody class="break-inside-avoid">
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">សរុប (Total)</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
+        </tr>
+        ${hasDeposit ? `
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">ប្រាក់កក់ (Deposit)</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(deposit)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">Total Less Deposit</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
+        </tr>` : ''}
+      </tbody>`}
     </table>
+    ${!showVat ? `<div class="mt-4 text-[10px] no-break">
+      <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
+      <ul class="list-disc list-inside space-y-0.5">
+        <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms.</li>
+        <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable.</li>
+        <li><span class="font-bold">Warranty:</span> Covered under Limperial Technology warranty policy.</li>
+      </ul>
+    </div>` : ''}
   </div>
 
   <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">

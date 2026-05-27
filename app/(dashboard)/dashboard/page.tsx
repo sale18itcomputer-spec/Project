@@ -1,11 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import ContentSkeleton from '@/components/common/ContentSkeleton';
-
-const Dashboard = dynamic(() => import('@/components/dashboards/shared/Dashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import Dashboard from '@/components/dashboards/shared/Dashboard';
 
 export default function DashboardPage() {
     return <Dashboard />;

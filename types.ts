@@ -1,6 +1,46 @@
 // Import React to resolve 'Cannot find namespace 'React'' error.
 import React from 'react';
 
+// ─── Permission System Types ──────────────────────────────────────────────────
+
+/** Every action a user can be granted on a module */
+export type PermissionAction =
+  | 'view'
+  | 'create'
+  | 'edit'
+  | 'delete'
+  | 'export'
+  | 'send'
+  | 'approve'
+  | 'use';
+
+/** Action flags for a single module */
+export type ModulePermissions = Partial<Record<PermissionAction, boolean>>;
+
+/**
+ * Field-level visibility flags.
+ * Controls whether sensitive data columns are rendered in tables/forms.
+ */
+export interface DataVisibility {
+  /** "Dealer Price" column in B2C + B2B Pricelist */
+  showDealerPrice?: boolean;
+  /** dealer_price + user_price columns in Vendor Pricelist */
+  showVendorPricing?: boolean;
+  /** unit_price in Purchase Order items and Inventory */
+  showPurchaseCosts?: boolean;
+  /** Revenue/financial charts on Dashboard and Weekly Report */
+  showRevenueData?: boolean;
+}
+
+/**
+ * Full permission snapshot stored as JSONB in the users table.
+ * null in the DB means "use role preset" — no custom overrides.
+ */
+export interface UserPermissions {
+  modules: Record<string, ModulePermissions>;
+  dataVisibility?: DataVisibility;
+}
+
 export interface Metric {
   title: string;
   value: string;
@@ -41,6 +81,11 @@ export interface User {
   Status?: 'Active' | 'Inactive';
   'Phone 1'?: string;
   'Phone 2'?: string;
+  /**
+   * Fine-grained permission snapshot (JSONB from Supabase).
+   * null / undefined → resolved from ROLE_PRESETS[role] at runtime.
+   */
+  permissions?: UserPermissions | null;
 }
 
 export interface PipelineProject {
@@ -406,6 +451,32 @@ export interface PurchaseOrderItem {
   qty: number;
   unit_price: number;
   total?: number;
+  /** Populated from vendor/pricelist lookup — stored in DB after migration */
+  brand?: string;
+  category?: string;
+}
+
+/** Inventory item — converted from a Purchase Order, used to source Sale Orders */
+export interface InventoryItem {
+  id: string;
+  po_id?: string;
+  po_number?: string;
+  vendor_id?: string;
+  vendor_name?: string;
+  category?: string;
+  code?: string;
+  brand?: string;
+  model_name?: string;
+  description?: string;
+  qty: number;
+  unit_price: number;
+  currency?: 'USD' | 'KHR';
+  /** In Stock | Reserved | Out of Stock */
+  status?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
 }
 
 export interface PurchaseOrder {

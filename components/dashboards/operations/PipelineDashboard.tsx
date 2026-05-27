@@ -20,6 +20,7 @@ import ViewToggle from "../../common/ViewToggle";
 import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import PipelineListContainer from "../lists/PipelineListContainer";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 type ProcessedProject = PipelineProject & { calculatedDueDate: Date | null };
 
@@ -217,8 +218,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     setProjectToDelete(null);
     setProjects(prev => prev ? prev.filter(p => p['Pipeline No'] !== projectId) : null);
     try {
-      const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
-      await deleteRecord(tableName, projectId);
+      await deleteRecord('Pipelines', projectId, isB2B);
       addToast('Project deleted!', 'success');
     } catch {
       addToast('Failed to delete project.', 'error');
@@ -241,8 +241,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     });
 
     try {
-      const tableName = isB2B ? 'b2b_pipelines' : 'Pipelines';
-      await updateRecord(tableName, pipelineNo, { 'Status': newStatus });
+      await updateRecord('Pipelines', pipelineNo, { 'Status': newStatus }, isB2B);
       addToast('Pipeline moved successfully!', 'success');
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -746,13 +745,15 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   </div>
                 </>
               )}
-              <button
-                onClick={handleOpenNewProject}
-                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-              >
-                <svg className="w-5 h-5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                <span className="hidden md:inline">New</span>
-              </button>
+              <PermissionGate module="pipelines" action="create">
+                <button
+                  onClick={handleOpenNewProject}
+                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+                >
+                  <svg className="w-5 h-5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span className="hidden md:inline">New</span>
+                </button>
+              </PermissionGate>
             </div>
           </div>
         </div>

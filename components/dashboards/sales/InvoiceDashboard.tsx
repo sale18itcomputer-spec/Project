@@ -18,6 +18,7 @@ import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 interface InvoiceDashboardProps {
     initialPayload?: any;
@@ -309,12 +310,14 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                             />
                         </div>
 
-                        <button
+                        <PermissionGate module="invoices" action="create">
+                          <button
                             onClick={handleNewInvoice}
                             className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                        >
+                          >
                             <span className="text-xl leading-none">+</span> New Invoice
-                        </button>
+                          </button>
+                        </PermissionGate>
                     </div>
                 </div>
             </header>

@@ -232,7 +232,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     description: `Invoice #${inv['Inv No']} has been in Draft for > 3 days.`,
                     timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
-                    link: { view: 'invoice-do', filter: inv['Inv No'] }
+                    link: { view: 'invoices', filter: inv['Inv No'] }
                 });
             }
 
@@ -247,7 +247,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     description: `Invoice #${inv['Inv No']} has been Processing for > 7 days.`,
                     timestamp: getSimulatedTimestamp(thresholdDate, id),
                     severity: 'medium',
-                    link: { view: 'invoice-do', filter: inv['Inv No'] }
+                    link: { view: 'invoices', filter: inv['Inv No'] }
                 });
             }
         });

@@ -1,16 +1,45 @@
 'use client';
 
-import React from 'react';
-import { usePathname } from 'next/navigation';
+import React, { useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building, Users, FileText, ShoppingCart,
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
-  ChevronRight, UserCog,
+  ChevronRight, UserCog, Wallet, Warehouse, FileStack,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FINANCE_ALLOWED_PATHS } from '@/components/layout/AppShell';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useData } from '@/contexts/DataContext';
+
+// Mapping from route path → data modules each page needs.
+// On hover, both the JS chunk (router.prefetch) and the data (fetchModule)
+// start loading before the user clicks — eliminating the serial waterfall.
+const PATH_TO_MODULES: Record<string, string[]> = {
+  '/dashboard':        ['Quotations', 'Sale Orders'],
+  '/':                 ['Quotations', 'Sale Orders'],
+  '/companies':        ['Company List'],
+  '/contacts':         ['Contact_List'],
+  '/contact-logs':     ['Contact_Logs'],
+  '/meetings':         ['Meeting_Logs'],
+  '/site-surveys':     ['Site_Survey_Logs'],
+  '/projects':         ['Pipelines'],
+  '/users':            [],
+  '/quotations':       ['Quotations'],
+  '/sale-orders':      ['Sale Orders', 'Inventory', 'Raw'],
+  '/invoices':         ['Invoices'],
+  '/delivery-orders':  ['Delivery Orders', 'Invoices'],
+  '/receipts':         ['Receipts', 'Invoices', 'Delivery Orders'],
+  '/collection':       ['Invoices', 'Receipts'],
+  '/weekly-report':    ['Sale Orders', 'Quotations', 'Contact_Logs', 'Site_Survey_Logs', 'Invoices'],
+  '/pricelist':        ['Raw'],
+  '/b2b-pricelist':    ['Raw'],
+  '/vendors':          ['Vendors'],
+  '/vendor-pricelist': ['Vendors', 'Vendor Pricelist'],
+  '/purchase-orders':  ['Vendors', 'Vendor Pricelist', 'Purchase Orders', 'Raw'],
+  '/inventory':        ['Inventory', 'Purchase Orders', 'Vendors'],
+};
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -29,12 +58,14 @@ const NavItem: React.FC<{
   label: string;
   isActive: boolean;
   onClick: () => void;
+  onPrefetch?: () => void;
   isCollapsed: boolean;
   badge?: string;
-}> = ({ icon, label, isActive, onClick, isCollapsed, badge }) => (
+}> = ({ icon, label, isActive, onClick, onPrefetch, isCollapsed, badge }) => (
   <li>
     <button
       onClick={onClick}
+      onMouseEnter={onPrefetch}
       title={isCollapsed ? label : undefined}
       className={`
         group relative flex items-center w-full text-left
@@ -158,14 +189,65 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse, onNavigate, onResizeMouseDown, onResizeDoubleClick,
 }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const { isB2B } = useB2B();
   const { currentUser } = useAuth();
-  const isFinance = currentUser?.Role === 'Finance';
-  const isAdmin = currentUser?.Role === 'Admin';
-  const isSales = currentUser?.Role === 'Sales';
+  const { canView } = usePermissions();
+  const { fetchModule } = useData();
 
+  // Helpers
   const isActive = (path: string) => pathname === path;
   const go = (path: string) => () => onNavigate(path);
+
+  // On hover: prefetch the JS chunk (router.prefetch) AND start loading the
+  // page's data modules (fetchModule). By the time the user clicks, the chunk
+  // is cached and the data is already arriving from IDB / network — making
+  // navigation feel near-instant.
+  const prefetch = useCallback((path: string) => {
+    router.prefetch(path);
+    const modules = PATH_TO_MODULES[path];
+    if (modules?.length) {
+      void (fetchModule as (...args: string[]) => Promise<void>)(...modules);
+    }
+  }, [router, fetchModule]);
+
+  // Pre-compute which nav items are visible — one call each, evaluated once per render.
+  // Using the module keys from PERMISSION_MODULES.
+  const show = {
+    dashboard:          canView('dashboard'),
+    companies:          canView('companies'),
+    contacts:           canView('contacts'),
+    contact_logs:       canView('contact_logs'),
+    users:              canView('users'),
+    quotations:         canView('quotations'),
+    sale_orders:        canView('sale_orders'),
+    invoices:           canView('invoices'),
+    delivery_orders:    canView('delivery_orders'),
+    receipts:           canView('receipts'),
+    collection:         canView('collection'),
+    weekly_report:      canView('weekly_report'),
+    pricelist:          canView('pricelist'),
+    b2b_pricelist:      canView('b2b_pricelist'),
+    vendor_pricelist:   canView('vendor_pricelist'),
+    vendors:            canView('vendors'),
+    purchase_orders:    canView('purchase_orders'),
+    inventory:          canView('inventory'),
+    pipelines:          canView('pipelines'),
+    site_surveys:       canView('site_surveys'),
+    meetings:           canView('meetings'),
+    pricing_calculator: canView('pricing_calculator'),
+    pdf_editor:         canView('pdf_editor'),
+  };
+
+  // Derived section visibility — a section only shows if at least one of its items is visible
+  const showOverview     = show.dashboard || show.companies || show.contacts || show.users;
+  const showSales        = show.quotations || show.sale_orders || show.invoices ||
+                           show.delivery_orders || show.receipts || show.collection ||
+                           show.weekly_report;
+  const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
+  const showProcurement  = show.purchase_orders || show.inventory;
+  const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
+  const showTools        = show.pricing_calculator || show.pdf_editor;
 
   return (
     <aside
@@ -204,60 +286,141 @@ const Sidebar: React.FC<SidebarProps> = ({
           space-y-0
           [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
         `}>
-          {isFinance ? (
-            <Section label="Finance" isCollapsed={isCollapsed}>
-              <NavItem icon={<FileText size={16} />} label="Invoices" isActive={isActive('/invoices')} onClick={go('/invoices')} isCollapsed={isCollapsed} />
-              <NavItem icon={<Truck size={16} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} isCollapsed={isCollapsed} />
-              <NavItem icon={<Receipt size={16} />} label="Receipts" isActive={isActive('/receipts')} onClick={go('/receipts')} isCollapsed={isCollapsed} />
+
+          {/* Overview */}
+          {showOverview && (
+            <Section label="Overview" isCollapsed={isCollapsed}>
+              {show.dashboard && (
+                <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard"
+                  isActive={isActive('/dashboard') || isActive('/')}
+                  onClick={go('/dashboard')} onPrefetch={() => prefetch('/dashboard')} isCollapsed={isCollapsed} />
+              )}
+              {show.companies && (
+                <NavItem icon={<Building size={16} />} label="Companies"
+                  isActive={isActive('/companies')} onClick={go('/companies')} onPrefetch={() => prefetch('/companies')} isCollapsed={isCollapsed} />
+              )}
+              {show.contacts && (
+                <NavItem icon={<Users size={16} />} label="Contacts"
+                  isActive={isActive('/contacts')} onClick={go('/contacts')} onPrefetch={() => prefetch('/contacts')} isCollapsed={isCollapsed} />
+              )}
+              {show.users && (
+                <NavItem icon={<UserCog size={16} />} label="Users"
+                  isActive={isActive('/users')} onClick={go('/users')} onPrefetch={() => prefetch('/users')} isCollapsed={isCollapsed} />
+              )}
             </Section>
-          ) : (
-            <>
-              <Section label="Overview" isCollapsed={isCollapsed}>
-                <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" isActive={isActive('/')} onClick={go('/')} isCollapsed={isCollapsed} />
-                <NavItem icon={<Building size={16} />} label="Companies" isActive={isActive('/companies')} onClick={go('/companies')} isCollapsed={isCollapsed} />
-                {!isB2B && <NavItem icon={<Users size={16} />} label="Contacts" isActive={isActive('/contacts')} onClick={go('/contacts')} isCollapsed={isCollapsed} />}
-                {isAdmin && <NavItem icon={<UserCog size={16} />} label="Users" isActive={isActive('/users')} onClick={go('/users')} isCollapsed={isCollapsed} />}
-              </Section>
+          )}
 
-              <Section label="Sales" isCollapsed={isCollapsed}>
-                <NavItem icon={<FileText size={16} />} label="Quotations" isActive={isActive('/quotations')} onClick={go('/quotations')} isCollapsed={isCollapsed} />
-                {!isB2B && <NavItem icon={<ShoppingCart size={16} />} label="Sale Orders" isActive={isActive('/sale-orders')} onClick={go('/sale-orders')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<FileText size={16} />} label="Invoices" isActive={isActive('/invoices')} onClick={go('/invoices')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<Truck size={16} />} label="Delivery Orders" isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<Receipt size={16} />} label="Receipts" isActive={isActive('/receipts')} onClick={go('/receipts')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<BarChart2 size={16} />} label="Weekly Report" isActive={isActive('/weekly-report')} onClick={go('/weekly-report')} isCollapsed={isCollapsed} />}
-              </Section>
-
-              <Section label="Products" isCollapsed={isCollapsed}>
-                {isB2B
-                  ? <NavItem icon={<Tags size={16} />} label="B2B Pricelist" isActive={isActive('/b2b-pricelist')} onClick={go('/b2b-pricelist')} isCollapsed={isCollapsed} />
-                  : <NavItem icon={<Tags size={16} />} label="Pricelist" isActive={isActive('/pricelist')} onClick={go('/pricelist')} isCollapsed={isCollapsed} />
-                }
-                <NavItem icon={<Package size={16} />} label="Vendor Pricelist" isActive={isActive('/vendor-pricelist')} onClick={go('/vendor-pricelist')} isCollapsed={isCollapsed} />
-                {!isSales && <NavItem icon={<Truck size={16} />} label="Vendor Master" isActive={isActive('/vendors')} onClick={go('/vendors')} isCollapsed={isCollapsed} />}
-              </Section>
-
-              {isAdmin && (
-                <Section label="Procurement" isCollapsed={isCollapsed}>
-                  <NavItem icon={<ClipboardList size={16} />} label="Purchase Orders" isActive={isActive('/purchase-orders')} onClick={go('/purchase-orders')} isCollapsed={isCollapsed} />
-                </Section>
+          {/* Sales */}
+          {showSales && (
+            <Section label="Sales" isCollapsed={isCollapsed}>
+              {show.quotations && (
+                <NavItem icon={<FileText size={16} />} label="Quotations"
+                  isActive={isActive('/quotations')} onClick={go('/quotations')} onPrefetch={() => prefetch('/quotations')} isCollapsed={isCollapsed} />
+              )}
+              {show.sale_orders && (
+                <NavItem icon={<ShoppingCart size={16} />} label="Sale Orders"
+                  isActive={isActive('/sale-orders')} onClick={go('/sale-orders')} onPrefetch={() => prefetch('/sale-orders')} isCollapsed={isCollapsed} />
+              )}
+              {show.invoices && (
+                <NavItem icon={<FileText size={16} />} label="Invoices"
+                  isActive={isActive('/invoices')} onClick={go('/invoices')} onPrefetch={() => prefetch('/invoices')} isCollapsed={isCollapsed} />
+              )}
+              {show.delivery_orders && (
+                <NavItem icon={<Truck size={16} />} label="Delivery Orders"
+                  isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} onPrefetch={() => prefetch('/delivery-orders')} isCollapsed={isCollapsed} />
+              )}
+              {show.receipts && (
+                <NavItem icon={<Receipt size={16} />} label="Receipts"
+                  isActive={isActive('/receipts')} onClick={go('/receipts')} onPrefetch={() => prefetch('/receipts')} isCollapsed={isCollapsed} />
+              )}
+              {show.collection && (
+                <NavItem icon={<Wallet size={16} />} label="Collection"
+                  isActive={isActive('/collection')} onClick={go('/collection')} onPrefetch={() => prefetch('/collection')} isCollapsed={isCollapsed} />
+              )}
+              {show.weekly_report && (
+                <NavItem icon={<BarChart2 size={16} />} label="Weekly Report"
+                  isActive={isActive('/weekly-report')} onClick={go('/weekly-report')} onPrefetch={() => prefetch('/weekly-report')} isCollapsed={isCollapsed} />
               )}
 
-              <Section label="Activity" isCollapsed={isCollapsed}>
-                <NavItem icon={<Filter size={16} />} label="Pipelines" isActive={isActive('/projects')} onClick={go('/projects')} isCollapsed={isCollapsed} />
-                {!isB2B && <NavItem icon={<MessageSquare size={16} />} label="Contact Logs" isActive={isActive('/contact-logs')} onClick={go('/contact-logs')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<Map size={16} />} label="Site Surveys" isActive={isActive('/site-surveys')} onClick={go('/site-surveys')} isCollapsed={isCollapsed} />}
-                {!isB2B && <NavItem icon={<Calendar size={16} />} label="Meetings" isActive={isActive('/meetings')} onClick={go('/meetings')} isCollapsed={isCollapsed} />}
-              </Section>
+            </Section>
+          )}
 
-              <Section label="Tools" isCollapsed={isCollapsed}>
-                <NavItem icon={<Calculator size={16} />} label="Pricing Calculator" isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed} />
-              </Section>
-            </>
+          {/* Products */}
+          {showProducts && (
+            <Section label="Products" isCollapsed={isCollapsed}>
+              {isB2B
+                ? show.b2b_pricelist && (
+                  <NavItem icon={<Tags size={16} />} label="B2B Pricelist"
+                    isActive={isActive('/b2b-pricelist')} onClick={go('/b2b-pricelist')} onPrefetch={() => prefetch('/b2b-pricelist')} isCollapsed={isCollapsed} />
+                )
+                : show.pricelist && (
+                  <NavItem icon={<Tags size={16} />} label="Pricelist"
+                    isActive={isActive('/pricelist')} onClick={go('/pricelist')} onPrefetch={() => prefetch('/pricelist')} isCollapsed={isCollapsed} />
+                )
+              }
+              {show.vendor_pricelist && (
+                <NavItem icon={<Package size={16} />} label="Vendor Pricelist"
+                  isActive={isActive('/vendor-pricelist')} onClick={go('/vendor-pricelist')} onPrefetch={() => prefetch('/vendor-pricelist')} isCollapsed={isCollapsed} />
+              )}
+              {show.vendors && (
+                <NavItem icon={<Truck size={16} />} label="Vendor Master"
+                  isActive={isActive('/vendors')} onClick={go('/vendors')} onPrefetch={() => prefetch('/vendors')} isCollapsed={isCollapsed} />
+              )}
+            </Section>
+          )}
+
+          {/* Procurement */}
+          {showProcurement && (
+            <Section label="Procurement" isCollapsed={isCollapsed}>
+              {show.purchase_orders && (
+                <NavItem icon={<ClipboardList size={16} />} label="Purchase Orders"
+                  isActive={isActive('/purchase-orders')} onClick={go('/purchase-orders')} onPrefetch={() => prefetch('/purchase-orders')} isCollapsed={isCollapsed} />
+              )}
+              {show.inventory && (
+                <NavItem icon={<Warehouse size={16} />} label="Inventory"
+                  isActive={isActive('/inventory')} onClick={go('/inventory')} onPrefetch={() => prefetch('/inventory')} isCollapsed={isCollapsed} />
+              )}
+            </Section>
+          )}
+
+          {/* Activity */}
+          {showActivity && (
+            <Section label="Activity" isCollapsed={isCollapsed}>
+              {show.pipelines && (
+                <NavItem icon={<Filter size={16} />} label="Pipelines"
+                  isActive={isActive('/projects')} onClick={go('/projects')} onPrefetch={() => prefetch('/projects')} isCollapsed={isCollapsed} />
+              )}
+              {show.contact_logs && (
+                <NavItem icon={<MessageSquare size={16} />} label="Contact Logs"
+                  isActive={isActive('/contact-logs')} onClick={go('/contact-logs')} onPrefetch={() => prefetch('/contact-logs')} isCollapsed={isCollapsed} />
+              )}
+              {show.site_surveys && (
+                <NavItem icon={<Map size={16} />} label="Site Surveys"
+                  isActive={isActive('/site-surveys')} onClick={go('/site-surveys')} onPrefetch={() => prefetch('/site-surveys')} isCollapsed={isCollapsed} />
+              )}
+              {show.meetings && (
+                <NavItem icon={<Calendar size={16} />} label="Meetings"
+                  isActive={isActive('/meetings')} onClick={go('/meetings')} onPrefetch={() => prefetch('/meetings')} isCollapsed={isCollapsed} />
+              )}
+            </Section>
+          )}
+
+          {/* Tools */}
+          {showTools && (
+            <Section label="Tools" isCollapsed={isCollapsed}>
+              {show.pricing_calculator && (
+                <NavItem icon={<Calculator size={16} />} label="Pricing Calculator"
+                  isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed} />
+              )}
+              {show.pdf_editor && (
+                <NavItem icon={<FileText size={16} />} label="PDF Editor"
+                  isActive={isActive('/pdf-layout-editor')} onClick={go('/pdf-layout-editor')} isCollapsed={isCollapsed} />
+              )}
+            </Section>
           )}
         </nav>
 
-        {/* Bottom */}
+        {/* Bottom user card + collapse toggle */}
         <div className="shrink-0 pt-3 mt-2 border-t border-border/40 space-y-1">
           <UserCard user={currentUser} isCollapsed={isCollapsed} />
           <button

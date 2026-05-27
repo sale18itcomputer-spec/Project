@@ -1,15 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const ReceiptDashboard = dynamic(
-    () => import('@/components/dashboards/sales/ReceiptDashboard'),
-    { loading: () => <ContentSkeleton /> }
-);
+import ReceiptDashboard from '@/components/dashboards/sales/ReceiptDashboard';
 
 const NAV_PAYLOAD_KEY = 'limperial_nav_payload';
 

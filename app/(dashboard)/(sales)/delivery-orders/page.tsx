@@ -1,15 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const DeliveryOrderDashboard = dynamic(
-    () => import('@/components/dashboards/sales/DeliveryOrderDashboard'),
-    { loading: () => <ContentSkeleton /> }
-);
+import DeliveryOrderDashboard from '@/components/dashboards/sales/DeliveryOrderDashboard';
 
 const NAV_PAYLOAD_KEY = 'limperial_nav_payload';
 

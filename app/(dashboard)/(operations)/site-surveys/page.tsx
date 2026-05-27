@@ -1,14 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const SiteSurveyDashboard = dynamic(() => import('@/components/dashboards/operations/SiteSurveyDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import SiteSurveyDashboard from '@/components/dashboards/operations/SiteSurveyDashboard';
 
 function SiteSurveysContent() {
     const searchParams = useSearchParams();

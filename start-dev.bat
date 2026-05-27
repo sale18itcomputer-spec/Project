@@ -5,7 +5,7 @@ echo   Project Dev Starter
 echo  =====================================================
 echo.
 
-set PROJECT=C:\Users\tonns\Project
+set PROJECT=C:\Users\tonns\Desktop\lpt-system\Project
 
 :: Clean up old URL file
 if exist "%PROJECT%\.cloudflared-url" del "%PROJECT%\.cloudflared-url"

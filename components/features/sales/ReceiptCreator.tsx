@@ -69,6 +69,18 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('receipt');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Receipts are immutable artifacts of payment events. ReceiptCreator is now
+    // only reachable in VIEW mode (open an existing receipt for printing/PDF).
+    // Standalone creation has been removed — record payments via Collection.
+    const isReadOnly = !!existingReceipt;
+    useEffect(() => {
+        if (!existingReceipt && !initialData) {
+            addToast('Receipts can only be created by recording a payment in Collection.', 'info');
+            onBack();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const [items, setItems] = useState<LineItem[]>([
         { id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }
     ]);
@@ -339,20 +351,23 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             >
                 <Download className="w-4 h-4" /> Download PDF
             </button>
-            <button
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
-            >
-                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Receipt'}
-            </button>
+            {!isReadOnly && (
+                <button
+                    onClick={handleSave}
+                    disabled={isSubmitting}
+                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+                >
+                    {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Receipt'}
+                </button>
+            )}
         </div>
     );
 
     return (
         <>
             <DocumentEditorContainer
-                title={existingReceipt ? `Edit Receipt: ${doc['RV No']}` : 'New Receipt'}
+                title={isReadOnly ? `Receipt: ${doc['RV No']}` : 'New Receipt'}
+                subtitle={isReadOnly ? 'Read-only · issued payment record' : undefined}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
@@ -390,7 +405,13 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                             <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md"><X className="w-4 h-4" /></button>
                         </div>
 
-                        <ScrollArea className="flex-1 px-5 py-4">
+                        {isReadOnly && (
+                            <div className="px-5 py-2.5 bg-emerald-500/5 border-b border-emerald-200/40 text-xs text-emerald-700">
+                                Read-only · Once issued, a Receipt is immutable. To correct a recorded payment, issue a reversal in a future update.
+                            </div>
+                        )}
+
+                        <ScrollArea className={`flex-1 px-5 py-4 ${isReadOnly ? 'pointer-events-none select-none' : ''}`}>
                             <div className="space-y-6">
                                 <FormSection title="Header Details">
                                     <FormInput label="RV No." name="RV No" value={doc['RV No']} onChange={handleInputChange} required />

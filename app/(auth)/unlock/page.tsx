@@ -15,6 +15,16 @@ export default function UnlockPage() {
     const router = useRouter();
 
     useEffect(() => {
+        // Dev bypass: skip PIN entirely when NEXT_PUBLIC_DEV_BYPASS_LOCK is set
+        if (
+            process.env.NODE_ENV === 'development' &&
+            process.env.NEXT_PUBLIC_DEV_BYPASS_LOCK === 'true'
+        ) {
+            sessionStorage.setItem(UNLOCK_STORAGE_KEY, 'true');
+            router.replace('/dashboard');
+            return;
+        }
+
         const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
         const isUnlocked = sessionStorage.getItem(UNLOCK_STORAGE_KEY) === 'true';
 

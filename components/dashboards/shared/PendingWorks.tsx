@@ -208,7 +208,7 @@ const PendingWorks: React.FC = () => {
         if (invoices) {
             for (const inv of invoices) {
                 if ((inv.Status === 'Draft' || inv.Status === 'Processing') && canView(inv['Created By'])) {
-                    items.push({ id: inv['Inv No'], type: 'invoice', title: `Invoice ${inv['Inv No']}`, subtitle: inv['Company Name'], dueDate: today, date: inv['Inv Date'], time: '', status: inv.Status, priority: inv.Status === 'Processing' ? 'high' : 'low', daysUntil: 0, iconType: 'FileCode', link: 'invoice-do' });
+                    items.push({ id: inv['Inv No'], type: 'invoice', title: `Invoice ${inv['Inv No']}`, subtitle: inv['Company Name'], dueDate: today, date: inv['Inv Date'], time: '', status: inv.Status, priority: inv.Status === 'Processing' ? 'high' : 'low', daysUntil: 0, iconType: 'FileCode', link: 'invoices' });
                 }
             }
         }
@@ -275,7 +275,7 @@ const PendingWorks: React.FC = () => {
             case 'quotation': handleNavigation({ view: 'quotations', action: 'view', id: item.id }); break;
             case 'saleOrder': handleNavigation({ view: 'sale-orders', payload: { action: 'view', data: { 'SO No': item.id } } }); break;
             case 'pipeline':  handleNavigation({ view: 'projects',    filter: item.id }); break;
-            case 'invoice':   handleNavigation({ view: 'invoice-do',  payload: { action: 'view', data: { 'Inv No': item.id } } }); break;
+            case 'invoice':   handleNavigation({ view: 'invoices',  payload: { action: 'view', data: { 'Inv No': item.id } } }); break;
             case 'meeting':   handleNavigation({ view: 'meetings',    filter: item.id }); break;
             default:          handleNavigation({ view: item.link as any });
         }

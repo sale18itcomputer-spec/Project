@@ -1,14 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const MeetingDashboard = dynamic(() => import('@/components/dashboards/crm/MeetingDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import MeetingDashboard from '@/components/dashboards/crm/MeetingDashboard';
 
 function MeetingsContent() {
     const searchParams = useSearchParams();

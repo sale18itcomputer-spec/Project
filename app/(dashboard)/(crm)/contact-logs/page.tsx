@@ -1,14 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const ContactLogsDashboard = dynamic(() => import('@/components/dashboards/crm/ContactLogsDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import ContactLogsDashboard from '@/components/dashboards/crm/ContactLogsDashboard';
 
 function ContactLogsContent() {
     const searchParams = useSearchParams();

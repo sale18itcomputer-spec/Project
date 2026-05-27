@@ -1,17 +1,20 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, useEffect } from 'react';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
-
-const ContactDashboard = dynamic(() => import('@/components/dashboards/crm/ContactDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import { useData } from '@/contexts/DataContext';
+import ContactDashboard from '@/components/dashboards/crm/ContactDashboard';
 
 function ContactsContent() {
     const searchParams = useSearchParams();
     const filter = searchParams.get('filter') ?? undefined;
+    const { fetchModule } = useData();
+
+    // Revalidate on mount so newly-added contacts from other tabs/users appear
+    // without requiring a full page reload.
+    useEffect(() => { fetchModule('Contact_List'); }, [fetchModule]);
+
     return <ContactDashboard initialFilter={filter} />;
 }
 

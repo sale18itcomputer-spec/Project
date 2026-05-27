@@ -409,5 +409,27 @@ export const PURCHASE_ORDER_ITEM_HEADERS = [
   'description',
   'qty',
   'unit_price',
-  'total'
+  'total',
+  'brand',
+  'category',
+] as const;
+
+export const INVENTORY_HEADERS = [
+  'id',
+  'po_id',
+  'po_number',
+  'vendor_id',
+  'vendor_name',
+  'category',
+  'code',
+  'brand',
+  'model_name',
+  'description',
+  'qty',
+  'unit_price',
+  'currency',
+  'status',
+  'created_by',
+  'created_at',
+  'updated_at',
 ] as const;

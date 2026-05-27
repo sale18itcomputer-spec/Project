@@ -1,14 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-
-const QuotationDashboard = dynamic(() => import('@/components/dashboards/sales/QuotationDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import QuotationDashboard from '@/components/dashboards/sales/QuotationDashboard';
 
 function QuotationsContent() {
     const searchParams = useSearchParams();

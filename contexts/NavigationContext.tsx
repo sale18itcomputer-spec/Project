@@ -17,7 +17,8 @@ interface NavigationContextType {
 }
 
 export const VIEW_TO_PATH: Record<string, string> = {
-  'dashboard': '/',
+  // '/dashboard' is the canonical path; '/' is kept for legacy deep-links.
+  'dashboard': '/dashboard',
   'projects': '/projects',
   'companies': '/companies',
   'contacts': '/contacts',
@@ -31,6 +32,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'invoices': '/invoices',
   'delivery-orders': '/delivery-orders',
   'receipts': '/receipts',
+  'collection': '/collection',
   'users': '/users',
   'vendors': '/vendors',
   'vendor-pricelist': '/vendor-pricelist',

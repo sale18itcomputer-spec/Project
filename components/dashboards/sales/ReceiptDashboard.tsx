@@ -7,16 +7,15 @@ import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { useNavigation } from '../../../contexts/NavigationContext';
 import { formatCurrencySmartly } from '../../../utils/formatters';
-import { Receipt as ReceiptIcon, Table, Columns, Info, Pencil, LayoutGrid, Search, Trash2, WrapText, ArrowRightToLine, Scissors, Plus } from 'lucide-react';
+import { Receipt as ReceiptIcon, Table, Columns, Info, LayoutGrid, Search, WrapText, ArrowRightToLine, Scissors } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import KanbanView, { KanbanColumn } from '../views/KanbanView';
 import Spinner from '../../common/Spinner';
 import ReceiptCreator from '../../features/sales/ReceiptCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
-import { deleteRecord } from '../../../services/api';
-import ConfirmationModal from '../../modals/ConfirmationModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { Wallet, ArrowRight } from 'lucide-react';
 
 const RV_COLUMNS_KEY = 'limperial-rv-columns-visibility';
 type ViewMode = 'table' | 'board' | 'detail';
@@ -38,9 +37,11 @@ const StatusBadge: React.FC<{ status: Receipt['Status'] }> = ({ status }) => {
 interface Props { initialPayload?: any; }
 
 const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
-    const { receipts = [], setReceipts, loading, error } = useData();
-    const { addToast } = useToast();
-    const [toDelete, setToDelete] = useState<Receipt | null>(null);
+    // Receipts are now read-only audit records. They're created exclusively via
+    // QuickPaymentModal in the Collection tab. setReceipts is kept available for
+    // realtime + optimistic updates triggered elsewhere, but this dashboard does
+    // not mutate receipts directly.
+    const { receipts = [], loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -49,7 +50,10 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
     const { width } = useWindowSize();
     const isMobile = width < 768;
 
-    const isCreating = navigation.action === 'create' || navigation.action === 'edit'
+    // Only "view" mode is reachable now. Any inbound "edit" or "create" action
+    // (from legacy links or URL hacking) is treated as a view so the form is
+    // never opened in editable mode.
+    const isCreating = navigation.action === 'view'
         || (!!initialPayload && !navigation.action);
 
     const selectedId = useMemo(() => {
@@ -57,39 +61,14 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
         return null;
     }, [navigation.action, navigation.id]);
 
-    const selectedToEdit = useMemo(() => {
-        if (navigation.action === 'edit' && navigation.id && receipts) {
-            return receipts.find(r => r['RV No'] === navigation.id) || null;
-        }
-        return null;
-    }, [navigation.action, navigation.id, receipts]);
-
     useEffect(() => {
         if (navigation.action === 'view') setViewMode('detail');
     }, [navigation.action]);
 
-    const handleNew = () => handleNavigation({ view: 'receipts', action: 'create' });
-    const handleEdit = (row: Receipt) => handleNavigation({ view: 'receipts', action: 'edit', id: row['RV No'] });
     const handleView = (row: Receipt) => {
-        if (isMobile) { handleEdit(row); return; }
         handleNavigation({ view: 'receipts', action: 'view', id: row['RV No'] });
     };
     const handleBack = () => handleNavigation({ view: 'receipts' });
-
-    const handleConfirmDelete = async () => {
-        if (!toDelete) return;
-        const id = toDelete['RV No'];
-        setToDelete(null);
-        const original = receipts ? [...receipts] : [];
-        setReceipts(prev => prev ? prev.filter(r => r['RV No'] !== id) : null);
-        try {
-            await deleteRecord('Receipts', id);
-            addToast('Receipt deleted!', 'success');
-        } catch {
-            addToast('Failed to delete receipt.', 'error');
-            setReceipts(original);
-        }
-    };
 
     const filteredData = useMemo(() => {
         let data = receipts || [];
@@ -188,15 +167,17 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
         </div>
     );
 
-    if (isCreating) return (
+    const selectedRV = selectedId ? (receipts || []).find(r => r['RV No'] === selectedId) : null;
+
+    // Only the "view" action opens ReceiptCreator. Forced into read-only mode
+    // inside ReceiptCreator (next step) — no edit/create entry points remain.
+    if (isCreating && selectedRV) return (
         <ReceiptCreator
             onBack={handleBack}
-            existingReceipt={selectedToEdit}
+            existingReceipt={selectedRV}
             initialData={initialPayload}
         />
     );
-
-    const selectedRV = selectedId ? (receipts || []).find(r => r['RV No'] === selectedId) : null;
 
     return (
         <div className="h-full flex flex-col bg-background">
@@ -237,13 +218,28 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                                 </button>
                             }
                         />
-                        <button onClick={handleNew}
-                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0">
-                            <Plus size={16} /> New Receipt
+                        <button
+                            onClick={() => handleNavigation({ view: 'collection' })}
+                            className="flex-shrink-0 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
+                            title="Record payments in Collection to create receipts"
+                        >
+                            <Wallet size={16} /> Record Payment <ArrowRight size={14} />
                         </button>
                     </div>
                 </div>
             </header>
+
+            {/* Banner — receipts are created via Collection only */}
+            <div className="flex-shrink-0 px-4 lg:px-6 py-2.5 bg-brand-500/5 border-b border-border flex items-center gap-2 text-xs text-muted-foreground">
+                <Wallet className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />
+                <span>Receipts are created automatically when you record a payment.</span>
+                <button
+                    onClick={() => handleNavigation({ view: 'collection' })}
+                    className="font-bold text-brand-600 hover:underline inline-flex items-center gap-0.5"
+                >
+                    Go to Collection <ArrowRight className="w-3 h-3" />
+                </button>
+            </div>
 
             {/* Body */}
             <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
@@ -257,14 +253,12 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                         renderRowActions={row => (
                             <div className="flex items-center justify-center gap-3">
                                 <button onClick={e => { e.stopPropagation(); handleView(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="View"><Info size={16} /></button>
-                                <button onClick={e => { e.stopPropagation(); handleEdit(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="Edit"><Pencil size={16} /></button>
-                                <button onClick={e => { e.stopPropagation(); setToDelete(row); }} className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full" title="Delete"><Trash2 size={16} /></button>
                             </div>
                         )}
                     />
                 ) : viewMode === 'board' ? (
                     <KanbanView<Receipt>
-                        columns={kanbanColumns} onCardClick={handleEdit}
+                        columns={kanbanColumns} onCardClick={handleView}
                         renderCardContent={item => (
                             <>
                                 <h4 className="font-bold text-foreground">{item['Company Name']}</h4>
@@ -305,10 +299,7 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                                     <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
                                         <div className="px-6 py-4 bg-muted border-b border-border flex justify-between items-center">
                                             <h2 className="text-lg font-bold text-foreground">Receipt Details</h2>
-                                            <div className="flex gap-4">
-                                                <button onClick={() => handleEdit(selectedRV)} className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"><Pencil size={16} /> Edit</button>
-                                                <button onClick={() => setToDelete(selectedRV)} className="flex items-center gap-2 text-rose-500 font-semibold hover:underline"><Trash2 size={16} /> Delete</button>
-                                            </div>
+                                            <span className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md uppercase font-bold tracking-wider">Issued · Immutable</span>
                                         </div>
                                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="space-y-4">
@@ -395,11 +386,6 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                 <span className="ml-auto text-xs text-muted-foreground">{filteredData.length} records</span>
             </footer>
 
-            <ConfirmationModal
-                isOpen={!!toDelete} onClose={() => setToDelete(null)} onConfirm={handleConfirmDelete}
-                title="Delete Receipt" confirmText="Delete" variant="danger">
-                Are you sure you want to delete {toDelete?.['RV No']}? This action cannot be undone.
-            </ConfirmationModal>
         </div>
     );
 };

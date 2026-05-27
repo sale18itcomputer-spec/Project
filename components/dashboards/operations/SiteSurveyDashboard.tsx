@@ -12,6 +12,7 @@ import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { PermissionGate } from '../../common/PermissionGate';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -238,13 +239,15 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
                   />
                 </>
               )}
-              <button
-                onClick={handleOpenNewSurvey}
-                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-              >
-                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                <span className="hidden sm:inline">New</span>
-              </button>
+              <PermissionGate module="site_surveys" action="create">
+                <button
+                  onClick={handleOpenNewSurvey}
+                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
+                >
+                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span className="hidden sm:inline">New</span>
+                </button>
+              </PermissionGate>
             </div>
           </div>
         </div>

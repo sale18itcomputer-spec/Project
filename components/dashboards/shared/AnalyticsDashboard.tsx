@@ -15,6 +15,7 @@ import AnalyticsTopCustomersChart, { CustomerDataPoint } from '../../charts/anal
 import PipelineStatusChart, { PipelineDataPoint } from '../../charts/analytics/PipelineStatusChart';
 import SalesByBrandChart, { BrandDataPoint } from '../../charts/analytics/SalesByBrandChart';
 import QuoteConversionChart, { ConversionDataPoint } from '../../charts/analytics/QuoteConversionChart';
+import { FieldGate } from '../../common/PermissionGate';
 
 // ---------------------------------------------------------------------------
 // Stable helpers (defined once, outside the component — never recreated)
@@ -346,29 +347,33 @@ const AnalyticsDashboard: React.FC = () => {
       </div>
 
       {/* Revenue */}
-      <div className="space-y-4">
-        <div className="flex flex-col gap-2 mb-4">
-          <SectionHeader title="Revenue Insights" />
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0 h-8 items-center">
-              {(['monthly', 'quarterly', 'yearly'] as const).map(p => (
-                <button key={p} onClick={() => setRevenuePeriod(p)}
-                  className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-colors capitalize ${revenuePeriod === p ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
-                  {p}
-                </button>
-              ))}
+      <FieldGate field="showRevenueData">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 mb-4">
+            <SectionHeader title="Revenue Insights" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="bg-muted p-1 rounded-lg flex gap-1 flex-shrink-0 h-8 items-center">
+                {(['monthly', 'quarterly', 'yearly'] as const).map(p => (
+                  <button key={p} onClick={() => setRevenuePeriod(p)}
+                    className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-colors capitalize ${revenuePeriod === p ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+          <RevenueGrowthChart data={revenueData} onBarClick={handleRevenueBarClick} />
         </div>
-        <RevenueGrowthChart data={revenueData} onBarClick={handleRevenueBarClick} />
-      </div>
+      </FieldGate>
 
       {/* Core Analytics */}
       <div className="space-y-4">
         <SectionHeader title="Core Analytics" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <PendingDistributionChart data={pendingCounts} />
-          <AnalyticsTopCustomersChart data={customerData} onBarClick={handleCustomerClick} />
+          <FieldGate field="showRevenueData">
+            <AnalyticsTopCustomersChart data={customerData} onBarClick={handleCustomerClick} />
+          </FieldGate>
         </div>
       </div>
 
@@ -387,7 +392,9 @@ const AnalyticsDashboard: React.FC = () => {
       <div className="space-y-4">
         <SectionHeader title="Market Intelligence" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SalesByBrandChart data={brandData} onSliceClick={handleBrandClick} />
+          <FieldGate field="showRevenueData">
+            <SalesByBrandChart data={brandData} onSliceClick={handleBrandClick} />
+          </FieldGate>
           <QuoteConversionChart data={conversionData} />
         </div>
       </div>

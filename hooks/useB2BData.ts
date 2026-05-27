@@ -3,47 +3,21 @@ import { useData } from '../contexts/DataContext';
 import { useB2B } from '../contexts/B2BContext';
 
 /**
- * Hook that provides B2B-aware data.
- * Returns B2B data when in B2B mode, B2C data otherwise.
+ * Returns the active data set + the current mode flag.
  *
- * In the miniapp, MiniAppDataProvider provides into the real DataContext,
- * so useData() resolves correctly without DataProvider being mounted.
+ * Historically this hook overlaid B2B data (owned by B2BContext) on top of B2C
+ * data (owned by DataContext). Now DataContext is itself mode-aware — it
+ * resolves every table read/write to the correct B2C or B2B physical table
+ * based on the current B2B mode. So this hook is just a thin convenience that
+ * exposes `isB2B` alongside the data; the underlying state is identical to
+ * useData() at all times.
+ *
+ * Kept as a stable re-export so the dashboards that already import it
+ * (CompanyDashboard, PipelineDashboard, QuotationDashboard, NewCompanyModal,
+ * etc.) don't need to change.
  */
 export const useB2BData = () => {
-    const {
-        isB2B,
-        companies: b2bCompanies,
-        projects: b2bProjects,
-        quotations: b2bQuotations,
-        loading: b2bLoading,
-        error: b2bError,
-        setCompanies: setB2bCompanies,
-        setProjects: setB2bProjects,
-        setQuotations: setB2bQuotations
-    } = useB2B();
-
-    const b2cData = useData();
-
-    return useMemo(() => {
-        if (isB2B) {
-            return {
-                ...b2cData,
-                companies: b2bCompanies,
-                projects: b2bProjects,
-                quotations: b2bQuotations,
-                loading: b2cData.loading || b2bLoading,
-                error: b2cData.error || b2bError,
-                setCompanies: setB2bCompanies,
-                setProjects: setB2bProjects,
-                setQuotations: setB2bQuotations,
-                isB2B: true,
-            };
-        }
-        return { ...b2cData, isB2B: false };
-    }, [
-        isB2B, b2cData,
-        b2bCompanies, b2bProjects, b2bQuotations,
-        b2bLoading, b2bError,
-        setB2bCompanies, setB2bProjects, setB2bQuotations
-    ]);
+    const data = useData();
+    const { isB2B } = useB2B();
+    return useMemo(() => ({ ...data, isB2B }), [data, isB2B]);
 };

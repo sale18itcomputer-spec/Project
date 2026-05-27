@@ -70,13 +70,29 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 
 const lineItemInputClasses = "w-full text-sm p-2 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder:text-muted-foreground/50 transition hover:border-muted-foreground/40";
 
+// ── Unified result type for the item picker dropdown ─────────────────────────
+type PickerSource = 'pricelist' | 'inventory';
+interface PickerResult {
+    source: PickerSource;
+    key: string;           // unique key for React
+    code: string;
+    model: string;
+    brand: string;
+    description: string;
+    price: number | string;
+    statusLabel: string;
+    currency?: string;
+    /** inventory qty — undefined when source is pricelist */
+    qty?: number;
+}
+
 const PricelistCombobox: React.FC<{
     item: LineItem;
     onItemChange: (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => void;
     onPricelistItemSelect: (item: LineItem, pricelistItem: any) => void;
     disabled?: boolean;
 }> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
-    const { pricelist } = useData();
+    const { pricelist, inventoryItems } = useData();
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -90,26 +106,100 @@ const PricelistCombobox: React.FC<{
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
-    const filteredPricelist = useMemo(() => {
-        if (!pricelist || !isOpen) return [];
-        const query = item.itemCode?.toLowerCase() || '';
-        if (query === '') return pricelist.slice(0, 50);
-        return pricelist.filter(p =>
-            p.Code?.toLowerCase().includes(query) ||
-            p.Model?.toLowerCase().includes(query) ||
-            p.Brand?.toLowerCase().includes(query)
-        ).slice(0, 50);
-    }, [pricelist, item.itemCode, isOpen]);
+    // Build merged results: inventory first (priority), then pricelist
+    const mergedResults = useMemo((): PickerResult[] => {
+        if (!isOpen) return [];
+        const query = (item.itemCode ?? '').toLowerCase().trim();
+
+        // ── Inventory items ────────────────────────────────────────────────────
+        const invResults: PickerResult[] = (inventoryItems ?? [])
+            .filter(inv => {
+                if ((inv.qty ?? 0) <= 0) return false; // hide zero-stock
+                if (!query) return true;
+                return (
+                    (inv.code ?? '').toLowerCase().includes(query) ||
+                    (inv.model_name ?? '').toLowerCase().includes(query) ||
+                    (inv.brand ?? '').toLowerCase().includes(query) ||
+                    (inv.description ?? '').toLowerCase().includes(query)
+                );
+            })
+            .slice(0, 30)
+            .map(inv => ({
+                source: 'inventory' as PickerSource,
+                key: `inv-${inv.id}`,
+                code: inv.code ?? '',
+                model: inv.model_name ?? '',
+                brand: inv.brand ?? '',
+                description: inv.description ?? '',
+                price: inv.unit_price,
+                statusLabel: `Qty: ${inv.qty}`,
+                currency: inv.currency,
+                qty: inv.qty,
+            }));
+
+        // ── Pricelist items ────────────────────────────────────────────────────
+        const plResults: PickerResult[] = (pricelist ?? [])
+            .filter(p => {
+                if (!query) return true;
+                return (
+                    (p.Code ?? '').toLowerCase().includes(query) ||
+                    (p.Model ?? '').toLowerCase().includes(query) ||
+                    (p.Brand ?? '').toLowerCase().includes(query)
+                );
+            })
+            .slice(0, 30)
+            .map(p => ({
+                source: 'pricelist' as PickerSource,
+                key: `pl-${p.Code}`,
+                code: p.Code ?? '',
+                model: p.Model ?? '',
+                brand: p.Brand ?? '',
+                description: p.Description ?? '',
+                price: p['End User Price'],
+                statusLabel: p.Status ?? '',
+                currency: p.Currency,
+                qty: undefined,
+            }));
+
+        // Deduplicate: if inventory already covers a code, skip pricelist duplicate
+        const invCodes = new Set(invResults.map(r => r.code.toLowerCase()));
+        const dedupedPl = plResults.filter(r => !r.code || !invCodes.has(r.code.toLowerCase()));
+
+        return [...invResults, ...dedupedPl].slice(0, 60);
+    }, [pricelist, inventoryItems, item.itemCode, isOpen]);
 
     const handleBlur = () => {
         setTimeout(() => {
             if (!document.body.contains(wrapperRef.current)) return;
             setIsOpen(false);
+            // Auto-fill on exact code match (pricelist fallback)
             const exactMatch = pricelist?.find(p => p.Code?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
             if (exactMatch && !item.modelName) {
                 onPricelistItemSelect(item, exactMatch);
             }
         }, 200);
+    };
+
+    // Normalise a picker result → the shape expected by onPricelistItemSelect
+    const handleSelect = (result: PickerResult) => {
+        if (result.source === 'inventory') {
+            // Map inventory fields to the same shape as a pricelist item
+            onPricelistItemSelect(item, {
+                Code: result.code,
+                Model: result.model,
+                Brand: result.brand,
+                Description: result.description,
+                'End User Price': result.price,
+                Status: result.statusLabel,
+                Currency: result.currency,
+                // Extra metadata so the SO can record the inventory source
+                _inventoryQty: result.qty,
+            });
+        } else {
+            const pl = pricelist?.find(p => p.Code === result.code);
+            if (pl) onPricelistItemSelect(item, pl);
+        }
+        setIsOpen(false);
     };
 
     return (
@@ -124,38 +214,55 @@ const PricelistCombobox: React.FC<{
                 onFocus={() => setIsOpen(true)}
                 onBlur={handleBlur}
                 className={`${lineItemInputClasses} ${disabled ? 'bg-muted opacity-50 cursor-not-allowed' : 'hover:bg-muted'}`}
-                placeholder="Type to search..."
+                placeholder="Type to search inventory or pricelist…"
                 autoComplete="off"
                 disabled={disabled}
             />
-            {isOpen && !disabled && filteredPricelist.length > 0 && (
-                <div className="absolute z-[9999] w-[450px] mt-1 bg-card rounded-md shadow-lg border border-border">
-                    <ScrollArea className="max-h-72">
+            {isOpen && !disabled && mergedResults.length > 0 && (
+                <div className="absolute z-[9999] w-[480px] mt-1 bg-card rounded-md shadow-lg border border-border">
+                    <ScrollArea className="max-h-80">
+                        {/* Section headers when both sources present */}
+                        {mergedResults.some(r => r.source === 'inventory') && (
+                            <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 select-none">
+                                📦 Inventory (In Stock)
+                            </p>
+                        )}
                         <ul>
-                            {filteredPricelist.map(pItem => (
-                                <li key={pItem.Code}>
-                                    <button
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            onPricelistItemSelect(item, pItem);
-                                            setIsOpen(false);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
-                                    >
-                                        <div className="flex justify-between w-full items-center">
-                                            <div className="truncate pr-4">
-                                                <p className="font-semibold text-foreground">{pItem.Model}</p>
-                                                <p className="text-xs text-muted-foreground">{pItem.Brand} - {pItem.Code}</p>
-                                            </div>
-                                            <div className="text-right flex-shrink-0">
-                                                <p className="font-semibold text-foreground">{pItem['End User Price']}</p>
-                                                <p className="text-xs text-muted-foreground">{pItem.Status}</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </li>
-                            ))}
+                            {mergedResults.map((result, idx) => {
+                                // Insert pricelist section header
+                                const prevIsInv = idx > 0 && mergedResults[idx - 1].source === 'inventory';
+                                const showPlHeader = result.source === 'pricelist' && (idx === 0 || prevIsInv);
+                                return (
+                                    <React.Fragment key={result.key}>
+                                        {showPlHeader && (
+                                            <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 select-none border-t border-border mt-1">
+                                                📋 Pricelist
+                                            </p>
+                                        )}
+                                        <li>
+                                            <button
+                                                type="button"
+                                                onMouseDown={e => { e.preventDefault(); handleSelect(result); }}
+                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground
+                                                    ${result.source === 'inventory' ? 'hover:bg-emerald-500/5' : ''}`}
+                                            >
+                                                <div className="flex justify-between w-full items-center">
+                                                    <div className="truncate pr-4">
+                                                        <p className="font-semibold text-foreground">{result.model}</p>
+                                                        <p className="text-xs text-muted-foreground">{result.brand}{result.code ? ` — ${result.code}` : ''}</p>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className="font-semibold text-foreground">{result.price}</p>
+                                                        <p className={`text-xs font-medium ${result.source === 'inventory' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                                            {result.statusLabel}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </li>
+                                    </React.Fragment>
+                                );
+                            })}
                         </ul>
                     </ScrollArea>
                 </div>
@@ -166,7 +273,7 @@ const PricelistCombobox: React.FC<{
 
 
 const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder, initialData }) => {
-    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist, refetchModule } = useData();
+    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist, inventoryItems, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
@@ -646,7 +753,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     return [masterSheetData as any, ...base];
                 });
             }
-            handleNavigation({ view: 'invoice-do', payload: { action: 'create', soData: { ...masterSheetData, 'ItemsJSON': items } } });
+            handleNavigation({ view: 'invoices', payload: { action: 'create', soData: { ...masterSheetData, 'ItemsJSON': items } } });
             addToast('Sale Order marked as Completed and converted to Invoice.', 'success');
         } catch (err: any) {
             addToast('Error during conversion: ' + err.message, 'error');

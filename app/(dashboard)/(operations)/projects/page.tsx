@@ -1,17 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, useEffect } from 'react';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
-
-const PipelineDashboard = dynamic(() => import('@/components/dashboards/operations/PipelineDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import { useData } from '@/contexts/DataContext';
+import PipelineDashboard from '@/components/dashboards/operations/PipelineDashboard';
 
 function ProjectsContent() {
     const searchParams = useSearchParams();
     const filter = searchParams.get('filter') ?? undefined;
+    const { fetchModule } = useData();
+
+    useEffect(() => { fetchModule('Pipelines'); }, [fetchModule]);
+
     return <PipelineDashboard initialFilter={filter} />;
 }
 

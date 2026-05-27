@@ -3,10 +3,12 @@
 import React from 'react';
 import { useB2B } from "../../contexts/B2BContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../providers/AppProviders";
 import { Building2, Users2, Sun, Moon } from 'lucide-react';
 
 const B2BToggle: React.FC = () => {
-    const { mode, toggleMode, isB2B, b2bTheme, toggleB2BTheme } = useB2B();
+    const { mode, toggleMode, isB2B } = useB2B();
+    const { isDark, toggle: toggleTheme } = useTheme();
     const { currentUser: _currentUser } = useAuth();
 
     // Only show toggle for admin users
@@ -46,14 +48,14 @@ const B2BToggle: React.FC = () => {
                 </button>
             </div>
 
-            {/* B2B Specific Theme Toggle */}
+            {/* Theme Toggle */}
             {isB2B && (
                 <button
-                    onClick={toggleB2BTheme}
+                    onClick={toggleTheme}
                     className="flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 shadow-sm"
-                    title={`Switch to ${b2bTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+                    title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
                 >
-                    {b2bTheme === 'dark' ? (
+                    {isDark ? (
                         <Sun size={18} className="animate-in zoom-in duration-300" />
                     ) : (
                         <Moon size={18} className="animate-in zoom-in duration-300" />

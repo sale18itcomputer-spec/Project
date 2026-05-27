@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PurchaseOrder, PurchaseOrderItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -12,6 +12,7 @@ import { formatCurrencySmartly } from "../../../utils/formatters";
 import { formatToInputDate } from "../../../utils/time";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { generatePDF } from "@/lib/pdfClient";
+import { ScrollArea } from "../../ui/scroll-area";
 
 const STRIP_HTML = (html: string) => {
     if (!html) return '';
@@ -51,6 +52,166 @@ const STRIP_HTML = (html: string) => {
     }
 };
 
+// ── POItemCombobox ────────────────────────────────────────────────────────────
+// Searches vendor_pricelist (dealer items) + main pricelist (B2C items) so
+// every PO line item carries brand, category, and full description from day one.
+interface POItemComboboxProps {
+    value: string;
+    onChange: (value: string) => void;
+    onSelect: (fields: { item_number: string; description: string; unit_price: number; brand: string; category: string }) => void;
+}
+
+const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSelect }) => {
+    const { vendorPricelist, pricelist } = useData();
+    const [open, setOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    type ComboResult = {
+        key: string; source: 'vendor' | 'pricelist';
+        code: string; model: string; brand: string;
+        category: string; spec: string; price: number; currency?: string;
+    };
+
+    const results = useMemo((): ComboResult[] => {
+        if (!open) return [];
+        const q = value.toLowerCase().trim();
+
+        // ── Vendor pricelist (dealer pricing) ────────────────────────────────
+        const vendorResults: ComboResult[] = (vendorPricelist ?? [])
+            .filter(v =>
+                !q ||
+                (v.model_name ?? '').toLowerCase().includes(q) ||
+                (v.brand ?? '').toLowerCase().includes(q) ||
+                (v.specification ?? '').toLowerCase().includes(q)
+            )
+            .slice(0, 40)
+            .map(v => ({
+                key: `v-${v.id}`,
+                source: 'vendor',
+                code: v.model_name ?? '',
+                model: v.model_name ?? '',
+                brand: v.brand ?? '',
+                category: '',           // vendor_pricelist has no category column
+                spec: v.specification ?? '',
+                price: v.dealer_price ?? 0,
+                currency: v.currency,
+            }));
+
+        // ── Main pricelist (B2C / sales pricelist) ────────────────────────────
+        const plResults: ComboResult[] = (pricelist ?? [])
+            .filter(p =>
+                !q ||
+                (p.Code ?? '').toLowerCase().includes(q) ||
+                (p.Model ?? '').toLowerCase().includes(q) ||
+                (p.Brand ?? '').toLowerCase().includes(q) ||
+                (p.Description ?? '').toLowerCase().includes(q)
+            )
+            .slice(0, 40)
+            .map(p => ({
+                key: `p-${p.Code}`,
+                source: 'pricelist',
+                code: p.Code ?? '',
+                model: p.Model ?? '',
+                brand: p.Brand ?? '',
+                category: p.Category ?? '',
+                spec: p.Description ?? '',
+                price: parseFloat(String(p['End User Price'] ?? 0)) || 0,
+                currency: p.Currency,
+            }));
+
+        // Deduplicate: if vendor already covers a code, skip pricelist duplicate
+        const vendorCodes = new Set(vendorResults.map(r => r.code.toLowerCase()));
+        const deduped = plResults.filter(r => !r.code || !vendorCodes.has(r.code.toLowerCase()));
+
+        return [...vendorResults, ...deduped].slice(0, 60);
+    }, [vendorPricelist, pricelist, value, open]);
+
+    const hasVendor = results.some(r => r.source === 'vendor');
+    const hasPricelist = results.some(r => r.source === 'pricelist');
+
+    return (
+        <div ref={wrapperRef} className="relative">
+            <input
+                className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm"
+                value={value}
+                onChange={e => { onChange(e.target.value); if (!open) setOpen(true); }}
+                onFocus={() => setOpen(true)}
+                placeholder="Search / SKU"
+                autoComplete="off"
+            />
+            {open && results.length > 0 && (
+                <div className="absolute z-[9999] left-0 w-[440px] mt-1 bg-card rounded-md shadow-xl border border-border">
+                    <ScrollArea className="max-h-72">
+                        {hasVendor && (
+                            <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400 select-none">
+                                🏭 Vendor Pricelist
+                            </p>
+                        )}
+                        <ul>
+                            {results.map((r, idx) => {
+                                const prevIsVendor = idx > 0 && results[idx - 1].source === 'vendor';
+                                const showPlHeader = hasPricelist && r.source === 'pricelist' && (idx === 0 || prevIsVendor);
+                                return (
+                                    <React.Fragment key={r.key}>
+                                        {showPlHeader && (
+                                            <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 select-none border-t border-border mt-1">
+                                                📋 Pricelist
+                                            </p>
+                                        )}
+                                        <li>
+                                            <button
+                                                type="button"
+                                                onMouseDown={e => {
+                                                    e.preventDefault();
+                                                    onSelect({
+                                                        item_number: r.code,
+                                                        description: r.spec,
+                                                        unit_price: r.price,
+                                                        brand: r.brand,
+                                                        category: r.category,
+                                                    });
+                                                    setOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+                                            >
+                                                <div className="flex justify-between items-start gap-4">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="font-semibold text-foreground truncate">{r.model}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">
+                                                            {r.brand}{r.brand && r.code ? ' — ' : ''}{r.code}
+                                                            {r.category ? ` · ${r.category}` : ''}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className="font-semibold text-foreground text-sm">
+                                                            {r.currency === 'KHR'
+                                                                ? `៛${Number(r.price).toLocaleString()}`
+                                                                : `$${Number(r.price).toFixed(2)}`}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground capitalize">{r.source}</p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </li>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </ul>
+                    </ScrollArea>
+                </div>
+            )}
+        </div>
+    );
+};
+
 interface PurchaseOrderCreatorProps {
     onBack: () => void;
     existingPO?: PurchaseOrder | null;
@@ -58,7 +219,9 @@ interface PurchaseOrderCreatorProps {
 }
 
 const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, existingPO, initialData }) => {
-    const { vendors } = useData();
+    const { vendors, vendorPricelist, pricelist } = useData();
+    // vendorPricelist and pricelist are consumed by POItemCombobox (child component)
+    void vendorPricelist; void pricelist;
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PurchaseOrder>>({
@@ -164,7 +327,13 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             .select('*')
             .eq('po_id', poId)
             .order('line_number', { ascending: true });
-        if (data) setItems(data);
+        if (data) {
+            setItems(data.map(row => ({
+                ...row,
+                brand:    row.brand    ?? '',
+                category: row.category ?? '',
+            })));
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -189,6 +358,17 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
     const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: any) => {
         setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+    };
+
+    /** Called when a user selects from the POItemCombobox — fills all fields at once */
+    const handleItemSelectFromLookup = (index: number, fields: {
+        item_number: string; description: string; unit_price: number; brand: string; category: string;
+    }) => {
+        setItems(prev => prev.map((item, i) =>
+            i === index
+                ? { ...item, ...fields }
+                : item
+        ));
     };
 
     const addItem = () => {
@@ -239,7 +419,9 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 item_number: item.item_number,
                 description: item.description,
                 qty: item.qty,
-                unit_price: item.unit_price
+                unit_price: item.unit_price,
+                brand: item.brand ?? '',
+                category: item.category ?? '',
             }));
 
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
@@ -443,8 +625,10 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                 <table className="w-full text-left border-collapse min-w-[700px]">
                                     <thead>
                                         <tr className="bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
-                                            <th className="px-4 py-3 w-16">No.</th>
-                                            <th className="px-4 py-3 w-32">Item #</th>
+                                            <th className="px-4 py-3 w-12">No.</th>
+                                            <th className="px-4 py-3 w-36">Item # / Code</th>
+                                            <th className="px-4 py-3 w-24">Brand</th>
+                                            <th className="px-4 py-3 w-28">Category</th>
                                             <th className="px-4 py-3 min-w-[200px]">Description</th>
                                             <th className="px-4 py-3 w-20">Qty</th>
                                             <th className="px-4 py-3 w-28">Unit Price</th>
@@ -456,14 +640,37 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                         {items.map((item, index) => (
                                             <tr key={index} className="border-b border-border/50 hover:bg-muted/5 transition-colors">
                                                 <td className="px-4 py-3 text-sm text-muted-foreground">{item.line_number}</td>
+
+                                                {/* ── Item # with searchable combobox ── */}
+                                                <td className="px-2 py-3 min-w-[140px]">
+                                                    <POItemCombobox
+                                                        value={item.item_number}
+                                                        onChange={val => handleItemChange(index, 'item_number', val)}
+                                                        onSelect={fields => handleItemSelectFromLookup(index, fields)}
+                                                    />
+                                                </td>
+
+                                                {/* ── Brand (auto-filled, editable) ── */}
                                                 <td className="px-2 py-3">
                                                     <input
                                                         className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm"
-                                                        value={item.item_number}
-                                                        onChange={(e) => handleItemChange(index, 'item_number', e.target.value)}
-                                                        placeholder="SKU"
+                                                        value={item.brand ?? ''}
+                                                        onChange={e => handleItemChange(index, 'brand', e.target.value)}
+                                                        placeholder="Brand"
                                                     />
                                                 </td>
+
+                                                {/* ── Category (auto-filled, editable) ── */}
+                                                <td className="px-2 py-3">
+                                                    <input
+                                                        className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm"
+                                                        value={item.category ?? ''}
+                                                        onChange={e => handleItemChange(index, 'category', e.target.value)}
+                                                        placeholder="Category"
+                                                    />
+                                                </td>
+
+                                                {/* ── Description ── */}
                                                 <td className="px-2 py-3 min-w-[300px]">
                                                     <textarea
                                                         className="w-full bg-background rounded border border-border/50 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm text-sm px-3 py-2 resize-y min-h-[60px] outline-none"
@@ -473,6 +680,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                                         rows={2}
                                                     />
                                                 </td>
+
                                                 <td className="px-2 py-3">
                                                     <input
                                                         className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm text-center"

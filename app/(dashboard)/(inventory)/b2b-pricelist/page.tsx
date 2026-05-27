@@ -1,17 +1,7 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
-import ContentSkeleton from '@/components/common/ContentSkeleton';
-
-const B2BPricelistDashboard = dynamic(() => import('@/components/dashboards/inventory/B2BPricelistDashboard'), {
-    loading: () => <ContentSkeleton />,
-});
+import B2BPricelistDashboard from '@/components/dashboards/inventory/B2BPricelistDashboard';
 
 export default function B2BPricelistPage() {
-    return (
-        <Suspense fallback={<ContentSkeleton />}>
-            <B2BPricelistDashboard />
-        </Suspense>
-    );
+    return <B2BPricelistDashboard />;
 }
