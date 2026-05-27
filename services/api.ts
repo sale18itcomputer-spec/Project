@@ -1,5 +1,24 @@
 
 import { supabase } from '../lib/supabase';
+import { withTimeout } from '../utils/promise';
+
+const DETAIL_READ_TIMEOUT_MS = 15000;
+
+// ── B2B/B2C mode (set by DataContext on initial mount + mode toggle) ──────────
+// Module-level state — every CRUD call below transparently routes to the right
+// table set based on the current mode. The alternative (passing isB2B to every
+// call site) would touch dozens of files and silently regress whenever a new
+// caller is added. The mode is set ONCE up-front and updated synchronously on
+// every toggle, so there's no race window where the wrong table is queried.
+let currentMode: 'B2C' | 'B2B' = 'B2C';
+
+export function setApiMode(mode: 'B2C' | 'B2B'): void {
+    currentMode = mode;
+}
+
+export function getApiMode(): 'B2C' | 'B2B' {
+    return currentMode;
+}
 
 // ── Table routing ─────────────────────────────────────────────────────────────
 const TABLE_MAP: Record<string, string> = {
@@ -19,11 +38,61 @@ const TABLE_MAP: Record<string, string> = {
     'Purchase Orders': 'purchase_orders',
     'Delivery Orders': 'delivery_orders',
     'Receipts':        'receipts',
+    'Inventory':       'inventory',
     'b2b_pipelines':   'b2b_pipelines',
     'b2b_companies':   'b2b_companies',
     'b2b_quotations':  'b2b_quotations',
     'User_Passcodes':  'user_passcodes',
 };
+
+// B2B mirror tables. Any base table listed here gets transparently swapped
+// when currentMode === 'B2B'. Tables not in this map (vendors, vendor_pricelist,
+// purchase_orders, inventory, users, app_settings, ...) stay shared across both modes.
+const B2B_TABLE_MAP: Record<string, string> = {
+    'pipelines':         'b2b_pipelines',
+    'companies':         'b2b_companies',
+    'contacts':          'b2b_contacts',
+    'meeting_logs':      'b2b_meeting_logs',
+    'contact_logs':      'b2b_contact_logs',
+    'site_survey_logs':  'b2b_site_survey_logs',
+    'quotations':        'b2b_quotations',
+    'sale_orders':       'b2b_sale_orders',
+    'pricelist':         'b2b_pricelist',
+    'invoices':          'b2b_invoices',
+    'delivery_orders':   'b2b_delivery_orders',
+    'receipts':          'b2b_receipts',
+    // inventory is shared: it is procurement-owned (flows from purchase_orders)
+    // and has no B2B-specific isolation requirement. b2b_inventory table does
+    // not exist in Supabase.
+};
+
+/**
+ * Resolves a sheet name to its actual Supabase table.
+ *
+ * When `isB2B` is passed explicitly (the safe path used by DataContext), the
+ * mode is taken from the argument — there are zero timing assumptions about
+ * `setApiMode` ordering, HMR module resets, or React concurrent renders.
+ * When omitted, falls back to the module-level singleton (kept for legacy
+ * call sites in modals/forms that haven't been updated yet).
+ */
+function resolveTable(sheetName: string, isB2B?: boolean): string | undefined {
+    const baseTable = TABLE_MAP[sheetName];
+    if (!baseTable) return undefined;
+    const useB2B = isB2B ?? (currentMode === 'B2B');
+    if (useB2B && B2B_TABLE_MAP[baseTable]) {
+        return B2B_TABLE_MAP[baseTable];
+    }
+    return baseTable;
+}
+
+/** B2C-table-name → B2B-table-name. Used by realtime subscribers. */
+export function resolveTableByBase(baseTable: string, isB2B?: boolean): string {
+    const useB2B = isB2B ?? (currentMode === 'B2B');
+    if (useB2B && B2B_TABLE_MAP[baseTable]) {
+        return B2B_TABLE_MAP[baseTable];
+    }
+    return baseTable;
+}
 
 // Primary keys — must exactly match the column names in Supabase (no trailing dots)
 const PRIMARY_KEYS: Record<string, string> = {
@@ -43,6 +112,7 @@ const PRIMARY_KEYS: Record<string, string> = {
     'Purchase Orders': 'id',
     'Delivery Orders': 'DO No',
     'Receipts':        'RV No',
+    'Inventory':       'id',
     'b2b_pipelines':   'Pipeline No',
     'b2b_companies':   'Company ID',
     'b2b_quotations':  'Quote No',
@@ -50,10 +120,13 @@ const PRIMARY_KEYS: Record<string, string> = {
 };
 
 // Tables that have an updated_at column (trigger keeps them fresh,
-// but we stamp on write too so realtime subscribers see the change immediately)
+// but we stamp on write too so realtime subscribers see the change immediately).
+// B2B mirror tables have the same updated_at column so they're listed here too.
 const HAS_UPDATED_AT = new Set([
     'quotations', 'sale_orders', 'invoices', 'delivery_orders',
     'receipts', 'vendors', 'vendor_pricelist', 'purchase_orders', 'app_settings',
+    'inventory',
+    'b2b_sale_orders', 'b2b_invoices', 'b2b_delivery_orders', 'b2b_receipts',
 ]);
 
 /** Strip fields that exist in the DB only as computed/read-only or legacy names */
@@ -76,8 +149,13 @@ function stampedPayload(table: string, payload: any): any {
 
 // ── Generic CRUD ──────────────────────────────────────────────────────────────
 
-export const createRecord = async (sheetName: string, payload: any) => {
-    const table = TABLE_MAP[sheetName];
+export const createRecord = async (sheetName: string, payload: any, isB2B?: boolean) => {
+    // isB2B is accepted explicitly so call sites in B2B-aware contexts (modals,
+    // forms) can guarantee the write lands on the correct b2b_* table rather
+    // than relying solely on the module-level singleton. Falls back to the
+    // singleton (currentMode) when omitted — safe for user-action call sites
+    // that fire after DataContext's useLayoutEffect has already set the mode.
+    const table = resolveTable(sheetName, isB2B);
     if (!table) throw new Error(`No table mapping for "${sheetName}"`);
 
     const body = stampedPayload(table, cleanPayload(sheetName, payload));
@@ -95,26 +173,78 @@ export const createRecord = async (sheetName: string, payload: any) => {
     return data;
 };
 
-export const readRecords = async <T extends object>(sheetName: string): Promise<T[]> => {
-    const table = TABLE_MAP[sheetName];
+// Supabase's PostgREST enforces a default cap of 1000 rows per response.
+// We paginate manually so tables larger than 1000 rows return ALL records —
+// without this, newly added rows can be invisible because the existing top-1000
+// window doesn't contain them.
+const PAGE_SIZE = 1000;
+
+export const readRecords = async <T extends object>(sheetName: string, isB2B?: boolean): Promise<T[]> => {
+    const table = resolveTable(sheetName, isB2B);
     if (!table) throw new Error(`No table mapping for "${sheetName}"`);
 
-    const { data, error } = await supabase.from(table).select('*').order(
-        PRIMARY_KEYS[sheetName] ?? 'id', { ascending: false }
-    );
+    const orderColumn = PRIMARY_KEYS[sheetName] ?? 'id';
 
-    if (error) {
-        console.error('[readRecords] Supabase error:', error);
-        throw new Error(error.message);
+    // First page also fetches the total row count so we can fire the remaining
+    // pages in parallel instead of waiting for each one sequentially. For small
+    // tables (< PAGE_SIZE rows) this is a single round-trip.
+    const { data: firstData, count, error: firstErr } = await supabase
+        .from(table)
+        .select('*', { count: 'estimated' })
+        .order(orderColumn, { ascending: false })
+        .range(0, PAGE_SIZE - 1);
+
+    if (firstErr) {
+        console.error('[readRecords] Supabase error:', firstErr);
+        throw new Error(firstErr.message);
     }
-    return (data ?? []) as T[];
+
+    const all: T[] = (firstData ?? []) as T[];
+
+    // If the server returned fewer rows than we asked for, we already have everything.
+    if (all.length < PAGE_SIZE) return all;
+
+    // Total rows: prefer the count header (estimated is cheaper than exact and
+    // accurate enough for pagination loops). Fall back to incremental fetching
+    // when count is unavailable.
+    const total = typeof count === 'number' ? count : Infinity;
+
+    // Build the list of remaining page requests and fire them in parallel.
+    const pageRequests: Promise<{ data: any[] | null; error: any }>[] = [];
+    for (let from = PAGE_SIZE; from < total; from += PAGE_SIZE) {
+        pageRequests.push(
+            Promise.resolve(
+                supabase
+                    .from(table)
+                    .select('*')
+                    .order(orderColumn, { ascending: false })
+                    .range(from, from + PAGE_SIZE - 1)
+            ),
+        );
+        // Safety guard — never loop more than 100 pages (100k rows) even if
+        // count is misreported. Way past the sane size for this workload.
+        if (pageRequests.length > 99) break;
+    }
+
+    const responses = await Promise.all(pageRequests);
+    for (const r of responses) {
+        if (r.error) {
+            console.error('[readRecords] Supabase error on follow-up page:', r.error);
+            throw new Error(r.error.message);
+        }
+        const rows = (r.data ?? []) as T[];
+        if (rows.length === 0) break;
+        all.push(...rows);
+    }
+
+    return all;
 };
 
-export const batchReadRecords = async <T extends object>(sheetNames: string[]): Promise<Record<string, any[]>> => {
+export const batchReadRecords = async <T extends object>(sheetNames: string[], isB2B?: boolean): Promise<Record<string, any[]>> => {
     const results: Record<string, any[]> = {};
     await Promise.all(sheetNames.map(async (name) => {
         try {
-            results[name] = await readRecords(name);
+            results[name] = await readRecords(name, isB2B);
         } catch (e) {
             console.error(`[batchReadRecords] Failed to load "${name}":`, e);
             results[name] = [];
@@ -123,8 +253,8 @@ export const batchReadRecords = async <T extends object>(sheetNames: string[]): 
     return results;
 };
 
-export const updateRecord = async (sheetName: string, primaryKeyValue: string, payload: any) => {
-    const table = TABLE_MAP[sheetName];
+export const updateRecord = async (sheetName: string, primaryKeyValue: string, payload: any, isB2B?: boolean) => {
+    const table = resolveTable(sheetName, isB2B);
     const pk = PRIMARY_KEYS[sheetName];
     if (!table || !pk) throw new Error(`No config for "${sheetName}"`);
 
@@ -144,8 +274,8 @@ export const updateRecord = async (sheetName: string, primaryKeyValue: string, p
     return data;
 };
 
-export const deleteRecord = async (sheetName: string, primaryKeyValue: string) => {
-    const table = TABLE_MAP[sheetName];
+export const deleteRecord = async (sheetName: string, primaryKeyValue: string, isB2B?: boolean) => {
+    const table = resolveTable(sheetName, isB2B);
     const pk = PRIMARY_KEYS[sheetName];
     if (!table || !pk) throw new Error(`No config for "${sheetName}"`);
 
@@ -190,11 +320,14 @@ export const readQuotationSheetData = async (quoteId: string): Promise<{
     header: Record<string, any>;
     items: any[];
 }> => {
-    const { data, error } = await supabase
-        .from('quotations')
-        .select('*')
-        .eq('Quote No', quoteId)
-        .single();
+    const table = resolveTableByBase('quotations');
+    const { data, error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).select('*').eq('Quote No', quoteId).single()
+        ),
+        DETAIL_READ_TIMEOUT_MS,
+        `Loading quotation ${quoteId} timed out`,
+    );
 
     if (error) throw new Error(error.message);
 
@@ -212,10 +345,11 @@ export const readQuotationSheetData = async (quoteId: string): Promise<{
 
 /** Upsert a quotation row (create or update by "Quote No") */
 export const createQuotationSheet = async (_sheetName: string, data: any): Promise<{ message: string }> => {
-    const payload = stampedPayload('quotations', { ...data, updated_at: new Date().toISOString() });
+    const table = resolveTableByBase('quotations');
+    const payload = stampedPayload(table, { ...data, updated_at: new Date().toISOString() });
 
     const { error } = await supabase
-        .from('quotations')
+        .from(table)
         .upsert(payload, { onConflict: 'Quote No' });
 
     if (error) {
@@ -227,10 +361,11 @@ export const createQuotationSheet = async (_sheetName: string, data: any): Promi
 
 /** Upsert a sale order row (create or update by "SO No") */
 export const createSaleOrderSheet = async (_sheetName: string, data: any): Promise<{ message: string }> => {
-    const payload = stampedPayload('sale_orders', data);
+    const table = resolveTableByBase('sale_orders');
+    const payload = stampedPayload(table, data);
 
     const { error } = await supabase
-        .from('sale_orders')
+        .from(table)
         .upsert(payload, { onConflict: 'SO No' });
 
     if (error) {
@@ -242,10 +377,11 @@ export const createSaleOrderSheet = async (_sheetName: string, data: any): Promi
 
 /** Upsert a delivery order (create or update by "DO No") */
 export const createDeliveryOrderSheet = async (data: any): Promise<{ message: string }> => {
-    const payload = stampedPayload('delivery_orders', data);
+    const table = resolveTableByBase('delivery_orders');
+    const payload = stampedPayload(table, data);
 
     const { error } = await supabase
-        .from('delivery_orders')
+        .from(table)
         .upsert(payload, { onConflict: 'DO No' });
 
     if (error) throw new Error(`Failed to save Delivery Order: ${error.message}`);
@@ -254,10 +390,11 @@ export const createDeliveryOrderSheet = async (data: any): Promise<{ message: st
 
 /** Upsert a receipt (create or update by "RV No") */
 export const createReceiptSheet = async (data: any): Promise<{ message: string }> => {
-    const payload = stampedPayload('receipts', data);
+    const table = resolveTableByBase('receipts');
+    const payload = stampedPayload(table, data);
 
     const { error } = await supabase
-        .from('receipts')
+        .from(table)
         .upsert(payload, { onConflict: 'RV No' });
 
     if (error) throw new Error(`Failed to save Receipt: ${error.message}`);

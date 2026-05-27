@@ -1,5 +1,25 @@
 import { supabase } from '../lib/supabase';
 import { Company, PipelineProject, Quotation } from '../types';
+import { withTimeout } from '../utils/promise';
+
+const DETAIL_READ_TIMEOUT_MS = 15000;
+
+// Keep in sync with api.ts HAS_UPDATED_AT.
+// Ensures b2bDb's generic insertRecord/updateRecord stamp updated_at the same
+// way that api.ts's createRecord/updateRecord do for B2C writes.
+const HAS_UPDATED_AT = new Set([
+    'quotations', 'sale_orders', 'invoices', 'delivery_orders',
+    'receipts', 'vendors', 'vendor_pricelist', 'purchase_orders', 'app_settings',
+    'inventory',
+    'b2b_sale_orders', 'b2b_invoices', 'b2b_delivery_orders', 'b2b_receipts',
+]);
+
+function stampedPayload(table: string, payload: any): any {
+    if (HAS_UPDATED_AT.has(table)) {
+        return { ...payload, updated_at: new Date().toISOString() };
+    }
+    return payload;
+}
 
 /**
  * B2B Database Operations
@@ -141,11 +161,24 @@ export const getTableName = (baseTable: string, isB2B: boolean): string => {
     if (!isB2B) return baseTable;
 
     const b2bTables: Record<string, string> = {
-        'companies': 'b2b_companies',
-        'pipelines': 'b2b_pipelines',
-        'quotations': 'b2b_quotations',
-        'vendors': 'vendors', // Shared for now
-        'vendor_pricelist': 'vendor_pricelist' // Shared for now
+        'companies':         'b2b_companies',
+        'pipelines':         'b2b_pipelines',
+        'quotations':        'b2b_quotations',
+        'contacts':          'b2b_contacts',
+        'contact_logs':      'b2b_contact_logs',
+        'meeting_logs':      'b2b_meeting_logs',
+        'site_survey_logs':  'b2b_site_survey_logs',
+        'sale_orders':       'b2b_sale_orders',
+        'invoices':          'b2b_invoices',
+        'delivery_orders':   'b2b_delivery_orders',
+        'receipts':          'b2b_receipts',
+        'pricelist':         'b2b_pricelist',
+        // Shared between B2B and B2C (procurement-owned, no isolation needed):
+        'inventory':         'inventory',
+        'vendors':           'vendors',
+        'vendor_pricelist':  'vendor_pricelist',
+        'purchase_orders':   'purchase_orders',
+        'users':             'users',
     };
 
     return b2bTables[baseTable] || baseTable;
@@ -156,9 +189,10 @@ export const getTableName = (baseTable: string, isB2B: boolean): string => {
  */
 export const insertRecord = async (table: string, data: any, isB2B: boolean) => {
     const tableName = getTableName(table, isB2B);
+    const payload = stampedPayload(tableName, data);
     const { data: result, error } = await supabase
         .from(tableName)
-        .insert([data])
+        .insert([payload])
         .select();
 
     if (error) throw error;
@@ -176,9 +210,10 @@ export const updateRecord = async (
     isB2B: boolean
 ) => {
     const tableName = getTableName(table, isB2B);
+    const payload = stampedPayload(tableName, updates);
     const { data, error } = await supabase
         .from(tableName)
-        .update(updates)
+        .update(payload)
         .eq(primaryKey, primaryValue)
         .select();
 
@@ -239,11 +274,13 @@ export const readQuotationSheetData = async (
 ): Promise<{ header: any; items: any[] }> => {
     const tableName = getTableName('quotations', isB2B);
 
-    const { data, error } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('Quote No', quoteNo)
-        .single();
+    const { data, error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(tableName).select('*').eq('Quote No', quoteNo).single()
+        ),
+        DETAIL_READ_TIMEOUT_MS,
+        `Loading quotation ${quoteNo} timed out`,
+    );
 
     if (error) throw error;
 
