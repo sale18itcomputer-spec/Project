@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Wallet, X, FileText, ExternalLink } from 'lucide-react';
+import { Wallet, X, FileText } from 'lucide-react';
 import { Receipt } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';

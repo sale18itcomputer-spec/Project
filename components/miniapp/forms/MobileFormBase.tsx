@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
     ChevronLeft, Plus, Trash2, Loader2, ChevronDown,
-    ChevronUp, Search, Package, Check, X,
+    ChevronUp, Search, Package, X,
 } from 'lucide-react';
 import { haptic } from '@/lib/miniapp/telegramShare';
 import type { PricelistItem } from '@/types';

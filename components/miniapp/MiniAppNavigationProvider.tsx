@@ -12,7 +12,7 @@
  * that would hit the middleware and redirect to /login.
  */
 
-import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import React, { useCallback, ReactNode } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { NavigationContext, NavigationState } from '@/contexts/NavigationContext';
 

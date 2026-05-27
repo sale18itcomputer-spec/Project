@@ -7,8 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createRecord, updateRecord } from '@/services/api';
 import { formatToSheetDate, formatToInputDate } from '@/utils/time';
-import { Trash2, Plus } from 'lucide-react';
-import { haptic } from '@/lib/miniapp/telegramShare';
 import {
     MobileFormHeader, MobileFormSection, MobileField,
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,

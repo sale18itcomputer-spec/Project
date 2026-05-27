@@ -15,7 +15,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { createQuotationSheet } from '../services/b2bDb';
-import { TgSessionData, TgLineItem } from './telegramSession';
+import { TgSessionData } from './telegramSession';
 import { Quotation, PricelistItem, Company, Contact } from '../types';
 import { buildHtml, PdfTemplateOptions } from './pdfTemplate';
 

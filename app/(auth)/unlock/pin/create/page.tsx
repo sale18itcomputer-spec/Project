@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock } from 'lucide-react';
-import { SETUP_PHASE_KEY, TEMP_PIN_KEY } from '../../../../../utils/security';
+import { TEMP_PIN_KEY } from '../../../../../utils/security';
 import { PinDots, PinPad } from '../../../../../components/common/PinPad';
 
 export default function CreatePinPage() {

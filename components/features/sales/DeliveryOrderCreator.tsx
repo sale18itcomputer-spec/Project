@@ -13,7 +13,7 @@ import SuccessModal from '../../modals/SuccessModal';
 import Spinner from '../../common/Spinner';
 import DocumentEditorContainer from '../../layout/DocumentEditorContainer';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
-import { Trash2, X, Upload, Plus, Download, PanelRight, Ruler, Type } from 'lucide-react';
+import { Trash2, X, Upload, Plus, Download, PanelRight, Ruler } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';

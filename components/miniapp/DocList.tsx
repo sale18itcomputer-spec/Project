@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Search, X, RefreshCw, FileText, ChevronRight, Calendar, User, DollarSign } from 'lucide-react';
+import { Search, X, RefreshCw, FileText, ChevronRight, Calendar, User } from 'lucide-react';
 import { haptic } from '@/lib/miniapp/telegramShare';
 
 /* ─── Types ─────────────────────────────────────────────────── */

@@ -7,18 +7,15 @@ import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile } from "../../../../services/api";
 import { formatToSheetDate, formatToInputDate } from "../../../../utils/time";
-import { FormSection, FormInput, FormSelect, FormTextarea } from "../../../common/FormControls";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
 import Spinner from "../../../common/Spinner";
 import DocumentEditorContainer from "../../../layout/DocumentEditorContainer";
-import { Trash2, X, Upload, FileText, Download, PanelRight, Plus } from 'lucide-react';
+import { FileText, Download, PanelRight } from 'lucide-react';
 import { generatePDF } from "../../../../lib/pdfClient";
 import { useColumnWidths } from "@/hooks/useColumnWidths";
 import { ColumnWidthPopover } from "../ColumnWidthPopover";
 import { useToast } from "../../../../contexts/ToastContext";
-import SearchableSelect from "../../../common/SearchableSelect";
-import { ScrollArea } from "../../../ui/scroll-area";
 
 interface InvoiceCreatorProps {
     onBack: () => void;

@@ -9,7 +9,6 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import { PermissionGate } from '../../common/PermissionGate';
-import { usePermissions } from '../../../hooks/usePermissions';
 import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';

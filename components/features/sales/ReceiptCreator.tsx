@@ -17,7 +17,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { ColumnWidthPopover } from './ColumnWidthPopover';
-import PrintableReceipt from '../../pdf/PrintableReceipt';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 
 const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];

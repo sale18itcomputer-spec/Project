@@ -11,7 +11,6 @@ import { formatDisplayDate } from '../../../utils/time';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
-import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { Badge } from '../../ui/badge';

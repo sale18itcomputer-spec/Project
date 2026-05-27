@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building, Users, FileText, ShoppingCart,
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
-  ChevronRight, UserCog, Wallet, Warehouse, FileStack,
+  ChevronRight, UserCog, Wallet, Warehouse,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';

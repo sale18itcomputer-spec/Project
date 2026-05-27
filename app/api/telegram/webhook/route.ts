@@ -6,7 +6,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getSession,
   createSession,
-  updateSessionData,
   advanceSession,
   addItemToSession,
   clearSession,
@@ -16,7 +15,6 @@ import {
   TgSessionData,
 } from '@/lib/telegramSession';
 import {
-  getNextQuoteNo,
   lookupPricelistItem,
   searchPricelist,
   getAllCompanyNames,

@@ -17,7 +17,7 @@ import { insertRecord } from "../../../services/b2bDb";
 import { useNavigation } from "../../../contexts/NavigationContext";
 
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
-import { PermissionGate, FieldGate } from '../../common/PermissionGate';
+import { PermissionGate } from '../../common/PermissionGate';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
 

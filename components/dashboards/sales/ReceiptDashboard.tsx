@@ -13,7 +13,6 @@ import KanbanView, { KanbanColumn } from '../views/KanbanView';
 import Spinner from '../../common/Spinner';
 import ReceiptCreator from '../../features/sales/ReceiptCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
-import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { Wallet, ArrowRight } from 'lucide-react';
 
