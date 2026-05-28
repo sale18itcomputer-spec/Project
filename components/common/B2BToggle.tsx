@@ -49,19 +49,17 @@ const B2BToggle: React.FC = () => {
             </div>
 
             {/* Theme Toggle */}
-            {isB2B && (
-                <button
-                    onClick={toggleTheme}
-                    className="flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 shadow-sm"
-                    title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-                >
-                    {isDark ? (
-                        <Sun size={18} className="animate-in zoom-in duration-300" />
-                    ) : (
-                        <Moon size={18} className="animate-in zoom-in duration-300" />
-                    )}
-                </button>
-            )}
+            <button
+                onClick={toggleTheme}
+                className="flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 shadow-sm"
+                title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+            >
+                {isDark ? (
+                    <Sun size={18} className="animate-in zoom-in duration-300" />
+                ) : (
+                    <Moon size={18} className="animate-in zoom-in duration-300" />
+                )}
+            </button>
 
             {/* Mode indicator badge */}
             <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/30 border border-border">
