@@ -59,6 +59,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCurrentUser(user);
       localStorageSet(AUTH_STORAGE_KEY, user.UserID);
       localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+      // Survives logout — used by callback-client to auto-send OTP on PKCE failure
+      localStorageSet('limperial_last_signin_email', user.Email);
       setCookie('limperial_legacy_session', user.UserID, 7);
       return user;
     }

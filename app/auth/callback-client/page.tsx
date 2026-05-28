@@ -108,18 +108,25 @@ export default function AuthCallbackClientPage() {
 
         // Try to recover using a cached user email — avoids asking the user to
         // re-type their email when the PKCE code exchange fails.
+        // AUTH_USER_CACHE_KEY is cleared on logout, so we also check the
+        // last-signin-email hint which intentionally survives logout.
         const tryAutoSendOtp = (fallbackStage: Stage) => {
+            let email: string | null = null;
             try {
                 const cached = localStorage.getItem(AUTH_USER_CACHE_KEY);
                 if (cached) {
                     const user = JSON.parse(cached) as { Email?: string };
-                    if (user?.Email) {
-                        setPkceEmail(user.Email);
-                        setStage('pkce-sending'); // triggers the effect above
-                        return;
-                    }
+                    if (user?.Email) email = user.Email;
                 }
             } catch { /* ignore JSON parse errors */ }
+            if (!email) {
+                email = localStorage.getItem('limperial_last_signin_email');
+            }
+            if (email) {
+                setPkceEmail(email);
+                setStage('pkce-sending'); // triggers the effect above
+                return;
+            }
             setStage(fallbackStage);
         };
 
