@@ -81,7 +81,8 @@ export default function AuthCallbackClientPage() {
             const timeoutId = setTimeout(() => {
                 if (!settled) {
                     settled = true;
-                    setErrorMsg('Connection timed out. Please try again.');
+                    // Don't show an error on the pkce-email form — the title/subtitle
+                    // already explain what happened; a red message makes it look broken.
                     setStage('pkce-email');
                 }
             }, 12000);
@@ -93,7 +94,9 @@ export default function AuthCallbackClientPage() {
                     clearTimeout(timeoutId);
 
                     if (error) {
-                        setErrorMsg(error.message);
+                        // Only surface the raw error if it is NOT pkce-related — in
+                        // that case we show the email form which is self-explanatory.
+                        setErrorMsg(isPkceRelated(error.message) ? '' : error.message);
                         setStage(isPkceRelated(error.message) ? 'pkce-email' : 'error');
                         return;
                     }
@@ -106,7 +109,7 @@ export default function AuthCallbackClientPage() {
                     settled = true;
                     clearTimeout(timeoutId);
                     const msg = err?.message || 'Authentication code exchange failed.';
-                    setErrorMsg(msg);
+                    setErrorMsg(isPkceRelated(msg) ? '' : msg);
                     setStage(isPkceRelated(msg) ? 'pkce-email' : 'error');
                 });
         } else {
