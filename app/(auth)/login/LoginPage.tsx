@@ -7,7 +7,7 @@ import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 
 const LoginPage: React.FC = () => {
-    const { loginWithGoogle, isAuthenticated, isAuthLoading } = useAuth();
+    const { isAuthenticated, isAuthLoading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [error, setError] = useState('');
@@ -32,16 +32,13 @@ const LoginPage: React.FC = () => {
         }
     }, [isAuthenticated, router, redirectPath]);
 
-    const handleGoogleSignIn = async () => {
+    const handleGoogleSignIn = () => {
         setIsLoggingIn(true);
         setError('');
-        try {
-            await loginWithGoogle();
-            // Redirects to Google — page will leave
-        } catch (err: any) {
-            setError('Could not connect to Google. Please check your internet connection.');
-            setIsLoggingIn(false);
-        }
+        // Navigate to the server-side OAuth initiation route.
+        // The server stores the PKCE code verifier in a cookie (not localStorage),
+        // so Brave / Firefox strict / Safari ITP cannot block it.
+        window.location.href = '/api/auth/google';
     };
 
     if (isAuthLoading) {
