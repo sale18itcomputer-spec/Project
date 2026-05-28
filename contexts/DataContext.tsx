@@ -520,6 +520,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (stateSetters[name]) stateSetters[name](cachedData[name]);
             });
             loadedFromCache = true;
+            // Unblock the UI immediately — network revalidation runs silently
+            // in the background so the user sees data as soon as the cache
+            // returns rather than waiting for a full round-trip to Supabase.
+            setLoading(false);
           }
         } catch (dbErr) {
           console.warn('[DataContext] IndexedDB read failed:', dbErr);
@@ -527,7 +531,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (isStale()) return;
 
-        // Always fetch fresh from Supabase
+        // Always fetch fresh from Supabase (background revalidation when cache hit)
         try {
           const freshData = await withTimeout(
             batchReadRecords<Record<string, any[]>>([...CRITICAL_SHEETS], fetchIsB2B),

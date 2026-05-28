@@ -30,13 +30,21 @@ export default function AuthCallbackClientPage() {
                 const user = users.find(
                     u => u.Email?.trim().toLowerCase() === email.trim().toLowerCase()
                 );
-                if (user && user.Status === 'Active') {
-                    localStorageSet(AUTH_STORAGE_KEY, user.UserID);
-                    localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
-                    setCookie('limperial_legacy_session', user.UserID, 7);
+                if (!user) {
+                    setError(`No account found for ${email}. Contact your administrator to be added.`);
+                    return;
                 }
+                if (user.Status !== 'Active') {
+                    setError('Your account is inactive. Please contact your administrator.');
+                    return;
+                }
+                localStorageSet(AUTH_STORAGE_KEY, user.UserID);
+                localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+                setCookie('limperial_legacy_session', user.UserID, 7);
             } catch (e) {
                 console.error('Error handling session details:', e);
+                setError('Failed to verify your account. Please try again.');
+                return;
             }
             // Honour the `next` param forwarded by the server route so the user
             // lands back on the page they requested before being redirected to login.

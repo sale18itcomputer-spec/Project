@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, AlertCircle } from 'lucide-react';
 import { PIN_STORAGE_KEY, UNLOCK_STORAGE_KEY, SETUP_PHASE_KEY, TEMP_PIN_KEY, hashPin } from '../../../../../utils/security';
@@ -13,22 +13,28 @@ export default function ConfirmPinPage() {
     const [error, setError] = useState('');
     const { currentUser } = useAuth();
     const router = useRouter();
-    
-    // Get the length of the first PIN to know when to auto-submit
-    const [expectedLength, setExpectedLength] = useState(4);
+
+    // Capture the first PIN once at mount so processPin never re-reads
+    // sessionStorage at submit time (sessionStorage can be cleared by the
+    // browser if the tab is suspended and restored mid-flow).
+    const firstPinRef = useRef<string | null>(null);
+
+    // null = not yet determined, 0 = missing (redirect back), >0 = known length
+    const [expectedLength, setExpectedLength] = useState<number | null>(null);
 
     useEffect(() => {
         const firstPin = sessionStorage.getItem(TEMP_PIN_KEY);
         if (firstPin) {
+            firstPinRef.current = firstPin;
             setExpectedLength(firstPin.length);
         } else {
-            // If no temp pin, go back to create
+            // No temp PIN — go back to create step
             router.replace('/unlock/pin/create');
         }
     }, [router]);
 
     const processPin = useCallback(async (currentPin: string) => {
-        const firstPin = sessionStorage.getItem(TEMP_PIN_KEY);
+        const firstPin = firstPinRef.current;
 
         if (currentPin === firstPin) {
             const hashed = await hashPin(currentPin);
@@ -61,14 +67,14 @@ export default function ConfirmPinPage() {
     }, [currentUser, router]);
 
     useEffect(() => {
-        if (pin.length === expectedLength) {
+        if (expectedLength && pin.length === expectedLength) {
             const timeout = setTimeout(() => processPin(pin), 150);
             return () => clearTimeout(timeout);
         }
     }, [pin, expectedLength, processPin]);
 
     const appendDigit = useCallback((d: string) => {
-        setPin(prev => prev.length < expectedLength ? prev + d : prev);
+        setPin(prev => prev.length < (expectedLength ?? 6) ? prev + d : prev);
         setError('');
     }, [expectedLength]);
 
@@ -85,6 +91,9 @@ export default function ConfirmPinPage() {
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
     }, [appendDigit, deleteDigit]);
+
+    // Don't render the pad until expectedLength is resolved from sessionStorage
+    if (!expectedLength) return null;
 
     return (
         <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans selection:bg-transparent">

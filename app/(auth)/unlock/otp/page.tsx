@@ -7,14 +7,21 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { SETUP_PHASE_KEY, OTP_EMAIL_KEY } from '../../../../utils/security';
 
 export default function RequestOtpPage() {
-    const { currentUser, loginWithOtp, logout } = useAuth();
+    const { currentUser, loginWithOtp, logout, isAuthLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
 
+    // While AuthContext is still bootstrapping, currentUser may not be
+    // hydrated yet even though the user is authenticated. Block the send
+    // button until loading is done so we never fire the "email not found"
+    // error prematurely.
+    const isBusy = isAuthLoading || loading;
+
     const handleSendOtp = async () => {
+        if (isBusy) return;
         if (!currentUser?.Email) {
-            setError('User email not found. Please log in again.');
+            setError('User email not found. Please sign out and log in again.');
             return;
         }
         setLoading(true);
@@ -57,10 +64,10 @@ export default function RequestOtpPage() {
                 <div className="w-full space-y-4">
                     <button
                         onClick={handleSendOtp}
-                        disabled={loading}
+                        disabled={isBusy}
                         className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.2)]"
                     >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Code'}
+                        {isBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Code'}
                     </button>
 
                     <button

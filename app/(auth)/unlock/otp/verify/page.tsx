@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../../../contexts/AuthContext';
@@ -15,16 +15,20 @@ export default function VerifyOtpPage() {
 
     const email = currentUser?.Email || (typeof window !== 'undefined' ? sessionStorage.getItem(OTP_EMAIL_KEY) : null);
 
-    const handleVerify = async () => {
-        if (token.length < 6 || !email) {
-            if (!email) setError('Session expired. Please try sending the code again.');
+    // Prevents double-submission from simultaneous auto-submit + button click
+    const isSubmittingRef = useRef(false);
+
+    const handleVerifyWithToken = async (t: string) => {
+        if (isSubmittingRef.current) return;
+        if (!email) {
+            setError('Session expired. Please try sending the code again.');
             return;
         }
-
+        isSubmittingRef.current = true;
         setLoading(true);
         setError('');
         try {
-            const res = await verifyOtp(email, token);
+            const res = await verifyOtp(email, t);
             if (res.success) {
                 sessionStorage.setItem(SETUP_PHASE_KEY, 'pin_create');
                 router.replace('/unlock/pin/create');
@@ -33,10 +37,12 @@ export default function VerifyOtpPage() {
                 setError(res.message);
                 setToken('');
                 setLoading(false);
+                isSubmittingRef.current = false;
             }
         } catch {
             setError('Verification failed. Please try again.');
             setLoading(false);
+            isSubmittingRef.current = false;
         }
     };
 
@@ -44,34 +50,9 @@ export default function VerifyOtpPage() {
         const value = e.target.value.replace(/\D/g, '').slice(0, 6);
         setToken(value);
         setError('');
-        // Auto-submit when 6 digits entered
+        // Auto-submit when 6 digits entered — pass value directly to avoid stale state
         if (value.length === 6) {
-            // defer to next tick so state has settled
             setTimeout(() => handleVerifyWithToken(value), 0);
-        }
-    };
-
-    // Separate fn so we can call it with the exact token value before state update
-    const handleVerifyWithToken = async (t: string) => {
-        if (!email) {
-            setError('Session expired. Please try sending the code again.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            const res = await verifyOtp(email, t);
-            if (res.success) {
-                sessionStorage.setItem(SETUP_PHASE_KEY, 'pin_create');
-                router.replace('/unlock/pin/create');
-            } else {
-                setError(res.message);
-                setToken('');
-                setLoading(false);
-            }
-        } catch {
-            setError('Verification failed. Please try again.');
-            setLoading(false);
         }
     };
 

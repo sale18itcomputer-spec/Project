@@ -295,14 +295,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { data, error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' });
       if (error) return { success: false, message: error.message };
-      
+
       if (data?.user?.email) {
-        // Use cached users list — avoid slow fetch on production
-        const usersList = usersRef.current;
-        if (usersList && usersList.length > 0) {
+        // Use cached users list; fall back to a network fetch if the cache is
+        // empty (edge case: user lands on OTP verify before the bootstrap
+        // Users fetch has completed).
+        const usersList = usersRef.current && usersRef.current.length > 0
+          ? usersRef.current
+          : await readRecords<User>('Users').catch(() => [] as User[]);
+        if (usersList.length > 0) {
+          if (!usersRef.current || usersRef.current.length === 0) setUsers(usersList);
           syncUser(data.user.email, usersList);
         }
-        // If no cached list, AuthContext onAuthStateChange will sync on next event
       }
       return { success: true, message: 'OTP verified successfully!' };
     } catch (err: any) {
