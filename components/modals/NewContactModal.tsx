@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Contact, PipelineProject, ContactLog, Meeting, UnifiedActivity, Quotation } from "../../types";
 import { CONTACT_HEADERS } from "../../schemas";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
-import { FormSection, FormInput, FormTextarea, FormSelect, FormSearchSelect, FormDisplay } from "../common/FormControls";
+import { FormSection, FormInput, FormTextarea, FormSearchSelect, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { useNavigation } from "../../contexts/NavigationContext";
