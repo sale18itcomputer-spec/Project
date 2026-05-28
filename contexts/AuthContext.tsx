@@ -271,8 +271,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       options: {
         redirectTo,
         queryParams: {
-          access_type: 'offline',
-          prompt: 'select_account', // always show account picker
+          access_type: 'online',
         },
       },
     });
@@ -321,6 +320,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // knows it is safe to clear auth state.
     isLoggingOutRef.current = true;
 
+    // Preserve the email BEFORE clearing state — callback-client uses this
+    // to auto-send OTP if PKCE fails on the next Google sign-in attempt.
+    if (currentUser?.Email) {
+      localStorageSet('limperial_last_signin_email', currentUser.Email);
+    }
+
     // Clear local state and the middleware cookie immediately so any
     // redirects during the async signOut don't see a stale session.
     setCurrentUser(null);
@@ -331,7 +336,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // scope: 'local' clears only THIS tab's tokens without invalidating
     // other active sessions on other devices.
     await supabase!.auth.signOut({ scope: 'local' });
-  }, [supabase]);
+  }, [supabase, currentUser]);
 
   return (
     <AuthContext.Provider value={{
