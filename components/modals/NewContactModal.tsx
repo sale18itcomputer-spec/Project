@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Contact, PipelineProject, ContactLog, Meeting, UnifiedActivity, Quotation } from "../../types";
 import { CONTACT_HEADERS } from "../../schemas";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
-import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from "../common/FormControls";
+import { FormSection, FormInput, FormTextarea, FormSelect, FormSearchSelect, FormDisplay } from "../common/FormControls";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import { useNavigation } from "../../contexts/NavigationContext";
@@ -282,7 +282,7 @@ const NewContactModal: React.FC<NewContactModalProps> = ({ isOpen, onClose, exis
                         {isReadOnly ? <FormDisplay label="Customer ID" value={formData['Customer ID']} /> : <FormInput name="Customer ID" label="Customer ID" value={formData['Customer ID']} onChange={handleChange} required readOnly />}
                         {isReadOnly ? <FormDisplay label="Name" value={formData.Name} /> : <FormInput name="Name" label="Name" value={formData.Name} onChange={handleChange} required />}
                         {isReadOnly ? <FormDisplay label="Name (Khmer)" value={formData['Name (Khmer)']} /> : <FormInput name="Name (Khmer)" label="Name (Khmer)" value={formData['Name (Khmer)']} onChange={handleChange} />}
-                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : <FormSelect name="Company Name" label="Company Name" value={formData['Company Name']} onChange={handleChange} options={companyOptions} required disabled={!!initialCompany} />}
+                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> : <FormSearchSelect name="Company Name" label="Company Name" value={formData['Company Name'] || ''} onChange={v => setFormData(prev => ({ ...prev, 'Company Name': v }))} options={companyOptions} required disabled={!!initialCompany} />}
                         {isReadOnly ? <FormDisplay label="Role" value={formData.Role} /> : <FormInput name="Role" label="Role" value={formData.Role} onChange={handleChange} />}
                         {isReadOnly ? <FormDisplay label="Department" value={formData.Department} /> : <FormInput name="Department" label="Department" value={formData.Department} onChange={handleChange} list="department-presets" datalistOptions={DEPARTMENT_PRESETS} placeholder="Select or type a department" />}
                         {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} type="email" />}
