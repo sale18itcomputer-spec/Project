@@ -10,8 +10,10 @@ import type { User } from '../../../types';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
 const AUTH_USER_CACHE_KEY = 'limperial_auth_user_data';
+const SETUP_PHASE_KEY = 'limperial_setup_phase';
+const OTP_EMAIL_KEY = 'limperial_otp_email';
 
-type Stage = 'loading' | 'pkce-email' | 'pkce-otp' | 'error';
+type Stage = 'loading' | 'pkce-sending' | 'pkce-email' | 'pkce-otp' | 'error';
 
 function isPkceRelated(msg: string) {
     const m = msg.toLowerCase();
@@ -37,6 +39,7 @@ export default function AuthCallbackClientPage() {
 
     const didRun = useRef(false);
     const isBusyRef = useRef(false);
+    const pkceSendRan = useRef(false);
 
     // Completes the session: looks up user in Users table, writes localStorage
     // and cookie, then navigates to the intended destination.
@@ -68,11 +71,57 @@ export default function AuthCallbackClientPage() {
         router.replace(next && next !== '/' ? next : '/dashboard');
     }, [searchParams, router]);
 
+    // Send OTP — accepts an explicit email so it can be called for auto-send and manual send
+    const sendOtpToEmail = useCallback(async (email: string) => {
+        if (!email.trim() || isBusyRef.current) return;
+        isBusyRef.current = true;
+        setBusy(true);
+        setErrorMsg('');
+        const { error } = await supabase.auth.signInWithOtp({
+            email: email.trim(),
+            options: { shouldCreateUser: false },
+        });
+        isBusyRef.current = false;
+        setBusy(false);
+        if (error) {
+            setErrorMsg(error.message);
+            setStage('pkce-email');
+        } else {
+            setOtpToken('');
+            setStage('pkce-otp');
+        }
+    }, [supabase]);
+
+    // When pkce-sending stage is entered, pkceEmail has already been set via
+    // setPkceEmail — trigger the OTP send automatically.
+    useEffect(() => {
+        if (stage !== 'pkce-sending' || !pkceEmail || pkceSendRan.current) return;
+        pkceSendRan.current = true;
+        sendOtpToEmail(pkceEmail);
+    }, [stage, pkceEmail, sendOtpToEmail]);
+
     useEffect(() => {
         if (didRun.current) return;
         didRun.current = true;
 
         const code = searchParams.get('code');
+
+        // Try to recover using a cached user email — avoids asking the user to
+        // re-type their email when the PKCE code exchange fails.
+        const tryAutoSendOtp = (fallbackStage: Stage) => {
+            try {
+                const cached = localStorage.getItem(AUTH_USER_CACHE_KEY);
+                if (cached) {
+                    const user = JSON.parse(cached) as { Email?: string };
+                    if (user?.Email) {
+                        setPkceEmail(user.Email);
+                        setStage('pkce-sending'); // triggers the effect above
+                        return;
+                    }
+                }
+            } catch { /* ignore JSON parse errors */ }
+            setStage(fallbackStage);
+        };
 
         if (code) {
             // Race the PKCE exchange against a 12-second timeout so the user
@@ -81,9 +130,7 @@ export default function AuthCallbackClientPage() {
             const timeoutId = setTimeout(() => {
                 if (!settled) {
                     settled = true;
-                    // Don't show an error on the pkce-email form — the title/subtitle
-                    // already explain what happened; a red message makes it look broken.
-                    setStage('pkce-email');
+                    tryAutoSendOtp('pkce-email');
                 }
             }, 12000);
 
@@ -94,10 +141,12 @@ export default function AuthCallbackClientPage() {
                     clearTimeout(timeoutId);
 
                     if (error) {
-                        // Only surface the raw error if it is NOT pkce-related — in
-                        // that case we show the email form which is self-explanatory.
-                        setErrorMsg(isPkceRelated(error.message) ? '' : error.message);
-                        setStage(isPkceRelated(error.message) ? 'pkce-email' : 'error');
+                        if (isPkceRelated(error.message)) {
+                            tryAutoSendOtp('pkce-email');
+                        } else {
+                            setErrorMsg(error.message);
+                            setStage('error');
+                        }
                         return;
                     }
                     const email = (data as any)?.session?.user?.email;
@@ -109,8 +158,12 @@ export default function AuthCallbackClientPage() {
                     settled = true;
                     clearTimeout(timeoutId);
                     const msg = err?.message || 'Authentication code exchange failed.';
-                    setErrorMsg(isPkceRelated(msg) ? '' : msg);
-                    setStage(isPkceRelated(msg) ? 'pkce-email' : 'error');
+                    if (isPkceRelated(msg)) {
+                        tryAutoSendOtp('pkce-email');
+                    } else {
+                        setErrorMsg(msg);
+                        setStage('error');
+                    }
                 });
         } else {
             // Implicit / magic-link flow — token is in hash, handled client-side
@@ -140,23 +193,8 @@ export default function AuthCallbackClientPage() {
 
     // Send OTP to the email entered on the PKCE fallback form
     const handleSendOtp = useCallback(async () => {
-        if (!pkceEmail.trim() || isBusyRef.current) return;
-        isBusyRef.current = true;
-        setBusy(true);
-        setErrorMsg('');
-        const { error } = await supabase.auth.signInWithOtp({
-            email: pkceEmail.trim(),
-            options: { shouldCreateUser: false },
-        });
-        isBusyRef.current = false;
-        setBusy(false);
-        if (error) {
-            setErrorMsg(error.message);
-        } else {
-            setOtpToken('');
-            setStage('pkce-otp');
-        }
-    }, [pkceEmail, supabase]);
+        await sendOtpToEmail(pkceEmail);
+    }, [pkceEmail, sendOtpToEmail]);
 
     // Verify the OTP code and complete the session
     const handleVerifyOtp = useCallback(async (token: string) => {
@@ -175,11 +213,32 @@ export default function AuthCallbackClientPage() {
             setErrorMsg(error.message);
             return;
         }
+        // Mark that the user has already verified OTP so /unlock/otp skips straight
+        // to PIN creation instead of sending another OTP (which would hit rate limits).
+        sessionStorage.setItem(SETUP_PHASE_KEY, 'pin_create');
+        sessionStorage.setItem(OTP_EMAIL_KEY, pkceEmail);
         // finishSession handles clearing busy/loading via navigation
         await finishSession(data?.user?.email ?? pkceEmail);
         isBusyRef.current = false;
         setBusy(false);
     }, [pkceEmail, supabase, finishSession]);
+
+    // ─── Auto-sending OTP (cached email detected) ───────────────────────────────
+    if (stage === 'pkce-sending') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
+                <div className="w-full max-w-lg flex flex-col items-center justify-center gap-4 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl">
+                    <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mt-2">Sending Sign-In Code</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+                        Sending a code to <span className="font-medium text-slate-700 dark:text-slate-300">{pkceEmail}</span>…
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     // ─── Loading ────────────────────────────────────────────────────────────────
     if (stage === 'loading') {
