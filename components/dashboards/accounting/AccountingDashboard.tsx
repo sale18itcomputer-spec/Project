@@ -37,19 +37,19 @@ const ACCOUNT_TYPES = [
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-    'Bank':                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    'Accounts Receivable':     'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
-    'Other Current Asset':     'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
-    'Fixed Asset':             'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-    'Accounts Payable':        'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-    'Other Current Liability': 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
-    'Equity':                  'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-    'Income':                  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    'Cost of Goods Sold':      'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-    'Expense':                 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-    'Other Income':            'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
-    'Other Expense':           'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    'Non-Posting':             'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    'Bank':                    'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700',
+    'Accounts Receivable':     'bg-sky-100 text-sky-700 border border-sky-300 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700',
+    'Other Current Asset':     'bg-cyan-100 text-cyan-700 border border-cyan-300 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-700',
+    'Fixed Asset':             'bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700',
+    'Accounts Payable':        'bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700',
+    'Other Current Liability': 'bg-pink-100 text-pink-700 border border-pink-300 dark:bg-pink-900/40 dark:text-pink-300 dark:border-pink-700',
+    'Equity':                  'bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700',
+    'Income':                  'bg-green-100 text-green-700 border border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700',
+    'Cost of Goods Sold':      'bg-orange-100 text-orange-700 border border-orange-300 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700',
+    'Expense':                 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700',
+    'Other Income':            'bg-teal-100 text-teal-700 border border-teal-300 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700',
+    'Other Expense':           'bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700',
+    'Non-Posting':             'bg-gray-100 text-gray-600 border border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600',
 };
 
 const fmt = (n: number) =>
@@ -61,6 +61,13 @@ const getTodayISO = () => new Date().toISOString().split('T')[0];
 
 // ── P&L helper components ─────────────────────────────────────────────────────
 
+// ── Shared financial-statement amount renderer ────────────────────────────────
+
+const fmtAmt = (n: number, negate?: boolean): { display: string; negative: boolean } => {
+    const v = negate ? -n : n;
+    return { display: v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v), negative: v < 0 };
+};
+
 const PLSection: React.FC<{
     title: string;
     lines: BalanceSheetLine[];
@@ -69,33 +76,30 @@ const PLSection: React.FC<{
     totalColor: string;
     negate?: boolean;
     fmt: (n: number) => string;
-}> = ({ title, lines, totalLabel, total, totalColor, negate, fmt }) => {
+}> = ({ title, lines, totalLabel, total, negate }) => {
     const relevant = lines.filter(l => l.balance !== 0);
     if (relevant.length === 0 && total === 0) return null;
+    const t = fmtAmt(total, negate);
     return (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-border/50 bg-muted/20">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</h4>
+            <div className="px-6 py-3.5 border-b border-border bg-muted/30">
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{title}</h4>
             </div>
-            <div className="px-5 py-3 space-y-0.5">
+            <div className="px-6 py-2">
                 {relevant.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-1">No activity</p>
-                ) : relevant.map(l => (
-                    <div
-                        key={l.account_number}
-                        className={`flex justify-between py-1 text-sm border-b border-border/20 last:border-0 ${
-                            l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground pl-4'
-                        }`}
-                    >
-                        <span>{l.account_number} · {l.account_name}</span>
-                        <span>{negate ? `(${fmt(l.balance)})` : fmt(l.balance)}</span>
-                    </div>
-                ))}
-                <div className={`flex justify-between pt-2 border-t-2 border-border/40 font-bold text-sm mt-1`}>
-                    <span className="text-foreground">{totalLabel}</span>
-                    <span className={totalColor}>
-                        {negate ? `(${fmt(total)})` : fmt(total)}
-                    </span>
+                    <p className="text-sm text-muted-foreground italic py-3">No activity for this period</p>
+                ) : relevant.map(l => {
+                    const a = fmtAmt(l.balance, negate);
+                    return (
+                        <div key={l.account_number} className={`flex justify-between items-baseline py-2.5 border-b border-border/30 last:border-0 ${l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                            <span className={`text-sm ${l.is_parent ? '' : 'pl-4'}`}>{l.account_number} · {l.account_name}</span>
+                            <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>{a.display}</span>
+                        </div>
+                    );
+                })}
+                <div className="flex justify-between items-baseline py-3 mt-1 border-t-2 border-border/60 font-bold">
+                    <span className="text-sm text-foreground">{totalLabel}</span>
+                    <span className={`text-sm tabular-nums ml-8 shrink-0 ${t.negative ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{t.display}</span>
                 </div>
             </div>
         </div>
@@ -107,16 +111,16 @@ const PLSubtotal: React.FC<{
     value: number;
     fmt: (n: number) => string;
     size: 'md' | 'lg';
-}> = ({ label, value, fmt, size }) => (
-    <div className={`flex justify-between items-center px-5 py-3 rounded-xl border-2 ${
+}> = ({ label, value, size }) => (
+    <div className={`flex justify-between items-center px-6 py-4 rounded-xl border-2 ${
         value >= 0
-            ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10'
-            : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
+            ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/15'
+            : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/15'
     }`}>
-        <span className={`font-bold ${size === 'lg' ? 'text-base' : 'text-sm'} ${value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+        <span className={`font-bold ${size === 'lg' ? 'text-base' : 'text-sm'} ${value >= 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
             {label}
         </span>
-        <span className={`font-bold tabular-nums ${size === 'lg' ? 'text-xl' : 'text-base'} ${value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+        <span className={`font-bold tabular-nums ${size === 'lg' ? 'text-2xl' : 'text-lg'} ${value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {value < 0 ? `($${fmt(Math.abs(value))})` : `$${fmt(value)}`}
         </span>
     </div>
@@ -440,10 +444,10 @@ export default function AccountingDashboard() {
     const TabBtn = ({ id, label, icon }: { id: Tab; label: string; icon: React.ReactNode }) => (
         <button
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === id
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    ? 'border-brand-600 text-brand-600 dark:text-brand-400 dark:border-brand-400'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
         >
             {icon}
@@ -452,31 +456,35 @@ export default function AccountingDashboard() {
     );
 
     const BSSection = ({
-        title, lines, totalLabel, total, indent,
+        title, lines, totalLabel, total,
     }: { title: string; lines: BalanceSheetLine[]; totalLabel: string; total: number; indent?: boolean }) => {
         const relevant = lines.filter(l => l.balance !== 0 || l.is_parent);
         return (
-            <div className="mb-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{title}</h4>
+            <div className="mb-3">
+                <div className="py-2 border-b border-border/50 mb-0.5">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{title}</h4>
+                </div>
                 {relevant.length === 0
-                    ? <p className="text-xs text-muted-foreground italic px-2">No balances</p>
+                    ? <p className="text-xs text-muted-foreground italic px-1 py-1.5">No balances</p>
                     : relevant.map(l => (
                         <div
                             key={l.account_number}
-                            className={`flex justify-between py-1 text-sm border-b border-border/30 ${
-                                l.is_parent
-                                    ? 'font-semibold text-foreground'
-                                    : 'text-muted-foreground pl-4'
+                            className={`flex justify-between items-baseline py-2 border-b border-border/20 last:border-0 ${
+                                l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'
                             }`}
                         >
-                            <span>{l.account_number} · {l.account_name}</span>
-                            <span className={l.balance < 0 ? 'text-red-500' : ''}>{fmt(l.balance)}</span>
+                            <span className={`text-sm ${l.is_parent ? '' : 'pl-4'}`}>{l.account_number} · {l.account_name}</span>
+                            <span className={`text-sm tabular-nums ml-4 shrink-0 ${l.balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                {l.balance < 0 ? `(${fmt(Math.abs(l.balance))})` : fmt(l.balance)}
+                            </span>
                         </div>
                     ))
                 }
-                <div className="flex justify-between py-2 font-bold text-sm border-t-2 border-foreground/20 mt-1">
-                    <span>{totalLabel}</span>
-                    <span className={total < 0 ? 'text-red-500' : 'text-brand-600'}>${fmt(total)}</span>
+                <div className="flex justify-between items-baseline py-2.5 mt-0.5 border-t-2 border-border/60 font-bold">
+                    <span className="text-sm text-foreground">{totalLabel}</span>
+                    <span className={`text-sm tabular-nums ml-4 shrink-0 ${total < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>
+                        {total < 0 ? `($${fmt(Math.abs(total))})` : `$${fmt(total)}`}
+                    </span>
                 </div>
             </div>
         );
@@ -485,27 +493,27 @@ export default function AccountingDashboard() {
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
-        <div className="p-6 space-y-5 max-w-7xl mx-auto">
+        <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-brand-600/10">
-                        <BookOpen className="w-6 h-6 text-brand-600" />
+                <div className="flex items-center gap-4">
+                    <div className="p-2.5 rounded-xl bg-brand-600/10">
+                        <BookOpen className="w-7 h-7 text-brand-600" />
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-                        <p className="text-sm text-muted-foreground">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
                     </div>
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap border-b border-border pb-0">
                 <TabBtn id="coa"      label="Chart of Accounts" icon={<Landmark size={15} />} />
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
-                <TabBtn id="pl"       label="Profit & Loss"    icon={<BarChart2 size={15} />} />
+                <TabBtn id="pl"       label="Profit & Loss"     icon={<BarChart2 size={15} />} />
             </div>
 
             {/* ── TAB: Chart of Accounts ─────────────────────────────────────── */}
@@ -612,17 +620,17 @@ export default function AccountingDashboard() {
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Loading accounts…</div>
                     ) : (
                         <div className="bg-card border border-border rounded-xl overflow-hidden">
-                            <table className="w-full text-sm">
+                            <table className="w-full">
                                 <thead className="bg-muted/50 border-b border-border">
                                     <tr>
-                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-28">Account #</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Account Name</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-44 hidden md:table-cell">Type</th>
-                                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden lg:table-cell">Description</th>
-                                        {canEdit && <th className="px-4 py-2.5 w-20" />}
+                                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-32">Account #</th>
+                                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account Name</th>
+                                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-52 hidden md:table-cell">Type</th>
+                                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden lg:table-cell">Description</th>
+                                        {canEdit && <th className="px-5 py-3 w-20" />}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border/50">
+                                <tbody className="divide-y divide-border/40">
                                     {filteredAccounts.map(account => {
                                         const isParent = !account.parent_account_number;
                                         const hasChildren = accounts.some(a => a.parent_account_number === account.account_number);
@@ -638,16 +646,16 @@ export default function AccountingDashboard() {
                                         return (
                                             <tr
                                                 key={account.id}
-                                                className={`hover:bg-muted/30 transition-colors ${account.is_hidden ? 'opacity-50' : ''}`}
+                                                className={`hover:bg-muted/30 transition-colors ${account.is_hidden ? 'opacity-40' : ''}`}
                                             >
-                                                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                                <td className="px-5 py-3.5 font-mono text-sm text-muted-foreground">
                                                     {account.account_number}
                                                 </td>
-                                                <td className="px-4 py-2.5">
-                                                    <div className="flex items-center gap-1.5" style={{ paddingLeft: account.parent_account_number ? '1.25rem' : 0 }}>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-2" style={{ paddingLeft: account.parent_account_number ? '1.5rem' : 0 }}>
                                                         {hasChildren && (
                                                             <button onClick={() => toggleCollapse(account.account_number)} className="text-muted-foreground hover:text-foreground">
-                                                                {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                                                {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                                             </button>
                                                         )}
                                                         {isEditing ? (
@@ -655,44 +663,44 @@ export default function AccountingDashboard() {
                                                                 autoFocus
                                                                 value={editingAccount.account_name}
                                                                 onChange={e => setEditingAccount(p => p ? { ...p, account_name: e.target.value } : null)}
-                                                                className="h-7 px-2 text-sm rounded border border-brand-600 bg-background focus:outline-none w-48"
+                                                                className="h-8 px-2 text-sm rounded border border-brand-600 bg-background focus:outline-none w-56"
                                                             />
                                                         ) : (
-                                                            <span className={isParent ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
+                                                            <span className={`text-sm ${isParent ? 'font-semibold text-foreground' : 'text-foreground/80'}`}>
                                                                 {account.account_name}
-                                                                {account.is_hidden && <span className="ml-1 text-xs text-muted-foreground">(hidden)</span>}
+                                                                {account.is_hidden && <span className="ml-1.5 text-xs text-muted-foreground/60">(hidden)</span>}
                                                             </span>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-2.5 hidden md:table-cell">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[account.account_type] || 'bg-gray-100 text-gray-600'}`}>
+                                                <td className="px-5 py-3.5 hidden md:table-cell">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${TYPE_COLORS[account.account_type] || 'bg-gray-100 text-gray-600 border border-gray-300'}`}>
                                                         {account.account_type}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-2.5 text-xs text-muted-foreground hidden lg:table-cell max-w-xs truncate">
+                                                <td className="px-5 py-3.5 text-sm text-muted-foreground hidden lg:table-cell max-w-xs truncate">
                                                     {isEditing ? (
                                                         <input
                                                             value={editingAccount.description}
                                                             onChange={e => setEditingAccount(p => p ? { ...p, description: e.target.value } : null)}
-                                                            className="h-7 px-2 text-sm rounded border border-border bg-background focus:outline-none w-full"
+                                                            className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none w-full"
                                                         />
                                                     ) : account.description}
                                                 </td>
                                                 {canEdit && (
-                                                    <td className="px-4 py-2.5">
+                                                    <td className="px-5 py-3.5">
                                                         {isEditing ? (
                                                             <div className="flex gap-1">
-                                                                <button onClick={handleSaveAccount} disabled={savingAccount} className="p-1 rounded text-green-600 hover:bg-green-50">
+                                                                <button onClick={handleSaveAccount} disabled={savingAccount} className="p-1.5 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
                                                                     <Check size={14} />
                                                                 </button>
-                                                                <button onClick={() => setEditingAccount(null)} className="p-1 rounded text-muted-foreground hover:bg-muted">
+                                                                <button onClick={() => setEditingAccount(null)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
                                                                     <X size={14} />
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <button onClick={() => setEditingAccount(account)} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted">
-                                                                <Edit2 size={13} />
+                                                            <button onClick={() => setEditingAccount(account)} className="p-1.5 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors">
+                                                                <Edit2 size={14} />
                                                             </button>
                                                         )}
                                                     </td>
@@ -985,111 +993,121 @@ export default function AccountingDashboard() {
                     ) : !cfData ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
                     ) : (
-                        <div className="max-w-2xl space-y-4">
+                        <div className="space-y-3">
                             {/* Operating Activities */}
-                            <div className="bg-card border border-border rounded-xl p-5">
-                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4 text-green-500" />
-                                    Operating Activities
-                                </h3>
-                                <div className="space-y-1 text-sm">
-                                    <div className="flex justify-between py-1">
-                                        <span className="text-muted-foreground">Net Income</span>
-                                        <span className={`font-medium ${cfData.netIncome < 0 ? 'text-red-500' : 'text-foreground'}`}>
-                                            ${fmt(cfData.netIncome)}
+                            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                                <div className="px-6 py-3.5 border-b border-border bg-muted/30 flex items-center gap-2.5">
+                                    <TrendingUp className="w-4 h-4 text-green-500 shrink-0" />
+                                    <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Operating Activities</h4>
+                                </div>
+                                <div className="px-6 py-2">
+                                    <div className="flex justify-between items-baseline py-2.5 border-b border-border/30">
+                                        <span className="text-sm text-muted-foreground">Net Income</span>
+                                        <span className={`text-sm tabular-nums ml-8 shrink-0 font-medium ${cfData.netIncome < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                            {cfData.netIncome < 0 ? `($${fmt(Math.abs(cfData.netIncome))})` : `$${fmt(cfData.netIncome)}`}
                                         </span>
                                     </div>
                                     {cfData.operatingAdjustments.length > 0 && (
                                         <>
-                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest pt-2 pb-1">
-                                                Adjustments for working capital changes
-                                            </p>
-                                            {cfData.operatingAdjustments.map(item => (
-                                                <div key={item.account_number} className="flex justify-between py-0.5 pl-3">
-                                                    <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
-                                                    <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
-                                                        {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                            <div className="pt-3 pb-1">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">Working Capital Adjustments</p>
+                                            </div>
+                                            {cfData.operatingAdjustments.map(item => {
+                                                const a = fmtAmt(item.amount);
+                                                return (
+                                                    <div key={item.account_number} className="flex justify-between items-baseline py-2 border-b border-border/20 last:border-0 pl-4">
+                                                        <span className="text-sm text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                                        <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>{a.display}</span>
+                                                    </div>
+                                                );
+                                            })}
                                         </>
                                     )}
-                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
-                                        <span>Net Cash from Operating Activities</span>
-                                        <span className={cfData.netOperating < 0 ? 'text-red-500' : 'text-green-600'}>
-                                            ${fmt(cfData.netOperating)}
+                                    <div className="flex justify-between items-baseline py-3 mt-1 border-t-2 border-border/60 font-bold">
+                                        <span className="text-sm text-foreground">Net Cash from Operating Activities</span>
+                                        <span className={`text-sm tabular-nums ml-8 shrink-0 ${cfData.netOperating < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                            {cfData.netOperating < 0 ? `($${fmt(Math.abs(cfData.netOperating))})` : `$${fmt(cfData.netOperating)}`}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Investing Activities */}
-                            <div className="bg-card border border-border rounded-xl p-5">
-                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-                                    <Scale className="w-4 h-4 text-indigo-500" />
-                                    Investing Activities
-                                </h3>
-                                <div className="space-y-1 text-sm">
+                            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                                <div className="px-6 py-3.5 border-b border-border bg-muted/30 flex items-center gap-2.5">
+                                    <Scale className="w-4 h-4 text-indigo-500 shrink-0" />
+                                    <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Investing Activities</h4>
+                                </div>
+                                <div className="px-6 py-2">
                                     {cfData.investingItems.length === 0 ? (
-                                        <p className="text-xs text-muted-foreground italic">No investing activity</p>
-                                    ) : cfData.investingItems.map(item => (
-                                        <div key={item.account_number} className="flex justify-between py-0.5">
-                                            <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
-                                            <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
-                                                {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
-                                        <span>Net Cash from Investing Activities</span>
-                                        <span className={cfData.netInvesting < 0 ? 'text-red-500' : 'text-green-600'}>
-                                            ${fmt(cfData.netInvesting)}
+                                        <p className="text-sm text-muted-foreground italic py-3">No investing activity for this period</p>
+                                    ) : cfData.investingItems.map(item => {
+                                        const a = fmtAmt(item.amount);
+                                        return (
+                                            <div key={item.account_number} className="flex justify-between items-baseline py-2.5 border-b border-border/30 last:border-0">
+                                                <span className="text-sm text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                                <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>{a.display}</span>
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="flex justify-between items-baseline py-3 mt-1 border-t-2 border-border/60 font-bold">
+                                        <span className="text-sm text-foreground">Net Cash from Investing Activities</span>
+                                        <span className={`text-sm tabular-nums ml-8 shrink-0 ${cfData.netInvesting < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                            {cfData.netInvesting < 0 ? `($${fmt(Math.abs(cfData.netInvesting))})` : `$${fmt(cfData.netInvesting)}`}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Financing Activities */}
-                            <div className="bg-card border border-border rounded-xl p-5">
-                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-                                    <TrendingDown className="w-4 h-4 text-purple-500" />
-                                    Financing Activities
-                                </h3>
-                                <div className="space-y-1 text-sm">
+                            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                                <div className="px-6 py-3.5 border-b border-border bg-muted/30 flex items-center gap-2.5">
+                                    <TrendingDown className="w-4 h-4 text-purple-500 shrink-0" />
+                                    <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Financing Activities</h4>
+                                </div>
+                                <div className="px-6 py-2">
                                     {cfData.financingItems.length === 0 ? (
-                                        <p className="text-xs text-muted-foreground italic">No financing activity</p>
-                                    ) : cfData.financingItems.map(item => (
-                                        <div key={item.account_number} className="flex justify-between py-0.5">
-                                            <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
-                                            <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
-                                                {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
-                                        <span>Net Cash from Financing Activities</span>
-                                        <span className={cfData.netFinancing < 0 ? 'text-red-500' : 'text-green-600'}>
-                                            ${fmt(cfData.netFinancing)}
+                                        <p className="text-sm text-muted-foreground italic py-3">No financing activity for this period</p>
+                                    ) : cfData.financingItems.map(item => {
+                                        const a = fmtAmt(item.amount);
+                                        return (
+                                            <div key={item.account_number} className="flex justify-between items-baseline py-2.5 border-b border-border/30 last:border-0">
+                                                <span className="text-sm text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                                <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>{a.display}</span>
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="flex justify-between items-baseline py-3 mt-1 border-t-2 border-border/60 font-bold">
+                                        <span className="text-sm text-foreground">Net Cash from Financing Activities</span>
+                                        <span className={`text-sm tabular-nums ml-8 shrink-0 ${cfData.netFinancing < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                            {cfData.netFinancing < 0 ? `($${fmt(Math.abs(cfData.netFinancing))})` : `$${fmt(cfData.netFinancing)}`}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Summary */}
-                            <div className="bg-card border border-border rounded-xl p-5 space-y-2 text-sm">
-                                <div className="flex justify-between font-bold text-base border-b border-border pb-2">
-                                    <span>Net Increase (Decrease) in Cash</span>
-                                    <span className={cfData.netCashChange < 0 ? 'text-red-500' : 'text-green-600'}>
-                                        ${fmt(cfData.netCashChange)}
-                                    </span>
+                            {/* Net Change + Ending Cash */}
+                            <div className={`flex justify-between items-center px-6 py-4 rounded-xl border-2 ${
+                                cfData.netCashChange >= 0
+                                    ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/15'
+                                    : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/15'
+                            }`}>
+                                <span className={`font-bold text-base ${cfData.netCashChange >= 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
+                                    Net Increase (Decrease) in Cash
+                                </span>
+                                <span className={`font-bold tabular-nums text-2xl ${cfData.netCashChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {cfData.netCashChange < 0 ? `($${fmt(Math.abs(cfData.netCashChange))})` : `$${fmt(cfData.netCashChange)}`}
+                                </span>
+                            </div>
+
+                            <div className="bg-card border border-border rounded-xl px-6 py-4 space-y-2.5">
+                                <div className="flex justify-between items-baseline text-sm">
+                                    <span className="text-muted-foreground">Cash at Beginning of Period</span>
+                                    <span className="tabular-nums font-medium text-foreground ml-8 shrink-0">${fmt(cfData.beginningCash)}</span>
                                 </div>
-                                <div className="flex justify-between text-muted-foreground">
-                                    <span>Cash at Beginning of Period</span>
-                                    <span>${fmt(cfData.beginningCash)}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-brand-600 text-base pt-1 border-t border-border">
-                                    <span>Cash at End of Period</span>
-                                    <span>${fmt(cfData.endingCash)}</span>
+                                <div className="flex justify-between items-baseline font-bold text-base border-t border-border pt-2.5">
+                                    <span className="text-foreground">Cash at End of Period</span>
+                                    <span className="tabular-nums text-brand-600 dark:text-brand-400 ml-8 shrink-0">${fmt(cfData.endingCash)}</span>
                                 </div>
                                 {Math.abs(cfData.beginningCash + cfData.netCashChange - cfData.endingCash) > 0.02 && (
                                     <div className="flex items-center gap-1.5 text-amber-600 text-xs pt-1">
@@ -1135,7 +1153,7 @@ export default function AccountingDashboard() {
                     ) : !plData ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
                     ) : (
-                        <div className="max-w-2xl space-y-2">
+                        <div className="space-y-3">
 
                             {/* Revenue */}
                             <PLSection
