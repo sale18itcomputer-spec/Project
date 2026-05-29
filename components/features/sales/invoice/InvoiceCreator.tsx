@@ -6,6 +6,7 @@ import { Invoice, SaleOrder } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile } from "../../../../services/api";
+import { autoPostInvoiceJournal } from "../../../../services/accountingApi";
 import { formatToSheetDate, formatToInputDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
@@ -70,7 +71,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 };
 
 const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice, initialData }) => {
-    const { invoices, setInvoices, companies, contacts, saleOrders, refetchModule } = useData();
+    const { invoices, setInvoices, companies, contacts, saleOrders, pricelist, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -342,6 +343,32 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             } else {
                 await createRecord('Invoices', payload);
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
+
+                // Auto-post a draft journal entry for non-Draft invoices (non-fatal)
+                if (invoice['Status'] !== 'Draft') {
+                    // Build per-brand revenue breakdown using pricelist Code → Brand
+                    const brandMap = new Map(
+                        (pricelist ?? []).map(p => [p['Code'], p['Brand']])
+                    );
+                    const brandTotals: Record<string, number> = {};
+                    for (const item of items) {
+                        const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
+                        brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+                    }
+                    const brandAmounts = Object.entries(brandTotals)
+                        .map(([brand, subtotal]) => ({ brand, subtotal }))
+                        .filter(b => b.subtotal > 0.005);
+
+                    autoPostInvoiceJournal({
+                        invNo: invoice['Inv No']!,
+                        entryDate: invoice['Inv Date'] || getTodayDateString(),
+                        grandTotal: totals.grandTotal,
+                        taxAmount: totals.tax,
+                        isVAT: invoice['Taxable'] === 'VAT',
+                        createdBy: currentUser?.Name || 'system',
+                        brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
+                    }).catch(err => console.warn('[InvoiceCreator] auto-post failed:', err));
+                }
             }
             refetchModule('Invoices');
 

@@ -545,6 +545,9 @@ export interface JournalEntry {
   reference: string;
   created_by: string;
   is_posted: boolean;
+  source?: string;
+  posted_by?: string;
+  posted_at?: string;
   lines?: JournalEntryLine[];
   total_debit?: number;
   total_credit?: number;

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChartOfAccount, JournalEntry, JournalEntryLine, BalanceSheetLine } from '../../../types';
 import {
     fetchChartOfAccounts, createAccount, updateAccount,
-    fetchJournalEntries, createJournalEntry, deleteJournalEntry,
+    fetchJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry,
     togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet, computeCashFlow,
     computeProfitLoss,
 } from '../../../services/accountingApi';
@@ -54,6 +54,13 @@ const TYPE_COLORS: Record<string, string> = {
 
 const fmt = (n: number) =>
     n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
+    invoice:        { label: 'Auto · Invoice',  cls: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' },
+    receipt:        { label: 'Auto · Receipt',  cls: 'bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700' },
+    delivery_order: { label: 'Auto · DO',       cls: 'bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700' },
+    purchase_order: { label: 'Auto · PO',       cls: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -196,6 +203,7 @@ export default function AccountingDashboard() {
 
     // ── Journal Entry state ───────────────────────────────────────────────────
     const [showEntryForm, setShowEntryForm]   = useState(false);
+    const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
     const [entryHeader, setEntryHeader]       = useState<Partial<JournalEntry>>({
         entry_date: getTodayISO(), description: '', reference: '', is_posted: false,
     });
@@ -205,6 +213,8 @@ export default function AccountingDashboard() {
     ]);
     const [savingEntry, setSavingEntry]       = useState(false);
     const [deletingId, setDeletingId]         = useState<string | null>(null);
+    const [journalFilter, setJournalFilter]   = useState<'all' | 'draft' | 'auto' | 'manual'>('all');
+    const [postingAll, setPostingAll]         = useState(false);
 
     // ── Balance Sheet state ───────────────────────────────────────────────────
     const [bsAsOfDate, setBsAsOfDate]   = useState(getTodayISO());
@@ -361,13 +371,38 @@ export default function AccountingDashboard() {
 
     const resetEntryForm = async () => {
         const nextNum = await getNextEntryNumber();
-        setEntryHeader({ entry_date: getTodayISO(), description: '', reference: '', is_posted: false });
+        setEditingEntryId(null);
+        setEntryHeader({ entry_number: nextNum, entry_date: getTodayISO(), description: '', reference: '', is_posted: false });
         setEntryLines([
             { account_number: '', description: '', debit: 0, credit: 0 },
             { account_number: '', description: '', debit: 0, credit: 0 },
         ]);
         setShowEntryForm(true);
-        setEntryHeader(prev => ({ ...prev, entry_number: nextNum }));
+    };
+
+    const openEditForm = (entry: JournalEntry) => {
+        setEditingEntryId(entry.id!);
+        setEntryHeader({
+            entry_number: entry.entry_number,
+            entry_date:   entry.entry_date,
+            description:  entry.description,
+            reference:    entry.reference,
+            is_posted:    entry.is_posted,
+        });
+        setEntryLines(
+            entry.lines && entry.lines.length > 0
+                ? entry.lines.map(l => ({
+                    account_number: l.account_number,
+                    description:    l.description,
+                    debit:          l.debit,
+                    credit:         l.credit,
+                }))
+                : [
+                    { account_number: '', description: '', debit: 0, credit: 0 },
+                    { account_number: '', description: '', debit: 0, credit: 0 },
+                ],
+        );
+        setShowEntryForm(true);
     };
 
     const handleSaveEntry = async () => {
@@ -380,27 +415,47 @@ export default function AccountingDashboard() {
             addToast('At least 2 valid lines (with an account and amount) are required.', 'error');
             return;
         }
+        const mappedLines = validLines.map(l => ({
+            account_number: l.account_number!,
+            description:    l.description || '',
+            debit:          Number(l.debit)  || 0,
+            credit:         Number(l.credit) || 0,
+        }));
+
         setSavingEntry(true);
         try {
-            const created = await createJournalEntry(
-                {
-                    entry_number: entryHeader.entry_number || 'JE-0001',
-                    entry_date:   entryHeader.entry_date || getTodayISO(),
-                    description:  entryHeader.description || '',
-                    reference:    entryHeader.reference || '',
-                    created_by:   currentUser?.Name || '',
-                    is_posted:    false,
-                },
-                validLines.map(l => ({
-                    account_number: l.account_number!,
-                    description:    l.description || '',
-                    debit:          Number(l.debit)  || 0,
-                    credit:         Number(l.credit) || 0,
-                })),
-            );
-            setEntries(prev => [created, ...prev]);
-            setShowEntryForm(false);
-            addToast(`Journal entry ${created.entry_number} saved.`, 'success');
+            if (editingEntryId) {
+                // ── Edit mode ──────────────────────────────────────────────────
+                const updated = await updateJournalEntry(
+                    editingEntryId,
+                    {
+                        entry_date:  entryHeader.entry_date || getTodayISO(),
+                        description: entryHeader.description || '',
+                        reference:   entryHeader.reference || '',
+                    },
+                    mappedLines,
+                );
+                setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+                setShowEntryForm(false);
+                setEditingEntryId(null);
+                addToast(`Journal entry ${updated.entry_number} updated.`, 'success');
+            } else {
+                // ── Create mode ────────────────────────────────────────────────
+                const created = await createJournalEntry(
+                    {
+                        entry_number: entryHeader.entry_number || 'JE-0001',
+                        entry_date:   entryHeader.entry_date || getTodayISO(),
+                        description:  entryHeader.description || '',
+                        reference:    entryHeader.reference || '',
+                        created_by:   currentUser?.Name || '',
+                        is_posted:    false,
+                    },
+                    mappedLines,
+                );
+                setEntries(prev => [created, ...prev]);
+                setShowEntryForm(false);
+                addToast(`Journal entry ${created.entry_number} saved.`, 'success');
+            }
         } catch (e: any) {
             addToast(`Failed to save entry: ${e.message}`, 'error');
         } finally {
@@ -409,6 +464,11 @@ export default function AccountingDashboard() {
     };
 
     const handleDeleteEntry = async (id: string) => {
+        const entry = entries.find(e => e.id === id);
+        if (entry?.is_posted) {
+            addToast(`Cannot delete posted entry ${entry.entry_number}. Unpost it first.`, 'error');
+            return;
+        }
         setDeletingId(id);
         try {
             await deleteJournalEntry(id);
@@ -422,6 +482,10 @@ export default function AccountingDashboard() {
     };
 
     const handleTogglePost = async (entry: JournalEntry) => {
+        // Require confirmation before removing a posted entry from the ledger
+        if (entry.is_posted && !window.confirm(`Unpost ${entry.entry_number}? This will remove it from all financial reports until reposted.`)) {
+            return;
+        }
         try {
             const updated = await togglePostJournalEntry(entry.id!, !entry.is_posted);
             setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: updated.is_posted } : e));
@@ -438,6 +502,41 @@ export default function AccountingDashboard() {
         Object.fromEntries(accounts.map(a => [a.account_number, a.account_name])),
         [accounts]
     );
+
+    // ── Journal filter + counts ───────────────────────────────────────────────
+    const filteredEntries = useMemo(() => {
+        switch (journalFilter) {
+            case 'draft':  return entries.filter(e => !e.is_posted);
+            case 'auto':   return entries.filter(e => e.source && e.source !== 'manual');
+            case 'manual': return entries.filter(e => !e.source || e.source === 'manual');
+            default:       return entries;
+        }
+    }, [entries, journalFilter]);
+
+    const draftCount = useMemo(() => entries.filter(e => !e.is_posted).length, [entries]);
+    const autoCount  = useMemo(() => entries.filter(e => e.source && e.source !== 'manual').length, [entries]);
+
+    const handlePostAllDrafts = async () => {
+        const drafts = filteredEntries.filter(e => !e.is_posted);
+        if (drafts.length === 0) { addToast('No draft entries to post.', 'info'); return; }
+        if (!window.confirm(`Post all ${drafts.length} draft ${drafts.length === 1 ? 'entry' : 'entries'} in the current view? This will add them to all financial reports.`)) return;
+        setPostingAll(true);
+        let posted = 0;
+        let failed = 0;
+        for (const entry of drafts) {
+            try {
+                const updated = await togglePostJournalEntry(entry.id!, true);
+                setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: true } : e));
+                posted++;
+            } catch {
+                failed++;
+            }
+        }
+        setPostingAll(false);
+        if (failed === 0) addToast(`${posted} ${posted === 1 ? 'entry' : 'entries'} posted successfully.`, 'success');
+        else addToast(`${posted} posted, ${failed} failed (unbalanced?). Check failed entries.`, 'error');
+        if (activeTab === 'balance') setBsData(null);
+    };
 
     // ── Render helpers ────────────────────────────────────────────────────────
 
@@ -722,19 +821,60 @@ export default function AccountingDashboard() {
             {/* ── TAB: Journal Entries ───────────────────────────────────────── */}
             {activeTab === 'journal' && (
                 <div className="space-y-4">
+                    {/* Toolbar: counts, filter chips, actions */}
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                        <p className="text-sm text-muted-foreground">{entries.length} entries</p>
-                        {canCreate && (
-                            <Button size="sm" onClick={resetEntryForm} className="bg-brand-600 hover:bg-brand-700 gap-1.5">
-                                <PlusCircle size={14} /> New Journal Entry
-                            </Button>
-                        )}
+                        {/* Filter chips */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {(['all', 'draft', 'auto', 'manual'] as const).map(f => {
+                                const labels: Record<string, string> = {
+                                    all:    `All (${entries.length})`,
+                                    draft:  `Drafts (${draftCount})`,
+                                    auto:   `Auto-generated (${autoCount})`,
+                                    manual: `Manual`,
+                                };
+                                return (
+                                    <button
+                                        key={f}
+                                        onClick={() => setJournalFilter(f)}
+                                        className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                                            journalFilter === f
+                                                ? 'bg-brand-600 text-white'
+                                                : 'bg-muted text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        {labels[f]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                            {canEdit && draftCount > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handlePostAllDrafts}
+                                    disabled={postingAll}
+                                    className="gap-1.5 border-green-500/40 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+                                >
+                                    <Check size={13} />
+                                    {postingAll ? 'Posting…' : `Post all drafts (${draftCount})`}
+                                </Button>
+                            )}
+                            {canCreate && (
+                                <Button size="sm" onClick={resetEntryForm} className="bg-brand-600 hover:bg-brand-700 gap-1.5">
+                                    <PlusCircle size={14} /> New Journal Entry
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Entry Form */}
                     {showEntryForm && (
                         <div className="bg-card border border-brand-600/30 rounded-xl p-5 space-y-4">
-                            <h3 className="font-semibold text-foreground">New Journal Entry</h3>
+                            <h3 className="font-semibold text-foreground">
+                                {editingEntryId ? 'Edit Journal Entry' : 'New Journal Entry'}
+                            </h3>
                             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                                 <div>
                                     <label className="text-xs font-medium text-muted-foreground">Entry #</label>
@@ -866,14 +1006,14 @@ export default function AccountingDashboard() {
                             </div>
 
                             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                                <Button size="sm" variant="outline" onClick={() => setShowEntryForm(false)}>Cancel</Button>
+                                <Button size="sm" variant="outline" onClick={() => { setShowEntryForm(false); setEditingEntryId(null); }}>Cancel</Button>
                                 <Button
                                     size="sm"
                                     onClick={handleSaveEntry}
                                     disabled={savingEntry || !entryBalance.balanced}
                                     className="bg-brand-600 hover:bg-brand-700"
                                 >
-                                    {savingEntry ? 'Saving…' : 'Save Entry'}
+                                    {savingEntry ? 'Saving…' : editingEntryId ? 'Update Entry' : 'Save Entry'}
                                 </Button>
                             </div>
                         </div>
@@ -887,19 +1027,29 @@ export default function AccountingDashboard() {
                             <FileText size={36} className="opacity-30" />
                             <p className="text-sm">No journal entries yet. Create your first entry to begin posting.</p>
                         </div>
+                    ) : filteredEntries.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                            <FileText size={30} className="opacity-20" />
+                            <p className="text-sm">No entries match this filter.</p>
+                        </div>
                     ) : (
                         <div className="space-y-3">
-                            {entries.map(entry => (
+                            {filteredEntries.map(entry => (
                                 <div key={entry.id} className="bg-card border border-border rounded-xl overflow-hidden">
                                     {/* Entry header */}
                                     <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/20">
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-mono text-sm font-semibold text-foreground">{entry.entry_number}</span>
-                                            <span className="text-sm text-muted-foreground">{entry.entry_date}</span>
-                                            {entry.description && <span className="text-sm text-foreground">{entry.description}</span>}
-                                            {entry.reference && <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted border border-border">{entry.reference}</span>}
+                                        <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+                                            <span className="font-mono text-sm font-semibold text-foreground shrink-0">{entry.entry_number}</span>
+                                            <span className="text-sm text-muted-foreground shrink-0">{entry.entry_date}</span>
+                                            {entry.description && <span className="text-sm text-foreground truncate">{entry.description}</span>}
+                                            {entry.reference && <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted border border-border shrink-0">{entry.reference}</span>}
+                                            {entry.source && SOURCE_BADGE[entry.source] && (
+                                                <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${SOURCE_BADGE[entry.source].cls}`}>
+                                                    {SOURCE_BADGE[entry.source].label}
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 shrink-0">
                                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                                                 entry.is_posted
                                                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -907,8 +1057,17 @@ export default function AccountingDashboard() {
                                             }`}>
                                                 {entry.is_posted ? 'Posted' : 'Draft'}
                                             </span>
-                                            <span className="text-xs text-muted-foreground">Dr ${fmt(entry.total_debit ?? 0)} / Cr ${fmt(entry.total_credit ?? 0)}</span>
-                                            {canCreate && (
+                                            <span className="text-xs text-muted-foreground hidden md:inline">Dr ${fmt(entry.total_debit ?? 0)} / Cr ${fmt(entry.total_credit ?? 0)}</span>
+                                            {canEdit && !entry.is_posted && (
+                                                <button
+                                                    onClick={() => openEditForm(entry)}
+                                                    title="Edit entry"
+                                                    className="p-1.5 rounded text-muted-foreground hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+                                                >
+                                                    <Edit2 size={14} />
+                                                </button>
+                                            )}
+                                            {canEdit && (
                                                 <button
                                                     onClick={() => handleTogglePost(entry)}
                                                     title={entry.is_posted ? 'Unpost' : 'Post'}
@@ -924,8 +1083,13 @@ export default function AccountingDashboard() {
                                             {canDelete && (
                                                 <button
                                                     onClick={() => handleDeleteEntry(entry.id!)}
-                                                    disabled={deletingId === entry.id}
-                                                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                    disabled={deletingId === entry.id || entry.is_posted}
+                                                    title={entry.is_posted ? 'Cannot delete posted entry' : 'Delete entry'}
+                                                    className={`p-1.5 rounded transition-colors ${
+                                                        entry.is_posted
+                                                            ? 'text-muted-foreground/25 cursor-not-allowed'
+                                                            : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                                                    }`}
                                                 >
                                                     <Trash2 size={14} />
                                                 </button>

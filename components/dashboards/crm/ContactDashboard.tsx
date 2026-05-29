@@ -434,7 +434,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   columns={displayedColumns}
                   loading={loading}
                   onRowClick={handleViewContact}
-                  initialSort={{ key: 'Customer ID', direction: 'ascending' }}
+                  initialSort={{ key: 'Customer ID', direction: 'descending' }}
                   highlightedCheck={(contact) => contact.status === 'Active'}
                   mobilePrimaryColumns={['Name', 'Company Name', 'status']}
                   cellWrapStyle={cellWrapStyle}

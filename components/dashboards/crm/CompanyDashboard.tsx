@@ -325,7 +325,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
             columns={displayedColumns}
             loading={loading}
             onRowClick={handleViewCompany}
-            initialSort={{ key: 'Company ID', direction: 'ascending' }}
+            initialSort={{ key: 'Company ID', direction: 'descending' }}
             mobilePrimaryColumns={['Company Name', 'Field', 'totalValueUSD', 'status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (

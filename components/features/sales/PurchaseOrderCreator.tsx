@@ -6,6 +6,7 @@ import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { supabase } from "../../../lib/supabase";
+import { autoPostPurchaseOrderJournal } from "../../../services/accountingApi";
 import { Plus, Trash2, Save, ShoppingCart, PanelRight, Download, Loader2 } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from "../../common/FormControls";
 import { formatCurrencySmartly } from "../../../utils/formatters";
@@ -428,6 +429,14 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
             if (itemsError) throw itemsError;
 
             if (formData.status === 'Completed') {
+                // Auto-post: DR Inventory (per brand) / CR Accounts Payable (non-fatal)
+                autoPostPurchaseOrderJournal({
+                    poNumber: formData.po_number || poId || '',
+                    entryDate: formData.order_date || new Date().toISOString().slice(0, 10),
+                    items: items.map(i => ({ brand: i.brand, qty: i.qty, unit_price: i.unit_price })),
+                    createdBy: currentUser?.Name || 'system',
+                }).catch(err => console.warn('[PurchaseOrderCreator] auto-post failed:', err));
+
                 try {
                     const pricelistPayload = items
                         .filter(item => item.item_number || item.description)

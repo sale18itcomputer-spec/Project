@@ -93,7 +93,72 @@ export const createJournalEntry = async (
     };
 };
 
+export const updateJournalEntry = async (
+    id: string,
+    header: Partial<Pick<JournalEntry, 'entry_date' | 'description' | 'reference'>>,
+    lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[],
+): Promise<JournalEntry> => {
+    // Guard: posted entries are immutable
+    const { data: existing, error: checkErr } = await supabase
+        .from('journal_entries')
+        .select('is_posted, entry_number')
+        .eq('id', id)
+        .maybeSingle();
+    if (checkErr) throw new Error(checkErr.message);
+    if (existing?.is_posted) {
+        throw new Error(`Cannot edit posted entry ${existing.entry_number}. Unpost it first.`);
+    }
+
+    const totalDebit  = lines.reduce((s, l) => s + l.debit,  0);
+    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+    if (Math.abs(totalDebit - totalCredit) > 0.001) {
+        throw new Error(`Entry is not balanced: debits ${totalDebit.toFixed(2)} ≠ credits ${totalCredit.toFixed(2)}`);
+    }
+
+    // 1. Update header
+    const { data: updatedEntry, error: updateErr } = await supabase
+        .from('journal_entries')
+        .update({ ...header, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+    if (updateErr) throw new Error(updateErr.message);
+
+    // 2. Replace lines: delete old, insert new
+    const { error: deleteErr } = await supabase
+        .from('journal_entry_lines')
+        .delete()
+        .eq('journal_entry_id', id);
+    if (deleteErr) throw new Error(deleteErr.message);
+
+    const lineRows = lines.map(l => ({ ...l, journal_entry_id: id }));
+    const { data: createdLines, error: linesErr } = await supabase
+        .from('journal_entry_lines')
+        .insert(lineRows)
+        .select();
+    if (linesErr) throw new Error(linesErr.message);
+
+    return {
+        ...updatedEntry,
+        lines: createdLines ?? [],
+        total_debit:  totalDebit,
+        total_credit: totalCredit,
+    };
+};
+
 export const deleteJournalEntry = async (id: string): Promise<void> => {
+    // Client-side guard: verify not posted before sending to DB.
+    // The DB also enforces this via RLS (NOT is_posted on DELETE policy).
+    const { data: entry, error: checkErr } = await supabase
+        .from('journal_entries')
+        .select('is_posted, entry_number')
+        .eq('id', id)
+        .maybeSingle();
+    if (checkErr) throw new Error(checkErr.message);
+    if (entry?.is_posted) {
+        throw new Error(`Cannot delete posted entry ${entry.entry_number}. Unpost it first.`);
+    }
+
     const { error } = await supabase
         .from('journal_entries')
         .delete()
@@ -115,16 +180,19 @@ export const togglePostJournalEntry = async (id: string, isPosted: boolean): Pro
 // ── Next Entry Number ─────────────────────────────────────────────────────────
 
 export const getNextEntryNumber = async (): Promise<string> => {
+    // Fetch all JE-NNNN entry numbers and find the true maximum to avoid
+    // race conditions from ORDER BY created_at when entries are created quickly.
     const { data, error } = await supabase
         .from('journal_entries')
         .select('entry_number')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-    if (error || !data) return 'JE-0001';
-    const match = data.entry_number.match(/(\d+)$/);
-    const next = match ? parseInt(match[1], 10) + 1 : 1;
-    return `JE-${String(next).padStart(4, '0')}`;
+        .like('entry_number', 'JE-%');
+    if (error || !data?.length) return 'JE-0001';
+    const max = data.reduce((m, row) => {
+        const match = row.entry_number.match(/^JE-(\d+)$/);
+        const n = match ? parseInt(match[1], 10) : 0;
+        return Math.max(m, n);
+    }, 0);
+    return `JE-${String(max + 1).padStart(4, '0')}`;
 };
 
 // ── Cash Flow Statement (Indirect Method) ────────────────────────────────────
@@ -449,4 +517,231 @@ export const computeBalanceSheet = async (
         netIncome,
         isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
     };
+};
+
+// ── Auto-Post Helpers ─────────────────────────────────────────────────────────
+// These functions create draft journal entries automatically when business
+// transactions (invoices, receipts) are saved. Entries are created with
+// is_posted = false so the accountant can review before they affect reports.
+// All functions are idempotent: a second call for the same reference is a no-op.
+
+const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
+    'Cash':          '10100', // Cash on Hand
+    'Cheque':        '11800', // Undeposit Cheque
+    'ABA':           '11100', // ABA USD-Pisey (default bank)
+    'Bank Transfer': '11100',
+    'KHQR':          '11100',
+    'Other':         '11100',
+};
+
+// Mirrors the brand_account_mapping table seeded in 20260529_accounting_security.sql.
+// Kept here as a cache so auto-post functions don't need an extra DB round-trip.
+export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; inventory: string }> = {
+    'ASUS':                  { revenue: '40100', cogs: '50100', inventory: '12100' },
+    'DELL':                  { revenue: '40200', cogs: '50200', inventory: '12200' },
+    'MSI':                   { revenue: '40300', cogs: '50300', inventory: '12300' },
+    'Asus Acc. & PW Supply': { revenue: '40400', cogs: '50400', inventory: '12400' },
+    'MSI Acc. & PW Supply':  { revenue: '40500', cogs: '50500', inventory: '12500' },
+    'Other Accessories':     { revenue: '40600', cogs: '50600', inventory: '12600' },
+    'Lenovo':                { revenue: '40700', cogs: '50700', inventory: '12700' },
+    'Lenovo Accessories':    { revenue: '40800', cogs: '50800', inventory: '12800' },
+};
+
+/** Auto-create a draft journal entry for a saved invoice.
+ *  DR Accounts Receivable 11900
+ *  CR Income 40xxx per brand (falls back to 40000 if brand unknown)
+ *  CR VAT Output 23000 (if VAT invoice)
+ *
+ *  Pass brandAmounts for a per-brand revenue breakdown; omit for a single
+ *  line against the general Income parent account 40000.
+ */
+export const autoPostInvoiceJournal = async (params: {
+    invNo: string;
+    entryDate: string;
+    grandTotal: number;
+    taxAmount: number;
+    isVAT: boolean;
+    createdBy: string;
+    brandAmounts?: { brand: string; subtotal: number }[];
+}): Promise<void> => {
+    // Idempotent: skip if an auto-entry for this invoice already exists
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('reference', params.invNo)
+        .eq('source', 'invoice')
+        .maybeSingle();
+    if (existing) return;
+
+    const entryNumber = await getNextEntryNumber();
+    const subtotal = params.grandTotal - params.taxAmount;
+
+    const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [
+        {
+            account_number: '11900',
+            description: `AR — ${params.invNo}`,
+            debit: params.grandTotal,
+            credit: 0,
+        },
+    ];
+
+    if (params.brandAmounts && params.brandAmounts.length > 0) {
+        // Per-brand revenue lines — route each brand to its specific income account
+        for (const { brand, subtotal: brandSubtotal } of params.brandAmounts) {
+            if (brandSubtotal <= 0.005) continue;
+            const revenueAccount = BRAND_ACCOUNT_MAP[brand]?.revenue ?? '40000';
+            lines.push({
+                account_number: revenueAccount,
+                description: `Revenue ${brand} — ${params.invNo}`,
+                debit: 0,
+                credit: brandSubtotal,
+            });
+        }
+    } else {
+        // Fall back to the generic parent income account
+        lines.push({
+            account_number: '40000',
+            description: `Revenue — ${params.invNo}`,
+            debit: 0,
+            credit: subtotal,
+        });
+    }
+
+    if (params.isVAT && params.taxAmount > 0.005) {
+        lines.push({
+            account_number: '23000',
+            description: `VAT Output — ${params.invNo}`,
+            debit: 0,
+            credit: params.taxAmount,
+        });
+    }
+
+    await createJournalEntry(
+        {
+            entry_number: entryNumber,
+            entry_date: params.entryDate,
+            description: `Auto: Invoice ${params.invNo}`,
+            reference: params.invNo,
+            created_by: params.createdBy,
+            is_posted: false,
+            source: 'invoice',
+        },
+        lines,
+    );
+};
+
+/** Auto-create a draft journal entry for a recorded receipt (payment).
+ *  DR Bank account / CR Accounts Receivable 11900
+ */
+export const autoPostReceiptJournal = async (params: {
+    rvNo: string;
+    entryDate: string;
+    amount: number;
+    paymentMethod: string;
+    createdBy: string;
+}): Promise<void> => {
+    // Idempotent: skip if an auto-entry for this receipt already exists
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('reference', params.rvNo)
+        .eq('source', 'receipt')
+        .maybeSingle();
+    if (existing) return;
+
+    const bankAccount = PAYMENT_METHOD_TO_ACCOUNT[params.paymentMethod] ?? '11100';
+    const entryNumber = await getNextEntryNumber();
+
+    await createJournalEntry(
+        {
+            entry_number: entryNumber,
+            entry_date: params.entryDate,
+            description: `Auto: Receipt ${params.rvNo}`,
+            reference: params.rvNo,
+            created_by: params.createdBy,
+            is_posted: false,
+            source: 'receipt',
+        },
+        [
+            {
+                account_number: bankAccount,
+                description: `Bank — ${params.rvNo}`,
+                debit: params.amount,
+                credit: 0,
+            },
+            {
+                account_number: '11900',
+                description: `AR collection — ${params.rvNo}`,
+                debit: 0,
+                credit: params.amount,
+            },
+        ],
+    );
+};
+
+/** Auto-create a draft journal entry when a Purchase Order is received (Completed).
+ *  DR Inventory 12xxx per brand / CR Accounts Payable 20000
+ */
+export const autoPostPurchaseOrderJournal = async (params: {
+    poNumber: string;
+    entryDate: string;
+    items: { brand?: string; qty: number; unit_price: number }[];
+    createdBy: string;
+}): Promise<void> => {
+    // Idempotent: skip if an auto-entry for this PO already exists
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('reference', params.poNumber)
+        .eq('source', 'purchase_order')
+        .maybeSingle();
+    if (existing) return;
+
+    // Group by brand → total inventory cost
+    const brandTotals: Record<string, number> = {};
+    let grandTotal = 0;
+    for (const item of params.items) {
+        const cost = (item.qty || 0) * (item.unit_price || 0);
+        if (cost <= 0.005) continue;
+        const brand = item.brand?.trim() || 'Other Accessories';
+        brandTotals[brand] = (brandTotals[brand] ?? 0) + cost;
+        grandTotal += cost;
+    }
+    if (grandTotal <= 0.005) return;
+
+    const entryNumber = await getNextEntryNumber();
+
+    const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
+
+    // DR Inventory per brand
+    for (const [brand, cost] of Object.entries(brandTotals)) {
+        const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12000';
+        lines.push({
+            account_number: inventoryAccount,
+            description: `Inventory ${brand} — ${params.poNumber}`,
+            debit: cost,
+            credit: 0,
+        });
+    }
+
+    // CR Accounts Payable (single line — total)
+    lines.push({
+        account_number: '20000',
+        description: `AP — ${params.poNumber}`,
+        debit: 0,
+        credit: grandTotal,
+    });
+
+    await createJournalEntry(
+        {
+            entry_number: entryNumber,
+            entry_date: params.entryDate,
+            description: `Auto: PO ${params.poNumber}`,
+            reference: params.poNumber,
+            created_by: params.createdBy,
+            is_posted: false,
+            source: 'purchase_order',
+        },
+        lines,
+    );
 };

@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '../../contexts/NavigationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createRecord } from '../../services/api';
+import { autoPostReceiptJournal } from '../../services/accountingApi';
 import { formatCurrencySmartly } from '../../utils/formatters';
 import { formatToSheetDate } from '../../utils/time';
 import { InvoiceAR } from '../../utils/collection';
@@ -189,6 +190,16 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                 ? prev.map(r => r['RV No'] === nextRVNo ? saved : r)
                 : [saved]
             );
+
+            // Auto-post a draft journal entry: DR Bank / CR AR (non-fatal)
+            autoPostReceiptJournal({
+                rvNo: nextRVNo,
+                entryDate: rvDate,
+                amount,
+                paymentMethod,
+                createdBy: currentUser?.Name || 'system',
+            }).catch(err => console.warn('[QuickPaymentModal] auto-post failed:', err));
+
             addToast(
                 isPartial
                     ? `Partial payment recorded · ${nextRVNo}`
