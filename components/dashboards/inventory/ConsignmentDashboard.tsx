@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     PackageCheck, Search, RefreshCw, MapPin, Calendar,
     User, FileText, ChevronDown, ArrowLeftRight,
-    Package, Tag, AlertCircle,
+    Package, AlertCircle,
 } from 'lucide-react';
 import { fetchConsignments } from '@/services/consignmentApi';
 import { Consignment, ConsignmentItem } from '@/types';
