@@ -674,7 +674,7 @@ export default function AccountingDashboard() {
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-3.5 hidden md:table-cell">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide ${TYPE_COLORS[account.account_type] || 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${TYPE_COLORS[account.account_type] || 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
                                                         {account.account_type}
                                                     </span>
                                                 </td>

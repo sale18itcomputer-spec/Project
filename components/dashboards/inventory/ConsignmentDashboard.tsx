@@ -51,7 +51,7 @@ const fmtDate = (d: string | null | undefined) =>
 function StatusBadge({ status, map }: { status: string; map: Record<string, string> }) {
     const cls = map[status] ?? 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600';
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide ${cls}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${cls}`}>
             {status}
         </span>
     );
@@ -448,7 +448,7 @@ export default function ConsignmentDashboard() {
                                     const cls = BRAND_COLORS[brand] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800/40 dark:text-gray-300';
                                     return (
                                         <div key={brand} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-                                            <span className={`shrink-0 px-2 py-0.5 rounded text-[11px] font-bold ${cls}`}>{brand}</span>
+                                            <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${cls}`}>{brand}</span>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-semibold text-foreground">{inShow} / {stat.sent} units</p>
                                                 <p className="text-[11px] text-muted-foreground">{stat.items} items · {pct}% in showroom</p>
@@ -525,7 +525,7 @@ export default function ConsignmentDashboard() {
                                                     <span className="line-clamp-1">{item.product_name}</span>
                                                 </td>
                                                 <td className="px-4 py-2.5">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide ${brandCls}`}>{item.brand}</span>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${brandCls}`}>{item.brand}</span>
                                                 </td>
                                                 <td className="px-4 py-2.5 text-[12px] text-muted-foreground">{item.category}</td>
                                                 <td className="px-4 py-2.5 text-right tabular-nums text-[13px] font-medium text-foreground">{item.qty_sent}</td>
