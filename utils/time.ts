@@ -203,16 +203,16 @@ export const formatToInputDate = (dateStr?: string): string => {
 };
 
 /**
- * Converts a date string from an HTML date input ('YYYY-MM-DD') to 'M/D/YYYY' for the sheet,
- * prepending an apostrophe to force Google Sheets to treat it as a literal string.
+ * Normalizes a date string from an HTML date input ('YYYY-MM-DD') for Supabase writes.
+ * Returns the input unchanged — YYYY-MM-DD is valid for both PostgreSQL text and timestamptz
+ * columns. The apostrophe-prefixed M/D/YYYY format this function previously returned was a
+ * Google Sheets convention that PostgreSQL rejects for timestamptz columns.
  */
 export const formatToSheetDate = (inputDateStr?: string): string => {
     if (!inputDateStr || !inputDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
         return inputDateStr || '';
     }
-    const [year, month, day] = inputDateStr.split('-');
-    // Prepend apostrophe to force string type in Google Sheets and prevent auto-formatting
-    return `'${Number(month)}/${Number(day)}/${year}`;
+    return inputDateStr;
 };
 
 /**
