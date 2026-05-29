@@ -510,3 +510,54 @@ export interface PurchaseOrder {
   items?: PurchaseOrderItem[];
   [key: string]: any;
 }
+
+// ─── Accounting Module ────────────────────────────────────────────────────────
+
+export interface ChartOfAccount {
+  id: number;
+  account_number: string;
+  account_name: string;
+  parent_account_number: string | null;
+  account_type: string;
+  description: string;
+  is_hidden: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JournalEntryLine {
+  id?: string;
+  journal_entry_id?: string;
+  account_number: string;
+  account_name?: string;
+  description: string;
+  debit: number;
+  credit: number;
+  created_at?: string;
+}
+
+export interface JournalEntry {
+  id?: string;
+  entry_number: string;
+  entry_date: string;
+  description: string;
+  reference: string;
+  created_by: string;
+  is_posted: boolean;
+  lines?: JournalEntryLine[];
+  total_debit?: number;
+  total_credit?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Balance sheet line item with account + computed balance */
+export interface BalanceSheetLine {
+  account_number: string;
+  account_name: string;
+  parent_account_number: string | null;
+  account_type: string;
+  balance: number;
+  is_parent: boolean;
+}

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building, Users, FileText, ShoppingCart,
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
-  ChevronRight, UserCog, Wallet, Warehouse,
+  ChevronRight, UserCog, Wallet, Warehouse, BookOpen,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -237,6 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     meetings:           canView('meetings'),
     pricing_calculator: canView('pricing_calculator'),
     pdf_editor:         canView('pdf_editor'),
+    accounting:         canView('accounting'),
   };
 
   // Derived section visibility — a section only shows if at least one of its items is visible
@@ -247,7 +248,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
   const showProcurement  = show.purchase_orders || show.inventory;
   const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
-  const showTools        = show.pricing_calculator || show.pdf_editor;
+  const showTools        = show.pricing_calculator || show.pdf_editor || show.accounting;
 
   return (
     <aside
@@ -415,6 +416,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.pdf_editor && (
                 <NavItem icon={<FileText size={16} />} label="PDF Editor"
                   isActive={isActive('/pdf-layout-editor')} onClick={go('/pdf-layout-editor')} isCollapsed={isCollapsed} />
+              )}
+              {show.accounting && (
+                <NavItem icon={<BookOpen size={16} />} label="Accounting"
+                  isActive={isActive('/accounting')} onClick={go('/accounting')} isCollapsed={isCollapsed} />
               )}
             </Section>
           )}

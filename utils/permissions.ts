@@ -170,6 +170,12 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     actions: ['use'],
     route: ['/pdf-layout-editor'],
   },
+  accounting: {
+    label: 'Accounting',
+    section: 'Tools',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/accounting'],
+  },
 
   // Admin
   users: {
@@ -224,6 +230,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       meetings:           { view: true, create: true, edit: true, delete: true },
       pricing_calculator: { use: true },
       pdf_editor:         { use: true },
+      accounting:         { view: true, create: true, edit: true, delete: true },
       users:              { view: true, create: true, edit: true, delete: true },
     },
     dataVisibility: {
@@ -259,6 +266,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       meetings:           { view: true, create: true, edit: true, delete: true },
       pricing_calculator: { use: true },
       pdf_editor:         { use: true },
+      accounting:         { view: true, create: true, edit: true, delete: true },
       users:              { view: false, create: false, edit: false, delete: false },
     },
     dataVisibility: {
@@ -294,6 +302,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       meetings:           { view: true, create: true, edit: true, delete: false },
       pricing_calculator: { use: true },
       pdf_editor:         { use: false },
+      accounting:         { view: false, create: false, edit: false, delete: false },
       users:              { view: false, create: false, edit: false, delete: false },
     },
     dataVisibility: {
@@ -329,6 +338,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       meetings:           { view: false, create: false, edit: false, delete: false },
       pricing_calculator: { use: false },
       pdf_editor:         { use: false },
+      accounting:         { view: true, create: true, edit: true, delete: true },
       users:              { view: false, create: false, edit: false, delete: false },
     },
     dataVisibility: {
@@ -364,6 +374,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       meetings:           { view: true, create: false, edit: false, delete: false },
       pricing_calculator: { use: false },
       pdf_editor:         { use: false },
+      accounting:         { view: false, create: false, edit: false, delete: false },
       users:              { view: false, create: false, edit: false, delete: false },
     },
     dataVisibility: {
