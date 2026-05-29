@@ -237,7 +237,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     site_surveys:       canView('site_surveys'),
     meetings:           canView('meetings'),
     pricing_calculator: canView('pricing_calculator'),
-    pdf_editor:         canView('pdf_editor'),
     accounting:         canView('accounting'),
   };
 
@@ -249,7 +248,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
   const showProcurement  = show.purchase_orders || show.inventory || show.consignment;
   const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
-  const showTools        = show.pricing_calculator || show.pdf_editor || show.accounting;
+  const showTools        = show.pricing_calculator || show.accounting;
 
   return (
     <aside
@@ -411,16 +410,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             </Section>
           )}
 
-          {/* Tools */}
+          {/* Accounting */}
           {showTools && (
-            <Section label="Tools" isCollapsed={isCollapsed}>
+            <Section label="Accounting" isCollapsed={isCollapsed}>
               {show.pricing_calculator && (
                 <NavItem icon={<Calculator size={16} />} label="Pricing Calculator"
                   isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed} />
-              )}
-              {show.pdf_editor && (
-                <NavItem icon={<FileText size={16} />} label="PDF Editor"
-                  isActive={isActive('/pdf-layout-editor')} onClick={go('/pdf-layout-editor')} isCollapsed={isCollapsed} />
               )}
               {show.accounting && (
                 <NavItem icon={<BookOpen size={16} />} label="Accounting"
