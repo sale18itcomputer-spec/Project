@@ -127,6 +127,135 @@ export const getNextEntryNumber = async (): Promise<string> => {
     return `JE-${String(next).padStart(4, '0')}`;
 };
 
+// ── Cash Flow Statement (Indirect Method) ────────────────────────────────────
+
+export const computeCashFlow = async (
+    accounts: ChartOfAccount[],
+    dateFrom: string,
+    dateTo: string,
+): Promise<{
+    netIncome: number;
+    operatingAdjustments: { account_number: string; account_name: string; amount: number }[];
+    investingItems: { account_number: string; account_name: string; amount: number }[];
+    financingItems: { account_number: string; account_name: string; amount: number }[];
+    netOperating: number;
+    netInvesting: number;
+    netFinancing: number;
+    beginningCash: number;
+    endingCash: number;
+    netCashChange: number;
+}> => {
+    const [endResult, beginResult, periodResult] = await Promise.all([
+        supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
+            .eq('journal_entries.is_posted', true)
+            .lte('journal_entries.entry_date', dateTo),
+        supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
+            .eq('journal_entries.is_posted', true)
+            .lt('journal_entries.entry_date', dateFrom),
+        supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
+            .eq('journal_entries.is_posted', true)
+            .gte('journal_entries.entry_date', dateFrom)
+            .lte('journal_entries.entry_date', dateTo),
+    ]);
+    if (endResult.error)    throw new Error(endResult.error.message);
+    if (beginResult.error)  throw new Error(beginResult.error.message);
+    if (periodResult.error) throw new Error(periodResult.error.message);
+
+    const agg = (lines: any[]) => {
+        const result: Record<string, { debit: number; credit: number }> = {};
+        (lines ?? []).forEach((l: any) => {
+            if (!result[l.account_number]) result[l.account_number] = { debit: 0, credit: 0 };
+            result[l.account_number].debit  += Number(l.debit);
+            result[l.account_number].credit += Number(l.credit);
+        });
+        return result;
+    };
+
+    const endAgg    = agg(endResult.data ?? []);
+    const beginAgg  = agg(beginResult.data ?? []);
+    const periodAgg = agg(periodResult.data ?? []);
+
+    const getBal = (num: string, type: string, a: Record<string, { debit: number; credit: number }>) => {
+        const r = a[num] ?? { debit: 0, credit: 0 };
+        return DEBIT_NORMAL.has(type) ? r.debit - r.credit : r.credit - r.debit;
+    };
+
+    // Net income from P&L accounts during the period
+    let netIncome = 0;
+    accounts.forEach(acc => {
+        if (acc.account_type === 'Income' || acc.account_type === 'Other Income') {
+            netIncome += getBal(acc.account_number, acc.account_type, periodAgg);
+        } else if (acc.account_type === 'Cost of Goods Sold' || acc.account_type === 'Expense' || acc.account_type === 'Other Expense') {
+            netIncome -= getBal(acc.account_number, acc.account_type, periodAgg);
+        }
+    });
+
+    // Cash balances (Bank accounts)
+    const beginningCash = accounts
+        .filter(a => a.account_type === 'Bank')
+        .reduce((s, a) => s + getBal(a.account_number, a.account_type, beginAgg), 0);
+    const endingCash = accounts
+        .filter(a => a.account_type === 'Bank')
+        .reduce((s, a) => s + getBal(a.account_number, a.account_type, endAgg), 0);
+
+    // Operating adjustments: changes in non-cash current accounts
+    const OPER_ASSET = new Set(['Accounts Receivable', 'Other Current Asset']);
+    const OPER_LIAB  = new Set(['Accounts Payable', 'Other Current Liability']);
+    const operatingAdjustments: { account_number: string; account_name: string; amount: number }[] = [];
+
+    accounts
+        .filter(a => OPER_ASSET.has(a.account_type) || OPER_LIAB.has(a.account_type))
+        .forEach(acc => {
+            const change = getBal(acc.account_number, acc.account_type, endAgg)
+                         - getBal(acc.account_number, acc.account_type, beginAgg);
+            if (Math.abs(change) < 0.005) return;
+            // Asset increase = cash outflow; liability increase = cash inflow
+            const amount = OPER_ASSET.has(acc.account_type) ? -change : change;
+            operatingAdjustments.push({ account_number: acc.account_number, account_name: acc.account_name, amount });
+        });
+
+    // Investing: changes in fixed asset accounts
+    const investingItems: { account_number: string; account_name: string; amount: number }[] = [];
+    accounts.filter(a => a.account_type === 'Fixed Asset').forEach(acc => {
+        const change = getBal(acc.account_number, acc.account_type, endAgg)
+                     - getBal(acc.account_number, acc.account_type, beginAgg);
+        if (Math.abs(change) < 0.005) return;
+        investingItems.push({ account_number: acc.account_number, account_name: acc.account_name, amount: -change });
+    });
+
+    // Financing: changes in equity accounts
+    const financingItems: { account_number: string; account_name: string; amount: number }[] = [];
+    accounts.filter(a => a.account_type === 'Equity').forEach(acc => {
+        const change = getBal(acc.account_number, acc.account_type, endAgg)
+                     - getBal(acc.account_number, acc.account_type, beginAgg);
+        if (Math.abs(change) < 0.005) return;
+        financingItems.push({ account_number: acc.account_number, account_name: acc.account_name, amount: change });
+    });
+
+    const netOperating = netIncome + operatingAdjustments.reduce((s, i) => s + i.amount, 0);
+    const netInvesting  = investingItems.reduce((s, i) => s + i.amount, 0);
+    const netFinancing  = financingItems.reduce((s, i) => s + i.amount, 0);
+
+    return {
+        netIncome,
+        operatingAdjustments,
+        investingItems,
+        financingItems,
+        netOperating,
+        netInvesting,
+        netFinancing,
+        beginningCash,
+        endingCash,
+        netCashChange: netOperating + netInvesting + netFinancing,
+    };
+};
+
 // ── Balance Sheet Computation ─────────────────────────────────────────────────
 
 // Account types that carry a DEBIT normal balance (positive = debit > credit)

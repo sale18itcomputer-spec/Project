@@ -5,7 +5,7 @@ import { ChartOfAccount, JournalEntry, JournalEntryLine, BalanceSheetLine } from
 import {
     fetchChartOfAccounts, createAccount, updateAccount,
     fetchJournalEntries, createJournalEntry, deleteJournalEntry,
-    togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet,
+    togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet, computeCashFlow,
 } from '../../../services/accountingApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -14,7 +14,7 @@ import { Button } from '../../ui/button';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark,
+    FileText, Landmark, Activity,
 } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -60,7 +60,8 @@ const getTodayISO = () => new Date().toISOString().split('T')[0];
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'journal' | 'balance';
+type Tab = 'coa' | 'journal' | 'balance' | 'cashflow';
+type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 
 export default function AccountingDashboard() {
     const { currentUser } = useAuth();
@@ -141,6 +142,12 @@ export default function AccountingDashboard() {
     const [bsData, setBsData]           = useState<Awaited<ReturnType<typeof computeBalanceSheet>> | null>(null);
     const [loadingBS, setLoadingBS]     = useState(false);
 
+    // ── Cash Flow state ───────────────────────────────────────────────────────
+    const [cfDateFrom, setCfDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
+    const [cfDateTo, setCfDateTo]     = useState(getTodayISO);
+    const [cfData, setCfData]         = useState<CashFlowData | null>(null);
+    const [loadingCF, setLoadingCF]   = useState(false);
+
     const loadBalanceSheet = useCallback(async () => {
         if (!accounts.length) return;
         try {
@@ -154,9 +161,26 @@ export default function AccountingDashboard() {
         }
     }, [accounts, bsAsOfDate, addToast]);
 
+    const loadCashFlow = useCallback(async () => {
+        if (!accounts.length) return;
+        try {
+            setLoadingCF(true);
+            const data = await computeCashFlow(accounts, cfDateFrom, cfDateTo);
+            setCfData(data);
+        } catch (e: any) {
+            addToast(`Failed to compute cash flow: ${e.message}`, 'error');
+        } finally {
+            setLoadingCF(false);
+        }
+    }, [accounts, cfDateFrom, cfDateTo, addToast]);
+
     useEffect(() => {
         if (activeTab === 'balance' && accounts.length) loadBalanceSheet();
     }, [activeTab, accounts, loadBalanceSheet]);
+
+    useEffect(() => {
+        if (activeTab === 'cashflow' && accounts.length) loadCashFlow();
+    }, [activeTab, accounts, loadCashFlow]);
 
     // ── COA helpers ───────────────────────────────────────────────────────────
 
@@ -382,16 +406,17 @@ export default function AccountingDashboard() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-                        <p className="text-sm text-muted-foreground">Chart of Accounts · Journal Entries · Balance Sheet</p>
+                        <p className="text-sm text-muted-foreground">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow</p>
                     </div>
                 </div>
             </div>
 
             {/* Tabs */}
             <div className="flex gap-2 flex-wrap">
-                <TabBtn id="coa"     label="Chart of Accounts" icon={<Landmark size={15} />} />
-                <TabBtn id="journal" label="Journal Entries"   icon={<FileText size={15} />} />
-                <TabBtn id="balance" label="Balance Sheet"     icon={<Scale size={15} />} />
+                <TabBtn id="coa"      label="Chart of Accounts" icon={<Landmark size={15} />} />
+                <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
+                <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
+                <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
             </div>
 
             {/* ── TAB: Chart of Accounts ─────────────────────────────────────── */}
@@ -834,6 +859,155 @@ export default function AccountingDashboard() {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── TAB: Cash Flow ────────────────────────────────────────────── */}
+            {activeTab === 'cashflow' && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">From</label>
+                            <input
+                                type="date"
+                                value={cfDateFrom}
+                                onChange={e => setCfDateFrom(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">To</label>
+                            <input
+                                type="date"
+                                value={cfDateTo}
+                                onChange={e => setCfDateTo(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            />
+                        </div>
+                        <Button size="sm" onClick={loadCashFlow} disabled={loadingCF} className="bg-brand-600 hover:bg-brand-700">
+                            {loadingCF ? 'Computing…' : 'Refresh'}
+                        </Button>
+                    </div>
+
+                    {loadingCF ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing cash flow…</div>
+                    ) : !cfData ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
+                    ) : (
+                        <div className="max-w-2xl space-y-4">
+                            {/* Operating Activities */}
+                            <div className="bg-card border border-border rounded-xl p-5">
+                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4 text-green-500" />
+                                    Operating Activities
+                                </h3>
+                                <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-muted-foreground">Net Income</span>
+                                        <span className={`font-medium ${cfData.netIncome < 0 ? 'text-red-500' : 'text-foreground'}`}>
+                                            ${fmt(cfData.netIncome)}
+                                        </span>
+                                    </div>
+                                    {cfData.operatingAdjustments.length > 0 && (
+                                        <>
+                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest pt-2 pb-1">
+                                                Adjustments for working capital changes
+                                            </p>
+                                            {cfData.operatingAdjustments.map(item => (
+                                                <div key={item.account_number} className="flex justify-between py-0.5 pl-3">
+                                                    <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                                    <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
+                                                        {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
+                                        <span>Net Cash from Operating Activities</span>
+                                        <span className={cfData.netOperating < 0 ? 'text-red-500' : 'text-green-600'}>
+                                            ${fmt(cfData.netOperating)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Investing Activities */}
+                            <div className="bg-card border border-border rounded-xl p-5">
+                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                                    <Scale className="w-4 h-4 text-indigo-500" />
+                                    Investing Activities
+                                </h3>
+                                <div className="space-y-1 text-sm">
+                                    {cfData.investingItems.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground italic">No investing activity</p>
+                                    ) : cfData.investingItems.map(item => (
+                                        <div key={item.account_number} className="flex justify-between py-0.5">
+                                            <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                            <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
+                                                {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
+                                        <span>Net Cash from Investing Activities</span>
+                                        <span className={cfData.netInvesting < 0 ? 'text-red-500' : 'text-green-600'}>
+                                            ${fmt(cfData.netInvesting)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Financing Activities */}
+                            <div className="bg-card border border-border rounded-xl p-5">
+                                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                                    <TrendingDown className="w-4 h-4 text-purple-500" />
+                                    Financing Activities
+                                </h3>
+                                <div className="space-y-1 text-sm">
+                                    {cfData.financingItems.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground italic">No financing activity</p>
+                                    ) : cfData.financingItems.map(item => (
+                                        <div key={item.account_number} className="flex justify-between py-0.5">
+                                            <span className="text-muted-foreground">{item.account_number} · {item.account_name}</span>
+                                            <span className={item.amount < 0 ? 'text-red-500' : 'text-foreground'}>
+                                                {item.amount < 0 ? `(${fmt(Math.abs(item.amount))})` : fmt(item.amount)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-between pt-2 border-t border-border font-bold">
+                                        <span>Net Cash from Financing Activities</span>
+                                        <span className={cfData.netFinancing < 0 ? 'text-red-500' : 'text-green-600'}>
+                                            ${fmt(cfData.netFinancing)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Summary */}
+                            <div className="bg-card border border-border rounded-xl p-5 space-y-2 text-sm">
+                                <div className="flex justify-between font-bold text-base border-b border-border pb-2">
+                                    <span>Net Increase (Decrease) in Cash</span>
+                                    <span className={cfData.netCashChange < 0 ? 'text-red-500' : 'text-green-600'}>
+                                        ${fmt(cfData.netCashChange)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Cash at Beginning of Period</span>
+                                    <span>${fmt(cfData.beginningCash)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-brand-600 text-base pt-1 border-t border-border">
+                                    <span>Cash at End of Period</span>
+                                    <span>${fmt(cfData.endingCash)}</span>
+                                </div>
+                                {Math.abs(cfData.beginningCash + cfData.netCashChange - cfData.endingCash) > 0.02 && (
+                                    <div className="flex items-center gap-1.5 text-amber-600 text-xs pt-1">
+                                        <AlertTriangle size={12} /> Reconciliation difference detected — check posted entries
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
