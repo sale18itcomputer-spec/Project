@@ -19,21 +19,21 @@ const ITEM_STATUSES  = ['Received', 'Transferred Back', 'Sold', 'Damaged'] as co
 const VOUCHER_STATUSES = ['Open', 'Closed'] as const;
 
 const ITEM_STATUS_CLS: Record<string, string> = {
-    'Received':         'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700',
-    'Transferred Back': 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700',
-    'Sold':             'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
-    'Damaged':          'bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700',
+    'Received':         'bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700',
+    'Transferred Back': 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700',
+    'Sold':             'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700',
+    'Damaged':          'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700',
 };
 
 const VOUCHER_STATUS_CLS: Record<string, string> = {
-    'Open':   'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
-    'Closed': 'bg-gray-100 text-gray-600 border border-gray-300 dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-600',
+    'Open':   'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700',
+    'Closed': 'bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-600',
 };
 
 const BRAND_COLORS: Record<string, string> = {
-    'ASUS':   'bg-sky-100 text-sky-700 border border-sky-300 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-700',
-    'MSI':    'bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700',
-    'Lenovo': 'bg-orange-100 text-orange-700 border border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700',
+    'ASUS':   'bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-900/30 dark:text-sky-200 dark:border-sky-700',
+    'MSI':    'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700',
+    'Lenovo': 'bg-orange-100 text-orange-900 border border-orange-300 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700',
 };
 
 const TODAY = new Date().toISOString().split('T')[0];
@@ -49,7 +49,7 @@ const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 function StatusBadge({ status, map }: { status: string; map: Record<string, string> }) {
-    const cls = map[status] ?? 'bg-gray-100 text-gray-600 border border-gray-300 dark:bg-gray-800/40 dark:text-gray-400 dark:border-gray-600';
+    const cls = map[status] ?? 'bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600';
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${cls}`}>
             {status}
@@ -511,7 +511,7 @@ export default function ConsignmentDashboard() {
                                         </tr>
                                     ) : filtered.map((item, idx) => {
                                         const showroom = item.qty_sent - item.qty_returned;
-                                        const brandCls = BRAND_COLORS[item.brand] ?? 'bg-gray-100 text-gray-600 border border-gray-300 dark:bg-gray-800/40 dark:text-gray-400 dark:border-gray-600';
+                                        const brandCls = BRAND_COLORS[item.brand] ?? 'bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600';
                                         const isEditing = editingItemId === item.id;
                                         const isSaving  = savingItemId  === item.id;
 
