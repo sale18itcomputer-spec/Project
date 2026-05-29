@@ -37,19 +37,19 @@ const ACCOUNT_TYPES = [
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-    'Bank':                    'bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700',
-    'Accounts Receivable':     'bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-900/40 dark:text-sky-200 dark:border-sky-700',
-    'Other Current Asset':     'bg-cyan-100 text-cyan-900 border border-cyan-300 dark:bg-cyan-900/40 dark:text-cyan-200 dark:border-cyan-700',
-    'Fixed Asset':             'bg-indigo-100 text-indigo-900 border border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-700',
-    'Accounts Payable':        'bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-700',
-    'Other Current Liability': 'bg-pink-100 text-pink-900 border border-pink-300 dark:bg-pink-900/40 dark:text-pink-200 dark:border-pink-700',
-    'Equity':                  'bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-700',
-    'Income':                  'bg-green-100 text-green-900 border border-green-300 dark:bg-green-900/40 dark:text-green-200 dark:border-green-700',
-    'Cost of Goods Sold':      'bg-orange-100 text-orange-900 border border-orange-300 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-700',
-    'Expense':                 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700',
-    'Other Income':            'bg-teal-100 text-teal-900 border border-teal-300 dark:bg-teal-900/40 dark:text-teal-200 dark:border-teal-700',
-    'Other Expense':           'bg-red-100 text-red-900 border border-red-300 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700',
-    'Non-Posting':             'bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
+    'Bank':                    'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700',
+    'Accounts Receivable':     'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-900/40 dark:text-sky-200 dark:border-sky-700',
+    'Other Current Asset':     'bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-200 dark:border-cyan-700',
+    'Fixed Asset':             'bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-700',
+    'Accounts Payable':        'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-700',
+    'Other Current Liability': 'bg-pink-50 text-pink-700 border border-pink-200 dark:bg-pink-900/40 dark:text-pink-200 dark:border-pink-700',
+    'Equity':                  'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-700',
+    'Income':                  'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/40 dark:text-green-200 dark:border-green-700',
+    'Cost of Goods Sold':      'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-700',
+    'Expense':                 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700',
+    'Other Income':            'bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-900/40 dark:text-teal-200 dark:border-teal-700',
+    'Other Expense':           'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700',
+    'Non-Posting':             'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
 };
 
 const fmt = (n: number) =>
@@ -674,7 +674,7 @@ export default function AccountingDashboard() {
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-3.5 hidden md:table-cell">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${TYPE_COLORS[account.account_type] || 'bg-gray-100 text-gray-600 border border-gray-300'}`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide ${TYPE_COLORS[account.account_type] || 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
                                                         {account.account_type}
                                                     </span>
                                                 </td>
