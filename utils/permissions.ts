@@ -136,6 +136,12 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     actions: ['view', 'create', 'edit', 'delete', 'export'],
     route: ['/inventory'],
   },
+  consignment: {
+    label: 'Consignment',
+    section: 'Procurement',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/consignment'],
+  },
 
   // Activity
   pipelines: {
@@ -225,6 +231,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       vendors:            { view: true, create: true, edit: true, delete: true },
       purchase_orders:    { view: true, create: true, edit: true, delete: true, export: true, approve: true },
       inventory:          { view: true, create: true, edit: true, delete: true, export: true },
+      consignment:        { view: true, create: true, edit: true, delete: true },
       pipelines:          { view: true, create: true, edit: true, delete: true },
       site_surveys:       { view: true, create: true, edit: true, delete: true, export: true },
       meetings:           { view: true, create: true, edit: true, delete: true },
@@ -261,6 +268,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       vendors:            { view: true, create: true, edit: true, delete: true },
       purchase_orders:    { view: false, create: false, edit: false, delete: false, export: false, approve: false },
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
+      consignment:        { view: true, create: true, edit: true, delete: true },
       pipelines:          { view: true, create: true, edit: true, delete: true },
       site_surveys:       { view: true, create: true, edit: true, delete: true, export: true },
       meetings:           { view: true, create: true, edit: true, delete: true },
@@ -297,6 +305,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       vendors:            { view: false, create: false, edit: false, delete: false },
       purchase_orders:    { view: false, create: false, edit: false, delete: false, export: false, approve: false },
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
+      consignment:        { view: true, create: false, edit: false, delete: false },
       pipelines:          { view: true, create: true, edit: true, delete: false },
       site_surveys:       { view: true, create: true, edit: true, delete: false, export: true },
       meetings:           { view: true, create: true, edit: true, delete: false },
@@ -333,6 +342,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       vendors:            { view: false, create: false, edit: false, delete: false },
       purchase_orders:    { view: false, create: false, edit: false, delete: false, export: false, approve: false },
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
+      consignment:        { view: true, create: false, edit: false, delete: false },
       pipelines:          { view: false, create: false, edit: false, delete: false },
       site_surveys:       { view: false, create: false, edit: false, delete: false, export: false },
       meetings:           { view: false, create: false, edit: false, delete: false },
@@ -369,6 +379,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       vendors:            { view: false, create: false, edit: false, delete: false },
       purchase_orders:    { view: false, create: false, edit: false, delete: false, export: false, approve: false },
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
+      consignment:        { view: false, create: false, edit: false, delete: false },
       pipelines:          { view: true, create: false, edit: false, delete: false },
       site_surveys:       { view: true, create: false, edit: false, delete: false, export: false },
       meetings:           { view: true, create: false, edit: false, delete: false },

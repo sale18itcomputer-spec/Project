@@ -6,6 +6,7 @@ import {
     fetchChartOfAccounts, createAccount, updateAccount,
     fetchJournalEntries, createJournalEntry, deleteJournalEntry,
     togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet, computeCashFlow,
+    computeProfitLoss,
 } from '../../../services/accountingApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -14,7 +15,7 @@ import { Button } from '../../ui/button';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity,
+    FileText, Landmark, Activity, BarChart2,
 } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -58,10 +59,74 @@ const fmt = (n: number) =>
 
 const getTodayISO = () => new Date().toISOString().split('T')[0];
 
+// ── P&L helper components ─────────────────────────────────────────────────────
+
+const PLSection: React.FC<{
+    title: string;
+    lines: BalanceSheetLine[];
+    totalLabel: string;
+    total: number;
+    totalColor: string;
+    negate?: boolean;
+    fmt: (n: number) => string;
+}> = ({ title, lines, totalLabel, total, totalColor, negate, fmt }) => {
+    const relevant = lines.filter(l => l.balance !== 0);
+    if (relevant.length === 0 && total === 0) return null;
+    return (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border/50 bg-muted/20">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</h4>
+            </div>
+            <div className="px-5 py-3 space-y-0.5">
+                {relevant.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-1">No activity</p>
+                ) : relevant.map(l => (
+                    <div
+                        key={l.account_number}
+                        className={`flex justify-between py-1 text-sm border-b border-border/20 last:border-0 ${
+                            l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground pl-4'
+                        }`}
+                    >
+                        <span>{l.account_number} · {l.account_name}</span>
+                        <span>{negate ? `(${fmt(l.balance)})` : fmt(l.balance)}</span>
+                    </div>
+                ))}
+                <div className={`flex justify-between pt-2 border-t-2 border-border/40 font-bold text-sm mt-1`}>
+                    <span className="text-foreground">{totalLabel}</span>
+                    <span className={totalColor}>
+                        {negate ? `(${fmt(total)})` : fmt(total)}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PLSubtotal: React.FC<{
+    label: string;
+    value: number;
+    fmt: (n: number) => string;
+    size: 'md' | 'lg';
+}> = ({ label, value, fmt, size }) => (
+    <div className={`flex justify-between items-center px-5 py-3 rounded-xl border-2 ${
+        value >= 0
+            ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10'
+            : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
+    }`}>
+        <span className={`font-bold ${size === 'lg' ? 'text-base' : 'text-sm'} ${value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+            {label}
+        </span>
+        <span className={`font-bold tabular-nums ${size === 'lg' ? 'text-xl' : 'text-base'} ${value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {value < 0 ? `($${fmt(Math.abs(value))})` : `$${fmt(value)}`}
+        </span>
+    </div>
+);
+
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'journal' | 'balance' | 'cashflow';
+type Tab = 'coa' | 'journal' | 'balance' | 'cashflow' | 'pl';
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
+type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
 export default function AccountingDashboard() {
     const { currentUser } = useAuth();
@@ -148,6 +213,12 @@ export default function AccountingDashboard() {
     const [cfData, setCfData]         = useState<CashFlowData | null>(null);
     const [loadingCF, setLoadingCF]   = useState(false);
 
+    // ── P&L state ────────────────────────────────────────────────────────────
+    const [plDateFrom, setPlDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
+    const [plDateTo, setPlDateTo]     = useState(getTodayISO);
+    const [plData, setPlData]         = useState<PLData | null>(null);
+    const [loadingPL, setLoadingPL]   = useState(false);
+
     const loadBalanceSheet = useCallback(async () => {
         if (!accounts.length) return;
         try {
@@ -174,6 +245,19 @@ export default function AccountingDashboard() {
         }
     }, [accounts, cfDateFrom, cfDateTo, addToast]);
 
+    const loadProfitLoss = useCallback(async () => {
+        if (!accounts.length) return;
+        try {
+            setLoadingPL(true);
+            const data = await computeProfitLoss(accounts, plDateFrom, plDateTo);
+            setPlData(data);
+        } catch (e: any) {
+            addToast(`Failed to compute P&L: ${e.message}`, 'error');
+        } finally {
+            setLoadingPL(false);
+        }
+    }, [accounts, plDateFrom, plDateTo, addToast]);
+
     useEffect(() => {
         if (activeTab === 'balance' && accounts.length) loadBalanceSheet();
     }, [activeTab, accounts, loadBalanceSheet]);
@@ -181,6 +265,10 @@ export default function AccountingDashboard() {
     useEffect(() => {
         if (activeTab === 'cashflow' && accounts.length) loadCashFlow();
     }, [activeTab, accounts, loadCashFlow]);
+
+    useEffect(() => {
+        if (activeTab === 'pl' && accounts.length) loadProfitLoss();
+    }, [activeTab, accounts, loadProfitLoss]);
 
     // ── COA helpers ───────────────────────────────────────────────────────────
 
@@ -406,7 +494,7 @@ export default function AccountingDashboard() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-                        <p className="text-sm text-muted-foreground">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow</p>
+                        <p className="text-sm text-muted-foreground">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
                     </div>
                 </div>
             </div>
@@ -417,6 +505,7 @@ export default function AccountingDashboard() {
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
+                <TabBtn id="pl"       label="Profit & Loss"    icon={<BarChart2 size={15} />} />
             </div>
 
             {/* ── TAB: Chart of Accounts ─────────────────────────────────────── */}
@@ -1008,6 +1097,126 @@ export default function AccountingDashboard() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── TAB: Profit & Loss ────────────────────────────────────────── */}
+            {activeTab === 'pl' && (
+                <div className="space-y-4">
+                    {/* Date range picker */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">From</label>
+                            <input
+                                type="date"
+                                value={plDateFrom}
+                                onChange={e => setPlDateFrom(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">To</label>
+                            <input
+                                type="date"
+                                value={plDateTo}
+                                onChange={e => setPlDateTo(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            />
+                        </div>
+                        <Button size="sm" onClick={loadProfitLoss} disabled={loadingPL} className="bg-brand-600 hover:bg-brand-700">
+                            {loadingPL ? 'Computing…' : 'Refresh'}
+                        </Button>
+                    </div>
+
+                    {loadingPL ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing profit & loss…</div>
+                    ) : !plData ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
+                    ) : (
+                        <div className="max-w-2xl space-y-2">
+
+                            {/* Revenue */}
+                            <PLSection
+                                title="Revenue"
+                                lines={plData.income}
+                                totalLabel="Total Revenue"
+                                total={plData.totalRevenue}
+                                totalColor="text-green-600 dark:text-green-400"
+                                fmt={fmt}
+                            />
+
+                            {/* Cost of Goods Sold */}
+                            <PLSection
+                                title="Cost of Goods Sold"
+                                lines={plData.cogs}
+                                totalLabel="Total COGS"
+                                total={plData.totalCogs}
+                                totalColor="text-rose-600 dark:text-rose-400"
+                                negate
+                                fmt={fmt}
+                            />
+
+                            {/* Gross Profit */}
+                            <PLSubtotal
+                                label="Gross Profit"
+                                value={plData.grossProfit}
+                                fmt={fmt}
+                                size="md"
+                            />
+
+                            {/* Operating Expenses */}
+                            <PLSection
+                                title="Operating Expenses"
+                                lines={plData.expenses}
+                                totalLabel="Total Expenses"
+                                total={plData.totalExpenses}
+                                totalColor="text-rose-600 dark:text-rose-400"
+                                negate
+                                fmt={fmt}
+                            />
+
+                            {/* Operating Income */}
+                            <PLSubtotal
+                                label="Operating Income"
+                                value={plData.operatingIncome}
+                                fmt={fmt}
+                                size="md"
+                            />
+
+                            {/* Other Income & Expenses */}
+                            {(plData.otherIncome.some(l => l.balance !== 0) || plData.otherExpenses.some(l => l.balance !== 0)) && (
+                                <>
+                                    <PLSection
+                                        title="Other Income"
+                                        lines={plData.otherIncome}
+                                        totalLabel="Total Other Income"
+                                        total={plData.totalOtherIncome}
+                                        totalColor="text-teal-600 dark:text-teal-400"
+                                        fmt={fmt}
+                                    />
+                                    {plData.otherExpenses.some(l => l.balance !== 0) && (
+                                        <PLSection
+                                            title="Other Expenses"
+                                            lines={plData.otherExpenses}
+                                            totalLabel="Total Other Expenses"
+                                            total={plData.totalOtherExpenses}
+                                            totalColor="text-rose-600 dark:text-rose-400"
+                                            negate
+                                            fmt={fmt}
+                                        />
+                                    )}
+                                </>
+                            )}
+
+                            {/* Net Income */}
+                            <PLSubtotal
+                                label="Net Income"
+                                value={plData.netIncome}
+                                fmt={fmt}
+                                size="lg"
+                            />
                         </div>
                     )}
                 </div>

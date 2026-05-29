@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building, Users, FileText, ShoppingCart,
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
-  ChevronRight, UserCog, Wallet, Warehouse, BookOpen,
+  ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -232,6 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     vendors:            canView('vendors'),
     purchase_orders:    canView('purchase_orders'),
     inventory:          canView('inventory'),
+    consignment:        canView('consignment'),
     pipelines:          canView('pipelines'),
     site_surveys:       canView('site_surveys'),
     meetings:           canView('meetings'),
@@ -246,7 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                            show.delivery_orders || show.receipts || show.collection ||
                            show.weekly_report;
   const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
-  const showProcurement  = show.purchase_orders || show.inventory;
+  const showProcurement  = show.purchase_orders || show.inventory || show.consignment;
   const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
   const showTools        = show.pricing_calculator || show.pdf_editor || show.accounting;
 
@@ -380,6 +381,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.inventory && (
                 <NavItem icon={<Warehouse size={16} />} label="Inventory"
                   isActive={isActive('/inventory')} onClick={go('/inventory')} onPrefetch={() => prefetch('/inventory')} isCollapsed={isCollapsed} />
+              )}
+              {show.consignment && (
+                <NavItem icon={<PackageCheck size={16} />} label="Consignment"
+                  isActive={isActive('/consignment')} onClick={go('/consignment')} isCollapsed={isCollapsed} />
               )}
             </Section>
           )}

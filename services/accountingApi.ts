@@ -256,6 +256,88 @@ export const computeCashFlow = async (
     };
 };
 
+// ── Profit & Loss Computation (period-based) ──────────────────────────────────
+
+export const computeProfitLoss = async (
+    accounts: ChartOfAccount[],
+    dateFrom: string,
+    dateTo: string,
+): Promise<{
+    income: BalanceSheetLine[];
+    cogs: BalanceSheetLine[];
+    expenses: BalanceSheetLine[];
+    otherIncome: BalanceSheetLine[];
+    otherExpenses: BalanceSheetLine[];
+    totalRevenue: number;
+    totalCogs: number;
+    grossProfit: number;
+    totalExpenses: number;
+    operatingIncome: number;
+    totalOtherIncome: number;
+    totalOtherExpenses: number;
+    netOther: number;
+    netIncome: number;
+}> => {
+    const { data: lines, error } = await supabase
+        .from('journal_entry_lines')
+        .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
+        .eq('journal_entries.is_posted', true)
+        .gte('journal_entries.entry_date', dateFrom)
+        .lte('journal_entries.entry_date', dateTo);
+    if (error) throw new Error(error.message);
+
+    const aggregated: Record<string, { debit: number; credit: number }> = {};
+    (lines ?? []).forEach((line: any) => {
+        if (!aggregated[line.account_number]) aggregated[line.account_number] = { debit: 0, credit: 0 };
+        aggregated[line.account_number].debit  += Number(line.debit);
+        aggregated[line.account_number].credit += Number(line.credit);
+    });
+
+    const getBalance = (acc: ChartOfAccount): number => {
+        const agg = aggregated[acc.account_number] ?? { debit: 0, credit: 0 };
+        return DEBIT_NORMAL.has(acc.account_type)
+            ? agg.debit - agg.credit
+            : agg.credit - agg.debit;
+    };
+
+    const makeLine = (acc: ChartOfAccount): BalanceSheetLine => ({
+        account_number:        acc.account_number,
+        account_name:          acc.account_name,
+        parent_account_number: acc.parent_account_number,
+        account_type:          acc.account_type,
+        balance:               getBalance(acc),
+        is_parent:             accounts.some(a => a.parent_account_number === acc.account_number),
+    });
+
+    const byType = (types: string[]): BalanceSheetLine[] =>
+        accounts.filter(a => types.includes(a.account_type)).map(makeLine);
+
+    const income       = byType(['Income']);
+    const cogs         = byType(['Cost of Goods Sold']);
+    const expenses     = byType(['Expense']);
+    const otherIncome  = byType(['Other Income']);
+    const otherExpenses = byType(['Other Expense']);
+
+    const sum = (ls: BalanceSheetLine[]) => ls.reduce((s, l) => s + l.balance, 0);
+
+    const totalRevenue       = sum(income);
+    const totalCogs          = sum(cogs);
+    const grossProfit        = totalRevenue - totalCogs;
+    const totalExpenses      = sum(expenses);
+    const operatingIncome    = grossProfit - totalExpenses;
+    const totalOtherIncome   = sum(otherIncome);
+    const totalOtherExpenses = sum(otherExpenses);
+    const netOther           = totalOtherIncome - totalOtherExpenses;
+    const netIncome          = operatingIncome + netOther;
+
+    return {
+        income, cogs, expenses, otherIncome, otherExpenses,
+        totalRevenue, totalCogs, grossProfit,
+        totalExpenses, operatingIncome,
+        totalOtherIncome, totalOtherExpenses, netOther, netIncome,
+    };
+};
+
 // ── Balance Sheet Computation ─────────────────────────────────────────────────
 
 // Account types that carry a DEBIT normal balance (positive = debit > credit)

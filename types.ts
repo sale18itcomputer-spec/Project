@@ -561,3 +561,36 @@ export interface BalanceSheetLine {
   balance: number;
   is_parent: boolean;
 }
+
+// ─── Consignment Module ───────────────────────────────────────────────────────
+
+export interface ConsignmentItem {
+  id: string;
+  consignment_id: string;
+  item_no: number;
+  item_code: string;
+  product_name: string;
+  brand: string;
+  category: string;
+  qty_sent: number;
+  qty_returned: number;
+  status: string;
+  notes: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Consignment {
+  id: string;
+  voucher_no: string;
+  transfer_date: string;
+  from_location: string;
+  to_location: string;
+  status: string;
+  received_by: string;
+  received_date: string | null;
+  notes: string;
+  created_at?: string;
+  updated_at?: string;
+  items?: ConsignmentItem[];
+}
