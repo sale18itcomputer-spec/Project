@@ -1,23 +1,21 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PipelineProject } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, Table, LayoutGrid, AlertTriangle, Calendar, Briefcase, Tag, Clock, ArrowRightToLine, WrapText, Scissors, Pencil, Columns, Info, Trash2 } from 'lucide-react';
-import { deleteRecord, updateRecord } from "../../../services/api";
+import { ExternalLink, Table, ArrowRightToLine, WrapText, Scissors, Pencil, Columns, Info, Trash2 } from 'lucide-react';
+import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
-import { formatDateAsMDY, calculateDueDate, parseDate, formatDisplayDate } from "../../../utils/time";
-import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
+import { formatDateAsMDY, calculateDueDate, formatDisplayDate } from "../../../utils/time";
+import { formatCurrencySmartly } from "../../../utils/formatters";
 import NewProjectModal from "../../modals/NewProjectModal";
-import Avatar from "../../common/Avatar";
 import ViewToggle from "../../common/ViewToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import PipelineListContainer from "../lists/PipelineListContainer";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
@@ -84,88 +82,14 @@ const DueDate: React.FC<{ dueDate?: Date | null }> = ({ dueDate }) => {
   );
 };
 
-const CardDueDate: React.FC<{ dueDate: Date }> = ({ dueDate }) => {
-  const now = new Date();
-  const todayStrInUTC7 = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-  const todayAtMidnightUTC7 = new Date(`${todayStrInUTC7}T00:00:00.000+07:00`);
-
-  const diffTime = dueDate.getTime() - todayAtMidnightUTC7.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  let text, color, icon;
-  if (diffDays < 0) {
-    text = `Overdue`;
-    color = 'text-rose-500 bg-rose-500/10';
-    icon = <AlertTriangle className="w-3 h-3" />;
-  } else if (diffDays === 0) {
-    text = 'Today';
-    color = 'text-amber-500 bg-amber-500/10';
-    icon = <Calendar className="w-3 h-3" />;
-  } else if (diffDays <= 7) {
-    text = `${diffDays}d`;
-    color = 'text-sky-500 bg-sky-500/10';
-    icon = <Clock className="w-3 h-3" />;
-  } else {
-    return null; // Don't show if it's far out
-  }
-
-  return (
-    <div
-      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${color} dark:bg-opacity-20`}
-      title={`Due on ${formatDateAsMDY(dueDate)}`}
-    >
-      {icon}
-      {text}
-    </div>
-  );
-};
-
-const ActionsMenu: React.FC<{ onEdit: () => void; onView: () => void; onDelete: () => void }> = ({ onEdit, onView, onDelete }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleAction = (action: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    action();
-    setIsOpen(false);
-  };
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <button onClick={(e) => { e.stopPropagation(); setIsOpen(prev => !prev); }} className="p-2 rounded-full text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-brand-500">
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
-      </button>
-      {isOpen && (
-        <div className="absolute right-0 mt-1 w-36 bg-card rounded-md shadow-lg border border-border z-10 animate-contentFadeIn" style={{ animationDuration: '0.15s' }}>
-          <button onClick={handleAction(onView)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">View Details</button>
-          <button onClick={handleAction(onEdit)} className="block w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">Edit</button>
-          <button onClick={handleAction(onDelete)} className="block w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-500/10 transition-colors">Delete</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-
 interface PipelineDashboardProps {
   initialFilter?: string;
 }
 
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
   { id: 'table', label: 'Table', icon: <Table /> },
-  { id: 'board', label: 'Board', icon: <LayoutGrid /> },
   { id: 'detail', label: 'Detail', icon: <Columns /> },
 ];
 
@@ -222,31 +146,6 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       addToast('Project deleted!', 'success');
     } catch {
       addToast('Failed to delete project.', 'error');
-      setProjects(originalProjects);
-    }
-  };
-
-  const handleItemMove = async (item: PipelineProject, newStatus: string) => {
-    const pipelineNo = item['Pipeline No'];
-    if (!pipelineNo) return;
-
-    const originalProjects = pipelineData ? [...pipelineData] : [];
-
-    // Optimistic UI Update
-    setProjects(currentProjects => {
-      if (!currentProjects) return null;
-      return currentProjects.map(p =>
-        p['Pipeline No'] === pipelineNo ? { ...p, Status: newStatus as PipelineProject['Status'] } : p
-      );
-    });
-
-    try {
-      await updateRecord('Pipelines', pipelineNo, { 'Status': newStatus }, isB2B);
-      addToast('Pipeline moved successfully!', 'success');
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      addToast('Failed to move pipeline. Reverting change.', 'error');
-      // Revert UI on error
       setProjects(originalProjects);
     }
   };
@@ -310,63 +209,6 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       setSelectedPipelineNo(filteredData[0]['Pipeline No']);
     }
   }, [viewMode, selectedPipelineNo, filteredData]);
-
-  const kanbanColumns = useMemo<KanbanColumn<ProcessedProject>[]>(() => {
-    const statuses: PipelineProject['Status'][] = ['Qualification', 'Price Request', 'Presentation', 'Quote Submitted', 'Revising Specs', 'Bid Evaluation', 'Pass Evaluation', 'Pending PO', 'Ordering', 'Close (win)', 'Close (lose)'];
-    const statusColors = {
-      'Qualification': 'slate',
-      'Price Request': 'rose',
-      'Presentation': 'slate',
-      'Quote Submitted': 'slate',
-      'Revising Specs': 'rose',
-      'Bid Evaluation': 'slate',
-      'Pass Evaluation': 'slate',
-      'Pending PO': 'sky',
-      'Ordering': 'sky',
-      'Close (win)': 'emerald',
-      'Close (lose)': 'slate',
-    };
-
-    return statuses.map(status => ({
-      id: status,
-      title: status,
-      color: statusColors[status] as any,
-      items: filteredData.filter(p => p.Status === status),
-      renderHeader: (items: ProcessedProject[]) => {
-        const { totalUSD, totalKHR } = items.reduce((acc, item) => {
-          const value = parseSheetValue(item['Bid Value']);
-          const determinedCurrency = determineCurrency(value, item.Currency);
-          if (determinedCurrency === 'KHR') {
-            acc.totalKHR += value;
-          } else {
-            acc.totalUSD += value;
-          }
-          return acc;
-        }, { totalUSD: 0, totalKHR: 0 });
-
-        const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
-        const usdStr = totalUSD > 0 ? totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', ...formatOptions }) : '';
-        const khrStr = totalKHR > 0 ? `៛${totalKHR.toLocaleString('en-US', formatOptions)}` : '';
-
-        if (usdStr && khrStr) {
-          return (
-            <div>
-              <span className="text-xl font-bold text-foreground block">{usdStr}</span>
-              <span className="text-lg font-bold text-muted-foreground block">{khrStr}</span>
-            </div>
-          );
-        }
-
-        const singleValue = usdStr || khrStr || '$0';
-
-        return (
-          <span className="text-2xl font-bold text-foreground">
-            {singleValue}
-          </span>
-        );
-      }
-    }));
-  }, [filteredData]);
 
   const allColumns = useMemo<ColumnDef<ProcessedProject>[]>(() => [
     {
@@ -527,59 +369,6 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       </div>
     );
   }
-
-  const renderKanbanCard = (item: ProcessedProject) => {
-    const createdDate = parseDate(item['Created Date']);
-    let ageText = '';
-    if (createdDate) {
-      const diffTime = new Date().getTime() - createdDate.getTime();
-      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-      ageText = `${diffDays}d ago`;
-    }
-
-    const formattedValue = formatCurrencySmartly(item['Bid Value'], item.Currency);
-
-    return (
-      <>
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ActionsMenu onEdit={() => handleEditProject(item)} onView={() => handleViewProject(item)} onDelete={() => handleDeleteRequest(item)} />
-        </div>
-
-        <h4 className="font-bold text-foreground pr-8 text-base group-hover:text-brand-700 transition-colors">{item['Company Name']}</h4>
-        <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-1">
-          {formattedValue}
-        </p>
-
-        <p className="text-sm text-muted-foreground mt-2.5 line-clamp-2">{item.Require}</p>
-
-        <div className="text-xs text-muted-foreground mt-3 flex items-center gap-4">
-          <div className="flex items-center gap-1.5" title={`Type: ${item.Type}`}>
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>{item.Type}</span>
-          </div>
-          {item['Brand 1'] && item['Brand 1'].trim() && item['Brand 1'] !== 'N/A' && (
-            <div className="flex items-center gap-1.5" title={`Brand: ${item['Brand 1']}`}>
-              <Tag className="w-3.5 h-3.5" />
-              <span>{item['Brand 1']}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-between items-end mt-4 pt-3 border-t border-border">
-          <div className="flex items-center gap-3">
-            {item['Responsible By'] && (
-              <Avatar name={item['Responsible By']} showName={false} className="w-7 h-7 text-xs" />
-            )}
-            <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`Created on ${createdDate?.toLocaleDateString()}`}>
-              <Clock className="w-3.5 h-3.5" />
-              <span>{ageText}</span>
-            </div>
-          </div>
-          {item.calculatedDueDate && <CardDueDate dueDate={item.calculatedDueDate} />}
-        </div>
-      </>
-    );
-  };
 
   const renderDetailView = () => (
     <div className="flex flex-col md:flex-row h-full">
@@ -795,15 +584,6 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             )}
           />
         </div>
-      ) : viewMode === 'board' ? (
-        <KanbanView<ProcessedProject>
-          columns={kanbanColumns}
-          onCardClick={handleViewProject}
-          renderCardContent={renderKanbanCard}
-          loading={loading}
-          onItemMove={handleItemMove}
-          getItemId={(item) => item['Pipeline No']}
-        />
       ) : (
         <div className="flex-1 min-h-0 bg-background overflow-hidden">
           {renderDetailView()}

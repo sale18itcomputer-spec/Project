@@ -120,7 +120,7 @@ export default function MiniAppHome() {
 
     useEffect(() => {
         DOC_TYPES.forEach(d => { if (d.fetchKey) data.fetchModule(d.fetchKey); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     const getCount = (countKey: string | null): number | null => {

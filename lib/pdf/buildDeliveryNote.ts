@@ -4,7 +4,7 @@
  * Delivery Note uses a 5-column layout: No | Part Number | Description | Qty | Serial Number
  * columnWidths param is accepted for API consistency; DO has its own 5-col schema (no price/amount).
  */
-import { esc, fmtDate, LOGO, PdfItem } from './shared';
+import { esc, fmtDate, LOGO, PdfItem } from './shared-pure';
 
 export function buildDeliveryNote(
     hd: Record<string, any>,

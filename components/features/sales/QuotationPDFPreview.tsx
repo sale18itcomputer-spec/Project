@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { generatePDF } from '../../../lib/pdfClient';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { buildPreviewHtml } from '../../../lib/buildPreviewHtml';
 import { useToast } from '../../../contexts/ToastContext';
 import { SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -30,53 +30,37 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
     printableProps,
     columnWidths,
 }) => {
-    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const prevUrlRef = useRef<string | null>(null);
+    const [showControls, setShowControls] = useState(false);
+    const [labelPadding, setLabelPadding] = useState(200);
+    const [linePadding, setLinePadding]   = useState(0);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
     const { addToast } = useToast();
 
-    // Signature spacing controls
-    const [labelPadding, setLabelPadding] = useState(200);   // space above signature line ("Prepared By:" → line)
-    const [linePadding, setLinePadding]   = useState(0);   // passed as signaturePadding to builder (top padding of the whole sig block)
-    const [showControls, setShowControls] = useState(false);
+    const previewHtml = useMemo(() => {
+        try {
+            return buildPreviewHtml({
+                type: 'Quotation',
+                headerData: printableProps.headerData,
+                items: printableProps.items.filter(i => i.no > 0),
+                totals: { subTotal: printableProps.totals.subTotal, vat: printableProps.totals.vat, grandTotal: printableProps.totals.grandTotal },
+                currency: printableProps.currency,
+                signaturePadding: linePadding,
+                labelPadding,
+                columnWidths,
+            });
+        } catch (err: any) {
+            addToast(`Preview error: ${err.message}`, 'error');
+            return null;
+        }
+    }, [printableProps, linePadding, labelPadding, columnWidths]);
 
     useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-
-        debounceRef.current = setTimeout(async () => {
-            setLoading(true);
-            try {
-                const url = await generatePDF({
-                    type: 'Quotation',
-                    headerData: printableProps.headerData,
-                    items: printableProps.items.filter(i => i.no > 0),
-                    totals: {
-                        subTotal: printableProps.totals.subTotal,
-                        vat: printableProps.totals.vat,
-                        grandTotal: printableProps.totals.grandTotal,
-                    },
-                    currency: printableProps.currency,
-                    signaturePadding: linePadding,
-                    labelPadding: labelPadding,
-                    columnWidths,
-                    previewMode: true,
-                }) as string;
-
-                if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
-                prevUrlRef.current = url;
-                setPdfUrl(url);
-            } catch (err: any) {
-                addToast(`Preview error: ${err.message}`, 'error');
-            } finally {
-                setLoading(false);
-            }
-        }, 800);
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-        };
-    }, [printableProps, linePadding, labelPadding, columnWidths]);
+        const doc = iframeRef.current?.contentDocument as any;
+        if (!doc || !previewHtml) return;
+        doc.open();
+        doc.write(previewHtml);
+        doc.close();
+    }, [previewHtml]);
 
     const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
         label: string; value: number; onChange: (v: number) => void;
@@ -132,17 +116,10 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
                         <SlidersHorizontal className="w-3.5 h-3.5" />
                         Signature Spacing
                     </button>
-                    {loading ? (
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
-                            <span className="text-xs text-slate-400 font-medium">Updating…</span>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-xs text-slate-500 font-medium">Live Preview</span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-xs text-slate-500 font-medium">Live Preview</span>
+                    </div>
                 </div>
             </div>
 
@@ -172,17 +149,16 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
                 </div>
             )}
 
-            {/* iframe */}
+            {/* iframe — content written via ref, no srcDoc reload */}
             <div className="flex-1 overflow-hidden">
-                {pdfUrl ? (
-                    <iframe
-                        src={pdfUrl}
-                        className="w-full h-full border-0"
-                        title="Quotation PDF Preview"
-                    />
-                ) : (
+                <iframe
+                    ref={iframeRef}
+                    className={`w-full h-full border-0 ${previewHtml ? '' : 'hidden'}`}
+                    title="Quotation PDF Preview"
+                />
+                {!previewHtml && (
                     <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-                        {loading ? 'Generating preview…' : 'Fill in quotation details to see preview'}
+                        Fill in quotation details to see preview
                     </div>
                 )}
             </div>

@@ -68,6 +68,7 @@ function buildBody(opts: PdfClientOptions): string {
         signaturePadding: opts.signaturePadding,
         labelPadding:     opts.labelPadding,
         columnWidths:     opts.columnWidths,
+        previewMode:      opts.previewMode,
     });
 }
 
@@ -88,11 +89,16 @@ export async function generatePDF(opts: PdfClientOptions): Promise<string | void
         throw new Error(`PDF generation failed: ${err.error || res.statusText}`);
     }
 
-    const blob = await res.blob();
-
     if (opts.previewMode) {
-        return URL.createObjectURL(blob);
+        const contentType = res.headers.get('Content-Type') || '';
+        if (contentType.includes('text/html')) {
+            const html = await res.text();
+            return URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        }
+        return URL.createObjectURL(await res.blob());
     }
+
+    const blob = await res.blob();
 
     // Download
     const url = URL.createObjectURL(blob);

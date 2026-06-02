@@ -137,7 +137,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Step 2: If getSession timed out AND we already have a cached user,
         // skip the network fetch entirely — Supabase is unreachable, keep cached state.
         if (sessionTimedOut.current && cachedUser) {
-          // currentUser was already set from cache above; nothing more to do.
+          // currentUser was already set from cache above; refresh cookie in case it expired
+          setCookie('limperial_legacy_session', cachedUser.UserID, 7);
           return;
         }
 
@@ -170,9 +171,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setCurrentUser(user);
             // Refresh the cache with latest user data
             localStorageSet(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+            // Refresh the session cookie — it has a 7-day TTL and may have expired
+            // while localStorage still held the user, causing PDF/API 401s
+            setCookie('limperial_legacy_session', user.UserID, 7);
           } else if (!user && cachedUser) {
             // Supabase fetch failed/empty but we have cached user — keep them
             setCurrentUser(cachedUser);
+            setCookie('limperial_legacy_session', cachedUser.UserID, 7);
           } else {
             // User no longer active or found — clear everything
             setCurrentUser(null);

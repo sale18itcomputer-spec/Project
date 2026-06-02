@@ -8,7 +8,6 @@ import { formatDisplayDate } from '../../../utils/time';
 import { useNavigation } from '../../../contexts/NavigationContext';
 import { Truck, Table, Columns, Info, Pencil, LayoutGrid, Search, Trash2, WrapText, ArrowRightToLine, Scissors, Plus } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
-import KanbanView, { KanbanColumn } from '../views/KanbanView';
 import Spinner from '../../common/Spinner';
 import DeliveryOrderCreator from '../../features/sales/DeliveryOrderCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
@@ -20,7 +19,7 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 
 const DO_COLUMNS_KEY = 'limperial-do-columns-visibility';
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 const StatusBadge: React.FC<{ status: DeliveryOrder['Status'] }> = ({ status }) => {
     const cfg: Record<string, { bg: string; text: string }> = {
@@ -185,20 +184,8 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
         [allColumns, visibleColumns]
     );
 
-    const kanbanColumns = useMemo<KanbanColumn<DeliveryOrder>[]>(() => {
-        const statuses: DeliveryOrder['Status'][] = ['Pending', 'Delivered', 'Cancelled'];
-        const colors: Record<string, 'amber' | 'emerald' | 'rose'> = {
-            Pending: 'amber', Delivered: 'emerald', Cancelled: 'rose',
-        };
-        return statuses.map(s => ({
-            id: s, title: s, color: colors[s],
-            items: filteredData.filter(d => d['Status'] === s),
-        }));
-    }, [filteredData]);
-
     const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
-        { id: 'board', label: 'Board', icon: <LayoutGrid /> },
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
@@ -285,19 +272,6 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                                 <button onClick={e => { e.stopPropagation(); setToDelete(row); }} className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full" title="Delete"><Trash2 size={16} /></button>
                             </div>
                         )}
-                    />
-                ) : viewMode === 'board' ? (
-                    <KanbanView<DeliveryOrder>
-                        columns={kanbanColumns} onCardClick={handleEdit}
-                        renderCardContent={item => (
-                            <>
-                                <h4 className="font-bold text-foreground">{item['Company Name']}</h4>
-                                <p className="text-sm text-muted-foreground font-mono">{item['DO No']}</p>
-                                {item['Inv No'] && <p className="text-xs text-muted-foreground mt-1">Inv: {item['Inv No']}</p>}
-                                <p className="text-xs text-muted-foreground mt-2">By {item['Created By']}</p>
-                            </>
-                        )}
-                        loading={loading} getItemId={item => item['DO No']}
                     />
                 ) : (
                     <div className="h-full flex divide-x divide-border">

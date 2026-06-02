@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Invoice } from '../../../../types';
 import { LineItem } from './types';
 import { generatePDF } from '../../../../lib/pdfClient';
+import { buildPreviewHtml } from '../../../../lib/buildPreviewHtml';
 import { useToast } from '../../../../contexts/ToastContext';
 import { SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -45,59 +46,66 @@ const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
 );
 
 export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, printableProps, signaturePadding, onSignaturePaddingChange, labelPadding, onLabelPaddingChange, columnWidths }) => {
-    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [apiUrl, setApiUrl]   = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [showControls, setShowControls] = useState(false);
+    const iframeRef   = useRef<HTMLIFrameElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const prevUrlRef = useRef<string | null>(null);
+    const prevUrlRef  = useRef<string | null>(null);
     const { addToast } = useToast();
 
+    const taxable = invoice['Taxable'] || 'NON-VAT';
+    const pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice' =
+        taxable === 'VAT' ? 'Tax Invoice' :
+        taxable === 'Commercial Invoice' ? 'Commercial Invoice' : 'Invoice';
+
+    const baseOpts = useMemo(() => ({
+        type: pdfType,
+        headerData: printableProps.headerData,
+        items: items.filter(i => i.no > 0).map(i => ({
+            no: i.no, itemCode: i.itemCode, modelName: i.modelName,
+            description: i.description, qty: i.qty, unitPrice: i.unitPrice, amount: i.amount,
+        })),
+        totals: printableProps.totals,
+        currency: printableProps.currency,
+        signaturePadding,
+        labelPadding,
+        columnWidths,
+    }), [pdfType, printableProps, items, signaturePadding, labelPadding, columnWidths]);
+
+    // Client-side build — synchronous, no API (Commercial Invoice)
+    const clientHtml = useMemo(() => {
+        try { return buildPreviewHtml(baseOpts as any); } catch { return null; }
+    }, [baseOpts]);
+
+    // Write directly into iframe — no reload, no flash
     useEffect(() => {
+        const doc = iframeRef.current?.contentDocument as any;
+        if (!doc || !clientHtml) return;
+        doc.open();
+        doc.write(clientHtml);
+        doc.close();
+    }, [clientHtml]);
+
+    // API fallback for Tax Invoice / Invoice (embedded fonts)
+    useEffect(() => {
+        if (clientHtml !== null) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
-
         debounceRef.current = setTimeout(async () => {
-            const taxable = invoice['Taxable'] || 'NON-VAT';
-            let pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice';
-            if (taxable === 'VAT') pdfType = 'Tax Invoice';
-            else if (taxable === 'Commercial Invoice') pdfType = 'Commercial Invoice';
-            else pdfType = 'Invoice';
-
             setLoading(true);
             try {
-                const url = await generatePDF({
-                    type: pdfType,
-                    headerData: printableProps.headerData,
-                    items: items.filter(i => i.no > 0).map(i => ({
-                        no: i.no,
-                        itemCode: i.itemCode,
-                        modelName: i.modelName,
-                        description: i.description,
-                        qty: i.qty,
-                        unitPrice: i.unitPrice,
-                        amount: i.amount,
-                    })),
-                    totals: printableProps.totals,
-                    currency: printableProps.currency,
-                    signaturePadding,
-                    labelPadding,
-                    columnWidths,
-                    previewMode: true,
-                }) as string;
-
+                const url = await generatePDF({ ...baseOpts, previewMode: true } as any) as string;
                 if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
                 prevUrlRef.current = url;
-                setPdfUrl(url);
+                setApiUrl(url);
             } catch (err: any) {
                 addToast(`Preview error: ${err.message}`, 'error');
             } finally {
                 setLoading(false);
             }
-        }, 800);
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-        };
-    }, [printableProps, items, signaturePadding, labelPadding, columnWidths]);
+        }, 300);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [baseOpts, clientHtml]);
 
     return (
         <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
@@ -125,6 +133,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
                         ? <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /><span className="text-xs text-slate-400 font-medium">Updating…</span></div>
                         : <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /><span className="text-xs text-slate-500 font-medium">Live Preview</span></div>
                     }
+
                 </div>
             </div>
 
@@ -154,13 +163,13 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
             )}
 
             <div className="flex-1 overflow-hidden">
-                {pdfUrl ? (
-                    <iframe
-                        src={pdfUrl}
-                        className="w-full h-full border-0"
-                        title="Invoice PDF Preview"
-                    />
-                ) : (
+                <iframe
+                    ref={iframeRef}
+                    src={clientHtml ? undefined : apiUrl ?? undefined}
+                    className={`w-full h-full border-0 ${clientHtml || apiUrl ? '' : 'hidden'}`}
+                    title="Invoice PDF Preview"
+                />
+                {!clientHtml && !apiUrl && (
                     <div className="flex items-center justify-center h-full text-slate-400 text-sm">
                         {loading ? 'Generating preview...' : 'Fill in invoice details to see preview'}
                     </div>

@@ -5,7 +5,7 @@
  * Variant: showVatTin controls whether VAT TIN line appears in header + customer info.
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
-import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 const DEFAULT_WIDTHS = [4, 12, 38, 14, 17, 15];
 
@@ -277,8 +277,9 @@ export function buildCommercialInvoice(
     </table>
   </div>
 
-  <div class="flex justify-between px-16 pb-8 w-full" style="margin-top:${signaturePadding}px;">
+  <div class="flex justify-between px-16 pb-8 w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
+      <div style="margin-bottom:${labelPadding ?? 200}px"></div>
       <div class="border-t-2 border-black mb-4"></div>
       <div class="text-[11px] leading-tight">
         <div>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
@@ -286,6 +287,7 @@ export function buildCommercialInvoice(
       </div>
     </div>
     <div class="w-[35%] text-center">
+      <div style="margin-bottom:${labelPadding ?? 200}px"></div>
       <div class="border-t-2 border-black mb-4"></div>
       <div class="text-[11px] leading-tight">
         ${hd['Prepared By'] ? `<div class="font-bold">${esc(hd['Prepared By'])}</div>` : ''}

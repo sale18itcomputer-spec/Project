@@ -117,7 +117,7 @@ export default function WeeklyReportMiniPage() {
         const dailyActivity = Object.entries(dailyMap).map(([name, count]) => ({ name, count }));
 
         return { quotes, orders, invs, dos, dailyActivity };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [quotations, saleOrders, invoices, deliveryOrders, start, end, myName, isAdmin]);
 
     const orderRevenue = orders.reduce((s, o) => s + parseSheetValue(o['Total Amount']), 0);

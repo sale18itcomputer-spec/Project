@@ -11,7 +11,6 @@ import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy, Loader2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import SaleOrderListContainer from "../lists/SaleOrderListContainer";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
@@ -56,7 +55,7 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 
 const SALE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-sale-order-columns-visibility';
 
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload }) => {
     const { currentUser } = useAuth();
@@ -377,38 +376,8 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
-        { id: 'board', label: 'Board', icon: <LayoutGrid /> },
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
-
-    const kanbanColumns = useMemo<KanbanColumn<SaleOrder>[]>(() => {
-        const statuses: SaleOrder['Status'][] = ['Pending', 'Completed', 'Cancel'];
-        const statusColors: { [key in SaleOrder['Status']]: 'amber' | 'emerald' | 'rose' } = {
-            'Pending': 'amber',
-            'Completed': 'emerald',
-            'Cancel': 'rose',
-        };
-
-        return statuses.map(status => ({
-            id: status,
-            title: status,
-            color: statusColors[status],
-            items: filteredData.filter(so => so.Status === status),
-        }));
-    }, [filteredData]);
-
-    const renderKanbanCard = (item: SaleOrder) => {
-        const formattedValue = formatCurrencySmartly(item['Total Amount'], item.Currency);
-        return (
-            <>
-                <h4 className="font-bold text-foreground text-base">{item['Company Name']}</h4>
-                <p className="text-sm text-muted-foreground font-mono">{item['SO No']}</p>
-                <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-2">{formattedValue}</p>
-                <p className="text-sm text-muted-foreground mt-2">By {item['Created By']}</p>
-            </>
-        );
-    };
-
 
     if (isCreating) {
         return (
@@ -651,14 +620,6 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                 </button>
                             </div>
                         )}
-                    />
-                ) : viewMode === 'board' ? (
-                    <KanbanView<SaleOrder>
-                        columns={kanbanColumns}
-                        onCardClick={handleViewSaleOrder}
-                        renderCardContent={renderKanbanCard}
-                        loading={loading}
-                        getItemId={(item) => item['SO No']}
                     />
                 ) : (
                     renderDetailView()

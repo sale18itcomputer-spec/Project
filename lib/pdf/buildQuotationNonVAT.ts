@@ -3,7 +3,7 @@
  * QUOTATION PDF builder — bilingual Khmer/English, Non-VAT version.
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
-import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 const DEFAULT_WIDTHS = [4, 16, 33, 12, 16, 19];
 
@@ -242,18 +242,27 @@ export function buildQuotationNonVAT(
       <tbody>
         ${itemRows}
       </tbody>
+    </table>
+
+    <table class="w-full mx-auto" style="border-collapse: collapse; margin-top: -1px; table-layout: fixed;">
+      <colgroup>
+        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
+        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
+        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
+        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
+        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
+        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
+      </colgroup>
       <tbody class="break-inside-avoid">
         <tr>
           <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="2" style="border:none;">
-            <div class="w-full text-[10px] space-y-4">
-              <div>
-                <h4 class="font-bold text-[11px] underline uppercase mb-1">Terms &amp; Conditions:</h4>
-                <ul class="list-disc list-inside space-y-0.5">
-                  <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
-                  <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-                  <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
-                </ul>
-              </div>
+            <div class="w-full" style="font-size:10px;">
+              <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Terms &amp; Conditions:</h4>
+              <ul style="padding-left:14px;margin:0;list-style-type:disc;">
+                <li style="margin-bottom:3px;"><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                <li style="margin-bottom:3px;"><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+              </ul>
             </div>
           </td>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Sub Total</td>

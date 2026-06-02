@@ -9,7 +9,6 @@ import { useNavigation } from '../../../contexts/NavigationContext';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 import { Receipt as ReceiptIcon, Table, Columns, Info, LayoutGrid, Search, WrapText, ArrowRightToLine, Scissors } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
-import KanbanView, { KanbanColumn } from '../views/KanbanView';
 import Spinner from '../../common/Spinner';
 import ReceiptCreator from '../../features/sales/ReceiptCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
@@ -17,7 +16,7 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { Wallet, ArrowRight } from 'lucide-react';
 
 const RV_COLUMNS_KEY = 'limperial-rv-columns-visibility';
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 const StatusBadge: React.FC<{ status: Receipt['Status'] }> = ({ status }) => {
     const cfg: Record<string, { bg: string; text: string }> = {
@@ -141,20 +140,8 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
         [allColumns, visibleColumns]
     );
 
-    const kanbanColumns = useMemo<KanbanColumn<Receipt>[]>(() => {
-        const statuses: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
-        const colors: Record<string, 'sky' | 'emerald' | 'rose'> = {
-            Draft: 'sky', Issued: 'emerald', Cancelled: 'rose',
-        };
-        return statuses.map(s => ({
-            id: s, title: s, color: colors[s],
-            items: filteredData.filter(r => r['Status'] === s),
-        }));
-    }, [filteredData]);
-
     const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
-        { id: 'board', label: 'Board', icon: <LayoutGrid /> },
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
@@ -254,21 +241,6 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                                 <button onClick={e => { e.stopPropagation(); handleView(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="View"><Info size={16} /></button>
                             </div>
                         )}
-                    />
-                ) : viewMode === 'board' ? (
-                    <KanbanView<Receipt>
-                        columns={kanbanColumns} onCardClick={handleView}
-                        renderCardContent={item => (
-                            <>
-                                <h4 className="font-bold text-foreground">{item['Company Name']}</h4>
-                                <p className="text-sm text-muted-foreground font-mono">{item['RV No']}</p>
-                                <p className="text-lg font-semibold text-brand-500 mt-2">
-                                    {formatCurrencySmartly(String(item['Amount'] ?? ''), item['Currency'])}
-                                </p>
-                                {item['Payment Method'] && <p className="text-xs text-muted-foreground mt-1">{item['Payment Method']}</p>}
-                            </>
-                        )}
-                        loading={loading} getItemId={item => item['RV No']}
                     />
                 ) : (
                     <div className="h-full flex divide-x divide-border">

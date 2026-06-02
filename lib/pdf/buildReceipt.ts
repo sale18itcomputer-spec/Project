@@ -5,7 +5,7 @@
  * columnWidths param is accepted for API consistency but the Receipt schema
  * is fixed (different from the standard 6-column item table).
  */
-import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 // ── Amount-in-words (USD) ─────────────────────────────────────────────────────
 const ones = [

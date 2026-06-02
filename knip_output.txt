@@ -1,0 +1,147 @@
+﻿[93m[4mUnused files[24m[39m (33)
+cleanLayouts.js                                   
+eslint.config.mjs                                 
+scratch/inspect-columns.mjs                       
+scratch/test-b2c-payload.mjs                      
+scratch/test-crud.mjs                             
+scratch/test-payload.mjs                          
+scratch/test-spawn2.js                            
+scripts/fix-imports.js                            
+scripts/fix-invoice.js                            
+scripts/fix-syntax.js                             
+scripts/refactor-invoice.js                       
+scripts/refactor2.js                              
+scripts/split-invoice.js                          
+scripts/split.js                                  
+components/charts/ChartSkeleton.tsx               
+components/charts/MonthlyWinValueChart.tsx        
+components/charts/ProjectOutcomeChart.tsx         
+components/charts/ProjectsByBrandChart.tsx        
+components/charts/TopCustomersChart.tsx           
+components/charts/WinRateChart.tsx                
+components/common/ColumnLayoutPanel.tsx           
+components/common/DateRangePicker.tsx             
+components/miniapp/QuickQuoteModal.tsx            
+components/pdf/pdfGenerator.ts                    
+components/pdf/PrintableDO.tsx                    
+components/pdf/PrintableReceipt.tsx               
+components/pdf/QuotationPreview.tsx               
+components/ui/skeleton.tsx                        
+lib/pdf/buildDO.ts                                
+lib/pdf/buildInvoice.ts                           
+lib/pdf/buildSaleOrder.ts                         
+components/dashboards/sales/InvoiceDODashboard.tsx
+components/dashboards/views/InteractiveMap.tsx    
+[93m[4mUnused dependencies[24m[39m (9)
+@radix-ui/react-alert-dialog  package.json:18:6
+@radix-ui/react-checkbox      package.json:20:6
+@radix-ui/react-collapsible   package.json:21:6
+@radix-ui/react-dialog        package.json:22:6
+@radix-ui/react-popover       package.json:25:6
+@radix-ui/react-primitive     package.json:26:6
+@radix-ui/react-select        package.json:28:6
+@radix-ui/react-separator     package.json:29:6
+use-debounce                  package.json:46:6
+[93m[4mUnused devDependencies[24m[39m (4)
+@typescript-eslint/eslint-plugin  package.json:53:6
+@typescript-eslint/parser         package.json:54:6
+eslint-plugin-react-hooks         package.json:57:6
+eslint-plugin-unused-imports      package.json:58:6
+[93m[4mUnlisted binaries[24m[39m (2)
+cloudflared  package.json
+eslint       package.json
+[93m[4mUnused exports[24m[39m (71)
+FINANCE_ALLOWED_PATHS                      components/layout/AppShell.tsx:18:14                         
+ThemeContext                               components/providers/MiniAppProviders.tsx:21:10              
+buttonVariants                             components/ui/button.tsx:59:18                               
+TableFooter                                components/ui/table.tsx:112:3                                
+TableCaption                               components/ui/table.tsx:116:3                                
+notifyUsers                      function  lib/miniapp/telegramShare.ts:105:23                          
+globalSearch                     function  lib/miniapp/telegramShare.ts:131:23                          
+resetSupabaseBrowserClient       function  utils/supabase/client.ts:45:17                               
+getApiMode                       function  services/api.ts:19:17                                        
+createQuotationSheet                       services/api.ts:347:14                                       
+createDeliveryOrderSheet                   services/api.ts:379:14                                       
+createReceiptSheet                         services/api.ts:392:14                                       
+getSetting                                 services/api.ts:406:14                                       
+saveSetting                                services/api.ts:420:14                                       
+setSession                       function  lib/telegramSession.ts:119:23                                
+updateSessionData                function  lib/telegramSession.ts:156:23                                
+getNextQuoteNo                   function  lib/telegramQuote.ts:41:23                                   
+VIEW_TO_PATH                               contexts/NavigationContext.tsx:19:14                         
+PATH_TO_VIEW                               contexts/NavigationContext.tsx:43:14                         
+decodeJwt                                  utils/formatters.ts:156:14                                   
+COMPACT_PIPELINE_HEADERS                   schemas.ts:28:14                                             
+COMPACT_COMPANY_HEADERS                    schemas.ts:55:14                                             
+COMPACT_CONTACT_HEADERS                    schemas.ts:81:14                                             
+COMPACT_CONTACT_LOG_HEADERS                schemas.ts:105:14                                            
+COMPACT_MEETING_HEADERS                    schemas.ts:143:14                                            
+USER_HEADERS                               schemas.ts:153:14                                            
+PURCHASE_ORDER_ITEM_HEADERS                schemas.ts:404:14                                            
+STORE_NAMES                  db            utils/db.ts:26:14                                            
+setStoreItem                 db            utils/db.ts:131:14                                           
+deleteStoreItem              db            utils/db.ts:144:14                                           
+TimeoutError                     class     utils/promise.ts:6:14                                        
+parseDateTime                              utils/time.ts:137:14                                         
+DOC_DEFAULT_WIDTHS                         hooks/useColumnWidths.ts:23:14                               
+ROLE_PRESETS                               utils/permissions.ts:207:14                                  
+createB2BCompany                           services/b2bDb.ts:31:14                                      
+updateB2BCompany                           services/b2bDb.ts:41:14                                      
+deleteB2BCompany                           services/b2bDb.ts:52:14                                      
+getB2BCompanies                            services/b2bDb.ts:61:14                                      
+createB2BPipeline                          services/b2bDb.ts:73:14                                      
+updateB2BPipeline                          services/b2bDb.ts:83:14                                      
+deleteB2BPipeline                          services/b2bDb.ts:94:14                                      
+getB2BPipelines                            services/b2bDb.ts:103:14                                     
+createB2BQuotation                         services/b2bDb.ts:115:14                                     
+updateB2BQuotation                         services/b2bDb.ts:125:14                                     
+deleteB2BQuotation                         services/b2bDb.ts:136:14                                     
+getB2BQuotations                           services/b2bDb.ts:145:14                                     
+getTableName                               services/b2bDb.ts:160:14                                     
+BRAND_ACCOUNT_MAP                          services/accountingApi.ts:539:14                             
+deleteConsignment                          services/consignmentApi.ts:75:14                             
+parseCreditDays                  function  utils/collection.ts:32:17                                    
+calcDueDate                      function  utils/collection.ts:46:17                                    
+computeInvoiceAR                 function  utils/collection.ts:85:17                                    
+DropdownMenuRadioItem                      components/ui/dropdown-menu.tsx:188:3                        
+DropdownMenuShortcut                       components/ui/dropdown-menu.tsx:191:3                        
+DropdownMenuGroup                          components/ui/dropdown-menu.tsx:192:3                        
+DropdownMenuPortal                         components/ui/dropdown-menu.tsx:193:3                        
+DropdownMenuSub                            components/ui/dropdown-menu.tsx:194:3                        
+DropdownMenuSubContent                     components/ui/dropdown-menu.tsx:195:3                        
+DropdownMenuSubTrigger                     components/ui/dropdown-menu.tsx:196:3                        
+DropdownMenuRadioGroup                     components/ui/dropdown-menu.tsx:197:3                        
+useModuleAccess                  function  components/common/PermissionGate.tsx:82:17                   
+ScrollBar                                  components/ui/scroll-area.tsx:46:22                          
+useAuthShim                                components/miniapp/MiniAppCompatProviders.tsx:99:14          
+useB2BShim                                 components/miniapp/MiniAppCompatProviders.tsx:100:14         
+useToastShim                               components/miniapp/MiniAppCompatProviders.tsx:101:14         
+badgeVariants                              components/ui/badge.tsx:35:17                                
+moneyInner                       function  lib/pdf/shared.ts:28:17                                      
+moneyTd                          function  lib/pdf/shared.ts:32:17                                      
+default                                    components/features/sales/ColumnWidthPopover.tsx:261:16      
+MobileItemsSection               function  components/miniapp/forms/MobileFormBase.tsx:618:17           
+lineItemInputClasses                       components/features/sales/invoice/PricelistCombobox.tsx:83:29
+[93m[4mUnused exported types[24m[39m (18)
+InputProps                interface  components/ui/input.tsx:4:18        
+ButtonProps               type       components/ui/button.tsx:40:13      
+MiniAppUser               interface  contexts/MiniAppAuthContext.tsx:8:18
+SharePdfOptions           interface  lib/miniapp/telegramShare.ts:41:18  
+NotifyOptions             interface  lib/miniapp/telegramShare.ts:99:18  
+Metric                    interface  types.ts:44:18                      
+ProjectStatusData         interface  types.ts:53:18                      
+Activity                  interface  types.ts:59:18                      
+TeamMember                interface  types.ts:67:18                      
+TgState                   type       lib/telegramSession.ts:15:13        
+TgSession                 interface  lib/telegramSession.ts:55:18        
+DocListColumn             interface  components/miniapp/DocList.tsx:8:18 
+StatusConfig              interface  components/miniapp/DocList.tsx:19:18
+DocListProps              interface  components/miniapp/DocList.tsx:23:18
+ModuleDefinition          interface  utils/permissions.ts:16:18          
+UsePermissionsReturn      interface  hooks/usePermissions.ts:23:18       
+QuotationTelegramPayload  interface  utils/telegram.ts:5:18              
+BadgeProps                type       components/ui/badge.tsx:26:13       
+[93m[4mDuplicate exports[24m[39m (2)
+getSupabaseBrowserClient|createClient  utils/supabase/client.ts                        
+ColumnWidthPopover|default             components/features/sales/ColumnWidthPopover.tsx
+[33m[4mConfiguration hints[24m (1)[39m

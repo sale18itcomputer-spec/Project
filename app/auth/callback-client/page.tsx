@@ -195,7 +195,7 @@ export default function AuthCallbackClientPage() {
                     setStage('error');
                 });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     // Send OTP to the email entered on the PKCE fallback form

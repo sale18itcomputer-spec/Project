@@ -106,6 +106,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // ── HTML preview shortcut (no Browserless) ────────────────────────────────
+    if (opts.previewMode) {
+        try {
+            const html = buildHtml(opts);
+            return new NextResponse(html, {
+                status: 200,
+                headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+            });
+        } catch (err: any) {
+            return NextResponse.json({ error: err?.message || 'Template error' }, { status: 500 });
+        }
+    }
+
     const token = process.env.BROWSERLESS_TOKEN;
     if (!token) {
         console.error('[PDF API] Missing BROWSERLESS_TOKEN environment variable.');

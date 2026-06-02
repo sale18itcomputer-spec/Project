@@ -10,7 +10,6 @@ import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2 } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import Spinner from "../../common/Spinner";
 import InvoiceCreator from "../../features/sales/invoice/InvoiceCreator";
 import { useWindowSize } from "../../../hooks/useWindowSize";
@@ -43,7 +42,7 @@ const StatusBadge: React.FC<{ status: Invoice['Status'] }> = ({ status }) => {
 };
 
 const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload }) => {
     const { invoices = [], setInvoices, loading, error } = useData();
@@ -224,29 +223,8 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
 
     const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
         { id: 'table', label: 'Table', icon: <Table /> },
-        { id: 'board', label: 'Board', icon: <LayoutGrid /> },
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
-
-    const kanbanColumns = useMemo<KanbanColumn<Invoice>[]>(() => {
-        const statuses: Invoice['Status'][] = ['Draft', 'Processing', 'Completed', 'Cancel'];
-        const statusColors: { [key in Invoice['Status']]: 'sky' | 'amber' | 'emerald' | 'rose' } = {
-            'Draft': 'sky', 'Processing': 'amber', 'Completed': 'emerald', 'Cancel': 'rose',
-        };
-        return statuses.map(status => ({
-            id: status, title: status, color: statusColors[status],
-            items: filteredData.filter(inv => inv.Status === status),
-        }));
-    }, [filteredData]);
-
-    const renderKanbanCard = (item: Invoice) => (
-        <>
-            <h4 className="font-bold text-foreground text-base">{item['Company Name']}</h4>
-            <p className="text-sm text-muted-foreground font-mono">{item['Inv No']}</p>
-            <p className="text-lg font-semibold text-brand-500 mt-2">{formatCurrencySmartly(item.Amount, item.Currency)}</p>
-            <p className="text-sm text-muted-foreground/80 mt-2">By {item['Created By']}</p>
-        </>
-    );
 
     if (error) {
         return (
@@ -368,11 +346,6 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
                                 )}
                             </div>
                         )}
-                    />
-                ) : viewMode === 'board' ? (
-                    <KanbanView<Invoice>
-                        columns={kanbanColumns} onCardClick={handleEditInvoice} renderCardContent={renderKanbanCard}
-                        loading={loading} getItemId={(item) => item['Inv No']}
                     />
                 ) : (
                     <div className="h-full flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">

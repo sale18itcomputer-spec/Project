@@ -73,7 +73,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
         };
         document.addEventListener('keydown', handleEscape);
         return () => document.removeEventListener('keydown', handleEscape);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [isSubmitting]);
 
     const handleClose = () => {

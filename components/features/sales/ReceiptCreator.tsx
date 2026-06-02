@@ -77,7 +77,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             addToast('Receipts can only be created by recording a payment in Collection.', 'info');
             onBack();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     const [items, setItems] = useState<LineItem[]>([

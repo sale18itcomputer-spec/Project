@@ -331,7 +331,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // readIds is intentionally excluded from deps — read state is handled at render time
     // by filtering in the context value. Including it would cause an infinite loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [quotations, saleOrders, projects, invoices, meetings, siteSurveys, currentUser]);
 
 

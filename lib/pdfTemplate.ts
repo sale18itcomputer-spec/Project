@@ -144,11 +144,6 @@ function resolveWidths(type: string, override?: number[]): number[] {
     return DEFAULT_WIDTHS[type] ?? [7, 17, 46, 6, 10, 14];
 }
 
-/** Build a <colgroup> from 6 width values (0 = omit) */
-function colgroup(widths: number[], hideLast2 = false): string {
-    const w = hideLast2 ? [...widths.slice(0, 4), 0, 0] : widths;
-    return `<colgroup>${w.map(pw => pw > 0 ? `<col style="width:${pw}%"/>` : '<col style="width:0;display:none"/>').join('')}</colgroup>`;
-}
 
 function companyHeader(): string {
     return `<div class="hdr">
@@ -168,15 +163,6 @@ function sigBlock(label: string, name: string, pos: string): string {
     return `<div class="sig-box"><div class="sig-label">${esc(label)}</div><div class="sig-line">${esc(name)||'&nbsp;'}<br/>${esc(pos)||'&nbsp;'}</div></div>`;
 }
 
-function stdTfoot(currency: string, sym: string, sub: number, tax: number, grand: number): string {
-    const ls = 'border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px';
-    const ms = 'border:1px solid #000;padding:4px 8px;white-space:nowrap';
-    return `<tfoot>
-      <tr><td colspan="5" style="${ls}">Sub Total (${esc(currency)})</td><td style="${ms}">${moneyInner(sub, sym)}</td></tr>
-      ${tax > 0 ? `<tr><td colspan="5" style="${ls}">VAT 10% (${esc(currency)})</td><td style="${ms}">${moneyInner(tax, sym)}</td></tr>` : ''}
-      <tr class="grand"><td colspan="5" style="${ls}">Grand Total (${esc(currency)})</td><td style="${ms}">${moneyInner(grand, sym)}</td></tr>
-    </tfoot>`;
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,6 +185,8 @@ export interface PdfTemplateOptions {
     labelPadding?: number;
     /** Optional column width overrides (%) — [No, Code, Desc, Qty, UnitPrice, Amount]. 0 = omit. */
     columnWidths?: number[];
+    /** When true the caller wants HTML for in-browser preview, not a PDF. */
+    previewMode?: boolean;
 }
 
 // ── Main entry ────────────────────────────────────────────────────────────────
@@ -218,7 +206,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     }
     if (opts.type === 'Commercial Invoice') {
         const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);
-        return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding, undefined, cw);
+        return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding, opts.labelPadding, cw);
     }
     if (opts.type === 'Delivery Order') {
         return buildDeliveryNote(hd, items as any, opts.signaturePadding, undefined, cw);

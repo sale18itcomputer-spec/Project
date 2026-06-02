@@ -24,18 +24,18 @@ const INVENTORY_COLUMNS_KEY = 'limperial-inventory-columns-visibility';
 // ── Status badge ──────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
   if (!status) return null;
-  let variant: 'outline' | 'secondary' | 'destructive' = 'outline';
-  let cls = '';
   const s = status.toLowerCase();
+  let cls = 'font-semibold border ';
   if (s === 'in stock') {
-    cls = 'font-semibold text-emerald-700 dark:text-emerald-400 border-emerald-500/80 bg-emerald-500/10';
+    cls += 'text-emerald-700 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10';
   } else if (s === 'reserved') {
-    cls = 'font-semibold text-amber-700 dark:text-amber-400 border-amber-500/80 bg-amber-500/10';
-    variant = 'outline';
+    cls += 'text-amber-700 dark:text-amber-400 border-amber-500/40 bg-amber-500/10';
   } else if (s === 'out of stock') {
-    variant = 'destructive';
+    cls += 'text-rose-700 dark:text-rose-400 border-rose-500/40 bg-rose-500/10';
+  } else {
+    cls += 'text-muted-foreground border-border bg-muted';
   }
-  return <Badge variant={variant} className={cls}>{status}</Badge>;
+  return <Badge variant="outline" className={cls}>{status}</Badge>;
 };
 
 // ── Edit modal (inline quick-edit) ────────────────────────────────────────────
@@ -372,32 +372,40 @@ const InventoryDashboard: React.FC = () => {
 
       {/* ── Metric cards ── */}
       <div className="flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-3 px-4 lg:px-6 py-3 bg-muted/20 border-b border-border">
-        <div className="bg-card rounded-lg border border-border px-4 py-3 flex items-center gap-3">
-          <Warehouse className="w-8 h-8 text-brand-500/70 shrink-0" />
+        <div className="bg-card rounded-lg border border-border border-l-4 border-l-brand-500 px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center shrink-0">
+            <Warehouse className="w-5 h-5 text-brand-500" />
+          </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Total Items</p>
-            <p className="text-xl font-bold text-foreground">{metrics.total}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total</p>
+            <p className="text-2xl font-bold text-foreground leading-tight">{metrics.total}</p>
           </div>
         </div>
-        <div className="bg-card rounded-lg border border-border px-4 py-3 flex items-center gap-3">
-          <PackageCheck className="w-8 h-8 text-emerald-500/70 shrink-0" />
+        <div className="bg-card rounded-lg border border-border border-l-4 border-l-emerald-500 px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <PackageCheck className="w-5 h-5 text-emerald-500" />
+          </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">In Stock</p>
-            <p className="text-xl font-bold text-emerald-600">{metrics.inStock}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">In Stock</p>
+            <p className="text-2xl font-bold text-emerald-600 leading-tight">{metrics.inStock}</p>
           </div>
         </div>
-        <div className="bg-card rounded-lg border border-border px-4 py-3 flex items-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-amber-500/70 shrink-0" />
+        <div className="bg-card rounded-lg border border-border border-l-4 border-l-amber-500 px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+          </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Reserved</p>
-            <p className="text-xl font-bold text-amber-600">{metrics.reserved}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Reserved</p>
+            <p className="text-2xl font-bold text-amber-600 leading-tight">{metrics.reserved}</p>
           </div>
         </div>
-        <div className="bg-card rounded-lg border border-border px-4 py-3 flex items-center gap-3">
-          <PackageX className="w-8 h-8 text-rose-500/70 shrink-0" />
+        <div className="bg-card rounded-lg border border-border border-l-4 border-l-rose-500 px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
+            <PackageX className="w-5 h-5 text-rose-500" />
+          </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Out of Stock</p>
-            <p className="text-xl font-bold text-rose-600">{metrics.outOfStock}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Out of Stock</p>
+            <p className="text-2xl font-bold text-rose-600 leading-tight">{metrics.outOfStock}</p>
           </div>
         </div>
       </div>

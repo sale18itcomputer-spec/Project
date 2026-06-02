@@ -5,35 +5,19 @@ import { ContactLog } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { parseDate, formatDisplayDate } from "../../../utils/time";
 import NewContactLogModal from "../../modals/NewContactLogModal";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
-import Avatar from "../../common/Avatar";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, Table, LayoutGrid, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
-import ViewToggle from "../../common/ViewToggle";
-import ItemActionsMenu from "../../common/ItemActionsMenu";
-import ConfirmationModal from "../../modals/ConfirmationModal";
-import { deleteRecord } from "../../../services/api";
+import { ExternalLink, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import { useAuth } from "../../../contexts/AuthContext";
-import { useToast } from "../../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
-type KanbanColumnId = typeof KANBAN_COLUMN_IDS[number];
 
 interface ContactLogsDashboardProps {
   initialFilter?: string;
 }
-
-type ViewMode = 'table' | 'board';
-
-
-const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-  { id: 'table', label: 'Table', icon: <Table /> },
-  { id: 'board', label: 'Board', icon: <LayoutGrid /> },
-];
 
 const CONTACT_LOG_COLUMNS_VISIBILITY_KEY = 'limperial-contact-log-columns-visibility';
 
@@ -44,14 +28,10 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const { users } = useAuth();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
-  const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
   const { handleNavigation, navigation } = useNavigation();
-  const { addToast } = useToast();
-
   const modalConfig = useMemo(() => {
     const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
     const isReadOnly = navigation.action === 'view';
@@ -63,32 +43,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const handleOpenNewLog = () => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'create' });
   const handleViewLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'view', id: log['Log ID'] });
   const handleEditLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'edit', id: log['Log ID'] });
-  const handleDeleteRequest = (log: ContactLog) => setLogToDelete(log);
-
-  const handleConfirmDelete = async () => {
-    if (!logToDelete || !logToDelete['Log ID']) return;
-
-    const originalLogs = contactLogs ? [...contactLogs] : [];
-    const logToDeleteId = logToDelete['Log ID'];
-
-    setLogToDelete(null);
-
-    // Optimistic UI update
-    setContactLogs(current => current ? current.filter(l => l['Log ID'] !== logToDeleteId) : null);
-
-    try {
-      const response: { deletedId: string } = await deleteRecord('Contact_Logs', logToDeleteId);
-      if (response.deletedId === logToDeleteId) {
-        addToast('Contact log deleted!', 'success');
-      } else {
-        throw new Error("Backend did not confirm deletion.");
-      }
-    } catch (err: any) {
-      addToast(`Failed to delete log: ${err.message}`, 'error');
-      setContactLogs(originalLogs); // Revert on failure
-    }
-  };
-
   const logTypeOptions = useMemo(() => ['All Types', ...KANBAN_COLUMN_IDS], []);
   const userOptions = useMemo(() => {
     if (!users) return ['All Users'];
@@ -116,21 +70,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     // Sort by date descending
     return data.sort((a, b) => (parseDate(b['Contact Date'])?.getTime() ?? 0) - (parseDate(a['Contact Date'])?.getTime() ?? 0));
   }, [contactLogs, searchQuery, logTypeFilter, responsibleUserFilter, statusFilter]);
-
-  const kanbanColumns = useMemo<KanbanColumn<ContactLog>[]>(() => {
-    const statusColors: Record<KanbanColumnId, string> = {
-      'Call': 'sky',
-      'Message': 'violet',
-      'Email': 'amber'
-    };
-
-    return KANBAN_COLUMN_IDS.map(status => ({
-      id: status,
-      title: status,
-      color: statusColors[status] as any,
-      items: filteredData.filter(p => p.Type === status)
-    }));
-  }, [filteredData]);
 
   const allColumns = useMemo<ColumnDef<ContactLog>[]>(() => [
     {
@@ -237,32 +176,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
     );
   }
 
-  const renderKanbanCard = (log: ContactLog) => (
-    <>
-      <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ItemActionsMenu
-          module="contact_logs"
-          onView={() => handleViewLog(log)}
-          onEdit={() => handleEditLog(log)}
-          onDelete={() => handleDeleteRequest(log)}
-        />
-      </div>
-      <div className="flex-grow">
-        <h4 className="font-bold text-foreground pr-10">{log['Company Name']}</h4>
-        <p className="text-sm text-muted-foreground">{log['Contact Name']}</p>
-        {log.Remarks && <p className="text-sm text-muted-foreground mt-2 leading-snug line-clamp-3">{log.Remarks}</p>}
-      </div>
-      <div className="flex justify-between items-end mt-4 pt-2">
-        <span className="text-sm font-medium text-muted-foreground">{formatDisplayDate(log['Contact Date'])}</span>
-        {log['Responsible By'] && (
-          <Avatar name={log['Responsible By']} showName={false} className="w-8 h-8 text-sm" />
-        )}
-      </div>
-    </>
-  );
-
-
-
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
@@ -296,9 +209,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             </div>
 
             <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-              {viewMode === 'table' && (
-                <>
                   <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-700' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
                       <ArrowRightToLine className="w-4 h-4" />
@@ -315,8 +225,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
                     visibleColumns={visibleColumns}
                     onColumnToggle={handleColumnToggle}
                   />
-                </>
-              )}
               <PermissionGate module="contact_logs" action="create">
                 <button
                   onClick={handleOpenNewLog}
@@ -331,16 +239,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
         </div>
       </div>
 
-      {viewMode === 'board' ? (
-        <KanbanView<ContactLog>
-          columns={kanbanColumns}
-          onCardClick={handleViewLog}
-          renderCardContent={renderKanbanCard}
-          loading={loading}
-          getItemId={(item) => item['Log ID'] || ''}
-        />
-      ) : (
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-4">
+      <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-4">
           <DataTable
             tableId="contact-logs-table"
             data={filteredData}
@@ -363,7 +262,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             )}
           />
         </div>
-      )}
 
       <NewContactLogModal
         isOpen={modalConfig.isOpen}
@@ -371,15 +269,6 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
         existingData={modalConfig.log}
         initialReadOnly={modalConfig.isReadOnly}
       />
-      <ConfirmationModal
-        isOpen={!!logToDelete}
-        onClose={() => setLogToDelete(null)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Contact Log"
-        confirmText="Delete"
-      >
-        Are you sure you want to delete this contact log? This action cannot be undone.
-      </ConfirmationModal>
       <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
           <button

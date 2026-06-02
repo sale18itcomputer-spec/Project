@@ -3,7 +3,7 @@
  * QUOTATION PDF builder — bilingual Khmer/English, VAT version.
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
-import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 const DEFAULT_WIDTHS = [4, 16, 33, 12, 16, 19];
 

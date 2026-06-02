@@ -7,14 +7,12 @@ import DataTable, { ColumnDef } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
 import QuotationCreator from "../../features/sales/QuotationCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { parseSheetValue, formatCurrencySmartly, determineCurrency } from "../../../utils/formatters";
-import { ShoppingCart, LayoutGrid, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
+import { formatCurrencySmartly } from "../../../utils/formatters";
+import { ShoppingCart, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import KanbanView, { KanbanColumn } from "../views/KanbanView";
 import { useToast } from "../../../contexts/ToastContext";
-import { deleteRecord, updateRecord } from "../../../services/api";
+import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
-import ItemActionsMenu from "../../common/ItemActionsMenu";
 import QuotationListContainer from "../lists/QuotationListContainer";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
@@ -53,7 +51,7 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 
 const QUOTATION_COLUMNS_VISIBILITY_KEY = 'limperial-quotation-columns-visibility';
 
-type ViewMode = 'table' | 'board' | 'detail';
+type ViewMode = 'table' | 'detail';
 
 
 interface QuotationDashboardProps {
@@ -139,29 +137,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       addToast('Quotation deleted!', 'success');
     } catch {
       addToast('Failed to delete quotation.', 'error');
-      setQuotations(originalQuotations);
-    }
-  };
-
-  const handleItemMove = async (item: Quotation, newStatus: string) => {
-    const quoteNo = item['Quote No'];
-    if (!quoteNo) return;
-
-    const originalQuotations = quotations ? [...quotations] : [];
-
-    setQuotations(current => {
-      if (!current) return null;
-      return current.map(q =>
-        q['Quote No'] === quoteNo ? { ...q, Status: newStatus as Quotation['Status'] } : q
-      );
-    });
-
-    try {
-      await updateRecord('Quotations', quoteNo, { 'Status': newStatus }, isB2B);
-      addToast('Quotation moved successfully!', 'success');
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      addToast('Failed to move quotation. Reverting change.', 'error');
       setQuotations(originalQuotations);
     }
   };
@@ -392,98 +367,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     return allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string));
   }, [allColumns, visibleColumns]);
 
-  const kanbanColumns = useMemo<KanbanColumn<Quotation>[]>(() => {
-    const statuses: Quotation['Status'][] = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
-    const statusColors: { [key in Quotation['Status']]: 'sky' | 'emerald' | 'rose' | 'violet' } = {
-      'Open': 'sky',
-      'Close (Win)': 'emerald',
-      'Close (Lose)': 'rose',
-      'Cancel': 'violet',
-    };
-
-    return statuses.map(status => ({
-      id: status,
-      title: status,
-      color: statusColors[status],
-      items: filteredData.filter(q => q.Status === status),
-      renderHeader: (items: Quotation[]) => {
-        const { totalUSD, totalKHR } = items.reduce((acc, item) => {
-          const value = parseSheetValue(item.Amount);
-          const determinedCurrency = determineCurrency(value, item.Currency);
-          if (determinedCurrency === 'KHR') {
-            acc.totalKHR += value;
-          } else {
-            acc.totalUSD += value;
-          }
-          return acc;
-        }, { totalUSD: 0, totalKHR: 0 });
-
-        const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
-        const usdStr = totalUSD > 0 ? totalUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD', ...formatOptions }) : '';
-        const khrStr = totalKHR > 0 ? `៛${totalKHR.toLocaleString('en-US', formatOptions)}` : '';
-
-        if (usdStr && khrStr) {
-          return (
-            <div>
-              <span className="text-lg font-bold text-foreground block">{usdStr}</span>
-              <span className="text-base font-bold text-muted-foreground block">{khrStr}</span>
-            </div>
-          );
-        }
-
-        const singleValue = usdStr || khrStr || '$0';
-
-        return (
-          <span className="text-xl font-bold text-foreground">
-            {singleValue}
-          </span>
-        );
-      }
-    }));
-  }, [filteredData]);
-
-  const renderKanbanCard = (item: Quotation) => {
-    const quoteDate = parseDate(item['Quote Date']);
-    let ageText = '';
-    if (quoteDate) {
-      const diffTime = new Date().getTime() - quoteDate.getTime();
-      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-      ageText = `${diffDays}d ago`;
-    }
-
-    const formattedValue = formatCurrencySmartly(item.Amount, item.Currency);
-
-    return (
-      <>
-        <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ItemActionsMenu
-            module="quotations"
-            onView={() => handleViewQuotation(item)}
-            onEdit={() => handleEditQuotation(item)}
-            onDelete={() => handleDeleteRequest(item)}
-          />
-        </div>
-        <h4 className="font-bold text-foreground pr-8 text-base group-hover:text-brand-600 transition-colors">{item['Company Name']}</h4>
-        <p className="text-sm text-muted-foreground font-mono">{item['Quote No']}</p>
-
-        <p className="text-lg font-semibold text-brand-600 dark:text-brand-400 mt-2">
-          {formattedValue}
-        </p>
-
-        <p className="text-sm text-muted-foreground mt-2.5 line-clamp-1">Contact: {item['Contact Name']}</p>
-
-        <div className="flex justify-between items-end mt-4 pt-3 border-t border-border">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Created by ${item['Created By']}`}>
-            <span>By {item['Created By']}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Created on ${quoteDate?.toLocaleDateString()}`}>
-            <span>{ageText}</span>
-          </div>
-        </div>
-      </>
-    );
-  };
-
   const renderDetailView = () => (
     <div className="flex flex-col md:flex-row h-full bg-background">
       <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
@@ -644,13 +527,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                 <span className="hidden xl:inline">Table</span>
               </button>
               <button
-                onClick={() => setViewMode('board')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'board' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                <span className="hidden xl:inline">Board</span>
-              </button>
-              <button
                 onClick={() => setViewMode('detail')}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
@@ -751,15 +627,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                 </button>
               </div>
             )}
-          />
-        ) : viewMode === 'board' ? (
-          <KanbanView<Quotation>
-            columns={kanbanColumns}
-            onCardClick={handleViewQuotation}
-            renderCardContent={renderKanbanCard}
-            loading={loading}
-            onItemMove={handleItemMove}
-            getItemId={(item) => item['Quote No']}
           />
         ) : (
           renderDetailView()

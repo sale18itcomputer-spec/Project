@@ -3,7 +3,7 @@
  * TAX INVOICE HTML builder — bilingual Khmer/English.
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
-import { esc, fmtDate, fmtNum, getFontsB64, LOGO, PdfItem, PdfTotals } from './shared';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 const DEFAULT_WIDTHS = [4, 12, 38, 14, 17, 15];
 
@@ -22,7 +22,6 @@ export function buildTaxInvoice(
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
 
-    const fonts = getFontsB64();
     const invNo      = esc(hd['Inv No.'] || hd['Inv No'] || hd['Invoice No'] || '');
     const invDate    = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || ''));
     const dueDate    = esc(fmtDate(hd['Due Date'] || ''));
@@ -92,8 +91,6 @@ export function buildTaxInvoice(
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
-  @font-face { font-family:'KhmerOSBokor'; src:url('data:font/truetype;base64,${fonts.bokor}') format('truetype'); }
-  @font-face { font-family:'KhmerOSMuol';  src:url('data:font/truetype;base64,${fonts.muol}')  format('truetype'); }
   body { font-family:'Koh Santepheap',sans-serif; font-size:11px; color:#000; }
   .brand-blue { color:#004aad; }
   .bg-brand-blue { background-color:#004aad; }
@@ -200,7 +197,7 @@ export function buildTaxInvoice(
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(deposit)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Total Less Deposit</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបក្រោយកាត់ប្រាក់កក់ (Total Less Deposit)</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
         </tr>` : ''}
         <tr>
@@ -208,15 +205,15 @@ export function buildTaxInvoice(
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount > 0 ? vatAmount : null)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Dollar</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបរួម (Grand Total in Dollar)</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Exchange Rate</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
           <td class="text-right pr-2 font-bold align-middle" style="border:1px solid #000;">${exchangeRate ? `&#x17DB;${esc(String(exchangeRate))}` : '-'}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Riel</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
           <td class="align-middle" style="border:1px solid #000;">${grandRiel > 0 ? `<div class="flex justify-between"><span>&#x17DB;</span><span>${fmtNum(grandRiel)}</span></div>` : `<div class="flex justify-between"><span>&#x17DB;</span><span>-</span></div>`}</td>
         </tr>
       </tbody>` : `<tbody class="break-inside-avoid">

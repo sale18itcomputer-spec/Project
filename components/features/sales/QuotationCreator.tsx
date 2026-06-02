@@ -444,7 +444,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
     // Run when the quotation ID changes. companies/contacts are optional enrichment
     // and must NOT gate this effect — in the miniapp they're never loaded.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [existingQuotation?.['Quote No'], isB2B]);
 
     const companyOptions = useMemo(() => companies ? [...new Set(companies.map(c => c['Company Name']).filter(Boolean))].sort() : [], [companies]);

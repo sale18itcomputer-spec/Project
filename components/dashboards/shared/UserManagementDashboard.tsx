@@ -101,7 +101,7 @@ const UserManagementDashboard: React.FC = () => {
       });
       setActiveTab('profile');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isEditingUser, isAdding]);
 
   const handleCloseModal = () => {

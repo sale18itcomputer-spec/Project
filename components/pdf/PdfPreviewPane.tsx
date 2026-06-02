@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { generatePDF, PdfClientOptions } from '../../lib/pdfClient';
+import { buildPreviewHtml } from '../../lib/buildPreviewHtml';
 import { SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface PdfPreviewPaneProps {
@@ -56,40 +57,48 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
     defaultLabelPadding = 200,
     columnWidths,
 }) => {
-    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [apiUrl, setApiUrl]         = useState<string | null>(null);
+    const [loading, setLoading]       = useState(false);
     const [showControls, setShowControls] = useState(false);
+    const iframeRef  = useRef<HTMLIFrameElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const prevUrlRef = useRef<string | null>(null);
+    const prevUrlRef  = useRef<string | null>(null);
 
+    // Synchronous client-side build — no API, no debounce needed
+    const clientHtml = useMemo(() => {
+        try { return buildPreviewHtml({ ...pdfOptions, signaturePadding, labelPadding, columnWidths } as any); }
+        catch { return null; }
+     
+    }, [JSON.stringify(pdfOptions), signaturePadding, labelPadding, columnWidths]);
+
+    // Write directly into iframe document — no reload, no flash
     useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
+        const doc = iframeRef.current?.contentDocument as any;
+        if (!doc || !clientHtml) return;
+        doc.open();
+        doc.write(clientHtml);
+        doc.close();
+    }, [clientHtml]);
 
+    // API fallback for server-only types (Tax Invoice, Invoice, etc.)
+    useEffect(() => {
+        if (clientHtml !== null) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             setLoading(true);
             try {
-                const url = await generatePDF({
-                    ...pdfOptions,
-                    signaturePadding,
-                    labelPadding,
-                    columnWidths,
-                    previewMode: true,
-                }) as string;
-
+                const url = await generatePDF({ ...pdfOptions, signaturePadding, labelPadding, columnWidths, previewMode: true } as any) as string;
                 if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
                 prevUrlRef.current = url;
-                setPdfUrl(url);
+                setApiUrl(url);
             } catch {
                 // silently fail — download still works
             } finally {
                 setLoading(false);
             }
         }, debounceMs);
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+     
     }, [JSON.stringify(pdfOptions), signaturePadding, labelPadding, columnWidths]);
 
     const handleReset = () => {
@@ -122,7 +131,7 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
                         <SlidersHorizontal className="w-3.5 h-3.5" />
                         Signature Spacing
                     </button>
-                    {loading ? (
+                    {loading && clientHtml === null ? (
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                             <span className="text-xs text-slate-400 font-medium">Updating…</span>
@@ -164,15 +173,15 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
                 </div>
             )}
 
-            {/* iframe */}
+            {/* iframe — content written via ref for client types, src for API fallback */}
             <div className="flex-1 overflow-hidden">
-                {pdfUrl ? (
-                    <iframe
-                        src={pdfUrl}
-                        className="w-full h-full border-0"
-                        title="PDF Preview"
-                    />
-                ) : (
+                <iframe
+                    ref={iframeRef}
+                    src={clientHtml ? undefined : apiUrl ?? undefined}
+                    className={`w-full h-full border-0 ${clientHtml || apiUrl ? '' : 'hidden'}`}
+                    title="PDF Preview"
+                />
+                {!clientHtml && !apiUrl && (
                     <div className="flex items-center justify-center h-full text-slate-400 text-sm">
                         {loading ? 'Generating preview…' : 'Fill in details to see preview'}
                     </div>
