@@ -2,7 +2,8 @@
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/promise';
 
-const DETAIL_READ_TIMEOUT_MS = 15000;
+const DETAIL_READ_TIMEOUT_MS = 30000;
+const WRITE_TIMEOUT_MS = 30000;
 
 // ── B2B/B2C mode (set by DataContext on initial mount + mode toggle) ──────────
 // Module-level state — every CRUD call below transparently routes to the right
@@ -150,21 +151,18 @@ function stampedPayload(table: string, payload: any): any {
 // ── Generic CRUD ──────────────────────────────────────────────────────────────
 
 export const createRecord = async (sheetName: string, payload: any, isB2B?: boolean) => {
-    // isB2B is accepted explicitly so call sites in B2B-aware contexts (modals,
-    // forms) can guarantee the write lands on the correct b2b_* table rather
-    // than relying solely on the module-level singleton. Falls back to the
-    // singleton (currentMode) when omitted — safe for user-action call sites
-    // that fire after DataContext's useLayoutEffect has already set the mode.
     const table = resolveTable(sheetName, isB2B);
     if (!table) throw new Error(`No table mapping for "${sheetName}"`);
 
     const body = stampedPayload(table, cleanPayload(sheetName, payload));
 
-    const { data, error } = await supabase
-        .from(table)
-        .insert(body)
-        .select()
-        .single();
+    const { data, error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).insert(body).select().single()
+        ),
+        WRITE_TIMEOUT_MS,
+        `Creating ${sheetName} timed out — please check your connection and try again`,
+    );
 
     if (error) {
         console.error('[createRecord] Supabase error:', error);
@@ -260,12 +258,13 @@ export const updateRecord = async (sheetName: string, primaryKeyValue: string, p
 
     const body = stampedPayload(table, cleanPayload(sheetName, payload));
 
-    const { data, error } = await supabase
-        .from(table)
-        .update(body)
-        .eq(pk, primaryKeyValue)
-        .select()
-        .single();
+    const { data, error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).update(body).eq(pk, primaryKeyValue).select().single()
+        ),
+        WRITE_TIMEOUT_MS,
+        `Updating ${sheetName} timed out — please check your connection and try again`,
+    );
 
     if (error) {
         console.error('[updateRecord] Supabase error:', error);
@@ -348,9 +347,13 @@ export const createQuotationSheet = async (_sheetName: string, data: any): Promi
     const table = resolveTableByBase('quotations');
     const payload = stampedPayload(table, { ...data, updated_at: new Date().toISOString() });
 
-    const { error } = await supabase
-        .from(table)
-        .upsert(payload, { onConflict: 'Quote No' });
+    const { error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).upsert(payload, { onConflict: 'Quote No' })
+        ),
+        WRITE_TIMEOUT_MS,
+        `Saving quotation timed out — please check your connection and try again`,
+    );
 
     if (error) {
         console.error('[createQuotationSheet] Supabase error:', error);
@@ -364,9 +367,13 @@ export const createSaleOrderSheet = async (_sheetName: string, data: any): Promi
     const table = resolveTableByBase('sale_orders');
     const payload = stampedPayload(table, data);
 
-    const { error } = await supabase
-        .from(table)
-        .upsert(payload, { onConflict: 'SO No' });
+    const { error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).upsert(payload, { onConflict: 'SO No' })
+        ),
+        WRITE_TIMEOUT_MS,
+        `Saving sale order timed out — please check your connection and try again`,
+    );
 
     if (error) {
         console.error('[createSaleOrderSheet] Supabase error:', error);
@@ -380,9 +387,13 @@ export const createDeliveryOrderSheet = async (data: any): Promise<{ message: st
     const table = resolveTableByBase('delivery_orders');
     const payload = stampedPayload(table, data);
 
-    const { error } = await supabase
-        .from(table)
-        .upsert(payload, { onConflict: 'DO No' });
+    const { error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).upsert(payload, { onConflict: 'DO No' })
+        ),
+        WRITE_TIMEOUT_MS,
+        `Saving delivery order timed out — please check your connection and try again`,
+    );
 
     if (error) throw new Error(`Failed to save Delivery Order: ${error.message}`);
     return { message: 'Delivery Order saved successfully' };
@@ -393,9 +404,13 @@ export const createReceiptSheet = async (data: any): Promise<{ message: string }
     const table = resolveTableByBase('receipts');
     const payload = stampedPayload(table, data);
 
-    const { error } = await supabase
-        .from(table)
-        .upsert(payload, { onConflict: 'RV No' });
+    const { error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(table).upsert(payload, { onConflict: 'RV No' })
+        ),
+        WRITE_TIMEOUT_MS,
+        `Saving receipt timed out — please check your connection and try again`,
+    );
 
     if (error) throw new Error(`Failed to save Receipt: ${error.message}`);
     return { message: 'Receipt saved successfully' };

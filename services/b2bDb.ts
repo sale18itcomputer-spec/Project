@@ -2,7 +2,8 @@ import { supabase } from '../lib/supabase';
 import { Company, PipelineProject, Quotation } from '../types';
 import { withTimeout } from '../utils/promise';
 
-const DETAIL_READ_TIMEOUT_MS = 15000;
+const DETAIL_READ_TIMEOUT_MS = 30000;
+const WRITE_TIMEOUT_MS = 30000;
 
 // Keep in sync with api.ts HAS_UPDATED_AT.
 // Ensures b2bDb's generic insertRecord/updateRecord stamp updated_at the same
@@ -252,9 +253,13 @@ export const createQuotationSheet = async (
 
     // Use upsert — avoids a separate existence check and the PostgREST
     // "failed to parse tree path" error caused by .select('Quote No.')
-    const { error } = await supabase
-        .from(tableName)
-        .upsert(data, { onConflict: 'Quote No' });
+    const { error } = await withTimeout(
+        Promise.resolve(
+            supabase.from(tableName).upsert(data, { onConflict: 'Quote No' })
+        ),
+        WRITE_TIMEOUT_MS,
+        `Saving quotation ${quoteNo} timed out — please check your connection and try again`,
+    );
 
     if (error) {
         console.error('Supabase Upsert (B2B Quotation) Error:', error);
