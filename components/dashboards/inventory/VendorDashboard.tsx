@@ -17,7 +17,7 @@ const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 const VendorDashboard: React.FC = () => {
     const { vendors, loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     useWindowSize();
     const { handleNavigation, navigation } = useNavigation();
 

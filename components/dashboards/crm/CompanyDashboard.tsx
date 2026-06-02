@@ -60,7 +60,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
   const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useB2BData();
   const { navigation, handleNavigation } = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const { width: _width } = useWindowSize();
 
   const validCompanies = useMemo(() => {

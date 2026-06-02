@@ -60,7 +60,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
   const { meetings: meetingData, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const { handleNavigation, navigation } = useNavigation();
 
   const modalConfig = useMemo(() => {

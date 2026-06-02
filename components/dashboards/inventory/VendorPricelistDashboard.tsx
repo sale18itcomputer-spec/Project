@@ -31,7 +31,7 @@ const VendorPricelistDashboard: React.FC = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [vendorFilter, setVendorFilter] = useState<string>('all');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const [isUploading, setIsUploading] = useState(false);
     useWindowSize();
 

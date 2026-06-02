@@ -745,3 +745,77 @@ export const autoPostPurchaseOrderJournal = async (params: {
         lines,
     );
 };
+
+/** Auto-create a draft journal entry when a Delivery Order is marked Delivered.
+ *  Recognises COGS (cost of goods sold) at the point goods leave the warehouse.
+ *
+ *  DR Cost of Goods Sold 50xxx per brand (falls back to 50000)
+ *  CR Inventory 12xxx per brand (falls back to 12000)
+ *
+ *  costItems should contain the inventory cost (unit_price) per item, grouped by
+ *  brand. If cost information is unavailable the entry is skipped rather than
+ *  creating an unbalanced or zero entry.
+ *
+ *  Idempotent: a second call for the same DO No is a no-op.
+ */
+export const autoPostDeliveryOrderJournal = async (params: {
+    doNo: string;
+    entryDate: string;
+    costItems: { brand?: string; qty: number; unit_price: number }[];
+    createdBy: string;
+}): Promise<void> => {
+    // Idempotent guard
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('reference', params.doNo)
+        .eq('source', 'delivery_order')
+        .maybeSingle();
+    if (existing) return;
+
+    // Group cost by brand
+    const brandTotals: Record<string, number> = {};
+    let grandTotal = 0;
+    for (const item of params.costItems) {
+        const cost = (item.qty || 0) * (item.unit_price || 0);
+        if (cost <= 0.005) continue;
+        const brand = item.brand?.trim() || 'Other Accessories';
+        brandTotals[brand] = (brandTotals[brand] ?? 0) + cost;
+        grandTotal += cost;
+    }
+    // Nothing to post if no cost data
+    if (grandTotal <= 0.005) return;
+
+    const entryNumber = await getNextEntryNumber();
+    const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
+
+    for (const [brand, cost] of Object.entries(brandTotals)) {
+        const cogsAccount      = BRAND_ACCOUNT_MAP[brand]?.cogs      ?? '50000';
+        const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12000';
+        lines.push({
+            account_number: cogsAccount,
+            description: `COGS ${brand} — ${params.doNo}`,
+            debit: cost,
+            credit: 0,
+        });
+        lines.push({
+            account_number: inventoryAccount,
+            description: `Inventory out ${brand} — ${params.doNo}`,
+            debit: 0,
+            credit: cost,
+        });
+    }
+
+    await createJournalEntry(
+        {
+            entry_number: entryNumber,
+            entry_date:   params.entryDate,
+            description:  `Auto: DO ${params.doNo}`,
+            reference:    params.doNo,
+            created_by:   params.createdBy,
+            is_posted:    false,
+            source:       'delivery_order',
+        },
+        lines,
+    );
+};

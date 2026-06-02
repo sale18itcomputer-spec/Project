@@ -46,7 +46,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const { handleNavigation, navigation } = useNavigation();
     const { width } = useWindowSize();
     const isMobile = width < 768;

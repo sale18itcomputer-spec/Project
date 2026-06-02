@@ -5,6 +5,8 @@ import { DeliveryOrder, Invoice, SaleOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createRecord, updateRecord, uploadFile } from '../../../services/api';
+import { autoPostDeliveryOrderJournal } from '../../../services/accountingApi';
+import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
@@ -268,6 +270,97 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     cur ? [payload as DeliveryOrder, ...cur] : [payload as DeliveryOrder]
                 );
             }
+
+            // ── When DO is Delivered: deduct inventory qty + post COGS JE ────
+            if (doc['Status'] === 'Delivered') {
+                // 1. Deduct stock from inventory — match by item_number / model_name
+                //    We try to find matching inventory rows and reduce their qty.
+                //    Non-fatal: if nothing matches, skip silently.
+                try {
+                    for (const item of items) {
+                        const qty = Number(item.qty) || 0;
+                        if (qty <= 0) continue;
+                        const code = item.itemCode?.trim();
+                        const model = item.modelName?.trim();
+                        if (!code && !model) continue;
+
+                        // Find the first In Stock inventory row matching this item
+                        let matchQuery = supabase
+                            .from('inventory')
+                            .select('id, qty')
+                            .eq('status', 'In Stock')
+                            .gt('qty', 0)
+                            .order('created_at', { ascending: true })
+                            .limit(1);
+
+                        if (code) {
+                            matchQuery = matchQuery.eq('model_name', code);
+                        } else {
+                            matchQuery = matchQuery.ilike('model_name', `%${model}%`);
+                        }
+
+                        const { data: invRows } = await matchQuery;
+                        if (!invRows || invRows.length === 0) continue;
+
+                        const inv = invRows[0];
+                        const newQty = Math.max(0, Number(inv.qty) - qty);
+                        await supabase
+                            .from('inventory')
+                            .update({
+                                qty:    newQty,
+                                status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
+                            })
+                            .eq('id', inv.id);
+                    }
+                } catch (invErr: any) {
+                    console.warn('[DeliveryOrderCreator] inventory deduction failed:', invErr.message);
+                }
+
+                // 2. Auto-post COGS journal entry (DR COGS / CR Inventory) — non-fatal
+                //    We need cost price per item. Fetch from inventory by item code.
+                try {
+                    const costItems: { brand?: string; qty: number; unit_price: number }[] = [];
+                    for (const item of items) {
+                        const qty = Number(item.qty) || 0;
+                        if (qty <= 0) continue;
+                        const code  = item.itemCode?.trim();
+                        const model = item.modelName?.trim();
+                        if (!code && !model) continue;
+
+                        let costQuery = supabase
+                            .from('inventory')
+                            .select('unit_price, brand')
+                            .order('created_at', { ascending: true })
+                            .limit(1);
+
+                        if (code) {
+                            costQuery = costQuery.eq('model_name', code);
+                        } else {
+                            costQuery = costQuery.ilike('model_name', `%${model}%`);
+                        }
+
+                        const { data: costRows } = await costQuery;
+                        const unit_price = costRows?.[0]?.unit_price ?? 0;
+                        const brand      = costRows?.[0]?.brand      ?? undefined;
+
+                        if (unit_price > 0) {
+                            costItems.push({ brand, qty, unit_price });
+                        }
+                    }
+
+                    if (costItems.length > 0) {
+                        autoPostDeliveryOrderJournal({
+                            doNo:      doc['DO No']!,
+                            entryDate: doc['DO Date'] || new Date().toISOString().slice(0, 10),
+                            costItems,
+                            createdBy: currentUser?.Name || 'system',
+                        }).catch(err => console.warn('[DeliveryOrderCreator] COGS auto-post failed:', err));
+                    }
+                } catch (cogErr: any) {
+                    console.warn('[DeliveryOrderCreator] COGS lookup failed:', cogErr.message);
+                }
+            }
+
             refetchModule('Delivery Orders');
             setSuccessInfo({ doNo: doc['DO No']! });
         } catch (err: any) {

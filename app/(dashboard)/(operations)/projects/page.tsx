@@ -1,10 +1,15 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Suspense, useEffect } from 'react';
 import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useSearchParams } from 'next/navigation';
 import { useData } from '@/contexts/DataContext';
-import PipelineDashboard from '@/components/dashboards/operations/PipelineDashboard';
+
+const PipelineDashboard = dynamic(
+    () => import('@/components/dashboards/operations/PipelineDashboard'),
+    { loading: () => <ContentSkeleton /> }
+);
 
 function ProjectsContent() {
     const searchParams = useSearchParams();

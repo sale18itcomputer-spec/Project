@@ -181,7 +181,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedPipelineNo, setSelectedPipelineNo] = useState<string | null>(null);
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
 
   useEffect(() => {
     if (initialFilter) {

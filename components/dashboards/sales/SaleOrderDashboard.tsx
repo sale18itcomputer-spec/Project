@@ -104,7 +104,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
 
     const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
 

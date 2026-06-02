@@ -206,7 +206,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const isConstrained = CONSTRAINED_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
     const handleToggleCollapse = () => setSidebarCollapsed(prev => !prev);
     const closeSidebar = () => setSidebarOpen(false);
-    const handleNavigate = (path: string) => { router.push(path); closeSidebar(); };
+    const handleNavigate = (path: string) => { 
+        router.push(path); 
+        // Close sidebar after push so the navigation isn't delayed by a
+        // simultaneous state update competing with router.push
+        requestAnimationFrame(() => closeSidebar());
+    };
 
     if (isMobile) {
         return (
@@ -221,7 +226,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     onResizeMouseDown={() => {}} onResizeDoubleClick={() => {}}
                 />
                 <main className="mobile-content px-3">
-                    <div className="animate-slide-up">{children}</div>
+                    <div key={pathname} className="animate-slide-up">{children}</div>
                 </main>
                 <MobileBottomNav />
             </div>
@@ -242,7 +247,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden transition-[margin] duration-300 ease-in-out ml-[var(--sidebar-width)]">
                 <Header onMenuClick={() => {}} isSidebarOpen={false} isMobile={false} />
                 <main className={`flex-1 min-h-0 ${isConstrained ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${!isConstrained ? 'p-3 md:p-4 lg:p-5' : ''}`}>
-                    <div className={`${isConstrained ? 'h-full' : ''} animate-slide-up`}>
+                    <div key={pathname} className={`${isConstrained ? 'h-full' : ''} animate-slide-up`}>
                         {children}
                     </div>
                 </main>

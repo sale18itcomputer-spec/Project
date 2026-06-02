@@ -1,13 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import InventoryDashboard from '@/components/dashboards/inventory/InventoryDashboard';
+import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useData } from '@/contexts/DataContext';
+
+const InventoryDashboard = dynamic(
+    () => import('@/components/dashboards/inventory/InventoryDashboard'),
+    { loading: () => <ContentSkeleton /> }
+);
 
 export default function InventoryPage() {
     const { fetchModule } = useData();
 
-    // Pre-load inventory + PO data (PO needed for the source PO number resolution)
     useEffect(() => {
         fetchModule('Inventory', 'Purchase Orders', 'Vendors');
     }, [fetchModule]);

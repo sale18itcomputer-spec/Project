@@ -459,6 +459,38 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 } catch (pe: any) {
                     addToast(`PO saved, but pricelist sync failed: ${pe.message}`, 'info');
                 }
+
+                // ── Auto-create Inventory items from PO line items (non-fatal) ──
+                try {
+                    const inventoryPayload = items
+                        .filter(item => item.qty > 0)
+                        .map(item => ({
+                            po_id:        poId,
+                            po_number:    formData.po_number || '',
+                            vendor_id:    formData.vendor_id || null,
+                            vendor_name:  formData.vendor_name || '',
+                            brand:        item.brand        || '',
+                            category:     item.category     || '',
+                            model_name:   item.item_number  || STRIP_HTML(item.description).substring(0, 100) || 'N/A',
+                            description:  STRIP_HTML(item.description),
+                            qty:          item.qty,
+                            unit_price:   item.unit_price,
+                            currency:     formData.currency || 'USD',
+                            status:       'In Stock',
+                            created_by:   currentUser?.Name || 'System',
+                        }));
+
+                    if (inventoryPayload.length > 0) {
+                        const { error: invError } = await supabase
+                            .from('inventory')
+                            .insert(inventoryPayload);
+                        if (invError) throw invError;
+                        addToast(`${inventoryPayload.length} item(s) added to Inventory!`, 'success');
+                    }
+                } catch (ie: any) {
+                    // Non-fatal: PO is already saved — just warn
+                    addToast(`PO saved, but inventory sync failed: ${ie.message}`, 'info');
+                }
             }
 
             addToast('Purchase Order saved successfully!', 'success');

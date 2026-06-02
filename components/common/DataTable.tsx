@@ -118,8 +118,8 @@ const DesktopTableSkeleton: React.FC<{ columns: number, rows: number }> = ({ col
       {[...Array(rows)].map((_, i) => (
         <tr key={i} className="border-b border-border">
           {[...Array(columns)].map((_, j) => (
-            <td key={j} className="px-4 sm:px-6 py-3 sm:py-4">
-              <div className="h-4 bg-muted rounded w-full animate-pulse"></div>
+            <td key={j} className="px-4 sm:px-6 py-2 sm:py-2.5">
+              <div className="h-3.5 bg-muted rounded w-full animate-pulse"></div>
             </td>
           ))}
         </tr>
@@ -413,8 +413,6 @@ function DataTable<T extends object>({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, sortedData.length);
 
-  const emptyRowsToRender = itemsPerPage - paginatedData.length;
-
   const handleExportExcel = async () => {
     if (!sortedData.length) return;
 
@@ -488,7 +486,7 @@ function DataTable<T extends object>({
                   <th
                     key={`${String(col.accessorKey)}-${i}`}
                     scope="col"
-                    className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-sm font-semibold text-white uppercase tracking-wider whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:border-brand-700/50 transition-colors 
+                    className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-xs font-bold text-white tracking-wide whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:border-brand-700/50 transition-colors 
                         sticky top-0 
                         ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''} 
                         ${i === 0 && stickyFirstColumn ? 'left-0 z-50 bg-brand-600' : 'z-40 bg-brand-600'}
@@ -545,7 +543,7 @@ function DataTable<T extends object>({
                           : 'md:even:bg-muted/20 bg-card'
                           } md:hover:bg-accent/50 group transition-colors duration-200 ${onRowClick || isMobile ? 'cursor-pointer' : ''} ${isExpanded ? 'is-expanded' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-backwards`}
                         style={{
-                          animationDelay: `${Math.min((index % 20) * 30, 600)}ms`
+                          animationDelay: `${Math.min((index % 20) * 15, 150)}ms`
                         }}
                         onClick={() => handleRowClick(item, globalIndex)}
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(item, globalIndex)}
@@ -556,7 +554,7 @@ function DataTable<T extends object>({
                           const isFirstColumn = colIndex === 0;
 
                           const cellClass = `
-                            px-4 sm:px-6 py-2 sm:py-2.5 md:border-b md:[&:not(:last-child)]:border-r md:border-border 
+                            px-4 sm:px-6 py-1.5 sm:py-2 md:border-b md:[&:not(:last-child)]:border-r md:border-border 
                             ${isSecondaryOnMobile ? 'secondary-cell' : ''}
                             ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}
                             ${isFirstColumn && stickyFirstColumn ? 'sticky left-0 z-30 bg-card md:bg-card ' + (isHighlighted ? 'bg-amber-500/10 md:bg-amber-500/10' : 'group-hover:bg-accent md:group-hover:bg-accent md:group-even:bg-muted/20') : ''}
@@ -578,7 +576,7 @@ function DataTable<T extends object>({
                         {renderRowActions && (
                           <td
                             className={`
-                              sticky right-0 z-10 w-[120px] px-2 py-4 border-none transition-colors duration-200
+                              sticky right-0 z-10 w-[120px] px-2 py-1.5 border-l border-border/60 transition-colors duration-200
                               ${isHighlighted ? 'bg-amber-500/10' : 'bg-card md:bg-card'}
                               md:group-hover:bg-accent group-hover:bg-accent
                             `}
@@ -591,20 +589,7 @@ function DataTable<T extends object>({
                       </tr>
                     )
                   })}
-                  {emptyRowsToRender > 0 && Array.from({ length: emptyRowsToRender }).map((_, index) => (
-                    <tr key={`empty-${index}`} className="hidden md:table-row">
-                      {columns.map((col, colIdx) => (
-                        <td key={`empty-${index}-${colIdx}`} className="px-6 py-4 md:border-b md:[&:not(:last-child)]:border-r md:border-border text-foreground">
-                          &nbsp;
-                        </td>
-                      ))}
-                      {renderRowActions && (
-                        <td className="sticky right-0 z-10 w-[120px] px-2 py-4 border-none bg-muted/20">
-                          &nbsp;
-                        </td>
-                      )}
-                    </tr>
-                  ))}
+
                 </>
               ) : (
                 <tr>

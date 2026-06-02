@@ -1,13 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import CollectionDashboard from '@/components/dashboards/sales/CollectionDashboard';
+import ContentSkeleton from '@/components/common/ContentSkeleton';
 import { useData } from '@/contexts/DataContext';
+
+const CollectionDashboard = dynamic(
+    () => import('@/components/dashboards/sales/CollectionDashboard'),
+    { loading: () => <ContentSkeleton /> }
+);
 
 export default function CollectionPage() {
     const { fetchModule } = useData();
 
-    // Collection derives AR from Invoices + Receipts — both must be loaded.
     useEffect(() => { fetchModule('Invoices', 'Receipts'); }, [fetchModule]);
 
     return <CollectionDashboard />;

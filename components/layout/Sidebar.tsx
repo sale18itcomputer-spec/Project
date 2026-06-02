@@ -195,9 +195,21 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { canView } = usePermissions();
   const { fetchModule } = useData();
 
+  // Optimistic active path — set on click, cleared when pathname catches up.
+  // This makes the clicked item highlight immediately instead of waiting for
+  // the full Next.js navigation commit (which can take 200-400ms).
+  const [pendingPath, setPendingPath] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    // Once the router has committed to the new path, clear the pending state
+    setPendingPath(null);
+  }, [pathname]);
+
   // Helpers
-  const isActive = (path: string) => pathname === path;
-  const go = (path: string) => () => onNavigate(path);
+  const isActive = (path: string) => (pendingPath ?? pathname) === path;
+  const go = (path: string) => () => {
+    setPendingPath(path);
+    onNavigate(path);
+  };
 
   // On hover: prefetch the JS chunk (router.prefetch) AND start loading the
   // page's data modules (fetchModule). By the time the user clicks, the chunk

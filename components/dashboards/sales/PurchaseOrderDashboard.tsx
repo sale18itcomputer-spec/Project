@@ -37,7 +37,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         return null;
     }, [navigation.action, navigation.id, purchaseOrders, initialPayload]);
     const { addToast } = useToast();
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const { currentUser } = useAuth();

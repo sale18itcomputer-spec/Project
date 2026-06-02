@@ -105,7 +105,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
 
   const handleDeleteRequest = (contact: ProcessedContact) => setContactToDelete(contact);
