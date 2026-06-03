@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import { z } from 'zod';
@@ -1096,6 +1097,7 @@ async function main() {
       res.status(401).json({ error: 'Unauthorized' });
     });
 
+    // ── Streamable HTTP (Claude API / SDK clients) ─────────────────────────────
     app.post('/mcp', async (req: any, res: any) => {
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       const mcpServer = createMcpServer();
@@ -1108,9 +1110,30 @@ async function main() {
           res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null });
       }
     });
-
     app.get('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
     app.delete('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
+
+    // ── SSE (Claude Desktop) ───────────────────────────────────────────────────
+    const sseTransports: Record<string, SSEServerTransport> = {};
+
+    app.get('/sse', async (req: any, res: any) => {
+      const transport = new SSEServerTransport('/messages', res);
+      sseTransports[transport.sessionId] = transport;
+      const mcpServer = createMcpServer();
+      await mcpServer.connect(transport);
+      res.on('close', () => {
+        delete sseTransports[transport.sessionId];
+        transport.close();
+        mcpServer.close();
+      });
+    });
+
+    app.post('/messages', async (req: any, res: any) => {
+      const sessionId = req.query.sessionId as string;
+      const transport = sseTransports[sessionId];
+      if (!transport) return res.status(400).json({ error: 'Unknown sessionId' });
+      await transport.handlePostMessage(req, res, req.body);
+    });
 
     const port = Number(PORT);
     app.listen(port, '0.0.0.0', () => {
