@@ -2,12 +2,12 @@ import 'dotenv/config';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
+import express from 'express';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -1078,12 +1078,14 @@ async function main() {
 
   if (PORT) {
     // ── HTTP mode (deployed / shared) ─────────────────────────────────────────
-    const express = (await import('express')).default;
-    const app = createMcpExpressApp({ host: '0.0.0.0' });
-    app.use(express.json()); // parse JSON bodies for POST /mcp
+    const app = express();
+    app.use(express.json());
     const API_KEY = process.env.MCP_API_KEY;
 
-    // Bearer-token auth — skip if MCP_API_KEY is not configured
+    // Health check — must come before auth middleware
+    app.get('/', (_req, _res: any) => _res.json({ name: 'lpt-mcp', version: '1.0.0', status: 'ok' }));
+
+    // Bearer-token auth for /mcp — skipped if MCP_API_KEY is not set
     app.use('/mcp', (req: any, res: any, next: any) => {
       if (!API_KEY) return next();
       const auth = req.headers['authorization'] ?? '';
@@ -1092,9 +1094,7 @@ async function main() {
     });
 
     app.post('/mcp', async (req: any, res: any) => {
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined, // stateless
-      });
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       const mcpServer = createMcpServer();
       try {
         await mcpServer.connect(transport);
@@ -1106,15 +1106,12 @@ async function main() {
       }
     });
 
-    // GET/DELETE not used in stateless mode
     app.get('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
     app.delete('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
 
-    // Health check
-    app.get('/', (_req: any, res: any) => res.json({ name: 'lpt-mcp', version: '1.0.0', status: 'ok' }));
-
-    app.listen(Number(PORT), () => {
-      process.stderr.write(`[lpt-mcp] HTTP server on port ${PORT} (v1.0.0)${API_KEY ? ' [auth enabled]' : ' [no auth]'}\n`);
+    const port = Number(PORT);
+    app.listen(port, '0.0.0.0', () => {
+      process.stderr.write(`[lpt-mcp] HTTP server on 0.0.0.0:${port} (v1.0.0)${API_KEY ? ' [auth enabled]' : ' [no auth]'}\n`);
     });
   } else {
     // ── Stdio mode (local Claude Desktop) ────────────────────────────────────
