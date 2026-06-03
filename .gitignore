@@ -33,3 +33,5 @@ _agents/
 _agent/
 *.tsbuildinfo
 .brave-profile/.env
+dist-mcp/
+mcp-test-*.txt

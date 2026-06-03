@@ -1078,7 +1078,9 @@ async function main() {
 
   if (PORT) {
     // ── HTTP mode (deployed / shared) ─────────────────────────────────────────
+    const express = (await import('express')).default;
     const app = createMcpExpressApp({ host: '0.0.0.0' });
+    app.use(express.json()); // parse JSON bodies for POST /mcp
     const API_KEY = process.env.MCP_API_KEY;
 
     // Bearer-token auth — skip if MCP_API_KEY is not configured
