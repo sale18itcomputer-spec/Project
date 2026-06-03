@@ -21,17 +21,20 @@ const SHEET_IDS = [
 ];
 
 // ── Supabase client ────────────────────────────────────────────────────────────
+// Defaults keep createClient() from throwing on startup when env vars aren't
+// set yet (e.g. first Railway deploy before Variables are configured).
+// Real requests will fail at query time with a clear network/auth error.
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  '';
+  'https://not-configured.supabase.co';
 
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+  'not-configured';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
