@@ -143,17 +143,40 @@ const err = (msg: string) => ({
   content: [{ type: 'text' as const, text: `Error: ${msg}` }],
 });
 
+// ── Role-based access control ─────────────────────────────────────────────────
+
+type Role = 'admin' | 'marketing';
+
+const MARKETING_TOOLS = ['db_get_pricelist', 'db_upsert_pricelist'];
+
+function resolveRole(authHeader: string): { role: Role; authorized: boolean } {
+  const adminKey = process.env.MCP_API_KEY;
+  const marketingKey = process.env.MCP_API_KEY_MARKETING;
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+
+  if (adminKey && token === adminKey) return { role: 'admin', authorized: true };
+  if (marketingKey && token === marketingKey) return { role: 'marketing', authorized: true };
+  // No keys configured → open access (dev mode)
+  if (!adminKey && !marketingKey) return { role: 'admin', authorized: true };
+  return { role: 'admin', authorized: false };
+}
+
 // ── Server factory ────────────────────────────────────────────────────────────
 // Called once per stdio session, or once per HTTP request (stateless mode).
 
-function createMcpServer() {
+function createMcpServer(role: Role = 'admin') {
 const server = new McpServer({ name: 'lpt-mcp', version: '1.0.0' });
+const allowedTools: string[] | '*' = role === 'admin' ? '*' : MARKETING_TOOLS;
+const reg = (name: string, ...args: any[]) => {
+  if (allowedTools === '*' || allowedTools.includes(name))
+    (server.tool as any)(name, ...args);
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // READ — Supabase
 // ══════════════════════════════════════════════════════════════════════════════
 
-server.tool(
+reg(
   'db_search_companies',
   'Search companies by name (case-insensitive contains)',
   { query: z.string().describe('Company name to search') },
@@ -172,7 +195,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_search_contacts',
   'Search contacts by name or company name',
   {
@@ -197,7 +220,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_pricelist',
   'Get pricelist items. Filter by brand / model / keyword / status. Max 50 rows.',
   {
@@ -223,7 +246,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_quotations',
   'Get quotations. Filter by type (b2c/b2b), company, dateFrom.',
   {
@@ -248,7 +271,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_sale_orders',
   'Get sale orders. Filter by company, status, dateFrom, type (b2c/b2b).',
   {
@@ -273,7 +296,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_invoices',
   'Get invoices. Filter by type (b2c/b2b), company, status, dateFrom.',
   {
@@ -298,7 +321,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_pipelines',
   'Get pipeline projects. status=open (default) excludes closed pipelines.',
   {
@@ -330,7 +353,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_purchase_orders',
   'Get purchase orders. Filter by status, dateFrom.',
   {
@@ -354,7 +377,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_inventory',
   'Get inventory items. Filter by brand, keyword (code/model/description), or low_stock.',
   {
@@ -380,7 +403,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_contact_logs',
   'Get contact logs. Filter by contact name, company, dateFrom.',
   {
@@ -406,7 +429,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_vendor_pricelist',
   'Get vendor pricelist items. Filter by brand or keyword.',
   {
@@ -430,7 +453,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_categories',
   'Get all category labels from the category_labels table',
   {},
@@ -448,7 +471,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_meeting_logs',
   'Get meeting logs. Filter by company, dateFrom.',
   {
@@ -472,7 +495,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_site_surveys',
   'Get site survey logs. Filter by company, dateFrom.',
   {
@@ -496,7 +519,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_consignments',
   'Get consignments with their items joined by consignment_id.',
   {
@@ -520,7 +543,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_accounting',
   'Get journal entries with their lines. Filter by dateFrom, dateTo, posted status, or search query.',
   {
@@ -551,7 +574,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_get_chart_of_accounts',
   'Get chart of accounts (hidden accounts excluded). Filter by account_type or keyword.',
   {
@@ -583,7 +606,7 @@ server.tool(
 // WRITE — Supabase
 // ══════════════════════════════════════════════════════════════════════════════
 
-server.tool(
+reg(
   'db_create_contact',
   'Create a new contact record',
   {
@@ -607,7 +630,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_create_company',
   'Create a new company record',
   {
@@ -630,7 +653,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_create_pipeline',
   'Create a new pipeline project',
   {
@@ -655,7 +678,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_pipeline',
   'Update a pipeline project by Pipeline No',
   {
@@ -680,7 +703,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_create_sale_order',
   'Create a new sale order',
   {
@@ -709,7 +732,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_inventory',
   'Update an inventory item by code',
   {
@@ -733,7 +756,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_quotation',
   'Update a quotation by Quote No',
   {
@@ -758,7 +781,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_create_quotation',
   'Create a new quotation',
   {
@@ -783,7 +806,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_sale_order',
   'Update a sale order by SO No',
   {
@@ -809,7 +832,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_contact',
   'Update a contact by Customer ID',
   {
@@ -832,7 +855,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_update_company',
   'Update a company by Company ID',
   {
@@ -855,7 +878,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_upsert_pricelist',
   'Upsert a pricelist item by Code (insert or update)',
   {
@@ -882,7 +905,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'db_create_journal_entry',
   'Create a balanced journal entry. Validates debit total == credit total before inserting.',
   {
@@ -955,7 +978,7 @@ server.tool(
 // Google Sheets tools
 // ══════════════════════════════════════════════════════════════════════════════
 
-server.tool(
+reg(
   'sheets_list',
   'List all configured Google Sheets with their real title and tab names',
   {},
@@ -985,7 +1008,7 @@ server.tool(
   },
 );
 
-server.tool(
+reg(
   'sheets_read',
   'Read rows from a Google Sheet tab. Resolves fuzzy sheet/tab names. Smart header detection.',
   {
@@ -1084,23 +1107,22 @@ async function main() {
     // ── HTTP mode (deployed / shared) ─────────────────────────────────────────
     const app = express();
     app.use(express.json());
-    const API_KEY = process.env.MCP_API_KEY;
 
-    // Health check — must come before auth middleware
+    // Health check — unauthenticated, before any auth middleware
     app.get('/', (_req, _res: any) => _res.json({ name: 'lpt-mcp', version: '1.0.0', status: 'ok' }));
 
-    // Bearer-token auth for /mcp — skipped if MCP_API_KEY is not set
-    app.use('/mcp', (req: any, res: any, next: any) => {
-      if (!API_KEY) return next();
-      const auth = req.headers['authorization'] ?? '';
-      if (auth === `Bearer ${API_KEY}`) return next();
-      res.status(401).json({ error: 'Unauthorized' });
-    });
+    // Shared auth + role resolver for all MCP endpoints
+    const withRole = (req: any, res: any, next: any) => {
+      const { authorized, role } = resolveRole(req.headers['authorization'] ?? '');
+      if (!authorized) return res.status(401).json({ error: 'Unauthorized' });
+      req.mcpRole = role;
+      next();
+    };
 
     // ── Streamable HTTP (Claude API / SDK clients) ─────────────────────────────
-    app.post('/mcp', async (req: any, res: any) => {
+    app.post('/mcp', withRole, async (req: any, res: any) => {
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-      const mcpServer = createMcpServer();
+      const mcpServer = createMcpServer(req.mcpRole);
       try {
         await mcpServer.connect(transport);
         await transport.handleRequest(req, res, req.body);
@@ -1113,16 +1135,16 @@ async function main() {
     app.get('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
     app.delete('/mcp', (_req: any, res: any) => res.status(405).json({ error: 'Use POST' }));
 
-    // ── SSE (Claude Desktop) ───────────────────────────────────────────────────
-    const sseTransports: Record<string, SSEServerTransport> = {};
+    // ── SSE (Claude Desktop / mcp-remote) ─────────────────────────────────────
+    const sseSessions: Record<string, { transport: SSEServerTransport; role: Role }> = {};
 
-    app.get('/sse', async (req: any, res: any) => {
+    app.get('/sse', withRole, async (req: any, res: any) => {
       const transport = new SSEServerTransport('/messages', res);
-      sseTransports[transport.sessionId] = transport;
-      const mcpServer = createMcpServer();
+      sseSessions[transport.sessionId] = { transport, role: req.mcpRole };
+      const mcpServer = createMcpServer(req.mcpRole);
       await mcpServer.connect(transport);
       res.on('close', () => {
-        delete sseTransports[transport.sessionId];
+        delete sseSessions[transport.sessionId];
         transport.close();
         mcpServer.close();
       });
@@ -1130,14 +1152,15 @@ async function main() {
 
     app.post('/messages', async (req: any, res: any) => {
       const sessionId = req.query.sessionId as string;
-      const transport = sseTransports[sessionId];
-      if (!transport) return res.status(400).json({ error: 'Unknown sessionId' });
-      await transport.handlePostMessage(req, res, req.body);
+      const session = sseSessions[sessionId];
+      if (!session) return res.status(400).json({ error: 'Unknown sessionId' });
+      await session.transport.handlePostMessage(req, res, req.body);
     });
 
     const port = Number(PORT);
+    const hasAuth = !!(process.env.MCP_API_KEY || process.env.MCP_API_KEY_MARKETING);
     app.listen(port, '0.0.0.0', () => {
-      process.stderr.write(`[lpt-mcp] HTTP server on 0.0.0.0:${port} (v1.0.0)${API_KEY ? ' [auth enabled]' : ' [no auth]'}\n`);
+      process.stderr.write(`[lpt-mcp] HTTP server on 0.0.0.0:${port} (v1.0.0)${hasAuth ? ' [auth enabled]' : ' [no auth]'}\n`);
     });
   } else {
     // ── Stdio mode (local Claude Desktop) ────────────────────────────────────
