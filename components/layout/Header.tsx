@@ -90,12 +90,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
     const separator = <span className="text-muted-foreground/40 mx-2">/</span>;
 
     const pathMap: Record<string, string> = {
+      '/': 'Dashboard', '/dashboard': 'Dashboard',
       '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
       '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
       '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
       '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
       '/vendor-pricelist': 'Vendor Pricelist', '/purchase-orders': 'Purchase Orders',
-      '/users': 'Users', '/': 'Dashboard',
+      '/invoices': 'Invoices', '/delivery-orders': 'Delivery Orders', '/receipts': 'Receipts',
+      '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice + DO',
+      '/inventory': 'Inventory', '/inquiries': 'Product Inquiries', '/consignment': 'Consignment',
+      '/users': 'Users', '/pricing-calculator': 'Pricing Calculator', '/accounting': 'Accounting',
+      '/vendor-pricelist': 'Vendor Pricelist',
     };
     const current = pathMap[pathname] || 'Dashboard';
 
@@ -138,11 +143,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   const getMobileTitle = () => {
     const pathMap: Record<string, string> = {
-      '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
-      '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
-      '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
-      '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
+      '/dashboard': 'Dashboard', '/projects': 'Pipelines', '/companies': 'Companies',
+      '/contacts': 'Contacts', '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys',
+      '/meetings': 'Meetings', '/quotations': 'Quotations', '/sale-orders': 'Sale Orders',
+      '/pricelist': 'Pricelist', '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
       '/vendor-pricelist': 'Vendor Price', '/users': 'Users', '/purchase-orders': 'Purchase Orders',
+      '/invoices': 'Invoices', '/delivery-orders': 'Delivery Orders', '/receipts': 'Receipts',
+      '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice+DO',
+      '/inventory': 'Inventory', '/inquiries': 'Inquiries', '/consignment': 'Consignment',
+      '/pricing-calculator': 'Calculator', '/accounting': 'Accounting',
     };
     return pathMap[pathname] || 'Dashboard';
   };

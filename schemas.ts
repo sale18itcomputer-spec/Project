@@ -433,3 +433,39 @@ export const INVENTORY_HEADERS = [
   'created_at',
   'updated_at',
 ] as const;
+
+export const PRODUCT_INQUIRY_HEADERS = [
+  'id',
+  'inquiry_no',
+  'inquiry_date',
+  'company_name',
+  'contact_name',
+  'responsible_by',
+  'priority',
+  'status',
+  'remarks',
+  'procurement_notes',
+  'created_by',
+  'created_at',
+  'updated_at',
+] as const;
+
+export const INQUIRY_ITEM_HEADERS = [
+  'id',
+  'inquiry_id',
+  'line_number',
+  'brand',
+  'model_name',
+  'specification',
+  'qty',
+  'target_price',
+  'currency',
+  'stock_type',
+  'item_status',
+  'actual_price',
+  'lead_time_days',
+  'vendor_name',
+  'item_notes',
+  'created_at',
+  'updated_at',
+] as const;

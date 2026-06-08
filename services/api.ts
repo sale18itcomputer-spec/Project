@@ -1,6 +1,7 @@
 
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/promise';
+import { ProductInquiry, InquiryItem } from '../types';
 
 const DETAIL_READ_TIMEOUT_MS = 30000;
 const WRITE_TIMEOUT_MS = 30000;
@@ -39,8 +40,9 @@ const TABLE_MAP: Record<string, string> = {
     'Purchase Orders': 'purchase_orders',
     'Delivery Orders': 'delivery_orders',
     'Receipts':        'receipts',
-    'Inventory':       'inventory',
-    'b2b_pipelines':   'b2b_pipelines',
+    'Inventory':           'inventory',
+    'Product Inquiries':   'product_inquiries',
+    'b2b_pipelines':       'b2b_pipelines',
     'b2b_companies':   'b2b_companies',
     'b2b_quotations':  'b2b_quotations',
     'User_Passcodes':  'user_passcodes',
@@ -113,8 +115,9 @@ const PRIMARY_KEYS: Record<string, string> = {
     'Purchase Orders': 'id',
     'Delivery Orders': 'DO No',
     'Receipts':        'RV No',
-    'Inventory':       'id',
-    'b2b_pipelines':   'Pipeline No',
+    'Inventory':           'id',
+    'Product Inquiries':   'id',
+    'b2b_pipelines':       'Pipeline No',
     'b2b_companies':   'Company ID',
     'b2b_quotations':  'Quote No',
     'User_Passcodes':  'UserID',
@@ -126,7 +129,7 @@ const PRIMARY_KEYS: Record<string, string> = {
 const HAS_UPDATED_AT = new Set([
     'quotations', 'sale_orders', 'invoices', 'delivery_orders',
     'receipts', 'vendors', 'vendor_pricelist', 'purchase_orders', 'app_settings',
-    'inventory',
+    'inventory', 'product_inquiries',
     'b2b_sale_orders', 'b2b_invoices', 'b2b_delivery_orders', 'b2b_receipts',
 ]);
 
@@ -438,4 +441,65 @@ export const saveSetting = async (key: string, value: any): Promise<void> => {
         .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
 
     if (error) throw new Error(`Failed to save setting "${key}": ${error.message}`);
+};
+
+// ── Product Inquiries helpers ──────────────────────────────────────────────────
+
+export const generateInquiryNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `INQ-${year}-`;
+
+    const { data } = await supabase
+        .from('product_inquiries')
+        .select('inquiry_no')
+        .ilike('inquiry_no', `${prefix}%`)
+        .order('inquiry_no', { ascending: false })
+        .limit(1);
+
+    const lastNo = data?.[0]?.inquiry_no;
+    const lastSeq = lastNo ? parseInt(lastNo.replace(prefix, ''), 10) : 0;
+    const nextSeq = (isNaN(lastSeq) ? 0 : lastSeq) + 1;
+    return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+};
+
+export const saveProductInquiry = async (
+    inquiry: Omit<ProductInquiry, 'items'>,
+    items: InquiryItem[],
+): Promise<{ id: string; inquiry_no: string }> => {
+    const { items: _items, ...header } = inquiry as any;
+    const payload = stampedPayload('product_inquiries', header);
+
+    const { data: saved, error: hErr } = await withTimeout(
+        Promise.resolve(
+            supabase
+                .from('product_inquiries')
+                .upsert(payload, { onConflict: 'inquiry_no' })
+                .select('id, inquiry_no')
+                .single()
+        ),
+        WRITE_TIMEOUT_MS,
+        'Saving inquiry timed out',
+    );
+    if (hErr) throw new Error(hErr.message);
+
+    const inquiryId = saved.id;
+
+    const { error: delErr } = await supabase
+        .from('inquiry_items')
+        .delete()
+        .eq('inquiry_id', inquiryId);
+    if (delErr) throw new Error(delErr.message);
+
+    if (items.length > 0) {
+        const itemPayload = items.map((item, i) => {
+            const { id: _id, created_at: _ca, updated_at: _ua, inquiry_id: _iid, ...rest } = item as any;
+            return { ...rest, inquiry_id: inquiryId, line_number: i + 1 };
+        });
+        const { error: itemErr } = await supabase
+            .from('inquiry_items')
+            .insert(itemPayload);
+        if (itemErr) throw new Error(itemErr.message);
+    }
+
+    return saved;
 };

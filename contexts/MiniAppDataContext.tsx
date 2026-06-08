@@ -104,8 +104,9 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         receipts: setReceipts,
         vendors: setVendors,
         vendorPricelist: setVendorPricelist,
-        purchaseOrders: setPurchaseOrders,
-        inventory: setInventoryItems,
+        purchaseOrders:   setPurchaseOrders,
+        inventory:        setInventoryItems,
+        productInquiries: () => {},
     }), []);
 
     const applyData = useCallback((sheetNames: string[], freshData: Record<string, any[]>) => {

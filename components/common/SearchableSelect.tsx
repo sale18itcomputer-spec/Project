@@ -14,6 +14,7 @@ interface SearchableSelectProps {
     disabled?: boolean;
     placeholder?: string;
     actionButton?: React.ReactNode;
+    allowCustomValue?: boolean;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -25,7 +26,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     required = false,
     disabled = false,
     placeholder = "Search...",
-    actionButton
+    actionButton,
+    allowCustomValue = false,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -36,8 +38,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                if (allowCustomValue && searchTerm && searchTerm !== value) {
+                    onChange(searchTerm);
+                }
                 setIsOpen(false);
-                setSearchTerm(''); // Reset search term when closing
+                setSearchTerm('');
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -141,10 +146,20 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                         </button>
                                     ))
                                 ) : (
-                                    <div className="px-4 py-8 text-center">
+                                    <div className="px-4 py-6 text-center">
                                         <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                                         <p className="text-sm text-muted-foreground font-medium">No results for "{searchTerm}"</p>
-                                        <p className="text-xs text-muted-foreground/60 mt-1">Try a different search term</p>
+                                        {allowCustomValue && searchTerm ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSelect(searchTerm)}
+                                                className="mt-3 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-500/10 hover:bg-brand-500/20 px-3 py-1.5 rounded-lg transition"
+                                            >
+                                                + Use "{searchTerm}"
+                                            </button>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground/60 mt-1">Try a different search term</p>
+                                        )}
                                     </div>
                                 )}
                             </div>

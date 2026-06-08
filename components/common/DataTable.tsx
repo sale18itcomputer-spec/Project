@@ -524,7 +524,9 @@ function DataTable<T extends object>({
                   </th>
                 ))}
                 {renderRowActions && (
-                  <th scope="col" className="sticky right-0 top-0 z-50 bg-brand-600 border-none w-[120px]"></th>
+                  <th scope="col" className="sticky right-0 top-0 z-50 bg-brand-600 border-l border-brand-700/50 md:border-b-2 md:border-b-brand-500 w-[120px] px-4 py-2 text-xs font-bold text-white/80 tracking-wide text-center">
+                    Actions
+                  </th>
                 )}
               </tr>
             </thead>
@@ -576,7 +578,7 @@ function DataTable<T extends object>({
                         {renderRowActions && (
                           <td
                             className={`
-                              sticky right-0 z-10 w-[120px] px-2 py-1.5 border-l border-border/60 transition-colors duration-200
+                              sticky right-0 z-10 w-[120px] px-2 py-1.5 border-l border-border/60 md:border-b md:border-border transition-colors duration-200
                               ${isHighlighted ? 'bg-amber-500/10' : 'bg-card md:bg-card'}
                               md:group-hover:bg-accent group-hover:bg-accent
                             `}

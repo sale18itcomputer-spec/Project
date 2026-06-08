@@ -28,7 +28,7 @@ const CONSTRAINED_ROUTES = [
     '/site-surveys', '/meetings', '/pricelist', '/b2b-pricelist',
     '/quotations', '/sale-orders', '/invoices', '/delivery-orders',
     '/receipts', '/collection', '/users', '/vendors', '/vendor-pricelist',
-    '/purchase-orders', '/weekly-report',
+    '/purchase-orders', '/weekly-report', '/inventory', '/inquiries',
     '/',
 ];
 

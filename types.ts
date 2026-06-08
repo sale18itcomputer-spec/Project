@@ -597,3 +597,43 @@ export interface Consignment {
   updated_at?: string;
   items?: ConsignmentItem[];
 }
+
+// ─── Product Inquiries Module ─────────────────────────────────────────────────
+
+export interface InquiryItem {
+  id?: string;
+  inquiry_id?: string;
+  line_number: number;
+  brand: string;
+  model_name: string;
+  specification: string;
+  qty: number;
+  target_price?: number | null;
+  currency: 'USD' | 'KHR';
+  stock_type: 'In-Stock' | 'Lead Time';
+  item_status: 'Pending' | 'In Stock' | 'Available' | 'Lead Time' | 'Not Available';
+  actual_price?: number | null;
+  lead_time_days?: number | null;
+  vendor_name: string;
+  item_notes: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProductInquiry {
+  id?: string;
+  inquiry_no: string;
+  inquiry_date: string;
+  company_name: string;
+  contact_name: string;
+  responsible_by: string;
+  priority: 'Low' | 'Normal' | 'High' | 'Urgent';
+  status: 'Draft' | 'Pending' | 'In Progress' | 'Quoted' | 'Cancelled';
+  remarks: string;
+  procurement_notes: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  items?: InquiryItem[];
+  [key: string]: any;
+}

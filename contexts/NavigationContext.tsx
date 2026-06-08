@@ -38,6 +38,8 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'vendor-pricelist': '/vendor-pricelist',
   'purchase-orders': '/purchase-orders',
   'weekly-report': '/weekly-report',
+  'inventory': '/inventory',
+  'inquiries': '/inquiries',
 };
 
 export const PATH_TO_VIEW: Record<string, string> = Object.fromEntries(

@@ -7,13 +7,14 @@ import { useB2B } from './B2BContext';
 import {
   PipelineProject, Company, Contact, ContactLog, SiteSurveyLog, Meeting,
   Quotation, SaleOrder, PricelistItem, Invoice, DeliveryOrder, Receipt,
-  Vendor, VendorPricelistItem, PurchaseOrder, InventoryItem
+  Vendor, VendorPricelistItem, PurchaseOrder, InventoryItem, ProductInquiry
 } from '../types';
 import {
   PIPELINE_HEADERS, COMPANY_HEADERS, CONTACT_HEADERS, CONTACT_LOG_HEADERS,
   SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS, QUOTATION_HEADERS, SALE_ORDER_HEADERS,
   PRICELIST_HEADERS, INVOICE_HEADERS, DELIVERY_ORDER_HEADERS, RECEIPT_HEADERS,
-  VENDOR_HEADERS, VENDOR_PRICELIST_HEADERS, PURCHASE_ORDER_HEADERS, INVENTORY_HEADERS
+  VENDOR_HEADERS, VENDOR_PRICELIST_HEADERS, PURCHASE_ORDER_HEADERS, INVENTORY_HEADERS,
+  PRODUCT_INQUIRY_HEADERS
 } from '../schemas';
 import { useAuth } from './AuthContext';
 import * as db from '../utils/db';
@@ -57,6 +58,7 @@ const LAZY_SHEETS = [
   'Vendor Pricelist',
   'Purchase Orders',
   'Inventory',
+  'Product Inquiries',
 ] as const;
 
 type LazySheet = typeof LAZY_SHEETS[number];
@@ -94,6 +96,8 @@ interface DataContextProps {
   setPurchaseOrders: React.Dispatch<React.SetStateAction<PurchaseOrder[] | null>>;
   inventoryItems: InventoryItem[] | null;
   setInventoryItems: React.Dispatch<React.SetStateAction<InventoryItem[] | null>>;
+  productInquiries: ProductInquiry[] | null;
+  setProductInquiries: React.Dispatch<React.SetStateAction<ProductInquiry[] | null>>;
   loading: boolean;
   error: string | null;
   activeCompanyNames: Set<string>;
@@ -147,7 +151,8 @@ const storeToSheetMap: Record<db.StoreName, string> = {
   vendors:        'Vendors',
   vendorPricelist:'Vendor Pricelist',
   purchaseOrders: 'Purchase Orders',
-  inventory:      'Inventory',
+  inventory:        'Inventory',
+  productInquiries: 'Product Inquiries',
 };
 
 const sheetToStoreMap = Object.fromEntries(
@@ -170,7 +175,8 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
   'Vendors':          VENDOR_HEADERS,
   'Vendor Pricelist': VENDOR_PRICELIST_HEADERS,
   'Purchase Orders':  PURCHASE_ORDER_HEADERS,
-  'Inventory':        INVENTORY_HEADERS,
+  'Inventory':          INVENTORY_HEADERS,
+  'Product Inquiries':  PRODUCT_INQUIRY_HEADERS,
 };
 
 // ── DataProvider ──────────────────────────────────────────────────────────────
@@ -238,8 +244,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [vendors,        setVendors]        = useState<Vendor[] | null>(null);
   const [vendorPricelist,setVendorPricelist]= useState<VendorPricelistItem[] | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[] | null>(null);
-  const [loading,        setLoading]        = useState(true);
+  const [inventoryItems,    setInventoryItems]    = useState<InventoryItem[] | null>(null);
+  const [productInquiries,  setProductInquiries]  = useState<ProductInquiry[] | null>(null);
+  const [loading,           setLoading]           = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
   const stateSetters = useMemo<Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>>>(() => ({
@@ -257,8 +264,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     receipts:       setReceipts,
     vendors:        setVendors,
     vendorPricelist:setVendorPricelist,
-    purchaseOrders: setPurchaseOrders,
-    inventory:      setInventoryItems,
+    purchaseOrders:   setPurchaseOrders,
+    inventory:        setInventoryItems,
+    productInquiries: setProductInquiries,
   }), []);
 
   const vendorsRef = useRef<Vendor[] | null>(null);
@@ -403,8 +411,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       { base: 'receipts',         setter: setReceipts,        headers: RECEIPT_HEADERS,          primaryKey: 'RV No' },
       { base: 'vendors',          setter: setVendors,         headers: VENDOR_HEADERS,           primaryKey: 'id' },
       { base: 'vendor_pricelist', setter: setVendorPricelist, headers: VENDOR_PRICELIST_HEADERS, primaryKey: 'id' },
-      { base: 'purchase_orders',  setter: setPurchaseOrders,  headers: PURCHASE_ORDER_HEADERS,   primaryKey: 'id' },
-      { base: 'inventory',        setter: setInventoryItems,  headers: INVENTORY_HEADERS,        primaryKey: 'id' },
+      { base: 'purchase_orders',    setter: setPurchaseOrders,    headers: PURCHASE_ORDER_HEADERS,   primaryKey: 'id' },
+      { base: 'inventory',          setter: setInventoryItems,    headers: INVENTORY_HEADERS,        primaryKey: 'id' },
+      { base: 'product_inquiries',  setter: setProductInquiries,  headers: PRODUCT_INQUIRY_HEADERS,  primaryKey: 'id' },
     ];
 
     // Resolve each base table to its mode-specific physical table name. Keys
@@ -711,6 +720,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     vendorPricelist,setVendorPricelist,
     purchaseOrders, setPurchaseOrders,
     inventoryItems, setInventoryItems,
+    productInquiries, setProductInquiries,
     loading, error,
     activeCompanyNames, activeContactNames, activePipelineIds,
     refetchData, fetchModule, refetchModule,

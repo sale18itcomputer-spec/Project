@@ -1,26 +1,27 @@
 import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME    = 'limperial-db';
-const DB_VERSION = 11; // Bumped: added inventory store
+const DB_VERSION = 12; // Bumped: added productInquiries store
 
 // keyPath must match the primary key field used in each TypeScript type
 const STORE_CONFIG = {
-    projects:       { keyPath: 'Pipeline No' },
-    companies:      { keyPath: 'Company ID' },
-    contacts:       { keyPath: 'Customer ID' },
-    contactLogs:    { keyPath: 'Log ID' },
-    siteSurveys:    { keyPath: 'Site ID' },
-    meetings:       { keyPath: 'Meeting ID' },
-    quotations:     { keyPath: 'Quote No' },
-    saleOrders:     { keyPath: 'SO No' },
-    pricelist:      { keyPath: 'Code' },
-    invoices:       { keyPath: 'Inv No' },
-    deliveryOrders: { keyPath: 'DO No' },
-    receipts:       { keyPath: 'RV No' },
-    vendors:        { keyPath: 'id' },
-    vendorPricelist:{ keyPath: 'id' },
-    purchaseOrders: { keyPath: 'id' },
-    inventory:      { keyPath: 'id' },
+    projects:         { keyPath: 'Pipeline No' },
+    companies:        { keyPath: 'Company ID' },
+    contacts:         { keyPath: 'Customer ID' },
+    contactLogs:      { keyPath: 'Log ID' },
+    siteSurveys:      { keyPath: 'Site ID' },
+    meetings:         { keyPath: 'Meeting ID' },
+    quotations:       { keyPath: 'Quote No' },
+    saleOrders:       { keyPath: 'SO No' },
+    pricelist:        { keyPath: 'Code' },
+    invoices:         { keyPath: 'Inv No' },
+    deliveryOrders:   { keyPath: 'DO No' },
+    receipts:         { keyPath: 'RV No' },
+    vendors:          { keyPath: 'id' },
+    vendorPricelist:  { keyPath: 'id' },
+    purchaseOrders:   { keyPath: 'id' },
+    inventory:        { keyPath: 'id' },
+    productInquiries: { keyPath: 'id' },
 } as const;
 
 export const STORE_NAMES = Object.keys(STORE_CONFIG) as (keyof typeof STORE_CONFIG)[];
