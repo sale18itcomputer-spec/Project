@@ -9,7 +9,7 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import { generateInquiryNo, saveProductInquiry } from '../../../services/api';
 import { formatToInputDate } from '../../../utils/time';
 import { Plus, Trash2, Save, Loader2, Search } from 'lucide-react';
-import { FormSection, FormInput, FormTextarea, FormSelect } from '../../common/FormControls';
+import { FormSection, FormInput, FormSelect } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
 import DocumentEditorContainer from '../../layout/DocumentEditorContainer';
 
