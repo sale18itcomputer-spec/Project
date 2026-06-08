@@ -4,6 +4,7 @@ import './globals.css';
 import AppProviders from '@/components/providers/AppProviders';
 import { Toaster } from '@/components/ui/sonner';
 import SecurityModal from '@/components/modals/SecurityModal';
+import UpdateNotifier from '@/components/common/UpdateNotifier';
 
 export const metadata: Metadata = {
     title: 'Limperial Project Dashboard',
@@ -48,6 +49,7 @@ export default function RootLayout({
                     <AppProviders>
                         {children}
                         <SecurityModal />
+                        <UpdateNotifier />
                         <Toaster />
                     </AppProviders>
                 </Suspense>
