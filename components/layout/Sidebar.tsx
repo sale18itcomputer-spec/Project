@@ -7,7 +7,7 @@ import {
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
   ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
-  Wrench, ClipboardCheck, Hash, Boxes,
+  Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +45,7 @@ const PATH_TO_MODULES: Record<string, string[]> = {
   '/pdi-records':      ['PDI Records'],
   '/serial-numbers':   ['Serial Numbers'],
   '/spare-parts':      ['Spare Parts'],
+  '/pos':              ['Raw', 'Invoices', 'Receipts'],
 };
 
 interface SidebarProps {
@@ -261,13 +262,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     meetings:           canView('meetings'),
     pricing_calculator: canView('pricing_calculator'),
     accounting:         canView('accounting'),
+    pos:                canView('pos'),
   };
 
   // Derived section visibility — a section only shows if at least one of its items is visible
   const showOverview     = show.dashboard || show.companies || show.contacts || show.users;
   const showSales        = show.quotations || show.sale_orders || show.invoices ||
                            show.delivery_orders || show.receipts || show.collection ||
-                           show.weekly_report;
+                           show.weekly_report || show.pos;
   const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
   const showProcurement  = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
   const showService      = show.service_tickets || show.pdi_records || show.serial_numbers || show.spare_parts;
@@ -338,6 +340,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Sales */}
           {showSales && (
             <Section label="Sales" isCollapsed={isCollapsed}>
+              {show.pos && (
+                <NavItem icon={<ShoppingBag size={16} />} label="POS"
+                  isActive={isActive('/pos')} onClick={go('/pos')} onPrefetch={() => prefetch('/pos')} isCollapsed={isCollapsed} badge="NEW" />
+              )}
               {show.quotations && (
                 <NavItem icon={<FileText size={16} />} label="Quotations"
                   isActive={isActive('/quotations')} onClick={go('/quotations')} onPrefetch={() => prefetch('/quotations')} isCollapsed={isCollapsed} />

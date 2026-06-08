@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SerialNumber } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { FormSection, FormInput, FormTextarea } from '../common/FormControls';
-import { Check, Pencil, Trash2 } from 'lucide-react';
+import { Check, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import ResizableModal from './ResizableModal';
 import SearchableSelect from '../common/SearchableSelect';
@@ -19,17 +19,25 @@ interface NewSerialNumberModalProps {
   onClose: () => void;
   existingSN?: SerialNumber | null;
   initialReadOnly?: boolean;
+  prefillData?: Partial<SerialNumber>;
 }
 
-const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({ isOpen, onClose, existingSN, initialReadOnly = false }) => {
+const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({
+  isOpen, onClose, existingSN, initialReadOnly = false, prefillData,
+}) => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
-  const { setSerialNumbers, companies, contacts, fetchModule } = useData();
+  const { setSerialNumbers, companies, contacts, invoices, pricelist, fetchModule } = useData();
 
   const [formData, setFormData] = useState<Partial<SerialNumber>>({});
   const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Invoice-picker state
+  const [showInvoicePicker, setShowInvoicePicker] = useState(false);
+  const [selectedInvNo, setSelectedInvNo] = useState('');
+  const [selectedItemIdx, setSelectedItemIdx] = useState<number>(-1);
 
   const isEditMode = !!existingSN;
 
@@ -40,13 +48,62 @@ const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({ isOpen, onC
     ? [...new Set(contacts.filter(c => c['Company Name'] === formData.company_name).map(c => c.Name).filter(Boolean))].sort() as string[]
     : contacts ? [...new Set(contacts.map(c => c.Name).filter(Boolean))].sort() as string[] : [];
 
-  useEffect(() => { if (isOpen) fetchModule('Company List', 'Contact_List'); }, [isOpen, fetchModule]);
+  // Invoice options for picker
+  const invoiceOptions = useMemo(() => {
+    if (!invoices) return [];
+    return invoices
+      .filter(inv => inv['Status'] === 'Completed' || inv['Status'] === 'Processing')
+      .map(inv => inv['Inv No'])
+      .filter(Boolean) as string[];
+  }, [invoices]);
+
+  // Brand lookup from pricelist
+  const brandByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    (pricelist ?? []).forEach(p => { if (p['Code']) map.set(p['Code'], p['Brand'] ?? ''); });
+    return map;
+  }, [pricelist]);
+
+  // Items from selected invoice
+  const selectedInvoice = useMemo(() => {
+    if (!selectedInvNo || !invoices) return null;
+    return invoices.find(inv => inv['Inv No'] === selectedInvNo) ?? null;
+  }, [selectedInvNo, invoices]);
+
+  const invoiceItems = useMemo(() => {
+    if (!selectedInvoice) return [];
+    try {
+      const raw = typeof selectedInvoice['ItemsJSON'] === 'string'
+        ? JSON.parse(selectedInvoice['ItemsJSON'])
+        : selectedInvoice['ItemsJSON'];
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return [];
+    }
+  }, [selectedInvoice]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchModule('Company List', 'Contact_List', 'Invoices', 'Raw');
+    }
+  }, [isOpen, fetchModule]);
 
   useEffect(() => {
     if (isOpen) {
       setIsReadOnly(initialReadOnly);
+      setShowInvoicePicker(false);
+      setSelectedInvNo('');
+      setSelectedItemIdx(-1);
+
       if (isEditMode && existingSN) {
         setFormData(existingSN);
+      } else if (prefillData) {
+        setFormData({
+          ...prefillData,
+          status: prefillData.status ?? 'Active',
+          warranty_period_months: prefillData.warranty_period_months ?? 12,
+          created_by: currentUser?.Name || '',
+        });
       } else {
         setFormData({
           status: 'Active',
@@ -55,7 +112,23 @@ const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({ isOpen, onC
         });
       }
     }
-  }, [isOpen, existingSN, isEditMode, initialReadOnly, currentUser]);
+  }, [isOpen, existingSN, isEditMode, initialReadOnly, currentUser, prefillData]);
+
+  // Apply selected invoice item to form
+  const applyInvoiceItem = (itemIdx: number) => {
+    if (!selectedInvoice || itemIdx < 0 || itemIdx >= invoiceItems.length) return;
+    const item = invoiceItems[itemIdx];
+    setFormData(prev => ({
+      ...prev,
+      company_name: selectedInvoice['Company Name'] ?? prev.company_name,
+      contact_name: selectedInvoice['Contact Name'] ?? prev.contact_name,
+      so_no: selectedInvoice['SO No'] ?? prev.so_no,
+      model_name: item.modelName ?? prev.model_name,
+      description: item.description ?? prev.description,
+      brand: brandByCode.get(item.itemCode ?? '') || prev.brand || '',
+    }));
+    setSelectedItemIdx(itemIdx);
+  };
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -69,12 +142,21 @@ const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({ isOpen, onC
     try {
       if (isEditMode && existingSN?.id) {
         const { id: _id, created_at: _ca, ...rest } = formData as any;
-        const { data, error } = await supabase.from('serial_numbers').update({ ...rest, updated_at: new Date().toISOString() }).eq('id', existingSN.id).select().single();
+        const { data, error } = await supabase
+          .from('serial_numbers')
+          .update({ ...rest, updated_at: new Date().toISOString() })
+          .eq('id', existingSN.id)
+          .select()
+          .single();
         if (error) throw new Error(error.message);
         setSerialNumbers(prev => prev ? prev.map(s => s.id === existingSN.id ? data : s) : prev);
         addToast('Serial number updated!', 'success');
       } else {
-        const { data, error } = await supabase.from('serial_numbers').insert([{ ...formData, created_by: currentUser?.Name || '' }]).select().single();
+        const { data, error } = await supabase
+          .from('serial_numbers')
+          .insert([{ ...formData, created_by: currentUser?.Name || '' }])
+          .select()
+          .single();
         if (error) throw new Error(error.message);
         setSerialNumbers(prev => prev ? [data, ...prev] : [data]);
         addToast('Serial number added!', 'success');
@@ -133,6 +215,75 @@ const NewSerialNumberModal: React.FC<NewSerialNumberModalProps> = ({ isOpen, onC
     <>
       <ResizableModal isOpen={isOpen} onClose={onClose} title={title} footer={footer}>
         <form id="serial-number-form" onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Invoice quick-import — only for new entries */}
+          {!isEditMode && !isReadOnly && (
+            <div className="rounded-lg border border-dashed border-brand-500/40 bg-brand-500/5 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowInvoicePicker(p => !p)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-brand-500 hover:bg-brand-500/10 transition"
+              >
+                <span>Import from Invoice</span>
+                {showInvoicePicker ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {showInvoicePicker && (
+                <div className="px-4 pb-4 space-y-3 border-t border-brand-500/20 pt-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground/60">Invoice No</label>
+                    <SearchableSelect
+                      value={selectedInvNo}
+                      onChange={v => { setSelectedInvNo(v); setSelectedItemIdx(-1); }}
+                      options={invoiceOptions}
+                      placeholder="Search invoice..."
+                    />
+                  </div>
+
+                  {selectedInvoice && invoiceItems.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-muted-foreground/60">
+                        Line Item — {selectedInvoice['Company Name']} / {selectedInvoice['SO No']}
+                      </label>
+                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                        {invoiceItems.map((item: any, idx: number) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => applyInvoiceItem(idx)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs transition border ${
+                              selectedItemIdx === idx
+                                ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                                : 'border-border bg-muted/40 hover:bg-muted text-foreground'
+                            }`}
+                          >
+                            <span className="font-semibold">{item.modelName || item.itemCode || '—'}</span>
+                            {item.itemCode && item.modelName && (
+                              <span className="ml-2 text-muted-foreground font-mono">{item.itemCode}</span>
+                            )}
+                            {item.description && (
+                              <span className="block text-muted-foreground truncate">{item.description}</span>
+                            )}
+                            <span className="text-muted-foreground">Qty: {item.qty ?? 1}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {selectedItemIdx >= 0 && (
+                        <p className="text-xs text-emerald-500">
+                          Fields pre-filled — enter the serial number below to complete.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedInvoice && invoiceItems.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No line items found for this invoice.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <FormSection title="Serial Number Details">
             <FormInput name="serial_number" label="Serial Number" value={formData.serial_number} onChange={handleChange} required readOnly={isReadOnly} />
             <div className="grid grid-cols-2 gap-4">

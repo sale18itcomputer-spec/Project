@@ -597,3 +597,33 @@ export const savePdiRecord = async (
 
     return saved;
 };
+
+// ── POS helpers ───────────────────────────────────────────────────────────────
+
+export const generatePosInvNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `POS-${year}-`;
+    const { data } = await supabase
+        .from('invoices')
+        .select('"Inv No"')
+        .ilike('"Inv No"', `${prefix}%`)
+        .order('"Inv No"', { ascending: false })
+        .limit(1);
+    const last = data?.[0]?.['Inv No'];
+    const seq = last ? parseInt(last.replace(prefix, ''), 10) : 0;
+    return `${prefix}${String((isNaN(seq) ? 0 : seq) + 1).padStart(4, '0')}`;
+};
+
+export const generatePosRvNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `POSRV-${year}-`;
+    const { data } = await supabase
+        .from('receipts')
+        .select('"RV No"')
+        .ilike('"RV No"', `${prefix}%`)
+        .order('"RV No"', { ascending: false })
+        .limit(1);
+    const last = data?.[0]?.['RV No'];
+    const seq = last ? parseInt(last.replace(prefix, ''), 10) : 0;
+    return `${prefix}${String((isNaN(seq) ? 0 : seq) + 1).padStart(4, '0')}`;
+};

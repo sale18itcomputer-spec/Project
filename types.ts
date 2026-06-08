@@ -750,3 +750,36 @@ export interface SparePart {
   updated_at?: string;
   [key: string]: any;
 }
+
+// ─── POS Module ───────────────────────────────────────────────────────────────
+
+export interface PosCartItem {
+  id: string;
+  itemCode: string;
+  modelName: string;
+  description: string;
+  brand: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  serialNumber?: string;
+}
+
+export type PosPaymentMethod = 'Cash' | 'ABA' | 'KHQR' | 'Bank Transfer' | 'Card';
+export type PosTaxType = 'NON-VAT' | 'VAT';
+
+export interface PosSessionForm {
+  invNo: string;
+  rvNo: string;
+  invDate: string;
+  taxType: PosTaxType;
+  currency: 'USD' | 'KHR';
+  exchangeRate: number;
+  companyName: string;
+  contactName: string;
+  phoneNumber: string;
+  paymentMethod: PosPaymentMethod;
+  amountTendered: number;
+  notes: string;
+  createdBy: string;
+}

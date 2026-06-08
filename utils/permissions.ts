@@ -96,6 +96,12 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     actions: ['view'],
     route: ['/invoice-do'],
   },
+  pos: {
+    label: 'Point of Sale',
+    section: 'Sales',
+    actions: ['view', 'use'],
+    route: ['/pos'],
+  },
 
   // Products
   pricelist: {
@@ -252,6 +258,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       collection:         { view: true, create: true, edit: true, delete: true, export: true },
       weekly_report:      { view: true, export: true },
       invoice_do:         { view: true },
+      pos:                { view: true, use: true },
       pricelist:          { view: true, create: true, edit: true, delete: true, export: true },
       b2b_pricelist:      { view: true, create: true, edit: true, delete: true, export: true },
       vendor_pricelist:   { view: true, create: true, edit: true, delete: true, export: true },
@@ -293,6 +300,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       collection:         { view: true, create: true, edit: true, delete: true, export: true },
       weekly_report:      { view: true, export: true },
       invoice_do:         { view: true },
+      pos:                { view: true, use: true },
       pricelist:          { view: true, create: true, edit: true, delete: true, export: true },
       b2b_pricelist:      { view: true, create: true, edit: true, delete: true, export: true },
       vendor_pricelist:   { view: true, create: true, edit: true, delete: true, export: true },
@@ -334,6 +342,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       collection:         { view: true, create: false, edit: false, delete: false, export: false },
       weekly_report:      { view: true, export: true },
       invoice_do:         { view: true },
+      pos:                { view: true, use: true },
       pricelist:          { view: true, create: false, edit: false, delete: false, export: true },
       b2b_pricelist:      { view: true, create: false, edit: false, delete: false, export: true },
       vendor_pricelist:   { view: true, create: false, edit: false, delete: false, export: false },
@@ -375,6 +384,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       collection:         { view: true, create: true, edit: true, delete: true, export: true },
       weekly_report:      { view: false, export: false },
       invoice_do:         { view: true },
+      pos:                { view: false, use: false },
       pricelist:          { view: false, create: false, edit: false, delete: false, export: false },
       b2b_pricelist:      { view: false, create: false, edit: false, delete: false, export: false },
       vendor_pricelist:   { view: false, create: false, edit: false, delete: false, export: false },
@@ -416,6 +426,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       collection:         { view: true, create: false, edit: false, delete: false, export: false },
       weekly_report:      { view: false, export: false },
       invoice_do:         { view: true },
+      pos:                { view: false, use: false },
       pricelist:          { view: true, create: false, edit: false, delete: false, export: false },
       b2b_pricelist:      { view: true, create: false, edit: false, delete: false, export: false },
       vendor_pricelist:   { view: false, create: false, edit: false, delete: false, export: false },

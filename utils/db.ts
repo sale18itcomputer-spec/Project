@@ -77,8 +77,14 @@ export const batchGetStoreData = async (
     try {
         const data: Partial<Record<StoreName, any[]>> = {};
         const db = await initDB();
-        const tx = db.transaction(storeNames as StoreName[], 'readonly');
-        await Promise.all(storeNames.map(async (name) => {
+        // Guard: only open a transaction on stores that actually exist.
+        // During an IDB version upgrade (e.g. v12→v13) the new stores may not
+        // yet be present if the old DB connection is still open in another tab
+        // and is blocking the upgrade transaction.
+        const validStores = storeNames.filter(name => db.objectStoreNames.contains(name)) as StoreName[];
+        if (validStores.length === 0) return data;
+        const tx = db.transaction(validStores, 'readonly');
+        await Promise.all(validStores.map(async (name) => {
             data[name] = await tx.objectStore(name).getAll();
         }));
         await tx.done;
@@ -100,9 +106,12 @@ export const batchSetStoreData = async (data: Partial<Record<StoreName, any[]>>)
         if (storeNames.length === 0) return;
 
         const db = await initDB();
-        const tx = db.transaction(storeNames, 'readwrite');
+        // Guard: only include stores that actually exist in this DB instance.
+        const validStores = storeNames.filter(name => db.objectStoreNames.contains(name)) as StoreName[];
+        if (validStores.length === 0) return;
+        const tx = db.transaction(validStores, 'readwrite');
 
-        await Promise.all(storeNames.map(async (name) => {
+        await Promise.all(validStores.map(async (name) => {
             const store     = tx.objectStore(name);
             const keyPath   = STORE_CONFIG[name].keyPath;
             const records   = data[name] ?? [];
@@ -164,8 +173,10 @@ export const deleteStoreItem = async (storeName: StoreName, key: string): Promis
 export const clearAllStores = async (): Promise<void> => {
     try {
         const db = await initDB();
-        const tx = db.transaction(STORE_NAMES as StoreName[], 'readwrite');
-        await Promise.all(STORE_NAMES.map(name => tx.objectStore(name).clear()));
+        const validStores = STORE_NAMES.filter(name => db.objectStoreNames.contains(name)) as StoreName[];
+        if (validStores.length === 0) return;
+        const tx = db.transaction(validStores, 'readwrite');
+        await Promise.all(validStores.map(name => tx.objectStore(name).clear()));
         await tx.done;
     } catch (err) {
         console.error('[IDB] clearAllStores failed:', err);
