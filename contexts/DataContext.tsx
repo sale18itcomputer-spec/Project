@@ -7,14 +7,16 @@ import { useB2B } from './B2BContext';
 import {
   PipelineProject, Company, Contact, ContactLog, SiteSurveyLog, Meeting,
   Quotation, SaleOrder, PricelistItem, Invoice, DeliveryOrder, Receipt,
-  Vendor, VendorPricelistItem, PurchaseOrder, InventoryItem, ProductInquiry
+  Vendor, VendorPricelistItem, PurchaseOrder, InventoryItem, ProductInquiry,
+  SerialNumber, ServiceTicket, PdiRecord, SparePart,
 } from '../types';
 import {
   PIPELINE_HEADERS, COMPANY_HEADERS, CONTACT_HEADERS, CONTACT_LOG_HEADERS,
   SITE_SURVEY_LOG_HEADERS, MEETING_HEADERS, QUOTATION_HEADERS, SALE_ORDER_HEADERS,
   PRICELIST_HEADERS, INVOICE_HEADERS, DELIVERY_ORDER_HEADERS, RECEIPT_HEADERS,
   VENDOR_HEADERS, VENDOR_PRICELIST_HEADERS, PURCHASE_ORDER_HEADERS, INVENTORY_HEADERS,
-  PRODUCT_INQUIRY_HEADERS
+  PRODUCT_INQUIRY_HEADERS, SERIAL_NUMBER_HEADERS, SERVICE_TICKET_HEADERS,
+  PDI_RECORD_HEADERS, SPARE_PART_HEADERS,
 } from '../schemas';
 import { useAuth } from './AuthContext';
 import * as db from '../utils/db';
@@ -59,6 +61,10 @@ const LAZY_SHEETS = [
   'Purchase Orders',
   'Inventory',
   'Product Inquiries',
+  'Serial Numbers',
+  'Service Tickets',
+  'PDI Records',
+  'Spare Parts',
 ] as const;
 
 type LazySheet = typeof LAZY_SHEETS[number];
@@ -98,6 +104,14 @@ interface DataContextProps {
   setInventoryItems: React.Dispatch<React.SetStateAction<InventoryItem[] | null>>;
   productInquiries: ProductInquiry[] | null;
   setProductInquiries: React.Dispatch<React.SetStateAction<ProductInquiry[] | null>>;
+  serialNumbers: SerialNumber[] | null;
+  setSerialNumbers: React.Dispatch<React.SetStateAction<SerialNumber[] | null>>;
+  serviceTickets: ServiceTicket[] | null;
+  setServiceTickets: React.Dispatch<React.SetStateAction<ServiceTicket[] | null>>;
+  pdiRecords: PdiRecord[] | null;
+  setPdiRecords: React.Dispatch<React.SetStateAction<PdiRecord[] | null>>;
+  spareParts: SparePart[] | null;
+  setSpareParts: React.Dispatch<React.SetStateAction<SparePart[] | null>>;
   loading: boolean;
   error: string | null;
   activeCompanyNames: Set<string>;
@@ -153,6 +167,10 @@ const storeToSheetMap: Record<db.StoreName, string> = {
   purchaseOrders: 'Purchase Orders',
   inventory:        'Inventory',
   productInquiries: 'Product Inquiries',
+  serialNumbers:    'Serial Numbers',
+  serviceTickets:   'Service Tickets',
+  pdiRecords:       'PDI Records',
+  spareParts:       'Spare Parts',
 };
 
 const sheetToStoreMap = Object.fromEntries(
@@ -177,6 +195,10 @@ const sheetToHeadersMap: Record<string, readonly string[]> = {
   'Purchase Orders':  PURCHASE_ORDER_HEADERS,
   'Inventory':          INVENTORY_HEADERS,
   'Product Inquiries':  PRODUCT_INQUIRY_HEADERS,
+  'Serial Numbers':     SERIAL_NUMBER_HEADERS,
+  'Service Tickets':    SERVICE_TICKET_HEADERS,
+  'PDI Records':        PDI_RECORD_HEADERS,
+  'Spare Parts':        SPARE_PART_HEADERS,
 };
 
 // ── DataProvider ──────────────────────────────────────────────────────────────
@@ -246,6 +268,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[] | null>(null);
   const [inventoryItems,    setInventoryItems]    = useState<InventoryItem[] | null>(null);
   const [productInquiries,  setProductInquiries]  = useState<ProductInquiry[] | null>(null);
+  const [serialNumbers,     setSerialNumbers]     = useState<SerialNumber[] | null>(null);
+  const [serviceTickets,    setServiceTickets]    = useState<ServiceTicket[] | null>(null);
+  const [pdiRecords,        setPdiRecords]        = useState<PdiRecord[] | null>(null);
+  const [spareParts,        setSpareParts]        = useState<SparePart[] | null>(null);
   const [loading,           setLoading]           = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
@@ -267,6 +293,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purchaseOrders:   setPurchaseOrders,
     inventory:        setInventoryItems,
     productInquiries: setProductInquiries,
+    serialNumbers:    setSerialNumbers,
+    serviceTickets:   setServiceTickets,
+    pdiRecords:       setPdiRecords,
+    spareParts:       setSpareParts,
   }), []);
 
   const vendorsRef = useRef<Vendor[] | null>(null);
@@ -414,6 +444,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       { base: 'purchase_orders',    setter: setPurchaseOrders,    headers: PURCHASE_ORDER_HEADERS,   primaryKey: 'id' },
       { base: 'inventory',          setter: setInventoryItems,    headers: INVENTORY_HEADERS,        primaryKey: 'id' },
       { base: 'product_inquiries',  setter: setProductInquiries,  headers: PRODUCT_INQUIRY_HEADERS,  primaryKey: 'id' },
+      { base: 'serial_numbers',     setter: setSerialNumbers,     headers: SERIAL_NUMBER_HEADERS,    primaryKey: 'id' },
+      { base: 'service_tickets',    setter: setServiceTickets,    headers: SERVICE_TICKET_HEADERS,   primaryKey: 'id' },
+      { base: 'pdi_records',        setter: setPdiRecords,        headers: PDI_RECORD_HEADERS,       primaryKey: 'id' },
+      { base: 'spare_parts',        setter: setSpareParts,        headers: SPARE_PART_HEADERS,       primaryKey: 'id' },
     ];
 
     // Resolve each base table to its mode-specific physical table name. Keys
@@ -721,6 +755,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purchaseOrders, setPurchaseOrders,
     inventoryItems, setInventoryItems,
     productInquiries, setProductInquiries,
+    serialNumbers,    setSerialNumbers,
+    serviceTickets,   setServiceTickets,
+    pdiRecords,       setPdiRecords,
+    spareParts,       setSpareParts,
     loading, error,
     activeCompanyNames, activeContactNames, activePipelineIds,
     refetchData, fetchModule, refetchModule,

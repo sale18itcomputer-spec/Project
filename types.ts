@@ -637,3 +637,116 @@ export interface ProductInquiry {
   items?: InquiryItem[];
   [key: string]: any;
 }
+
+// ─── RMA / Service Module ─────────────────────────────────────────────────────
+
+export interface SerialNumber {
+  id?: string;
+  serial_number: string;
+  brand: string;
+  model_name: string;
+  description: string;
+  inventory_id?: string | null;
+  so_no: string;
+  company_name: string;
+  contact_name: string;
+  warranty_start_date?: string | null;
+  warranty_end_date?: string | null;
+  warranty_period_months?: number;
+  status: 'Active' | 'In Service' | 'Returned' | 'Written Off' | 'Retired';
+  notes: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+export interface ServiceTicket {
+  id?: string;
+  ticket_no: string;
+  ticket_date: string;
+  ticket_type: 'Warranty Claim' | 'Out-of-Warranty Repair' | 'Preventive Maintenance' | 'Software Issue' | 'Hardware Issue' | 'Return (RMA)' | 'Other';
+  priority: 'Low' | 'Normal' | 'High' | 'Critical';
+  status: 'Open' | 'In Progress' | 'Pending Parts' | 'Resolved' | 'Closed' | 'Cancelled';
+  company_name: string;
+  contact_name: string;
+  contact_phone: string;
+  serial_number: string;
+  brand: string;
+  model_name: string;
+  problem_description: string;
+  assigned_engineer: string;
+  received_date?: string | null;
+  estimated_completion_date?: string | null;
+  actual_completion_date?: string | null;
+  resolution_notes: string;
+  internal_notes: string;
+  warranty_status: 'Under Warranty' | 'Out of Warranty' | 'Unknown';
+  repair_cost?: number | null;
+  currency: 'USD' | 'KHR';
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+export interface PdiItem {
+  id?: string;
+  pdi_id?: string;
+  line_number: number;
+  serial_number: string;
+  brand: string;
+  model_name: string;
+  physical_condition: 'Pass' | 'Fail' | 'N/A';
+  power_test: 'Pass' | 'Fail' | 'N/A';
+  software_test: 'Pass' | 'Fail' | 'N/A';
+  accessories_check: 'Pass' | 'Fail' | 'N/A';
+  seal_applied: boolean;
+  item_notes: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PdiRecord {
+  id?: string;
+  pdi_no: string;
+  pdi_date: string;
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Failed' | 'Cancelled';
+  so_no: string;
+  company_name: string;
+  contact_name: string;
+  assigned_engineer: string;
+  inspection_notes: string;
+  software_installed: string;
+  warranty_seal_applied: boolean;
+  warranty_seal_number: string;
+  seal_photo_url: string;
+  overall_condition: 'New' | 'Good' | 'Fair' | 'Poor' | 'Damaged';
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  items?: PdiItem[];
+  [key: string]: any;
+}
+
+export interface SparePart {
+  id?: string;
+  part_no: string;
+  part_name: string;
+  brand: string;
+  model_name: string;
+  category: 'Spare Part' | 'Replacement Unit' | 'Accessory' | 'Consumable';
+  qty: number;
+  unit: string;
+  unit_cost: number;
+  currency: 'USD' | 'KHR';
+  supplier_name: string;
+  location: string;
+  status: 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Discontinued';
+  min_qty: number;
+  remarks: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}

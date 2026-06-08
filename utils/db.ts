@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME    = 'limperial-db';
-const DB_VERSION = 12; // Bumped: added productInquiries store
+const DB_VERSION = 13; // Bumped: added serialNumbers, serviceTickets, pdiRecords, spareParts stores
 
 // keyPath must match the primary key field used in each TypeScript type
 const STORE_CONFIG = {
@@ -22,6 +22,10 @@ const STORE_CONFIG = {
     purchaseOrders:   { keyPath: 'id' },
     inventory:        { keyPath: 'id' },
     productInquiries: { keyPath: 'id' },
+    serialNumbers:    { keyPath: 'id' },
+    serviceTickets:   { keyPath: 'id' },
+    pdiRecords:       { keyPath: 'id' },
+    spareParts:       { keyPath: 'id' },
 } as const;
 
 export const STORE_NAMES = Object.keys(STORE_CONFIG) as (keyof typeof STORE_CONFIG)[];

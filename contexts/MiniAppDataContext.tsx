@@ -107,6 +107,10 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         purchaseOrders:   setPurchaseOrders,
         inventory:        setInventoryItems,
         productInquiries: () => {},
+        serialNumbers:    () => {},
+        serviceTickets:   () => {},
+        pdiRecords:       () => {},
+        spareParts:       () => {},
     }), []);
 
     const applyData = useCallback((sheetNames: string[], freshData: Record<string, any[]>) => {
@@ -177,6 +181,11 @@ export default function MiniAppDataProvider({ children }: { children: React.Reac
         vendorPricelist, setVendorPricelist,
         purchaseOrders, setPurchaseOrders,
         inventoryItems, setInventoryItems,
+        productInquiries: null, setProductInquiries: () => {},
+        serialNumbers: null, setSerialNumbers: () => {},
+        serviceTickets: null, setServiceTickets: () => {},
+        pdiRecords: null, setPdiRecords: () => {},
+        spareParts: null, setSpareParts: () => {},
         loading, error,
         activeCompanyNames, activeContactNames, activePipelineIds,
         refetchData, fetchModule, refetchModule,

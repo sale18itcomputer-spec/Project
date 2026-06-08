@@ -40,6 +40,10 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'weekly-report': '/weekly-report',
   'inventory': '/inventory',
   'inquiries': '/inquiries',
+  'service-tickets': '/service-tickets',
+  'pdi-records': '/pdi-records',
+  'serial-numbers': '/serial-numbers',
+  'spare-parts': '/spare-parts',
 };
 
 export const PATH_TO_VIEW: Record<string, string> = Object.fromEntries(

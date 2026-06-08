@@ -99,6 +99,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       '/invoices': 'Invoices', '/delivery-orders': 'Delivery Orders', '/receipts': 'Receipts',
       '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice + DO',
       '/inventory': 'Inventory', '/inquiries': 'Product Inquiries', '/consignment': 'Consignment',
+      '/service-tickets': 'Service Tickets', '/pdi-records': 'PDI Records',
+      '/serial-numbers': 'Serial Numbers', '/spare-parts': 'Spare Parts',
       '/users': 'Users', '/pricing-calculator': 'Pricing Calculator', '/accounting': 'Accounting',
     };
     const current = pathMap[pathname] || 'Dashboard';

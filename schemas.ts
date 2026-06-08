@@ -469,3 +469,33 @@ export const INQUIRY_ITEM_HEADERS = [
   'created_at',
   'updated_at',
 ] as const;
+
+export const SERIAL_NUMBER_HEADERS = [
+  'id', 'serial_number', 'brand', 'model_name', 'description',
+  'inventory_id', 'so_no', 'company_name', 'contact_name',
+  'warranty_start_date', 'warranty_end_date', 'warranty_period_months',
+  'status', 'notes', 'created_by', 'created_at', 'updated_at',
+] as const;
+
+export const SERVICE_TICKET_HEADERS = [
+  'id', 'ticket_no', 'ticket_date', 'ticket_type', 'priority', 'status',
+  'company_name', 'contact_name', 'contact_phone', 'serial_number',
+  'brand', 'model_name', 'problem_description', 'assigned_engineer',
+  'received_date', 'estimated_completion_date', 'actual_completion_date',
+  'resolution_notes', 'internal_notes', 'warranty_status',
+  'repair_cost', 'currency', 'created_by', 'created_at', 'updated_at',
+] as const;
+
+export const PDI_RECORD_HEADERS = [
+  'id', 'pdi_no', 'pdi_date', 'status', 'so_no',
+  'company_name', 'contact_name', 'assigned_engineer',
+  'inspection_notes', 'software_installed',
+  'warranty_seal_applied', 'warranty_seal_number', 'seal_photo_url',
+  'overall_condition', 'created_by', 'created_at', 'updated_at',
+] as const;
+
+export const SPARE_PART_HEADERS = [
+  'id', 'part_no', 'part_name', 'brand', 'model_name', 'category',
+  'qty', 'unit', 'unit_cost', 'currency', 'supplier_name', 'location',
+  'status', 'min_qty', 'remarks', 'created_by', 'created_at', 'updated_at',
+] as const;

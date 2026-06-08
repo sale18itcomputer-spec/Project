@@ -15,7 +15,7 @@ import { User, UserPermissions, PermissionAction, DataVisibility } from '../type
 
 export interface ModuleDefinition {
   label: string;
-  section: 'Overview' | 'Sales' | 'Products' | 'Procurement' | 'Activity' | 'Tools' | 'Admin';
+  section: 'Overview' | 'Sales' | 'Products' | 'Procurement' | 'Service' | 'Activity' | 'Tools' | 'Admin';
   actions: PermissionAction[];
   route: string[];
 }
@@ -149,6 +149,32 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     route: ['/consignment'],
   },
 
+  // Service
+  service_tickets: {
+    label: 'Service Tickets',
+    section: 'Service',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/service-tickets'],
+  },
+  pdi_records: {
+    label: 'PDI Records',
+    section: 'Service',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/pdi-records'],
+  },
+  serial_numbers: {
+    label: 'Serial Numbers',
+    section: 'Service',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/serial-numbers'],
+  },
+  spare_parts: {
+    label: 'Spare Parts',
+    section: 'Service',
+    actions: ['view', 'create', 'edit', 'delete'],
+    route: ['/spare-parts'],
+  },
+
   // Activity
   pipelines: {
     label: 'Pipelines',
@@ -198,6 +224,7 @@ export const SECTION_ORDER = [
   'Sales',
   'Products',
   'Procurement',
+  'Service',
   'Activity',
   'Tools',
   'Admin',
@@ -233,6 +260,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       inventory:          { view: true, create: true, edit: true, delete: true, export: true },
       product_inquiries:  { view: true, create: true, edit: true, delete: true },
       consignment:        { view: true, create: true, edit: true, delete: true },
+      service_tickets:    { view: true, create: true, edit: true, delete: true },
+      pdi_records:        { view: true, create: true, edit: true, delete: true },
+      serial_numbers:     { view: true, create: true, edit: true, delete: true },
+      spare_parts:        { view: true, create: true, edit: true, delete: true },
       pipelines:          { view: true, create: true, edit: true, delete: true },
       site_surveys:       { view: true, create: true, edit: true, delete: true, export: true },
       meetings:           { view: true, create: true, edit: true, delete: true },
@@ -270,6 +301,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
       product_inquiries:  { view: true, create: true, edit: true, delete: true },
       consignment:        { view: true, create: true, edit: true, delete: true },
+      service_tickets:    { view: true, create: true, edit: true, delete: true },
+      pdi_records:        { view: true, create: true, edit: true, delete: true },
+      serial_numbers:     { view: true, create: true, edit: true, delete: true },
+      spare_parts:        { view: true, create: true, edit: true, delete: true },
       pipelines:          { view: true, create: true, edit: true, delete: true },
       site_surveys:       { view: true, create: true, edit: true, delete: true, export: true },
       meetings:           { view: true, create: true, edit: true, delete: true },
@@ -307,6 +342,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
       product_inquiries:  { view: true, create: true, edit: true, delete: false },
       consignment:        { view: true, create: false, edit: false, delete: false },
+      service_tickets:    { view: true, create: true, edit: true, delete: false },
+      pdi_records:        { view: true, create: true, edit: true, delete: false },
+      serial_numbers:     { view: true, create: false, edit: false, delete: false },
+      spare_parts:        { view: true, create: false, edit: false, delete: false },
       pipelines:          { view: true, create: true, edit: true, delete: false },
       site_surveys:       { view: true, create: true, edit: true, delete: false, export: true },
       meetings:           { view: true, create: true, edit: true, delete: false },
@@ -344,6 +383,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
       product_inquiries:  { view: false, create: false, edit: false, delete: false },
       consignment:        { view: true, create: false, edit: false, delete: false },
+      service_tickets:    { view: false, create: false, edit: false, delete: false },
+      pdi_records:        { view: false, create: false, edit: false, delete: false },
+      serial_numbers:     { view: false, create: false, edit: false, delete: false },
+      spare_parts:        { view: false, create: false, edit: false, delete: false },
       pipelines:          { view: false, create: false, edit: false, delete: false },
       site_surveys:       { view: false, create: false, edit: false, delete: false, export: false },
       meetings:           { view: false, create: false, edit: false, delete: false },
@@ -381,6 +424,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       inventory:          { view: false, create: false, edit: false, delete: false, export: false },
       product_inquiries:  { view: false, create: false, edit: false, delete: false },
       consignment:        { view: false, create: false, edit: false, delete: false },
+      service_tickets:    { view: false, create: false, edit: false, delete: false },
+      pdi_records:        { view: false, create: false, edit: false, delete: false },
+      serial_numbers:     { view: false, create: false, edit: false, delete: false },
+      spare_parts:        { view: false, create: false, edit: false, delete: false },
       pipelines:          { view: true, create: false, edit: false, delete: false },
       site_surveys:       { view: true, create: false, edit: false, delete: false, export: false },
       meetings:           { view: true, create: false, edit: false, delete: false },

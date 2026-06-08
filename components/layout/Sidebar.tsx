@@ -7,6 +7,7 @@ import {
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
   ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
+  Wrench, ClipboardCheck, Hash, Boxes,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +41,10 @@ const PATH_TO_MODULES: Record<string, string[]> = {
   '/purchase-orders':  ['Vendors', 'Vendor Pricelist', 'Purchase Orders', 'Raw'],
   '/inventory':        ['Inventory', 'Purchase Orders', 'Vendors'],
   '/inquiries':        ['Product Inquiries'],
+  '/service-tickets':  ['Service Tickets'],
+  '/pdi-records':      ['PDI Records'],
+  '/serial-numbers':   ['Serial Numbers'],
+  '/spare-parts':      ['Spare Parts'],
 };
 
 interface SidebarProps {
@@ -247,6 +252,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     inventory:          canView('inventory'),
     product_inquiries:  canView('product_inquiries'),
     consignment:        canView('consignment'),
+    service_tickets:    canView('service_tickets'),
+    pdi_records:        canView('pdi_records'),
+    serial_numbers:     canView('serial_numbers'),
+    spare_parts:        canView('spare_parts'),
     pipelines:          canView('pipelines'),
     site_surveys:       canView('site_surveys'),
     meetings:           canView('meetings'),
@@ -261,6 +270,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                            show.weekly_report;
   const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
   const showProcurement  = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
+  const showService      = show.service_tickets || show.pdi_records || show.serial_numbers || show.spare_parts;
   const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
   const showTools        = show.pricing_calculator || show.accounting;
 
@@ -402,6 +412,28 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.consignment && (
                 <NavItem icon={<PackageCheck size={16} />} label="Consignment"
                   isActive={isActive('/consignment')} onClick={go('/consignment')} isCollapsed={isCollapsed} />
+              )}
+            </Section>
+          )}
+
+          {/* Service */}
+          {showService && (
+            <Section label="Service" isCollapsed={isCollapsed}>
+              {show.service_tickets && (
+                <NavItem icon={<Wrench size={16} />} label="Service Tickets"
+                  isActive={isActive('/service-tickets')} onClick={go('/service-tickets')} onPrefetch={() => prefetch('/service-tickets')} isCollapsed={isCollapsed} />
+              )}
+              {show.pdi_records && (
+                <NavItem icon={<ClipboardCheck size={16} />} label="PDI Records"
+                  isActive={isActive('/pdi-records')} onClick={go('/pdi-records')} onPrefetch={() => prefetch('/pdi-records')} isCollapsed={isCollapsed} />
+              )}
+              {show.serial_numbers && (
+                <NavItem icon={<Hash size={16} />} label="Serial Numbers"
+                  isActive={isActive('/serial-numbers')} onClick={go('/serial-numbers')} onPrefetch={() => prefetch('/serial-numbers')} isCollapsed={isCollapsed} />
+              )}
+              {show.spare_parts && (
+                <NavItem icon={<Boxes size={16} />} label="Spare Parts"
+                  isActive={isActive('/spare-parts')} onClick={go('/spare-parts')} onPrefetch={() => prefetch('/spare-parts')} isCollapsed={isCollapsed} />
               )}
             </Section>
           )}

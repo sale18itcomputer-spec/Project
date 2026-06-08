@@ -1,7 +1,7 @@
 
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/promise';
-import { ProductInquiry, InquiryItem } from '../types';
+import { ProductInquiry, InquiryItem, PdiRecord, PdiItem } from '../types';
 
 const DETAIL_READ_TIMEOUT_MS = 30000;
 const WRITE_TIMEOUT_MS = 30000;
@@ -42,6 +42,10 @@ const TABLE_MAP: Record<string, string> = {
     'Receipts':        'receipts',
     'Inventory':           'inventory',
     'Product Inquiries':   'product_inquiries',
+    'Serial Numbers':      'serial_numbers',
+    'Service Tickets':     'service_tickets',
+    'PDI Records':         'pdi_records',
+    'Spare Parts':         'spare_parts',
     'b2b_pipelines':       'b2b_pipelines',
     'b2b_companies':   'b2b_companies',
     'b2b_quotations':  'b2b_quotations',
@@ -117,6 +121,10 @@ const PRIMARY_KEYS: Record<string, string> = {
     'Receipts':        'RV No',
     'Inventory':           'id',
     'Product Inquiries':   'id',
+    'Serial Numbers':      'id',
+    'Service Tickets':     'id',
+    'PDI Records':         'id',
+    'Spare Parts':         'id',
     'b2b_pipelines':       'Pipeline No',
     'b2b_companies':   'Company ID',
     'b2b_quotations':  'Quote No',
@@ -130,6 +138,7 @@ const HAS_UPDATED_AT = new Set([
     'quotations', 'sale_orders', 'invoices', 'delivery_orders',
     'receipts', 'vendors', 'vendor_pricelist', 'purchase_orders', 'app_settings',
     'inventory', 'product_inquiries',
+    'serial_numbers', 'service_tickets', 'pdi_records', 'spare_parts',
     'b2b_sale_orders', 'b2b_invoices', 'b2b_delivery_orders', 'b2b_receipts',
 ]);
 
@@ -497,6 +506,91 @@ export const saveProductInquiry = async (
         });
         const { error: itemErr } = await supabase
             .from('inquiry_items')
+            .insert(itemPayload);
+        if (itemErr) throw new Error(itemErr.message);
+    }
+
+    return saved;
+};
+
+// ── RMA / Service helpers ──────────────────────────────────────────────────────
+
+export const generateTicketNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `TKT-${year}-`;
+    const { data } = await supabase
+        .from('service_tickets')
+        .select('ticket_no')
+        .ilike('ticket_no', `${prefix}%`)
+        .order('ticket_no', { ascending: false })
+        .limit(1);
+    const lastNo = data?.[0]?.ticket_no;
+    const lastSeq = lastNo ? parseInt(lastNo.replace(prefix, ''), 10) : 0;
+    return `${prefix}${String((isNaN(lastSeq) ? 0 : lastSeq) + 1).padStart(4, '0')}`;
+};
+
+export const generatePdiNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `PDI-${year}-`;
+    const { data } = await supabase
+        .from('pdi_records')
+        .select('pdi_no')
+        .ilike('pdi_no', `${prefix}%`)
+        .order('pdi_no', { ascending: false })
+        .limit(1);
+    const lastNo = data?.[0]?.pdi_no;
+    const lastSeq = lastNo ? parseInt(lastNo.replace(prefix, ''), 10) : 0;
+    return `${prefix}${String((isNaN(lastSeq) ? 0 : lastSeq) + 1).padStart(4, '0')}`;
+};
+
+export const generatePartNo = async (): Promise<string> => {
+    const prefix = 'PRT-';
+    const { data } = await supabase
+        .from('spare_parts')
+        .select('part_no')
+        .ilike('part_no', `${prefix}%`)
+        .order('part_no', { ascending: false })
+        .limit(1);
+    const lastNo = data?.[0]?.part_no;
+    const lastSeq = lastNo ? parseInt(lastNo.replace(prefix, ''), 10) : 0;
+    return `${prefix}${String((isNaN(lastSeq) ? 0 : lastSeq) + 1).padStart(4, '0')}`;
+};
+
+export const savePdiRecord = async (
+    record: Omit<PdiRecord, 'items'>,
+    items: PdiItem[],
+): Promise<{ id: string; pdi_no: string }> => {
+    const { items: _items, ...header } = record as any;
+    const payload = stampedPayload('pdi_records', header);
+
+    const { data: saved, error: hErr } = await withTimeout(
+        Promise.resolve(
+            supabase
+                .from('pdi_records')
+                .upsert(payload, { onConflict: 'pdi_no' })
+                .select('id, pdi_no')
+                .single()
+        ),
+        WRITE_TIMEOUT_MS,
+        'Saving PDI record timed out',
+    );
+    if (hErr) throw new Error(hErr.message);
+
+    const pdiId = saved.id;
+
+    const { error: delErr } = await supabase
+        .from('pdi_items')
+        .delete()
+        .eq('pdi_id', pdiId);
+    if (delErr) throw new Error(delErr.message);
+
+    if (items.length > 0) {
+        const itemPayload = items.map((item, i) => {
+            const { id: _id, created_at: _ca, updated_at: _ua, pdi_id: _pid, ...rest } = item as any;
+            return { ...rest, pdi_id: pdiId, line_number: i + 1 };
+        });
+        const { error: itemErr } = await supabase
+            .from('pdi_items')
             .insert(itemPayload);
         if (itemErr) throw new Error(itemErr.message);
     }
