@@ -100,7 +100,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
       '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice + DO',
       '/inventory': 'Inventory', '/inquiries': 'Product Inquiries', '/consignment': 'Consignment',
       '/users': 'Users', '/pricing-calculator': 'Pricing Calculator', '/accounting': 'Accounting',
-      '/vendor-pricelist': 'Vendor Pricelist',
     };
     const current = pathMap[pathname] || 'Dashboard';
 
