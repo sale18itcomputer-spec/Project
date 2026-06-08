@@ -5,7 +5,7 @@ import { ServiceTicket } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
-import { generateTicketNo, createRecord, updateRecord } from '../../../services/api';
+import { generateTicketNo, updateRecord } from '../../../services/api';
 import { formatToInputDate } from '../../../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
