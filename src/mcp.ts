@@ -1284,6 +1284,255 @@ reg(
   },
 );
 
+reg(
+  'db_update_product_inquiry',
+  'Update a product inquiry header by inquiry_no (status, procurement_notes, priority, etc.)',
+  {
+    inquiry_no: z.string().describe('Inquiry number (e.g. INQ-2026-0001)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (status, procurement_notes, priority, remarks, etc.)'),
+  },
+  async ({ inquiry_no, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('product_inquiries')
+        .update(payload)
+        .eq('inquiry_no', inquiry_no)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_inquiry_item',
+  'Update a single inquiry line item by its UUID id. Use this to fill in procurement responses: vendor_name, actual_price, lead_time_days, item_status, item_notes.',
+  {
+    id: z.string().describe('inquiry_items UUID (from db_get_product_inquiries → inquiry_items[].id)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update — e.g. { vendor_name, actual_price, item_status, lead_time_days, item_notes }'),
+  },
+  async ({ id, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('inquiry_items')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_create_pdi_record',
+  'Create a new PDI (Pre-Delivery Inspection) record',
+  {
+    pdi_no: z.string().describe('PDI number (e.g. PDI-2026-0001)'),
+    so_no: z.string().optional().describe('Related sale order number'),
+    company_name: z.string().optional(),
+    contact_name: z.string().optional(),
+    assigned_engineer: z.string().optional(),
+    created_by: z.string().optional(),
+    data: z.record(z.string(), z.any()).optional().describe('Any additional pdi_records fields'),
+  },
+  async ({ pdi_no, so_no, company_name, contact_name, assigned_engineer, created_by, data: extra }) => {
+    try {
+      const payload = {
+        pdi_no,
+        ...(so_no && { so_no }),
+        ...(company_name && { company_name }),
+        ...(contact_name && { contact_name }),
+        ...(assigned_engineer && { assigned_engineer }),
+        ...(created_by && { created_by }),
+        ...(extra ?? {}),
+      };
+      const { data, error } = await supabase
+        .from('pdi_records')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_pdi_record',
+  'Update a PDI record by pdi_no (status, inspection_notes, overall_condition, etc.)',
+  {
+    pdi_no: z.string().describe('PDI number (primary key)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (status, inspection_notes, overall_condition, software_installed, warranty_seal_applied, etc.)'),
+  },
+  async ({ pdi_no, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('pdi_records')
+        .update(payload)
+        .eq('pdi_no', pdi_no)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_create_serial_number',
+  'Register a new serial number / warranty record',
+  {
+    serial_number: z.string().describe('Unique serial number'),
+    brand: z.string().optional(),
+    model_name: z.string().optional(),
+    description: z.string().optional(),
+    so_no: z.string().optional().describe('Sale order this unit was sold under'),
+    company_name: z.string().optional().describe('Customer company'),
+    contact_name: z.string().optional(),
+    warranty_start_date: z.string().optional().describe('ISO date YYYY-MM-DD'),
+    warranty_end_date: z.string().optional().describe('ISO date YYYY-MM-DD'),
+    warranty_period_months: z.number().optional().describe('Default 12'),
+    created_by: z.string().optional(),
+    data: z.record(z.string(), z.any()).optional().describe('Any additional fields'),
+  },
+  async ({ serial_number, brand, model_name, description, so_no, company_name,
+           contact_name, warranty_start_date, warranty_end_date,
+           warranty_period_months, created_by, data: extra }) => {
+    try {
+      const payload = {
+        serial_number,
+        ...(brand && { brand }),
+        ...(model_name && { model_name }),
+        ...(description && { description }),
+        ...(so_no && { so_no }),
+        ...(company_name && { company_name }),
+        ...(contact_name && { contact_name }),
+        ...(warranty_start_date && { warranty_start_date }),
+        ...(warranty_end_date && { warranty_end_date }),
+        ...(warranty_period_months !== undefined && { warranty_period_months }),
+        ...(created_by && { created_by }),
+        ...(extra ?? {}),
+      };
+      const { data, error } = await supabase
+        .from('serial_numbers')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_serial_number',
+  'Update a serial number / warranty record by serial_number',
+  {
+    serial_number: z.string().describe('Serial number (unique key)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (status, warranty_end_date, notes, company_name, etc.)'),
+  },
+  async ({ serial_number, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('serial_numbers')
+        .update(payload)
+        .eq('serial_number', serial_number)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_create_spare_part',
+  'Add a new spare part to inventory',
+  {
+    part_no: z.string().describe('Unique part number (e.g. PRT-0001)'),
+    part_name: z.string().describe('Part name / label'),
+    brand: z.string().optional(),
+    model_name: z.string().optional().describe('Compatible model'),
+    category: z.string().optional().describe('e.g. Spare Part, Accessory, Consumable'),
+    qty: z.number().optional().describe('Initial quantity'),
+    unit_cost: z.number().optional(),
+    currency: z.string().optional().describe('USD (default) or KHR'),
+    supplier_name: z.string().optional(),
+    created_by: z.string().optional(),
+    data: z.record(z.string(), z.any()).optional().describe('Any additional fields'),
+  },
+  async ({ part_no, part_name, brand, model_name, category, qty, unit_cost,
+           currency, supplier_name, created_by, data: extra }) => {
+    try {
+      const payload = {
+        part_no,
+        part_name,
+        ...(brand && { brand }),
+        ...(model_name && { model_name }),
+        ...(category && { category }),
+        ...(qty !== undefined && { qty }),
+        ...(unit_cost !== undefined && { unit_cost }),
+        ...(currency && { currency }),
+        ...(supplier_name && { supplier_name }),
+        ...(created_by && { created_by }),
+        ...(extra ?? {}),
+      };
+      const { data, error } = await supabase
+        .from('spare_parts')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_spare_part',
+  'Update a spare part by part_no (qty, status, unit_cost, location, etc.)',
+  {
+    part_no: z.string().describe('Part number (unique key)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (qty, status, unit_cost, location, min_qty, remarks, etc.)'),
+  },
+  async ({ part_no, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('spare_parts')
+        .update(payload)
+        .eq('part_no', part_no)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Google Sheets tools
 // ══════════════════════════════════════════════════════════════════════════════
