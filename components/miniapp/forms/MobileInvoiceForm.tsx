@@ -5,7 +5,7 @@ import { Invoice, SaleOrder } from '@/types';
 import { useData } from '@/contexts/MiniAppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createRecord, updateRecord } from '@/services/api';
+import { createRecord, updateRecord, generateInvNo } from '@/services/api';
 import { formatToSheetDate, formatToInputDate } from '@/utils/time';
 import {
     MobileFormHeader, MobileFormSection, MobileField,
@@ -23,17 +23,6 @@ const today = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const getNextInvNo = (taxable: string, allInvoices: Invoice[]) => {
-    const year = new Date().getFullYear().toString();
-    const prefix = taxable === 'VAT' ? `TI${year}-` : taxable === 'Commercial Invoice' ? `CI${year}-` : `INV${year}-`;
-    const thisYear = allInvoices.filter(i => i['Inv No']?.startsWith(prefix));
-    if (!thisYear.length) return `${prefix}00002`;
-    const max = thisYear.reduce((m, i) => {
-        const n = parseInt(i['Inv No'].slice(prefix.length), 10);
-        return isNaN(n) ? m : Math.max(m, n);
-    }, 1);
-    return `${prefix}${String(max + 1).padStart(5, '0')}`;
-};
 
 interface Props {
     onBack: () => void;
@@ -52,14 +41,15 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
         { id: `i-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 },
     ]);
 
-    const set = (k: string, v: any) => setDoc(p => {
-        const upd = { ...p, [k]: v };
-        // auto-update invoice number when taxable type changes
+    const set = (k: string, v: any) => {
+        setDoc(p => ({ ...p, [k]: v }));
+        // When Taxable type changes, re-fetch the global next number across B2C+B2B
         if (k === 'Taxable' && !existingInvoice) {
-            upd['Inv No'] = getNextInvNo(v, invoices ?? []);
+            generateInvNo(v)
+                .then(newNo => setDoc(p => ({ ...p, 'Inv No': newNo })))
+                .catch(() => {/* keep current */});
         }
-        return upd;
-    });
+    };
 
     useEffect(() => {
         if (existingInvoice) {
@@ -83,8 +73,10 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
             const so = initialData?.soData;
             const initialTaxable = so?.['Bill Invoice'] || 'VAT';
             const co = so ? companies?.find(c => c['Company Name'] === so['Company Name']) : null;
+            // Fetch next invoice number from BOTH b2c + b2b tables for a unique sequence
+            generateInvNo(initialTaxable).then(nextNo => {
             setDoc(p => p['Inv No'] ? p : {
-                'Inv No': getNextInvNo(initialTaxable, invoices ?? []),
+                'Inv No': nextNo,
                 'Inv Date': today(),
                 'Status': 'Draft',
                 'Currency': so?.Currency || 'USD',
@@ -114,8 +106,10 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
                     })));
                 } catch { }
             }
+            }).catch(() => {/* keep empty — user can type manually */});
         }
-    }, [existingInvoice, initialData, invoices, companies, currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [existingInvoice, initialData, companies, currentUser]);
 
     const totals = useMemo(() => {
         const sub = items.reduce((s, i) => s + (Number(i.qty) * Number(i.unitPrice)), 0);

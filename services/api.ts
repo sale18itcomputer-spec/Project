@@ -673,3 +673,32 @@ export const generatePosRvNo = async (): Promise<string> => {
     const seq = last ? parseInt(last.replace(prefix, ''), 10) : 0;
     return `${prefix}${String((isNaN(seq) ? 0 : seq) + 1).padStart(4, '0')}`;
 };
+
+/**
+ * Generates a globally unique invoice number by querying BOTH the b2c (`invoices`)
+ * and b2b (`b2b_invoices`) tables and taking the overall maximum.
+ *
+ * Why: invoice numbers (TI/INV/CI prefix) must not repeat across modes.
+ * Previously each mode only looked at its own table, causing duplicate numbers
+ * (e.g. TI2026-00003 could exist in both tables simultaneously).
+ */
+export const generateInvNo = async (taxableType: string): Promise<string> => {
+    const year = new Date().getFullYear();
+    let prefix = `INV${year}-`;
+    if (taxableType === 'VAT') prefix = `TI${year}-`;
+    else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
+
+    const [{ data: b2c }, { data: b2b }] = await Promise.all([
+        supabase.from('invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
+        supabase.from('b2b_invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
+    ]);
+
+    const parseSeq = (invNo: string | undefined | null): number => {
+        if (!invNo) return 1;
+        const n = parseInt(invNo.slice(prefix.length), 10);
+        return isNaN(n) ? 1 : n;
+    };
+
+    const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
+    return `${prefix}${String(max + 1).padStart(5, '0')}`;
+};

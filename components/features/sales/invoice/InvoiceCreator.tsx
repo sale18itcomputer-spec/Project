@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, SaleOrder } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { createRecord, updateRecord, uploadFile } from "../../../../services/api";
+import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
 import { autoPostInvoiceJournal } from "../../../../services/accountingApi";
 import { formatToSheetDate, formatToInputDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
@@ -89,28 +89,27 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [labelPadding, setLabelPadding] = useState(200);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
-    const getNextInvNo = (taxableType: string, allInvoices: any[]) => {
-        const year = new Date().getFullYear().toString();
-        let prefix = `INV${year}-`;
-        if (taxableType === 'VAT') prefix = `TI${year}-`;
-        else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
-
-        const thisYearInvoices = (allInvoices || []).filter(inv => inv['Inv No']?.startsWith(prefix));
-        if (thisYearInvoices.length === 0) return `${prefix}00002`;
-
-        const maxNum = thisYearInvoices.reduce((max, inv) => {
-            const numPart = parseInt(inv['Inv No'].slice(prefix.length), 10);
-            return isNaN(numPart) ? max : Math.max(max, numPart);
-        }, 1);
-
-        return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
-    };
-
-    // Improved next invoice number logic
-    const calculatedNextInvNo = useMemo(() => {
-        const initialTaxable = initialData?.soData?.['Bill Invoice'] || 'VAT';
-        return getNextInvNo(initialTaxable, invoices || []);
-    }, [invoices, initialData]);
+    // Next invoice number — fetched async from BOTH b2c+b2b tables so the
+    // sequence is globally unique regardless of which mode the user is in.
+    const [nextInvNo, setNextInvNo] = useState('');
+    useEffect(() => {
+        if (existingInvoice) return;
+        const taxable: string = initialData?.soData?.['Bill Invoice'] || 'VAT';
+        generateInvNo(taxable).then(setNextInvNo).catch(() => {
+            // Fallback: derive from current-mode cache if the DB query fails
+            const year = new Date().getFullYear().toString();
+            let prefix = `INV${year}-`;
+            if (taxable === 'VAT') prefix = `TI${year}-`;
+            else if (taxable === 'Commercial Invoice') prefix = `CI${year}-`;
+            const filtered = (invoices || []).filter(i => (i as any)['Inv No']?.startsWith(prefix));
+            const max = filtered.reduce((m, i) => {
+                const n = parseInt((i as any)['Inv No'].slice(prefix.length), 10);
+                return isNaN(n) ? m : Math.max(m, n);
+            }, 1);
+            setNextInvNo(`${prefix}${String(max + 1).padStart(5, '0')}`);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [existingInvoice, initialData]);
 
     useEffect(() => {
         if (existingInvoice) {
@@ -132,7 +131,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             const company = companies?.find(c => c['Company Name'] === so['Company Name']);
 
             setInvoice({
-                'Inv No': calculatedNextInvNo,
+                'Inv No': nextInvNo,
                 'Inv Date': getTodayDateString(),
                 'SO No': so['SO No'],
                 'Company Name': so['Company Name'],
@@ -164,7 +163,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             setInvoice(prev => {
                 if (Object.keys(prev).length > 0 && prev['Inv No']) return prev;
                 return {
-                    'Inv No': calculatedNextInvNo,
+                    'Inv No': nextInvNo,
                     'Inv Date': getTodayDateString(),
                     'Status': 'Draft',
                     'Currency': 'USD',
@@ -172,7 +171,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 };
             });
         }
-    }, [existingInvoice, initialData, calculatedNextInvNo]);
+    }, [existingInvoice, initialData, nextInvNo]);
 
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -193,11 +192,15 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const dueDate = calcDueDate(invDate, paymentTerm);
                 if (dueDate) updated['Due Date'] = dueDate;
             }
-            if (name === 'Taxable' && !existingInvoice) {
-                updated['Inv No'] = getNextInvNo(value, invoices || []);
-            }
             return updated;
         });
+        // When Taxable type changes on a new invoice, re-fetch the global next number
+        // so the prefix (TI / INV / CI) stays unique across B2C and B2B.
+        if (name === 'Taxable' && !existingInvoice) {
+            generateInvNo(value)
+                .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
+                .catch(() => {/* keep current number if query fails */});
+        }
     };
 
     const handleCompanySelect = (companyName: string) => {
