@@ -476,33 +476,56 @@ export const saveProductInquiry = async (
     items: InquiryItem[],
 ): Promise<{ id: string; inquiry_no: string }> => {
     const { items: _items, ...header } = inquiry as any;
-    const payload = stampedPayload('product_inquiries', header);
 
-    const { data: saved, error: hErr } = await withTimeout(
-        Promise.resolve(
-            supabase
-                .from('product_inquiries')
-                .upsert(payload, { onConflict: 'inquiry_no' })
-                .select('id, inquiry_no')
-                .single()
-        ),
-        WRITE_TIMEOUT_MS,
-        'Saving inquiry timed out',
-    );
-    if (hErr) throw new Error(hErr.message);
+    let savedId: string;
+    let savedNo: string;
 
-    const inquiryId = saved.id;
+    if (header.id) {
+        // Update existing — strip id from payload so the PK is never overwritten
+        const { id: existingId, ...rest } = header;
+        const payload = stampedPayload('product_inquiries', rest);
+        const { data, error } = await withTimeout(
+            Promise.resolve(
+                supabase.from('product_inquiries')
+                    .update(payload)
+                    .eq('id', existingId)
+                    .select('id, inquiry_no')
+                    .single()
+            ),
+            WRITE_TIMEOUT_MS,
+            'Saving inquiry timed out',
+        );
+        if (error) throw new Error(error.message);
+        savedId = data.id;
+        savedNo = data.inquiry_no;
+    } else {
+        // Insert new record
+        const payload = stampedPayload('product_inquiries', header);
+        const { data, error } = await withTimeout(
+            Promise.resolve(
+                supabase.from('product_inquiries')
+                    .insert(payload)
+                    .select('id, inquiry_no')
+                    .single()
+            ),
+            WRITE_TIMEOUT_MS,
+            'Saving inquiry timed out',
+        );
+        if (error) throw new Error(error.message);
+        savedId = data.id;
+        savedNo = data.inquiry_no;
+    }
 
     const { error: delErr } = await supabase
         .from('inquiry_items')
         .delete()
-        .eq('inquiry_id', inquiryId);
+        .eq('inquiry_id', savedId);
     if (delErr) throw new Error(delErr.message);
 
     if (items.length > 0) {
         const itemPayload = items.map((item, i) => {
             const { id: _id, created_at: _ca, updated_at: _ua, inquiry_id: _iid, ...rest } = item as any;
-            return { ...rest, inquiry_id: inquiryId, line_number: i + 1 };
+            return { ...rest, inquiry_id: savedId, line_number: i + 1 };
         });
         const { error: itemErr } = await supabase
             .from('inquiry_items')
@@ -510,7 +533,7 @@ export const saveProductInquiry = async (
         if (itemErr) throw new Error(itemErr.message);
     }
 
-    return saved;
+    return { id: savedId, inquiry_no: savedNo };
 };
 
 // ── RMA / Service helpers ──────────────────────────────────────────────────────
@@ -561,33 +584,56 @@ export const savePdiRecord = async (
     items: PdiItem[],
 ): Promise<{ id: string; pdi_no: string }> => {
     const { items: _items, ...header } = record as any;
-    const payload = stampedPayload('pdi_records', header);
 
-    const { data: saved, error: hErr } = await withTimeout(
-        Promise.resolve(
-            supabase
-                .from('pdi_records')
-                .upsert(payload, { onConflict: 'pdi_no' })
-                .select('id, pdi_no')
-                .single()
-        ),
-        WRITE_TIMEOUT_MS,
-        'Saving PDI record timed out',
-    );
-    if (hErr) throw new Error(hErr.message);
+    let savedId: string;
+    let savedNo: string;
 
-    const pdiId = saved.id;
+    if (header.id) {
+        // Update existing — strip id from payload so the PK is never overwritten
+        const { id: existingId, ...rest } = header;
+        const payload = stampedPayload('pdi_records', rest);
+        const { data, error } = await withTimeout(
+            Promise.resolve(
+                supabase.from('pdi_records')
+                    .update(payload)
+                    .eq('id', existingId)
+                    .select('id, pdi_no')
+                    .single()
+            ),
+            WRITE_TIMEOUT_MS,
+            'Saving PDI record timed out',
+        );
+        if (error) throw new Error(error.message);
+        savedId = data.id;
+        savedNo = data.pdi_no;
+    } else {
+        // Insert new record
+        const payload = stampedPayload('pdi_records', header);
+        const { data, error } = await withTimeout(
+            Promise.resolve(
+                supabase.from('pdi_records')
+                    .insert(payload)
+                    .select('id, pdi_no')
+                    .single()
+            ),
+            WRITE_TIMEOUT_MS,
+            'Saving PDI record timed out',
+        );
+        if (error) throw new Error(error.message);
+        savedId = data.id;
+        savedNo = data.pdi_no;
+    }
 
     const { error: delErr } = await supabase
         .from('pdi_items')
         .delete()
-        .eq('pdi_id', pdiId);
+        .eq('pdi_id', savedId);
     if (delErr) throw new Error(delErr.message);
 
     if (items.length > 0) {
         const itemPayload = items.map((item, i) => {
             const { id: _id, created_at: _ca, updated_at: _ua, pdi_id: _pid, ...rest } = item as any;
-            return { ...rest, pdi_id: pdiId, line_number: i + 1 };
+            return { ...rest, pdi_id: savedId, line_number: i + 1 };
         });
         const { error: itemErr } = await supabase
             .from('pdi_items')
@@ -595,7 +641,7 @@ export const savePdiRecord = async (
         if (itemErr) throw new Error(itemErr.message);
     }
 
-    return saved;
+    return { id: savedId, pdi_no: savedNo };
 };
 
 // ── POS helpers ───────────────────────────────────────────────────────────────
