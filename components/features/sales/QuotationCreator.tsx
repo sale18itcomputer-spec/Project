@@ -68,10 +68,9 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
     }
 };
 
-const DEFAULT_TERMS = `For warranty details, please look at details below items. Warranty void if: Electric shock, accident,
-Seal broken, misuse, or modification by anyone other than LIMPERIAL TECHNOLOGY.
-* Good sold are not returnable and received in good condition.
-* We look forward to hearing from you.`;
+const DEFAULT_TERMS = `Payment Terms: Full payment is required as per the agreed terms. Late payments may result in order suspension.
+Goods Sold: All goods sold are non-refundable and non-exchangeable. Please inspect all goods carefully before signing.
+Warranty: All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs, electric shock, accident, broken seals, misuse, or modification by anyone other than LIMPERIAL TECHNOLOGY.`;
 
 const lineItemInputClasses = "w-full text-sm p-2 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground placeholder:text-muted-foreground/50 transition hover:border-muted-foreground/40";
 
