@@ -602,6 +602,243 @@ reg(
   },
 );
 
+reg(
+  'db_get_delivery_orders',
+  'Get delivery orders. Filter by company, status, SO number, or dateFrom.',
+  {
+    company: z.string().optional().describe('Company Name contains'),
+    status: z.string().optional().describe('e.g. Draft, Delivered, Cancelled'),
+    so_no: z.string().optional().describe('SO No contains'),
+    dateFrom: z.string().optional().describe('ISO date — DO Date >='),
+  },
+  async ({ company, status, so_no, dateFrom }) => {
+    try {
+      let q = supabase
+        .from('delivery_orders')
+        .select('*')
+        .order('DO No', { ascending: false });
+      if (company) q = q.ilike('Company Name', `%${company}%`);
+      if (status) q = q.eq('Status', status);
+      if (so_no) q = q.ilike('SO No', `%${so_no}%`);
+      if (dateFrom) q = q.gte('DO Date', dateFrom);
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_receipts',
+  'Get receipts (payment vouchers). Filter by company, status, payment method, or dateFrom.',
+  {
+    company: z.string().optional().describe('Company Name contains'),
+    status: z.string().optional().describe('e.g. Draft, Confirmed, Cancelled'),
+    payment_method: z.string().optional().describe('e.g. Cash, Bank Transfer, Cheque'),
+    so_no: z.string().optional().describe('SO No contains'),
+    inv_no: z.string().optional().describe('Inv No contains'),
+    dateFrom: z.string().optional().describe('ISO date — RV Date >='),
+  },
+  async ({ company, status, payment_method, so_no, inv_no, dateFrom }) => {
+    try {
+      let q = supabase
+        .from('receipts')
+        .select('*')
+        .order('RV No', { ascending: false });
+      if (company) q = q.ilike('Company Name', `%${company}%`);
+      if (status) q = q.eq('Status', status);
+      if (payment_method) q = q.eq('Payment Method', payment_method);
+      if (so_no) q = q.ilike('SO No', `%${so_no}%`);
+      if (inv_no) q = q.ilike('Inv No', `%${inv_no}%`);
+      if (dateFrom) q = q.gte('RV Date', dateFrom);
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_vendors',
+  'Get vendors (Vendor Master). Filter by name, category, or status.',
+  {
+    query: z.string().optional().describe('Search in vendor_name or contact_person'),
+    category: z.string().optional(),
+    status: z.string().optional().describe('e.g. Active, Inactive'),
+  },
+  async ({ query, category, status }) => {
+    try {
+      let q = supabase.from('vendors').select('*').order('vendor_name');
+      if (query)
+        q = (q as any).or(
+          `vendor_name.ilike.%${query}%,contact_person.ilike.%${query}%`,
+        );
+      if (category) q = q.eq('category', category);
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_product_inquiries',
+  'Get product inquiries with their line items. Filter by company, status, priority, or dateFrom.',
+  {
+    company: z.string().optional().describe('Company name contains'),
+    status: z.string().optional().describe('e.g. Open, In Progress, Fulfilled, Cancelled'),
+    priority: z.string().optional().describe('e.g. Low, Normal, High, Urgent'),
+    responsible_by: z.string().optional().describe('Responsible person name contains'),
+    dateFrom: z.string().optional().describe('ISO date — inquiry_date >='),
+  },
+  async ({ company, status, priority, responsible_by, dateFrom }) => {
+    try {
+      let q = supabase
+        .from('product_inquiries')
+        .select('*, inquiry_items(*)')
+        .order('inquiry_date', { ascending: false });
+      if (company) q = q.ilike('company_name', `%${company}%`);
+      if (status) q = q.eq('status', status);
+      if (priority) q = q.eq('priority', priority);
+      if (responsible_by) q = q.ilike('responsible_by', `%${responsible_by}%`);
+      if (dateFrom) q = q.gte('inquiry_date', dateFrom);
+      const { data, error } = await q.limit(100);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_serial_numbers',
+  'Get serial numbers. Filter by brand, model, company, SO number, or status.',
+  {
+    brand: z.string().optional(),
+    model: z.string().optional().describe('Model name contains'),
+    company: z.string().optional().describe('Company name contains'),
+    so_no: z.string().optional().describe('Sale order number contains'),
+    status: z.string().optional().describe('e.g. Active, Warranty Expired, In Service'),
+    query: z.string().optional().describe('Search in serial_number, model_name, description'),
+  },
+  async ({ brand, model, company, so_no, status, query }) => {
+    try {
+      let q = supabase.from('serial_numbers').select('*').order('created_at', { ascending: false });
+      if (brand) q = q.ilike('brand', `%${brand}%`);
+      if (model) q = q.ilike('model_name', `%${model}%`);
+      if (company) q = q.ilike('company_name', `%${company}%`);
+      if (so_no) q = q.ilike('so_no', `%${so_no}%`);
+      if (status) q = q.eq('status', status);
+      if (query)
+        q = (q as any).or(
+          `serial_number.ilike.%${query}%,model_name.ilike.%${query}%,description.ilike.%${query}%`,
+        );
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_service_tickets',
+  'Get service tickets. Filter by status, company, serial number, engineer, or dateFrom.',
+  {
+    status: z.string().optional().describe('e.g. Open, In Progress, Resolved, Closed'),
+    company: z.string().optional().describe('Company name contains'),
+    serial_number: z.string().optional().describe('Serial number contains'),
+    engineer: z.string().optional().describe('Assigned engineer name contains'),
+    ticket_type: z.string().optional().describe('e.g. Repair, Warranty, Maintenance'),
+    dateFrom: z.string().optional().describe('ISO date — ticket_date >='),
+  },
+  async ({ status, company, serial_number, engineer, ticket_type, dateFrom }) => {
+    try {
+      let q = supabase.from('service_tickets').select('*').order('ticket_date', { ascending: false });
+      if (status) q = q.eq('status', status);
+      if (company) q = q.ilike('company_name', `%${company}%`);
+      if (serial_number) q = q.ilike('serial_number', `%${serial_number}%`);
+      if (engineer) q = q.ilike('assigned_engineer', `%${engineer}%`);
+      if (ticket_type) q = q.eq('ticket_type', ticket_type);
+      if (dateFrom) q = q.gte('ticket_date', dateFrom);
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_pdi_records',
+  'Get PDI records with their line items. Filter by status, SO number, company, or engineer.',
+  {
+    status: z.string().optional().describe('e.g. Pending, In Progress, Completed'),
+    so_no: z.string().optional().describe('Sale order number contains'),
+    company: z.string().optional().describe('Company name contains'),
+    engineer: z.string().optional().describe('Assigned engineer name contains'),
+    dateFrom: z.string().optional().describe('ISO date — pdi_date >='),
+  },
+  async ({ status, so_no, company, engineer, dateFrom }) => {
+    try {
+      let q = supabase
+        .from('pdi_records')
+        .select('*, pdi_items(*)')
+        .order('pdi_date', { ascending: false });
+      if (status) q = q.eq('status', status);
+      if (so_no) q = q.ilike('so_no', `%${so_no}%`);
+      if (company) q = q.ilike('company_name', `%${company}%`);
+      if (engineer) q = q.ilike('assigned_engineer', `%${engineer}%`);
+      if (dateFrom) q = q.gte('pdi_date', dateFrom);
+      const { data, error } = await q.limit(100);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_spare_parts',
+  'Get spare parts inventory. Filter by brand, category, status, or low stock.',
+  {
+    brand: z.string().optional(),
+    category: z.string().optional().describe('e.g. Spare Part, Accessory, Consumable'),
+    status: z.string().optional().describe('e.g. In Stock, Out of Stock, Discontinued'),
+    query: z.string().optional().describe('Search in part_no, part_name, model_name'),
+    low_stock: z.boolean().optional().describe('If true, return items where qty <= min_qty'),
+  },
+  async ({ brand, category, status, query, low_stock }) => {
+    try {
+      let q = supabase.from('spare_parts').select('*').order('part_name');
+      if (brand) q = q.ilike('brand', `%${brand}%`);
+      if (category) q = q.eq('category', category);
+      if (status) q = q.eq('status', status);
+      if (query)
+        q = (q as any).or(
+          `part_no.ilike.%${query}%,part_name.ilike.%${query}%,model_name.ilike.%${query}%`,
+        );
+      if (low_stock) q = q.lte('qty', 0);
+      const { data, error } = await q.limit(200);
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
 // ══════════════════════════════════════════════════════════════════════════════
 // WRITE — Supabase
 // ══════════════════════════════════════════════════════════════════════════════
@@ -968,6 +1205,79 @@ reg(
         total_debit: totalDebit,
         total_credit: totalCredit,
       });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_create_service_ticket',
+  'Create a new service ticket',
+  {
+    ticket_no: z.string().describe('Unique ticket number (e.g. ST-2026-001)'),
+    ticket_type: z.string().optional().describe('Repair | Warranty | Maintenance | Other'),
+    priority: z.string().optional().describe('Low | Normal | High | Critical'),
+    company_name: z.string().optional(),
+    contact_name: z.string().optional(),
+    contact_phone: z.string().optional(),
+    serial_number: z.string().optional(),
+    brand: z.string().optional(),
+    model_name: z.string().optional(),
+    problem_description: z.string().optional(),
+    assigned_engineer: z.string().optional(),
+    created_by: z.string().optional(),
+    data: z.record(z.string(), z.any()).optional().describe('Any additional fields'),
+  },
+  async ({ ticket_no, ticket_type, priority, company_name, contact_name, contact_phone,
+           serial_number, brand, model_name, problem_description, assigned_engineer,
+           created_by, data: extra }) => {
+    try {
+      const payload = {
+        ticket_no,
+        ...(ticket_type && { ticket_type }),
+        ...(priority && { priority }),
+        ...(company_name && { company_name }),
+        ...(contact_name && { contact_name }),
+        ...(contact_phone && { contact_phone }),
+        ...(serial_number && { serial_number }),
+        ...(brand && { brand }),
+        ...(model_name && { model_name }),
+        ...(problem_description && { problem_description }),
+        ...(assigned_engineer && { assigned_engineer }),
+        ...(created_by && { created_by }),
+        ...(extra ?? {}),
+      };
+      const { data, error } = await supabase
+        .from('service_tickets')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_service_ticket',
+  'Update a service ticket by ticket_no',
+  {
+    ticket_no: z.string().describe('Ticket number (primary key)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (status, resolution_notes, assigned_engineer, etc.)'),
+  },
+  async ({ ticket_no, data: updates }) => {
+    try {
+      const { data, error } = await supabase
+        .from('service_tickets')
+        .update(updates)
+        .eq('ticket_no', ticket_no)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
     } catch (e) {
       return err((e as Error).message);
     }
