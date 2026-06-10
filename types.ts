@@ -336,6 +336,8 @@ export interface DeliveryOrder {
   'Email'?: string;
   'Currency'?: 'USD' | 'KHR';
   'Status': 'Pending' | 'Delivered' | 'Cancelled';
+  /** Derived (not user-editable) from the linked Invoice/SO; controls whether the printed Delivery Note shows the company header. */
+  'Tax Type'?: 'VAT' | 'NON-VAT';
   'Payment Term'?: string;
   'Delivery Date'?: string;
   'Prepared By'?: string;

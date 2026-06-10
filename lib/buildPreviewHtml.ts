@@ -48,11 +48,14 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
                 hd, items as any, totals as any, opts.currency, sym,
                 opts.signaturePadding, opts.labelPadding, opts.columnWidths,
             );
-        case 'Delivery Order':
+        case 'Delivery Order': {
+            // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
+            const showVat = (hd['Tax Type'] || hd['Taxable'] || '').toUpperCase() !== 'NON-VAT';
             return buildDeliveryNote(
-                hd, items as any,
+                hd, items as any, showVat,
                 opts.signaturePadding, opts.labelPadding, opts.columnWidths,
             );
+        }
         case 'Sale Order':
             return buildSaleOrderClient(
                 hd, items as any, totals as any, opts.currency, sym, tax, opts.columnWidths,

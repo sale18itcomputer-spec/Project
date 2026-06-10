@@ -9,6 +9,7 @@ import { esc, fmtDate, LOGO, PdfItem } from './shared-pure';
 export function buildDeliveryNote(
     hd: Record<string, any>,
     items: PdfItem[],
+    showVat = true,
     signaturePadding = 160,
     labelPadding?: number,
     columnWidths?: number[], // accepted for API consistency; DO schema is fixed 5-col
@@ -81,7 +82,7 @@ export function buildDeliveryNote(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <header class="mb-6">
+  ${showVat ? `<header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
         <img alt="L'IMPERIAL Logo" class="h-10 w-auto object-contain" src="${LOGO}"/>
@@ -93,9 +94,9 @@ export function buildDeliveryNote(
       <p class="text-[10px]">Address: #B15 ( Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor ), East Railway ( 139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
       <p class="text-[10px]">E-mail: info@limperialtech.com || ទូរស័ព្ទ (Telephone): +855 92 218 333</p>
     </div>
-  </header>
+  </header>` : ''}
 
-  <div class="text-center mb-6">
+  <div class="text-center mb-6${showVat ? '' : ' pt-6'}">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">លិខិតប្រគល់ទំនិញ</h3>
     <h4 class="text-lg font-bold uppercase">Delivery Note</h4>
   </div>

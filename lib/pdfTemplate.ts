@@ -209,7 +209,9 @@ export function buildHtml(opts: PdfTemplateOptions): string {
         return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding, opts.labelPadding, cw);
     }
     if (opts.type === 'Delivery Order') {
-        return buildDeliveryNote(hd, items as any, opts.signaturePadding, undefined, cw);
+        // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
+        const showVat = (hd['Tax Type'] || hd['Taxable'] || '').toUpperCase() !== 'NON-VAT';
+        return buildDeliveryNote(hd, items as any, showVat, opts.signaturePadding, undefined, cw);
     }
     if (opts.type === 'Quotation') {
         const isNonVat = (hd['Tax Type'] || '').toUpperCase() === 'NON-VAT';

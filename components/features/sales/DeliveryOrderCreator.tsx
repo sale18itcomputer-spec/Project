@@ -371,6 +371,17 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     };
 
     // ── PDF ───────────────────────────────────────────────────────────────────
+    // Determine VAT/NON-VAT for the printed Delivery Note — derived from the
+    // linked Invoice or Sale Order so a NON-VAT delivery note omits the
+    // company header block, mirroring the NON-VAT Invoice template.
+    const taxType: 'VAT' | 'NON-VAT' = useMemo(() => {
+        const inv = invoices?.find(i => i['Inv No'] === doc['Inv No']);
+        if (inv) return (inv['Taxable'] === 'NON-VAT' || inv['Tax Type'] === 'NON-VAT') ? 'NON-VAT' : 'VAT';
+        const so = saleOrders?.find(s => s['SO No'] === doc['SO No']);
+        if (so) return so['Bill Invoice'] === 'NON-VAT' ? 'NON-VAT' : 'VAT';
+        return 'VAT';
+    }, [doc['Inv No'], doc['SO No'], invoices, saleOrders]);
+
     const buildPdfPayload = () => ({
         type: 'Delivery Order' as const,
         headerData: {
@@ -384,6 +395,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             'Contact Name':   doc['Contact Name'] || '',
             'Phone Number':   doc['Phone Number'] || '',
             'Email':          doc['Email'] || '',
+            'Tax Type':       taxType,
         },
         items: items.map(item => ({
             no: item.no,
@@ -487,6 +499,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 'Contact Name':   doc['Contact Name'] || '',
                                 'Phone Number':   doc['Phone Number'] || '',
                                 'Email':          doc['Email'] || '',
+                                'Tax Type':       taxType,
                             },
                             items: items.map(item => ({
                                 no: item.no,
