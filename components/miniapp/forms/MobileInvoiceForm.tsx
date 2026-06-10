@@ -63,10 +63,16 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
 
     useEffect(() => {
         if (existingInvoice) {
+            const loadedInvDate = existingInvoice['Inv Date'] ? formatToInputDate(existingInvoice['Inv Date']) : today();
+            // Backfill Due Date for older/edited invoices that have a Payment
+            // Term with credit days but were saved before Due Date existed.
+            const loadedDueDate = existingInvoice['Due Date']
+                ? formatToInputDate(existingInvoice['Due Date'])
+                : calcDueDate(loadedInvDate, existingInvoice['Payment Term']);
             setDoc({
                 ...existingInvoice,
-                'Inv Date': existingInvoice['Inv Date'] ? formatToInputDate(existingInvoice['Inv Date']) : today(),
-                'Due Date': existingInvoice['Due Date'] ? formatToInputDate(existingInvoice['Due Date']) : '',
+                'Inv Date': loadedInvDate,
+                'Due Date': loadedDueDate,
             });
             try {
                 const parsed = typeof existingInvoice.ItemsJSON === 'string'

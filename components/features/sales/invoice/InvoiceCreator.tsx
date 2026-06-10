@@ -96,10 +96,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
     useEffect(() => {
         if (existingInvoice) {
+            const loadedInvDate = existingInvoice['Inv Date'] ? formatToInputDate(existingInvoice['Inv Date']) : getTodayDateString();
+            // Backfill Due Date for older/edited invoices that have a Payment
+            // Term with credit days but were saved before Due Date existed.
+            const loadedDueDate = existingInvoice['Due Date']
+                ? formatToInputDate(existingInvoice['Due Date'])
+                : calcDueDate(loadedInvDate, existingInvoice['Payment Term']);
             setInvoice({
                 ...existingInvoice,
-                'Inv Date': existingInvoice['Inv Date'] ? formatToInputDate(existingInvoice['Inv Date']) : getTodayDateString(),
-                'Due Date': existingInvoice['Due Date'] ? formatToInputDate(existingInvoice['Due Date']) : '',
+                'Inv Date': loadedInvDate,
+                'Due Date': loadedDueDate,
             });
 
             let fetchedItems = [];
