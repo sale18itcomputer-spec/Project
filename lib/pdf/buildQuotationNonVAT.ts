@@ -132,20 +132,8 @@ export function buildQuotationNonVAT(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <header class="mb-6">
-    <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
-      <div class="absolute left-0 top-0">
-        <img alt="L'IMPERIAL Logo" class="h-10 w-auto object-contain" src="${LOGO}"/>
-      </div>
-      <h1 class="text-xl font-bold mb-1" style="font-family:'Moul',serif;">លីមភើរៀលថេកណឡជីឯ.ក</h1>
-      <h2 class="text-lg font-bold mb-1" style="font-family:'Times New Roman',serif;">LIMPERIAL TECHNOLOGY CO., LTD.</h2>
-      <p class="text-[10px]">អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</p>
-      <p class="text-[10px]">Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
-      <p class="text-[10px]">E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</p>
-    </div>
-  </header>
 
-  <div class="text-center mb-6">
+  <div class="text-center mb-6 pt-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">សម្រង់តម្លៃ</h3>
     <h4 class="text-lg font-bold">QUOTATION</h4>
   </div>
