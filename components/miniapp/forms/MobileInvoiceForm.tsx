@@ -6,7 +6,7 @@ import { useData } from '@/contexts/MiniAppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createRecord, updateRecord, generateInvNo } from '@/services/api';
-import { formatToSheetDate, formatToInputDate } from '@/utils/time';
+import { formatToSheetDate, formatToInputDate, calcDueDate } from '@/utils/time';
 import {
     MobileFormHeader, MobileFormSection, MobileField,
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,
@@ -42,7 +42,17 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
     ]);
 
     const set = (k: string, v: any) => {
-        setDoc(p => ({ ...p, [k]: v }));
+        setDoc(p => {
+            const updated = { ...p, [k]: v };
+            // Recalculate Due Date whenever Inv Date or Payment Term changes
+            if (k === 'Inv Date' || k === 'Payment Term') {
+                const invDate = k === 'Inv Date' ? v : p['Inv Date'];
+                const paymentTerm = k === 'Payment Term' ? v : p['Payment Term'];
+                const dueDate = calcDueDate(invDate, paymentTerm);
+                if (dueDate) updated['Due Date'] = dueDate;
+            }
+            return updated;
+        });
         // When Taxable type changes, re-fetch the global next number across B2C+B2B
         if (k === 'Taxable' && !existingInvoice) {
             generateInvNo(v)
@@ -73,11 +83,14 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
             const so = initialData?.soData;
             const initialTaxable = so?.['Bill Invoice'] || 'VAT';
             const co = so ? companies?.find(c => c['Company Name'] === so['Company Name']) : null;
+            const initialInvDate = today();
+            const initialDueDate = calcDueDate(initialInvDate, so?.['Payment Term']);
             // Fetch next invoice number from BOTH b2c + b2b tables for a unique sequence
             generateInvNo(initialTaxable).then(nextNo => {
             setDoc(p => p['Inv No'] ? p : {
                 'Inv No': nextNo,
-                'Inv Date': today(),
+                'Inv Date': initialInvDate,
+                'Due Date': initialDueDate,
                 'Status': 'Draft',
                 'Currency': so?.Currency || 'USD',
                 'Taxable': initialTaxable,
@@ -120,34 +133,44 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
     const handleCompanySelect = useCallback((name: string) => {
         const co = companies?.find(c => c['Company Name'] === name);
         const ct = contacts?.find(c => c['Company Name'] === name);
-        setDoc(p => ({
-            ...p,
-            'Company Name': name,
-            'Contact Name': ct?.Name || p['Contact Name'] || '',
-            'Phone Number': co?.['Phone Number'] || ct?.['Tel (1)'] || p['Phone Number'] || '',
-            'Email': co?.Email || ct?.Email || p['Email'] || '',
-            'Company Address': co?.['Address (English)'] || p['Company Address'] || '',
-            'Tin No': co?.['Tin No'] || co?.['Patent'] || p['Tin No'] || '',
-            'Payment Term': co?.['Payment Term'] || p['Payment Term'] || '',
-        }));
+        setDoc(p => {
+            const paymentTerm = co?.['Payment Term'] || p['Payment Term'] || '';
+            const dueDate = calcDueDate(p['Inv Date'], paymentTerm);
+            return {
+                ...p,
+                'Company Name': name,
+                'Contact Name': ct?.Name || p['Contact Name'] || '',
+                'Phone Number': co?.['Phone Number'] || ct?.['Tel (1)'] || p['Phone Number'] || '',
+                'Email': co?.Email || ct?.Email || p['Email'] || '',
+                'Company Address': co?.['Address (English)'] || p['Company Address'] || '',
+                'Tin No': co?.['Tin No'] || co?.['Patent'] || p['Tin No'] || '',
+                'Payment Term': paymentTerm,
+                ...(dueDate ? { 'Due Date': dueDate } : {}),
+            };
+        });
     }, [companies, contacts]);
 
     const handleSOSelect = useCallback((soNo: string) => {
         const so = saleOrders?.find(s => s['SO No'] === soNo);
         if (!so) { set('SO No', soNo); return; }
         const co = companies?.find(c => c['Company Name'] === so['Company Name']);
-        setDoc(p => ({
-            ...p,
-            'SO No': soNo,
-            'Company Name': so['Company Name'] || p['Company Name'],
-            'Contact Name': so['Contact Name'] || p['Contact Name'],
-            'Phone Number': so['Phone Number'] || p['Phone Number'],
-            'Email': so.Email || p['Email'],
-            'Taxable': so['Bill Invoice'] || 'NON-VAT',
-            'Currency': so.Currency || 'USD',
-            'Payment Term': so['Payment Term'] || p['Payment Term'],
-            'Company Address': co?.['Address (English)'] || p['Company Address'],
-        }));
+        setDoc(p => {
+            const paymentTerm = so['Payment Term'] || p['Payment Term'];
+            const dueDate = calcDueDate(p['Inv Date'], paymentTerm);
+            return {
+                ...p,
+                'SO No': soNo,
+                'Company Name': so['Company Name'] || p['Company Name'],
+                'Contact Name': so['Contact Name'] || p['Contact Name'],
+                'Phone Number': so['Phone Number'] || p['Phone Number'],
+                'Email': so.Email || p['Email'],
+                'Taxable': so['Bill Invoice'] || 'NON-VAT',
+                'Currency': so.Currency || 'USD',
+                'Payment Term': paymentTerm,
+                'Company Address': co?.['Address (English)'] || p['Company Address'],
+                ...(dueDate ? { 'Due Date': dueDate } : {}),
+            };
+        });
         try {
             const parsed = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : so.ItemsJSON;
             if (Array.isArray(parsed) && parsed.length) setItems(parsed.map((it: any, i: number) => ({

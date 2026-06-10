@@ -7,7 +7,7 @@ import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
 import { autoPostInvoiceJournal } from "../../../../services/accountingApi";
-import { formatToSheetDate, formatToInputDate } from "../../../../utils/time";
+import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
 import Spinner from "../../../common/Spinner";
@@ -44,23 +44,6 @@ const getTodayDateString = () => {
 const STATUS_OPTIONS: Invoice['Status'][] = ['Draft', 'Processing', 'Completed', 'Cancel'];
 const TAXABLE_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
-
-// Parse credit days from Payment Term strings like "Net 30", "30 Days", "60", "Net 45 Days", etc.
-function parseCreditDays(paymentTerm?: string): number {
-    if (!paymentTerm) return 0;
-    const match = paymentTerm.replace(/,/g, '').match(/(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-}
-
-// Returns YYYY-MM-DD due date string, or '' if not calculable
-function calcDueDate(invDate?: string, paymentTerm?: string): string {
-    const days = parseCreditDays(paymentTerm);
-    if (!invDate || days <= 0) return '';
-    const d = new Date(invDate + 'T00:00:00');
-    if (isNaN(d.getTime())) return '';
-    d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
-}
 
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
     switch (currency) {
@@ -129,10 +112,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         } else if (initialData?.soData) {
             const so = initialData.soData;
             const company = companies?.find(c => c['Company Name'] === so['Company Name']);
+            const invDate = getTodayDateString();
+            const dueDate = calcDueDate(invDate, so['Payment Term']);
 
             setInvoice({
                 'Inv No': nextInvNo,
-                'Inv Date': getTodayDateString(),
+                'Inv Date': invDate,
                 'SO No': so['SO No'],
                 'Company Name': so['Company Name'],
                 'Contact Name': so['Contact Name'],
@@ -143,6 +128,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Status': 'Draft',
                 'Currency': so.Currency || 'USD',
                 'Payment Term': so['Payment Term'],
+                'Due Date': dueDate,
                 'Company Address': company?.['Address (English)'] || '',
                 'Tin No': company?.['Tin No'] || company?.['Patent'] || '',
             });
@@ -234,18 +220,23 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const handleSOSelect = (soNo: string) => {
         const so = saleOrders?.find(s => s['SO No'] === soNo);
         if (so) {
-            setInvoice(prev => ({
-                ...prev,
-                'SO No': soNo,
-                'Company Name': so['Company Name'] || prev['Company Name'],
-                'Contact Name': so['Contact Name'] || prev['Contact Name'],
-                'Phone Number': so['Phone Number'] || prev['Phone Number'],
-                'Email': so.Email || prev.Email,
-                'Taxable': so['Bill Invoice'] || 'NON-VAT',
-                'Currency': so.Currency || prev.Currency,
-                'Payment Term': so['Payment Term'] || prev['Payment Term'],
-                'Company Address': companies?.find(c => c['Company Name'] === so['Company Name'])?.['Address (English)'] || prev['Company Address']
-            }));
+            setInvoice(prev => {
+                const paymentTerm = so['Payment Term'] || prev['Payment Term'];
+                const dueDate = calcDueDate(prev['Inv Date'], paymentTerm);
+                return {
+                    ...prev,
+                    'SO No': soNo,
+                    'Company Name': so['Company Name'] || prev['Company Name'],
+                    'Contact Name': so['Contact Name'] || prev['Contact Name'],
+                    'Phone Number': so['Phone Number'] || prev['Phone Number'],
+                    'Email': so.Email || prev.Email,
+                    'Taxable': so['Bill Invoice'] || 'NON-VAT',
+                    'Currency': so.Currency || prev.Currency,
+                    'Payment Term': paymentTerm,
+                    'Company Address': companies?.find(c => c['Company Name'] === so['Company Name'])?.['Address (English)'] || prev['Company Address'],
+                    ...(dueDate ? { 'Due Date': dueDate } : {}),
+                };
+            });
 
             let soItems = [];
             if (typeof so.ItemsJSON === 'string') {

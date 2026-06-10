@@ -265,3 +265,29 @@ export function calculateDueDate(createdDateStr?: string, timeFrameValue?: strin
 
   return newDate;
 }
+
+/**
+ * Extracts the number of credit days from a free-text payment term string,
+ * e.g. "Net 30", "Credit 14days", "30 Days", "60" -> 30, 14, 30, 60.
+ * Returns 0 if no number can be found (e.g. "COD", "Due on receipt").
+ */
+export function parseCreditDays(paymentTerm?: string): number {
+    if (!paymentTerm) return 0;
+    const match = paymentTerm.replace(/,/g, '').match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Calculates an invoice's "Due Date" (YYYY-MM-DD) from its invoice date and
+ * a free-text payment term (e.g. "Net 30", "Credit 14days"). Returns '' if
+ * either input is missing/invalid or the payment term has no numeric days,
+ * so callers can leave any existing/manual Due Date untouched.
+ */
+export function calcDueDate(invDate?: string, paymentTerm?: string): string {
+    const days = parseCreditDays(paymentTerm);
+    if (!invDate || days <= 0) return '';
+    const d = new Date(invDate + 'T00:00:00');
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+}
