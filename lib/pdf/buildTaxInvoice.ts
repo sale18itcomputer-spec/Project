@@ -243,13 +243,19 @@ export function buildTaxInvoice(
   </div>
 
   <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
-    <div class="w-[35%] text-center">
+    <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
       <p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>
       <p class="font-bold text-[11px]">Customer's Signature &amp; Name</p>
     </div>
-    <div class="w-[35%] text-center">
+    ${!showVat ? `<div class="w-[28%] text-center">
+      <div style="margin-bottom:${labelPadding}px"></div>
+      <div class="border-t-2 border-black mb-2"></div>
+      <p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកដឹកជញ្ជូន</p>
+      <p class="font-bold text-[11px]">Deliverer's Signature &amp; Name</p>
+    </div>` : ''}
+    <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
       ${hd['Prepared By'] ? `<p class="font-bold text-[11px] mb-0.5">${esc(hd['Prepared By'])}</p>` : ''}
