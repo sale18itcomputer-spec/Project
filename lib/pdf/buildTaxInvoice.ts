@@ -190,6 +190,7 @@ export function buildTaxInvoice(
               <div>
                 <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
                 <ul class="list-disc list-inside space-y-0.5">
+                  <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
                   <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
                   <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
                 </ul>
@@ -249,6 +250,7 @@ export function buildTaxInvoice(
     ${!showVat ? `<div class="mt-4 text-[10px] no-break">
       <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
       <ul class="list-disc list-inside space-y-0.5">
+        <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
         <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
         <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
       </ul>
