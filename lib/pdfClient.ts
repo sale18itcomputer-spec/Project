@@ -28,6 +28,8 @@ export interface PdfClientOptions {
     currency: 'USD' | 'KHR';
     signaturePadding?: number;
     labelPadding?: number;
+    /** When true, NON-VAT Invoice PDFs omit Khmer text (English-only). Ignored for VAT/Tax Invoices. */
+    hideKhmer?: boolean;
     filename?: string;
     /** If true, returns a blob URL instead of auto-downloading */
     previewMode?: boolean;
@@ -67,6 +69,7 @@ function buildBody(opts: PdfClientOptions): string {
         currency:         opts.currency,
         signaturePadding: opts.signaturePadding,
         labelPadding:     opts.labelPadding,
+        hideKhmer:        opts.hideKhmer,
         columnWidths:     opts.columnWidths,
         previewMode:      opts.previewMode,
     });

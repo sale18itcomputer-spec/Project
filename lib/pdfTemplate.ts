@@ -183,6 +183,8 @@ export interface PdfTemplateOptions {
     currency: 'USD' | 'KHR';
     signaturePadding?: number;
     labelPadding?: number;
+    /** When true, NON-VAT Invoice PDFs omit Khmer text (English-only). Ignored for VAT/Tax Invoices. */
+    hideKhmer?: boolean;
     /** Optional column width overrides (%) — [No, Code, Desc, Qty, UnitPrice, Amount]. 0 = omit. */
     columnWidths?: number[];
     /** When true the caller wants HTML for in-browser preview, not a PDF. */
@@ -202,7 +204,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
         return buildReceipt(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding, cw);
     }
     if (opts.type === 'Tax Invoice') {
-        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw);
+        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
     }
     if (opts.type === 'Commercial Invoice') {
         const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);
@@ -223,7 +225,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     // Inline builders
     let body = '';
     switch (opts.type) {
-        case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw);
+        case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
         case 'Sale Order': body = buildSaleOrder(hd, items, totals, opts.currency, sym, tax, cw); break;
         case 'Purchase Order': body = buildPO(hd, items, totals, opts.currency, sym, tax, cw); break;
     }

@@ -67,12 +67,12 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
         case 'Tax Invoice':
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
-                true, opts.signaturePadding, opts.labelPadding, opts.columnWidths,
+                true, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
             );
         case 'Invoice':
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
-                false, opts.signaturePadding, opts.labelPadding, opts.columnWidths,
+                false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
             );
         default:
             return null;

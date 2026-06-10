@@ -4,7 +4,7 @@ import { LineItem } from './types';
 import { generatePDF } from '../../../../lib/pdfClient';
 import { buildPreviewHtml } from '../../../../lib/buildPreviewHtml';
 import { useToast } from '../../../../contexts/ToastContext';
-import { SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, ChevronUp, ChevronDown, Languages } from 'lucide-react';
 
 interface InvoicePreviewProps {
     previewMode: 'invoice';
@@ -15,6 +15,8 @@ interface InvoicePreviewProps {
     onSignaturePaddingChange: (v: number) => void;
     labelPadding: number;
     onLabelPaddingChange: (v: number) => void;
+    hideKhmer: boolean;
+    onHideKhmerChange: (v: boolean) => void;
     columnWidths?: number[];
 }
 
@@ -45,7 +47,7 @@ const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
     </div>
 );
 
-export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, printableProps, signaturePadding, onSignaturePaddingChange, labelPadding, onLabelPaddingChange, columnWidths }) => {
+export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, printableProps, signaturePadding, onSignaturePaddingChange, labelPadding, onLabelPaddingChange, hideKhmer, onHideKhmerChange, columnWidths }) => {
     const [apiUrl, setApiUrl]   = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -70,8 +72,9 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
         currency: printableProps.currency,
         signaturePadding,
         labelPadding,
+        hideKhmer,
         columnWidths,
-    }), [pdfType, printableProps, items, signaturePadding, labelPadding, columnWidths]);
+    }), [pdfType, printableProps, items, signaturePadding, labelPadding, hideKhmer, columnWidths]);
 
     // Client-side build — synchronous, no API (Commercial Invoice)
     const clientHtml = useMemo(() => {
@@ -118,6 +121,20 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {pdfType === 'Invoice' && (
+                        <button
+                            onClick={() => onHideKhmerChange(!hideKhmer)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                hideKhmer
+                                    ? 'bg-brand-500/10 text-brand-600 border-brand-500/30'
+                                    : 'bg-white text-muted-foreground border-gray-200 hover:border-brand-500/30 hover:text-brand-600'
+                            }`}
+                            title="Omit Khmer text — English-only invoice"
+                        >
+                            <Languages className="w-3.5 h-3.5" />
+                            English Only
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowControls(v => !v)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${

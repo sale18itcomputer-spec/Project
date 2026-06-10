@@ -70,6 +70,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
+    const [hideKhmer, setHideKhmer] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
     // Next invoice number — fetched async from BOTH b2c+b2b tables so the
@@ -439,6 +440,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
             signaturePadding,
             labelPadding,
+            hideKhmer,
             previewMode: false,
             filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
             columnWidths: colWidths,
@@ -459,6 +461,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
         signaturePadding,
         labelPadding,
+        hideKhmer,
     };
 
     const headerLeft = (
@@ -527,6 +530,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             onSignaturePaddingChange={setSignaturePadding}
                             labelPadding={labelPadding}
                             onLabelPaddingChange={setLabelPadding}
+                            hideKhmer={hideKhmer}
+                            onHideKhmerChange={setHideKhmer}
                             columnWidths={colWidths}
                         />
                     </div>

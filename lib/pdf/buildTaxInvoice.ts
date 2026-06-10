@@ -18,9 +18,12 @@ export function buildTaxInvoice(
     signaturePadding = 0,
     labelPadding = 200,
     columnWidths?: number[],
+    hideKhmer = false,
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
+    // English-only mode is only meaningful for NON-VAT invoices (VAT invoices keep Khmer).
+    const noKhmer = !showVat && hideKhmer;
 
     const invNo      = esc(hd['Inv No.'] || hd['Inv No'] || hd['Invoice No'] || '');
     const invDate    = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || ''));
@@ -32,6 +35,18 @@ export function buildTaxInvoice(
     const email      = esc(hd['Email'] || '');
     const contact    = esc(hd['Contact Name'] || hd['Contact Person'] || '');
     const phone      = esc(hd['Phone Number'] || hd['Telephone'] || '');
+
+    // English-only label variants (used when noKhmer is true)
+    const lblAddress   = noKhmer ? 'Address'         : 'អាសយដ្ឋាន (Address)';
+    const lblContact   = noKhmer ? 'Contact Person'  : 'ទំនាក់ទំនង (Contact Person)';
+    const lblTelephone = noKhmer ? 'Telephone'       : 'លេខទូរស័ព្ទ (Telephone)';
+    const lblEmail     = noKhmer ? 'E-mail'          : 'អ៊ីម៉ែល (E-mail)';
+    const lblInvoiceNo = noKhmer ? 'Invoice N&#186;' : 'លេខវិក្កយបត្រ (Invoice N&#186;)';
+    const lblDate      = noKhmer ? 'Date'            : 'កាលបរិច្ឆេទ (Date)';
+    const lblDueDate   = noKhmer ? 'Due Date'        : 'កាលបរិច្ឆេទផុតកំណត់ (Due Date)';
+    const lblTotal     = noKhmer ? 'Total'           : 'សរុប (Total)';
+    const lblDeposit   = noKhmer ? 'Deposit'         : 'ប្រាក់កក់ (Deposit)';
+    const th2 = (kh: string, en: string) => noKhmer ? `<div>${en}</div>` : `<div>${kh}</div><div>${en}</div>`;
 
     const deposit      = parseFloat(String(hd['Deposit'] || 0)) || 0;
     const exchangeRate = hd['Exchange Rate'] || hd['ExchangeRate'] || '';
@@ -122,26 +137,26 @@ export function buildTaxInvoice(
     </div>
   </header>` : ''}
   <div class="text-center mb-6${showVat ? '' : ' pt-6'}">
-    <h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>
+    ${noKhmer ? '' : `<h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>`}
     <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">${showVat ? 'TAX INVOICE' : 'INVOICE'}</h4>
   </div>
   <div class="flex justify-between gap-0 mb-6">
     <div class="w-[55%]">
       <table class="w-full border-none"><tbody class="text-[12px]">
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">អតិថិជន</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${customerKh || customer}</td></tr>
+        ${noKhmer ? '' : `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">អតិថិជន</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${customerKh || customer}</td></tr>`}
         <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">Customer</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${customer}</td></tr>
-        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap w-[25%]">អាសយដ្ឋាន (Address)</td><td class="border-none py-1 align-top w-[5%] text-center">:</td><td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td></tr>
+        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap w-[25%]">${lblAddress}</td><td class="border-none py-1 align-top w-[5%] text-center">:</td><td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td></tr>
         ${vatTin ? `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">VAT TIN</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${vatTin}</td></tr>` : ''}
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">ទំនាក់ទំនង (Contact Person)</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${contact}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">លេខទូរស័ព្ទ (Telephone)</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${phone}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">អ៊ីម៉ែល (E-mail)</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%]">${email}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblContact}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${contact}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblTelephone}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${phone}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblEmail}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%]">${email}</td></tr>
       </tbody></table>
     </div>
     <div class="w-[45%] flex flex-col">
       <table class="w-auto ml-auto border-none table-fixed"><tbody class="text-[12px]">
-        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">លេខវិក្កយបត្រ (Invoice N&#186;)</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invNo}</td></tr>
-        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">កាលបរិច្ឆេទ (Date)</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invDate}</td></tr>
-        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">កាលបរិច្ឆេទផុតកំណត់ (Due Date)</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${dueDate}</td></tr>
+        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">${lblInvoiceNo}</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invNo}</td></tr>
+        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">${lblDate}</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invDate}</td></tr>
+        <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">${lblDueDate}</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${dueDate}</td></tr>
       </tbody></table>
     </div>
   </div>
@@ -159,12 +174,12 @@ export function buildTaxInvoice(
       </colgroup>
       <thead>
         <tr class="bg-brand-blue text-white text-center text-[12px]">
-          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight"><div>ល.រ</div><div>N&#186;</div></th>` : ''}
-          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight"><div>លេខសម្គាល់ទំនិញ</div><div>Part Number</div></th>` : ''}
-          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight"><div>បរិយាយទំនិញ</div><div>Description</div></th>` : ''}
-          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight"><div>បរិមាណ</div><div>Qty</div></th>` : ''}
-          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>` : ''}
-          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight"><div>តម្លៃទំនិញ</div><div>Amount</div></th>` : ''}
+          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('ល.រ', 'N&#186;')}</th>` : ''}
+          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('លេខសម្គាល់ទំនិញ', 'Part Number')}</th>` : ''}
+          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិយាយទំនិញ', 'Description')}</th>` : ''}
+          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិមាណ', 'Qty')}</th>` : ''}
+          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃឯកតា', 'Unit Price')}</th>` : ''}
+          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃទំនិញ', 'Amount')}</th>` : ''}
         </tr>
       </thead>
       <tbody>${itemRows}</tbody>
@@ -218,12 +233,12 @@ export function buildTaxInvoice(
         </tr>
       </tbody>` : `<tbody class="break-inside-avoid">
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">សរុប (Total)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">${lblTotal}</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         ${hasDeposit ? `
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">ប្រាក់កក់ (Deposit)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">${lblDeposit}</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(deposit)}</td>
         </tr>
         <tr>
@@ -246,13 +261,13 @@ export function buildTaxInvoice(
     <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
-      <p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>
+      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>`}
       <p class="font-bold text-[11px]">Customer's Signature &amp; Name</p>
     </div>
     ${!showVat ? `<div class="w-[28%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
-      <p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកដឹកជញ្ជូន</p>
+      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកដឹកជញ្ជូន</p>`}
       <p class="font-bold text-[11px]">Deliverer's Signature &amp; Name</p>
     </div>` : ''}
     <div class="w-[${showVat ? '35' : '28'}%] text-center">
@@ -260,7 +275,7 @@ export function buildTaxInvoice(
       <div class="border-t-2 border-black mb-2"></div>
       ${hd['Prepared By'] ? `<p class="font-bold text-[11px] mb-0.5">${esc(hd['Prepared By'])}</p>` : ''}
       ${hd['Prepared By Position'] ? `<p class="text-[12px] mb-1">${esc(hd['Prepared By Position'])}</p>` : ''}
-      <p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកលក់</p>
+      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកលក់</p>`}
       <p class="font-bold text-[11px]">Seller's Signature &amp; Name</p>
     </div>
   </div>
