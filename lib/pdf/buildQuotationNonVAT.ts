@@ -249,7 +249,7 @@ export function buildQuotationNonVAT(
               <ul style="padding-left:14px;margin:0;list-style-type:disc;">
                 <li style="margin-bottom:3px;"><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
                 <li style="margin-bottom:3px;"><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-                <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+                <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
               </ul>
             </div>
           </td>
