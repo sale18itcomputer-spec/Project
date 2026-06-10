@@ -282,18 +282,18 @@ export function buildCommercialInvoice(
       <div style="margin-bottom:${labelPadding ?? 200}px"></div>
       <div class="border-t-2 border-black mb-4"></div>
       <div class="text-[11px] leading-tight">
-        <div>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
-        <div class="font-normal">Customer's Signature &amp; Name</div>
+        ${hd['Prepared By'] ? `<div class="font-bold">${esc(hd['Prepared By'])}</div>` : ''}
+        ${hd['Prepared By Position'] ? `<div class="text-[12px]">${esc(hd['Prepared By Position'])}</div>` : ''}
+        <div>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>
+        <div class="font-normal">Seller's Signature &amp; Name</div>
       </div>
     </div>
     <div class="w-[35%] text-center">
       <div style="margin-bottom:${labelPadding ?? 200}px"></div>
       <div class="border-t-2 border-black mb-4"></div>
       <div class="text-[11px] leading-tight">
-        ${hd['Prepared By'] ? `<div class="font-bold">${esc(hd['Prepared By'])}</div>` : ''}
-        ${hd['Prepared By Position'] ? `<div class="text-[12px]">${esc(hd['Prepared By Position'])}</div>` : ''}
-        <div>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>
-        <div class="font-normal">Seller's Signature &amp; Name</div>
+        <div>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
+        <div class="font-normal">Customer's Signature &amp; Name</div>
       </div>
     </div>
   </div>

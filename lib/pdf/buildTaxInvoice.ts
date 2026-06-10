@@ -261,8 +261,10 @@ export function buildTaxInvoice(
     <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
-      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>`}
-      <p class="font-bold text-[11px]">Customer's Signature &amp; Name</p>
+      ${hd['Prepared By'] ? `<p class="font-bold text-[11px] mb-0.5">${esc(hd['Prepared By'])}</p>` : ''}
+      ${hd['Prepared By Position'] ? `<p class="text-[12px] mb-1">${esc(hd['Prepared By Position'])}</p>` : ''}
+      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកលក់</p>`}
+      <p class="font-bold text-[11px]">Seller's Signature &amp; Name</p>
     </div>
     ${!showVat ? `<div class="w-[28%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
@@ -273,10 +275,8 @@ export function buildTaxInvoice(
     <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
-      ${hd['Prepared By'] ? `<p class="font-bold text-[11px] mb-0.5">${esc(hd['Prepared By'])}</p>` : ''}
-      ${hd['Prepared By Position'] ? `<p class="text-[12px] mb-1">${esc(hd['Prepared By Position'])}</p>` : ''}
-      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកលក់</p>`}
-      <p class="font-bold text-[11px]">Seller's Signature &amp; Name</p>
+      ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកទិញ</p>`}
+      <p class="font-bold text-[11px]">Customer's Signature &amp; Name</p>
     </div>
   </div>
 </div>
