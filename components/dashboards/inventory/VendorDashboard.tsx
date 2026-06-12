@@ -7,10 +7,11 @@ import { Pencil, Search, ArrowRightToLine, WrapText, Scissors, UserPlus } from '
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useWindowSize } from "../../../hooks/useWindowSize";
-import NewVendorModal from "../../modals/NewVendorModal";
-import { useNavigation } from "../../../contexts/NavigationContext";
+import VendorWindowContent from "../../windows/content/VendorWindowContent";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 
@@ -19,19 +20,21 @@ const VendorDashboard: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     useWindowSize();
-    const { handleNavigation, navigation } = useNavigation();
+    const { openWindow } = useWindowManager();
 
-    const modalConfig = useMemo(() => {
-        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-        const isReadOnly = navigation.action === 'view';
-        const vendor = navigation.id && vendors ? vendors.find(v => v.id === navigation.id) || null : null;
-        return { vendor, isReadOnly, isOpen };
-    }, [navigation.action, navigation.id, vendors]);
+    const openVendorWindow = (vendorId: string | null, initialReadOnly: boolean) => {
+        const id = `vendor-${vendorId ?? 'new'}`;
+        openWindow({
+            id,
+            title: vendorId ? 'Vendor' : 'Add New Vendor',
+            content: <VendorWindowContent windowId={id} vendorId={vendorId} initialReadOnly={initialReadOnly} />,
+            draggable: true,
+        });
+    };
 
-    const handleCloseModal = () => handleNavigation({ view: 'vendors', filter: navigation.filter });
-    const handleOpenNewVendor = () => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'create' });
-    const handleViewVendor = (vendor: Vendor) => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'view', id: vendor.id });
-    const handleEditVendor = (vendor: Vendor) => handleNavigation({ view: 'vendors', filter: navigation.filter, action: 'edit', id: vendor.id });
+    const handleOpenNewVendor = () => openVendorWindow(null, false);
+    const handleViewVendor = (vendor: Vendor) => openVendorWindow(vendor.id, true);
+    const handleEditVendor = (vendor: Vendor) => openVendorWindow(vendor.id, false);
 
     const filteredData = useMemo(() => {
         if (!vendors) return [];
@@ -174,15 +177,14 @@ const VendorDashboard: React.FC = () => {
                             <Pencil size={16} />
                         </button>
                     )}
+                    renderRowContextMenu={(row) => (
+                        <RowActionMenuItems
+                            onView={() => handleViewVendor(row)}
+                            onEdit={() => handleEditVendor(row)}
+                        />
+                    )}
                 />
             </div>
-
-            <NewVendorModal
-                isOpen={modalConfig.isOpen}
-                onClose={handleCloseModal}
-                existingData={modalConfig.vendor}
-                initialReadOnly={modalConfig.isReadOnly}
-            />
         </div>
     );
 };

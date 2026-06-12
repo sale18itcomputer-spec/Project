@@ -8,6 +8,8 @@ import { B2BProvider } from '@/contexts/B2BContext';
 import { NavigationProvider } from '@/contexts/NavigationContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ConnectivityProvider } from '@/contexts/ConnectivityContext';
+import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
+import WindowManagerRoot from '@/components/windows/WindowManagerRoot';
 
 // Polyfill findDOMNode for compatibility with legacy libraries like react-quill
 // in environments where it might be missing (React 19+ or specific Next.js builds)
@@ -20,30 +22,35 @@ if (typeof window !== 'undefined' && !(ReactDOM as any).findDOMNode) {
 }
 
 // ---- Inline Theme Provider (no extra file needed) ----
+export type ThemeMode = 'light' | 'dark' | 'claude';
+
 const ThemeContext = React.createContext<{
+    theme: ThemeMode;
     isDark: boolean;
+    setTheme: (theme: ThemeMode) => void;
     toggle: () => void;
-}>({ isDark: false, toggle: () => {} });
+}>({ theme: 'light', isDark: false, setTheme: () => {}, toggle: () => {} });
 
 export const useTheme = () => React.useContext(ThemeContext);
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [isDark, setIsDark] = React.useState(() => {
-        if (typeof window === 'undefined') return false;
+    const [theme, setThemeState] = React.useState<ThemeMode>(() => {
+        if (typeof window === 'undefined') return 'light';
         const saved = localStorage.getItem('limperial-theme');
-        if (saved) return saved === 'dark';
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'light' || saved === 'dark' || saved === 'claude') return saved;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
     React.useEffect(() => {
         const root = document.documentElement;
-        if (isDark) {
+        if (theme === 'dark' || theme === 'claude') {
             root.classList.add('dark');
             root.classList.remove('b2b-dark');
         } else {
             root.classList.remove('dark');
         }
-        localStorage.setItem('limperial-theme', isDark ? 'dark' : 'light');
+        root.classList.toggle('claude', theme === 'claude');
+        localStorage.setItem('limperial-theme', theme);
 
         // Re-register ECharts theme and force all chart instances to redraw
         import('echarts').then(echarts => {
@@ -52,7 +59,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
                 // Trigger resize on all live ECharts instances so they re-apply
                 // the new theme. A resize call causes ECharts to re-render fully.
                 try {
-                    (echarts as any).getInstanceByDom && 
+                    (echarts as any).getInstanceByDom &&
                     document.querySelectorAll('[_echarts_instance_]').forEach((el) => {
                         const instance = (echarts as any).getInstanceByDom(el as HTMLElement);
                         if (instance && !instance.isDisposed()) {
@@ -64,12 +71,17 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
                 }
             });
         });
-    }, [isDark]);
+    }, [theme]);
 
-    const toggle = React.useCallback(() => setIsDark(p => !p), []);
+    const setTheme = React.useCallback((next: ThemeMode) => setThemeState(next), []);
+    const toggle = React.useCallback(() => {
+        setThemeState(p => p === 'light' ? 'dark' : p === 'dark' ? 'claude' : 'light');
+    }, []);
+
+    const isDark = theme !== 'light';
 
     return (
-        <ThemeContext.Provider value={{ isDark, toggle }}>
+        <ThemeContext.Provider value={{ theme, isDark, setTheme, toggle }}>
             {children}
         </ThemeContext.Provider>
     );
@@ -85,7 +97,10 @@ export default function AppProviders({ children }: { children: React.ReactNode }
                         <NavigationProvider>
                             <NotificationProvider>
                                 <ConnectivityProvider>
-                                    {children}
+                                    <WindowManagerProvider>
+                                        {children}
+                                        <WindowManagerRoot />
+                                    </WindowManagerProvider>
                                 </ConnectivityProvider>
                             </NotificationProvider>
                         </NavigationProvider>

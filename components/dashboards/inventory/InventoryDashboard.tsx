@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { InventoryItem } from '../../../types';
+import { InventoryItem, SerialNumber } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import { supabase } from '../../../lib/supabase';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
@@ -13,10 +14,14 @@ import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { usePermissions } from '../../../hooks/usePermissions';
 import ConfirmationModal from '../../modals/ConfirmationModal';
+import ResizableModal from '../../modals/ResizableModal';
+import InventoryWindowContent from '../../windows/content/InventoryWindowContent';
 import { Badge } from '../../ui/badge';
+import { DropdownMenuItem } from '../../ui/dropdown-menu';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import {
   Warehouse, Search, ArrowRightToLine, WrapText, Scissors, Trash2,
-  Pencil, PackageCheck, PackageX, AlertTriangle,
+  Pencil, PackageCheck, PackageX, AlertTriangle, Hash,
 } from 'lucide-react';
 
 const INVENTORY_COLUMNS_KEY = 'limperial-inventory-columns-visibility';
@@ -38,100 +43,88 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
   return <Badge variant="outline" className={cls}>{status}</Badge>;
 };
 
-// ── Edit modal (inline quick-edit) ────────────────────────────────────────────
-interface EditModalProps {
+// ── View Serials modal ────────────────────────────────────────────────────────
+const SN_STATUS_STYLES: Record<string, string> = {
+  'Active':      'bg-emerald-500/10 text-emerald-500',
+  'In Service':  'bg-blue-500/10 text-blue-500',
+  'Returned':    'bg-amber-500/10 text-amber-500',
+  'Written Off': 'bg-slate-500/10 text-slate-500',
+  'Retired':     'bg-rose-500/10 text-rose-500',
+};
+
+interface ViewSerialsModalProps {
   item: InventoryItem;
+  serials: SerialNumber[];
   onClose: () => void;
-  onSave: (updated: Partial<InventoryItem>) => Promise<void>;
 }
 
-const EditInventoryModal: React.FC<EditModalProps> = ({ item, onClose, onSave }) => {
-  const [form, setForm] = useState({
-    qty: item.qty ?? 0,
-    unit_price: item.unit_price ?? 0,
-    status: item.status ?? 'In Stock',
-    category: item.category ?? '',
-    brand: item.brand ?? '',
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    await onSave(form);
-    setSaving(false);
-  };
-
-  const inputCls =
-    'block w-full px-3 py-2 bg-muted/50 border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition';
-
+const ViewSerialsModal: React.FC<ViewSerialsModalProps> = ({ item, serials, onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold text-foreground text-lg">Edit Inventory Item</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition">✕</button>
+    <ResizableModal isOpen onClose={onClose} title={`Serial Numbers — ${item.model_name || item.code || 'Inventory Item'}`} draggable initialWidth={680} initialHeight={480}>
+      {serials.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
+          <Hash size={32} className="opacity-30" />
+          <p className="text-sm">No serial numbers recorded for this item.</p>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Qty</label>
-              <input type="number" className={inputCls} value={form.qty} min={0} step="0.01"
-                onChange={e => setForm(p => ({ ...p, qty: parseFloat(e.target.value) || 0 }))} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Unit Price</label>
-              <input type="number" className={inputCls} value={form.unit_price} min={0} step="0.01"
-                onChange={e => setForm(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Status</label>
-            <select className={inputCls} value={form.status}
-              onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-              <option value="In Stock">In Stock</option>
-              <option value="Reserved">Reserved</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Category</label>
-            <input className={inputCls} value={form.category}
-              onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="e.g. Components & Parts" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand</label>
-            <input className={inputCls} value={form.brand}
-              onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} placeholder="e.g. ASUS" />
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-muted transition">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="px-6 py-2 text-sm font-bold rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition disabled:opacity-50">
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      ) : (
+        <div className="overflow-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60 sticky top-0 z-10">
+              <tr>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground/80 whitespace-nowrap">Serial No</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground/80 whitespace-nowrap">Status</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground/80 whitespace-nowrap">SO No</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground/80 whitespace-nowrap">Company</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground/80 whitespace-nowrap">Warranty End</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {serials.map(sn => (
+                <tr key={sn.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2.5 font-mono font-semibold whitespace-nowrap">{sn.serial_number}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${SN_STATUS_STYLES[sn.status] ?? 'bg-muted text-muted-foreground'}`}>
+                      {sn.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{sn.so_no || '—'}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground max-w-[180px] truncate" title={sn.company_name}>{sn.company_name || '—'}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{formatDisplayDate(sn.warranty_end_date ?? undefined) || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ResizableModal>
   );
 };
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 const InventoryDashboard: React.FC = () => {
-  const { inventoryItems, setInventoryItems, loading } = useData();
+  const { inventoryItems, setInventoryItems, serialNumbers, loading } = useData();
   const { addToast } = useToast();
   const { currentUser } = useAuth();
   const { showField, can, canView } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
-  const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null);
+  const [itemToViewSerials, setItemToViewSerials] = useState<InventoryItem | null>(null);
+
+  const openInventoryEditWindow = (item: InventoryItem) => {
+    const id = `inventory-${item.id}`;
+    openWindow({
+      id,
+      title: `Editing: ${item.model_name || item.code || 'Inventory Item'}`,
+      content: <InventoryWindowContent windowId={id} itemId={item.id} />,
+      draggable: true,
+      initialWidth: 720,
+      initialHeight: 620,
+    });
+  };
 
   // ── Metrics ──────────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -161,6 +154,17 @@ const InventoryDashboard: React.FC = () => {
     }
     return data;
   }, [inventoryItems, searchQuery, statusFilter]);
+
+  // ── Serial numbers linked to each inventory lot ──────────────────────────────
+  const serialsByInventoryId = useMemo(() => {
+    const map = new Map<string, SerialNumber[]>();
+    (serialNumbers ?? []).forEach(sn => {
+      if (!sn.inventory_id) return;
+      const list = map.get(sn.inventory_id);
+      if (list) list.push(sn); else map.set(sn.inventory_id, [sn]);
+    });
+    return map;
+  }, [serialNumbers]);
 
   // ── Columns ───────────────────────────────────────────────────────────────────
   const allColumns = useMemo<ColumnDef<InventoryItem>[]>(() => {
@@ -289,27 +293,6 @@ const InventoryDashboard: React.FC = () => {
     }
   };
 
-  // ── Edit ──────────────────────────────────────────────────────────────────────
-  const handleSaveEdit = async (updated: Partial<InventoryItem>) => {
-    if (!itemToEdit) return;
-    const id = itemToEdit.id;
-    try {
-      const { error } = await supabase
-        .from('inventory')
-        .update({ ...updated, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-      setInventoryItems(prev =>
-        prev ? prev.map(i => i.id === id ? { ...i, ...updated } : i) : null
-      );
-      addToast('Inventory item updated.', 'success');
-    } catch (err: any) {
-      addToast(`Failed to update: ${err.message}`, 'error');
-    } finally {
-      setItemToEdit(null);
-    }
-  };
-
   // ── Access guard ─────────────────────────────────────────────────────────────
   if (!canView('inventory')) {
     return (
@@ -420,28 +403,55 @@ const InventoryDashboard: React.FC = () => {
           initialSort={{ key: 'created_at', direction: 'descending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['code', 'model_name', 'qty', 'status']}
-          renderRowActions={(row) => (
-            <div className="flex items-center gap-2">
-              {can('inventory', 'edit') && (
-                <button
-                  onClick={e => { e.stopPropagation(); setItemToEdit(row); }}
-                  className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                  title="Edit"
-                >
-                  <Pencil size={16} />
-                </button>
-              )}
-              {can('inventory', 'delete') && (
-                <button
-                  onClick={e => { e.stopPropagation(); setItemToDelete(row); }}
-                  className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                  title="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-          )}
+          renderRowActions={(row) => {
+            const serials = serialsByInventoryId.get(row.id);
+            return (
+              <div className="flex items-center gap-2">
+                {!!serials?.length && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setItemToViewSerials(row); }}
+                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                    title={`View Serial Numbers (${serials.length})`}
+                  >
+                    <Hash size={16} />
+                  </button>
+                )}
+                {can('inventory', 'edit') && (
+                  <button
+                    onClick={e => { e.stopPropagation(); openInventoryEditWindow(row); }}
+                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                    title="Edit"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
+                {can('inventory', 'delete') && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setItemToDelete(row); }}
+                    className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                    title="Delete"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            );
+          }}
+          renderRowContextMenu={(row) => {
+            const serials = serialsByInventoryId.get(row.id);
+            return (
+              <RowActionMenuItems
+                onEdit={can('inventory', 'edit') ? () => openInventoryEditWindow(row) : undefined}
+                onDelete={can('inventory', 'delete') ? () => setItemToDelete(row) : undefined}
+              >
+                {!!serials?.length && (
+                  <DropdownMenuItem onClick={() => setItemToViewSerials(row)}>
+                    <Hash className="mr-2 h-4 w-4" /> View Serials ({serials.length})
+                  </DropdownMenuItem>
+                )}
+              </RowActionMenuItems>
+            );
+          }}
         />
       </div>
 
@@ -474,11 +484,11 @@ const InventoryDashboard: React.FC = () => {
         Are you sure you want to delete <strong>{itemToDelete?.model_name || itemToDelete?.code || 'this item'}</strong>? This cannot be undone.
       </ConfirmationModal>
 
-      {itemToEdit && (
-        <EditInventoryModal
-          item={itemToEdit}
-          onClose={() => setItemToEdit(null)}
-          onSave={handleSaveEdit}
+      {itemToViewSerials && (
+        <ViewSerialsModal
+          item={itemToViewSerials}
+          serials={serialsByInventoryId.get(itemToViewSerials.id) ?? []}
+          onClose={() => setItemToViewSerials(null)}
         />
       )}
     </div>
