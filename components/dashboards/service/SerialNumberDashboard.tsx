@@ -12,6 +12,8 @@ import { supabase } from '../../../lib/supabase';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import NewSerialNumberModal from '../../modals/NewSerialNumberModal';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-serial-number-columns-visibility';
@@ -49,6 +51,7 @@ type ActiveTab = 'registered' | 'from-invoices';
 const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const { serialNumbers, setSerialNumbers, invoices, pricelist, fetchModule, loading } = useData();
   const { addToast } = useToast();
+  const { can } = usePermissions();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('registered');
   const [searchQuery, setSearchQuery] = useState('');
@@ -359,6 +362,12 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
                   </button>
                 </PermissionGate>
               </div>
+            )}
+            renderRowContextMenu={(row) => (
+              <RowActionMenuItems
+                onEdit={can('serial_numbers', 'edit') ? () => handleEdit(row) : undefined}
+                onDelete={can('serial_numbers', 'delete') ? () => setSnToDelete(row) : undefined}
+              />
             )}
           />
         ) : (

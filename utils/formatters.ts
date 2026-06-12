@@ -168,3 +168,42 @@ export const decodeJwt = (token: string) => {
     return null;
   }
 };
+
+/** Strips HTML tags from a rich-text string, converting block elements/line breaks to '\n'. */
+export const stripHtml = (html: string): string => {
+  if (!html) return '';
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    let text = '';
+    const processNode = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tagName = el.tagName.toLowerCase();
+        if (tagName === 'br') text += '\n';
+        if ((tagName === 'p' || tagName === 'div' || tagName === 'ul' || tagName === 'ol' || tagName.match(/^h[1-6]$/)) && text.length > 0 && !text.endsWith('\n')) {
+          text += '\n';
+        }
+        if (tagName === 'li') {
+          if (text.length > 0 && !text.endsWith('\n')) text += '\n';
+          const parent = el.parentElement;
+          if (parent && parent.tagName.toLowerCase() === 'ol') {
+            const index = Array.from(parent.children).indexOf(el) + 1;
+            text += `  ${index}. `;
+          } else {
+            text += '  - ';
+          }
+        }
+        node.childNodes.forEach(processNode);
+        if (tagName === 'p' || tagName === 'div' || tagName === 'li' || tagName.match(/^h[1-6]$/)) {
+          if (!text.endsWith('\n')) text += '\n';
+        }
+      }
+    };
+    doc.body.childNodes.forEach(processNode);
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  } catch {
+    return html.replace(/<[^>]+>/ig, '').trim();
+  }
+};

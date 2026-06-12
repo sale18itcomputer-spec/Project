@@ -19,6 +19,7 @@ import { formatCurrencySmartly } from '@/utils/formatters';
 import { formatDisplayDate } from '@/utils/time';
 import QuickPaymentModal from '@/components/modals/QuickPaymentModal';
 import { usePermissions } from '@/hooks/usePermissions';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 const COLLECTION_STATUSES: CollectionStatus[] = ['Pending', 'Partial', 'Overdue', 'Paid'];
 const AGING_BUCKETS: AgingBucket[] = ['Current', '1-30', '31-60', '61-90', '90+'];
@@ -393,6 +394,18 @@ const CollectionDashboard: React.FC = () => {
                         mobilePrimaryColumns={['invoice', 'outstanding', 'collectionStatus']}
                         cellWrapStyle="nowrap"
                         renderRowActions={renderRowActions}
+                        renderRowContextMenu={(row) => (
+                            <>
+                                {canRecordPayment && row.outstanding > 0 && (
+                                    <DropdownMenuItem onClick={() => setPaymentTarget(row)}>
+                                        <Wallet className="mr-2 h-4 w-4" /> Record Payment
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleNavigation({ view: 'invoices', action: 'view', id: row.invoice['Inv No'] })}>
+                                    <ExternalLink className="mr-2 h-4 w-4" /> Open Invoice
+                                </DropdownMenuItem>
+                            </>
+                        )}
                     />
                 )}
             </div>

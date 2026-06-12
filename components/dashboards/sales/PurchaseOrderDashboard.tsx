@@ -13,10 +13,13 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { supabase } from "../../../lib/supabase";
+import { convertPurchaseOrderToInventory } from "../../../services/inventoryApi";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { Badge } from "../../ui/badge";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
+import { DropdownMenuItem } from "../../ui/dropdown-menu";
 
 const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-visibility';
 
@@ -138,87 +141,19 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
                 return;
             }
 
-            // ── Enrich each PO item with full metadata ────────────────────────
-            // Lookup cascade per item:
-            //   Tier 1 — brand/category stored directly on the PO item (new columns)
-            //   Tier 2 — main pricelist match by Code === item_number
-            //   Tier 3 — vendor_pricelist match by model_name === item_number
-            //   Fallback — raw PO item data
-            const inventoryPayload = items
-                .filter(item => item.qty > 0)
-                .map(item => {
-                    const code = (item.item_number ?? '').trim();
+            const result = await convertPurchaseOrderToInventory(po, items, {
+                pricelist,
+                vendorPricelist,
+                createdBy: currentUser?.Name ?? 'System',
+            });
 
-                    // Tier 1: fields already stored on the PO item (after combobox selection)
-                    const hasPOBrand = !!(item.brand || '').trim();
-
-                    // Tier 2: main pricelist (Code match)
-                    const plMatch = (pricelist ?? []).find(
-                        p => p.Code && p.Code.toLowerCase() === code.toLowerCase()
-                    );
-
-                    // Tier 3: vendor pricelist (model_name match)
-                    const vplMatch = (vendorPricelist ?? []).find(
-                        v => v.model_name && v.model_name.toLowerCase() === code.toLowerCase()
-                    );
-
-                    // Resolve each field with cascade priority
-                    const resolvedBrand    = hasPOBrand         ? item.brand
-                                           : plMatch?.Brand     ? plMatch.Brand
-                                           : vplMatch?.brand    ? vplMatch.brand
-                                           : '';
-
-                    const resolvedCategory = (item.category ?? '').trim()
-                                           ? item.category
-                                           : plMatch?.Category  ? plMatch.Category
-                                           : 'General';
-
-                    // model_name: prefer pricelist Model > vendor model_name > item_number
-                    const resolvedModel    = plMatch?.Model      ? plMatch.Model
-                                           : vplMatch?.model_name ? vplMatch.model_name
-                                           : code || item.description?.substring(0, 80) || 'N/A';
-
-                    // description: PO item description is ground truth (user typed it);
-                    // fall back to pricelist Description or vendor specification
-                    const resolvedDesc     = (item.description ?? '').trim()
-                                           ? item.description
-                                           : plMatch?.Description   ? plMatch.Description
-                                           : vplMatch?.specification ? vplMatch.specification
-                                           : '';
-
-                    // unit_price: PO item price is always the PO-agreed price
-                    const resolvedPrice    = item.unit_price ?? 0;
-
-                    return {
-                        po_id:       po.id,
-                        po_number:   po.po_number,
-                        vendor_id:   po.vendor_id   ?? null,
-                        vendor_name: po.vendor_name ?? '',
-                        category:    resolvedCategory,
-                        code:        code,
-                        brand:       resolvedBrand,
-                        model_name:  resolvedModel,
-                        description: resolvedDesc,
-                        qty:         item.qty,
-                        unit_price:  resolvedPrice,
-                        currency:    po.currency ?? 'USD',
-                        status:      'In Stock',
-                        created_by:  currentUser?.Name ?? 'System',
-                        created_at:  new Date().toISOString(),
-                        updated_at:  new Date().toISOString(),
-                    };
-                });
-
-            const { error: invErr } = await supabase
-                .from('inventory')
-                .insert(inventoryPayload);
-
-            if (invErr) throw invErr;
-
-            addToast(
-                `${inventoryPayload.length} item(s) from PO ${po.po_number} added to Inventory!`,
-                'success'
-            );
+            if (result.alreadyConverted) {
+                addToast(`PO ${po.po_number} has already been converted to Inventory.`, 'info');
+            } else if (result.converted) {
+                addToast(`${result.count} item(s) from PO ${po.po_number} added to Inventory!`, 'success');
+            } else {
+                addToast('No line items with quantity > 0 found on this PO.', 'error');
+            }
         } catch (err: any) {
             addToast(`Failed to convert to inventory: ${err.message}`, 'error');
         } finally {
@@ -432,6 +367,21 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
                                 <Trash2 size={16} />
                             </button>
                         </div>
+                    )}
+                    renderRowContextMenu={(row) => (
+                        <RowActionMenuItems
+                            onEdit={() => handleEditPO(row)}
+                            onDelete={() => handleDeleteRequest(row)}
+                        >
+                            {(row.status === 'Approved' || row.status === 'Completed') && (
+                                <DropdownMenuItem disabled={convertingId === row.id} onClick={() => handleConvertToInventory(row)}>
+                                    <Warehouse className="mr-2 h-4 w-4" /> Convert to Inventory
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem disabled={isDuplicating} onClick={() => handleDuplicatePO(row)}>
+                                <Copy className="mr-2 h-4 w-4" /> Duplicate
+                            </DropdownMenuItem>
+                        </RowActionMenuItems>
                     )}
                 />
             </div>

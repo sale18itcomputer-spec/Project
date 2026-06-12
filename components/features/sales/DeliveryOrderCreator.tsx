@@ -50,7 +50,7 @@ interface Props {
 }
 
 const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData }) => {
-    const { deliveryOrders, setDeliveryOrders, invoices, saleOrders, companies, contacts, refetchModule } = useData();
+    const { deliveryOrders, setDeliveryOrders, invoices, saleOrders, companies, contacts, pricelist, refetchModule, setSerialNumbers } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -272,79 +272,149 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             }
 
             // ── When DO is Delivered: deduct inventory qty + post COGS JE ────
+            let syncedSerials = false;
             if (doc['Status'] === 'Delivered') {
-                // 1. Deduct stock from inventory — match by item_number / model_name
-                //    We try to find matching inventory rows and reduce their qty.
-                //    Non-fatal: if nothing matches, skip silently.
-                try {
-                    for (const item of items) {
-                        const qty = Number(item.qty) || 0;
-                        if (qty <= 0) continue;
-                        const code = item.itemCode?.trim();
-                        const model = item.modelName?.trim();
-                        if (!code && !model) continue;
-
-                        // Find the first In Stock inventory row matching this item
-                        let matchQuery = supabase
-                            .from('inventory')
-                            .select('id, qty')
-                            .eq('status', 'In Stock')
-                            .gt('qty', 0)
-                            .order('created_at', { ascending: true })
-                            .limit(1);
-
-                        if (code) {
-                            matchQuery = matchQuery.eq('model_name', code);
-                        } else {
-                            matchQuery = matchQuery.ilike('model_name', `%${model}%`);
-                        }
-
-                        const { data: invRows } = await matchQuery;
-                        if (!invRows || invRows.length === 0) continue;
-
-                        const inv = invRows[0];
-                        const newQty = Math.max(0, Number(inv.qty) - qty);
-                        await supabase
-                            .from('inventory')
-                            .update({
-                                qty:    newQty,
-                                status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
-                            })
-                            .eq('id', inv.id);
-                    }
-                } catch (invErr: any) {
-                    console.warn('[DeliveryOrderCreator] inventory deduction failed:', invErr.message);
-                }
-
-                // 2. Auto-post COGS journal entry (DR COGS / CR Inventory) — non-fatal
-                //    We need cost price per item. Fetch from inventory by item code.
+                // For each line item, find the matching in-stock inventory lot
+                // (oldest first / FIFO), deduct its qty, and collect its cost for
+                // the COGS journal entry. Deduction and cost lookup share the same
+                // matched row so they can never diverge. Prefer an exact match on
+                // inventory.code (aligned to pricelist.Code at PO→Inventory
+                // conversion — see services/inventoryApi.ts), falling back to a
+                // fuzzy model_name match for legacy rows. Also sync any captured
+                // serial number(s) into the serial_numbers table, linked to the
+                // matched inventory row, so warranty tracking stays in sync with
+                // what's delivered. Non-fatal: if nothing matches / nothing to
+                // sync, skip silently.
                 try {
                     const costItems: { brand?: string; qty: number; unit_price: number }[] = [];
+                    const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+                    const warrantyStart = doc['DO Date'] || getTodayDateString();
+                    const addMonths = (dateStr: string, months: number): string => {
+                        const d = new Date(dateStr + 'T00:00:00');
+                        d.setMonth(d.getMonth() + months);
+                        return d.toISOString().slice(0, 10);
+                    };
+                    const warrantyEnd = addMonths(warrantyStart, 12);
+
                     for (const item of items) {
                         const qty = Number(item.qty) || 0;
                         if (qty <= 0) continue;
                         const code  = item.itemCode?.trim();
                         const model = item.modelName?.trim();
-                        if (!code && !model) continue;
 
-                        let costQuery = supabase
-                            .from('inventory')
-                            .select('unit_price, brand')
-                            .order('created_at', { ascending: true })
-                            .limit(1);
+                        let matchedInvId: string | null = null;
 
-                        if (code) {
-                            costQuery = costQuery.eq('model_name', code);
-                        } else {
-                            costQuery = costQuery.ilike('model_name', `%${model}%`);
+                        if (code || model) {
+                            let invRows: any[] | null = null;
+
+                            if (code) {
+                                const { data } = await supabase
+                                    .from('inventory')
+                                    .select('id, qty, unit_price, brand')
+                                    .eq('status', 'In Stock')
+                                    .gt('qty', 0)
+                                    .eq('code', code)
+                                    .order('created_at', { ascending: true })
+                                    .limit(1);
+                                invRows = data;
+                            }
+
+                            if ((!invRows || invRows.length === 0) && model) {
+                                const { data } = await supabase
+                                    .from('inventory')
+                                    .select('id, qty, unit_price, brand')
+                                    .eq('status', 'In Stock')
+                                    .gt('qty', 0)
+                                    .ilike('model_name', `%${model}%`)
+                                    .order('created_at', { ascending: true })
+                                    .limit(1);
+                                invRows = data;
+                            }
+
+                            if (invRows && invRows.length > 0) {
+                                const inv = invRows[0];
+                                const newQty = Math.max(0, Number(inv.qty) - qty);
+                                await supabase
+                                    .from('inventory')
+                                    .update({
+                                        qty:    newQty,
+                                        status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
+                                    })
+                                    .eq('id', inv.id);
+
+                                matchedInvId = inv.id;
+                                if (Number(inv.unit_price) > 0) {
+                                    costItems.push({ brand: inv.brand ?? undefined, qty, unit_price: Number(inv.unit_price) });
+                                }
+                            }
                         }
 
-                        const { data: costRows } = await costQuery;
-                        const unit_price = costRows?.[0]?.unit_price ?? 0;
-                        const brand      = costRows?.[0]?.brand      ?? undefined;
+                        const serials = (item.serialNumber || '')
+                            .split('\n')
+                            .map(s => s.trim())
+                            .filter(s => s.length > 0);
 
-                        if (unit_price > 0) {
-                            costItems.push({ brand, qty, unit_price });
+                        for (const sn of serials) {
+                            const { data: existingSN } = await supabase
+                                .from('serial_numbers')
+                                .select('id')
+                                .eq('serial_number', sn)
+                                .limit(1);
+
+                            if (existingSN && existingSN.length > 0) {
+                                // Row already exists (e.g. seeded at PO intake) — update it
+                                // with this sale's customer/warranty info instead of skipping,
+                                // so the lifecycle transitions from "in stock" to "sold".
+                                const { data: updatedSN, error: updErr } = await supabase
+                                    .from('serial_numbers')
+                                    .update({
+                                        brand: (code && brandMap.get(code)) || '',
+                                        model_name: item.modelName || '',
+                                        description: item.description || '',
+                                        inventory_id: matchedInvId,
+                                        so_no: doc['SO No'] || '',
+                                        company_name: doc['Company Name'] || '',
+                                        contact_name: doc['Contact Name'] || '',
+                                        warranty_start_date: warrantyStart,
+                                        warranty_period_months: 12,
+                                        warranty_end_date: warrantyEnd,
+                                        status: 'Active',
+                                    })
+                                    .eq('id', existingSN[0].id)
+                                    .select()
+                                    .single();
+
+                                if (!updErr && updatedSN) {
+                                    setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
+                                    syncedSerials = true;
+                                }
+                                continue;
+                            }
+
+                            const { data: newSN, error: snErr } = await supabase
+                                .from('serial_numbers')
+                                .insert({
+                                    serial_number: sn,
+                                    brand: (code && brandMap.get(code)) || '',
+                                    model_name: item.modelName || '',
+                                    description: item.description || '',
+                                    inventory_id: matchedInvId,
+                                    so_no: doc['SO No'] || '',
+                                    company_name: doc['Company Name'] || '',
+                                    contact_name: doc['Contact Name'] || '',
+                                    warranty_start_date: warrantyStart,
+                                    warranty_period_months: 12,
+                                    warranty_end_date: warrantyEnd,
+                                    status: 'Active',
+                                    created_by: currentUser?.Name || '',
+                                })
+                                .select()
+                                .single();
+
+                            if (!snErr && newSN) {
+                                setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
+                                syncedSerials = true;
+                            }
                         }
                     }
 
@@ -356,12 +426,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                             createdBy: currentUser?.Name || 'system',
                         }).catch(err => console.warn('[DeliveryOrderCreator] COGS auto-post failed:', err));
                     }
-                } catch (cogErr: any) {
-                    console.warn('[DeliveryOrderCreator] COGS lookup failed:', cogErr.message);
+                } catch (invErr: any) {
+                    console.warn('[DeliveryOrderCreator] inventory/serial sync failed:', invErr.message);
                 }
             }
 
             refetchModule('Delivery Orders');
+            if (syncedSerials) refetchModule('Serial Numbers');
             setSuccessInfo({ doNo: doc['DO No']! });
         } catch (err: any) {
             addToast(err.message || 'Failed to save Delivery Order', 'error');

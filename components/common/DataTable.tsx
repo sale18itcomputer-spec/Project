@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Download } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import EmptyState from "./EmptyState";
+import RowContextMenu from "./RowContextMenu";
 import { parseDate } from "../../utils/time";
 import { parseSheetValue } from "../../utils/formatters";
 import { useResizableColumns } from "../../hooks/useResizableColumns";
@@ -27,6 +28,7 @@ interface DataTableProps<T extends object> {
   mobilePrimaryColumns: (keyof T)[];
   cellWrapStyle?: 'overflow' | 'wrap' | 'clip' | 'nowrap';
   renderRowActions?: (row: T) => React.ReactNode;
+  renderRowContextMenu?: (row: T) => React.ReactNode;
   stickyFirstColumn?: boolean;
 }
 
@@ -147,6 +149,7 @@ function DataTable<T extends object>({
   mobilePrimaryColumns,
   cellWrapStyle = 'overflow',
   renderRowActions,
+  renderRowContextMenu,
   stickyFirstColumn = true,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,6 +157,7 @@ function DataTable<T extends object>({
   const [sortConfig, setSortConfig] = useState<{ key: keyof T | null; direction: 'ascending' | 'descending' }>(initialSort || { key: null, direction: 'ascending' });
   const { columnWidths, handleMouseDown, tableRef, resizingColumn, autoFitColumn } = useResizableColumns(tableId, columns);
   const [expandedRows, setExpandedRows] = useState(new Set<number>());
+  const [contextMenu, setContextMenu] = useState<{ row: T; x: number; y: number } | null>(null);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { width } = useWindowSize();
@@ -243,6 +247,13 @@ function DataTable<T extends object>({
     }
   };
 
+  const handleRowContextMenu = (e: React.MouseEvent, item: T) => {
+    if (!renderRowContextMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ row: item, x: e.clientX, y: e.clientY });
+  };
+
   // Mobile card renderer — fires when isMobile is true
   const renderMobileCards = () => {
     if (loading) return <MobileTableSkeleton columns={columns.length} />;
@@ -265,6 +276,7 @@ function DataTable<T extends object>({
             <li
               key={globalIndex}
               onClick={() => handleRowClick(item, globalIndex)}
+              onContextMenu={(e) => handleRowContextMenu(e, item)}
               className={`px-4 py-3 flex items-start gap-3 active:bg-accent/60 transition-colors ${
                 isHighlighted ? 'bg-amber-500/10' : 'bg-card'
               } ${onRowClick ? 'cursor-pointer' : ''}`}
@@ -549,6 +561,7 @@ function DataTable<T extends object>({
                         }}
                         onClick={() => handleRowClick(item, globalIndex)}
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(item, globalIndex)}
+                        onContextMenu={(e) => handleRowContextMenu(e, item)}
                         tabIndex={onRowClick || isMobile ? 0 : -1}
                       >
                         {columns.map((col, colIndex) => {
@@ -662,6 +675,17 @@ function DataTable<T extends object>({
             <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-muted-foreground" /></button>
           </nav>
         </div>
+      )}
+
+      {renderRowContextMenu && (
+        <RowContextMenu
+          open={!!contextMenu}
+          x={contextMenu?.x ?? 0}
+          y={contextMenu?.y ?? 0}
+          onOpenChange={(open) => !open && setContextMenu(null)}
+        >
+          {contextMenu && renderRowContextMenu(contextMenu.row)}
+        </RowContextMenu>
       )}
     </div>
   );

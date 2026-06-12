@@ -13,6 +13,7 @@ import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
@@ -334,6 +335,12 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
                 >
                   <Pencil size={16} />
                 </button>
+              )}
+              renderRowContextMenu={(row) => (
+                <RowActionMenuItems
+                  onView={() => handleViewMeeting(row)}
+                  onEdit={() => handleEditMeeting(row)}
+                />
               )}
             />
           </div>

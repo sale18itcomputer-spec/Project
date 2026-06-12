@@ -26,7 +26,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
         const tg = (window as any).Telegram?.WebApp;
         if (tg?.colorScheme) return tg.colorScheme === 'dark';
         const saved = localStorage.getItem('limperial-theme');
-        if (saved) return saved === 'dark';
+        if (saved) return saved !== 'light';
         return window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
 

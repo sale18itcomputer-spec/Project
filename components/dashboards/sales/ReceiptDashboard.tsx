@@ -14,6 +14,7 @@ import ReceiptCreator from '../../features/sales/ReceiptCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { Wallet, ArrowRight } from 'lucide-react';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
 
 const RV_COLUMNS_KEY = 'limperial-rv-columns-visibility';
 type ViewMode = 'table' | 'detail';
@@ -240,6 +241,9 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                             <div className="flex items-center justify-center gap-3">
                                 <button onClick={e => { e.stopPropagation(); handleView(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="View"><Info size={16} /></button>
                             </div>
+                        )}
+                        renderRowContextMenu={row => (
+                            <RowActionMenuItems onView={() => handleView(row)} />
                         )}
                     />
                 ) : (

@@ -7,51 +7,14 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { supabase } from "../../../lib/supabase";
 import { autoPostPurchaseOrderJournal } from "../../../services/accountingApi";
+import { convertPurchaseOrderToInventory } from "../../../services/inventoryApi";
 import { Plus, Trash2, Save, ShoppingCart, PanelRight, Download, Loader2 } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from "../../common/FormControls";
-import { formatCurrencySmartly } from "../../../utils/formatters";
+import { formatCurrencySmartly, stripHtml } from "../../../utils/formatters";
 import { formatToInputDate } from "../../../utils/time";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { generatePDF } from "@/lib/pdfClient";
 import { ScrollArea } from "../../ui/scroll-area";
-
-const STRIP_HTML = (html: string) => {
-    if (!html) return '';
-    try {
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        let text = '';
-        const processNode = (node: Node) => {
-            if (node.nodeType === Node.TEXT_NODE) {
-                text += node.textContent;
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                const el = node as HTMLElement;
-                const tagName = el.tagName.toLowerCase();
-                if (tagName === 'br') text += '\n';
-                if ((tagName === 'p' || tagName === 'div' || tagName === 'ul' || tagName === 'ol' || tagName.match(/^h[1-6]$/)) && text.length > 0 && !text.endsWith('\n')) {
-                    text += '\n';
-                }
-                if (tagName === 'li') {
-                    if (text.length > 0 && !text.endsWith('\n')) text += '\n';
-                    const parent = el.parentElement;
-                    if (parent && parent.tagName.toLowerCase() === 'ol') {
-                        const index = Array.from(parent.children).indexOf(el) + 1;
-                        text += `  ${index}. `;
-                    } else {
-                        text += '  - ';
-                    }
-                }
-                node.childNodes.forEach(processNode);
-                if (tagName === 'p' || tagName === 'div' || tagName === 'li' || tagName.match(/^h[1-6]$/)) {
-                    if (!text.endsWith('\n')) text += '\n';
-                }
-            }
-        };
-        doc.body.childNodes.forEach(processNode);
-        return text.replace(/\n{3,}/g, '\n\n').trim();
-    } catch {
-        return html.replace(/<[^>]+>/ig, '').trim();
-    }
-};
 
 // ── POItemCombobox ────────────────────────────────────────────────────────────
 // Searches vendor_pricelist (dealer items) + main pricelist (B2C items) so
@@ -59,7 +22,7 @@ const STRIP_HTML = (html: string) => {
 interface POItemComboboxProps {
     value: string;
     onChange: (value: string) => void;
-    onSelect: (fields: { item_number: string; description: string; unit_price: number; brand: string; category: string }) => void;
+    onSelect: (fields: { item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string }) => void;
 }
 
 const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSelect }) => {
@@ -174,6 +137,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                                                     e.preventDefault();
                                                     onSelect({
                                                         item_number: r.code,
+                                                        model_name: r.model,
                                                         description: r.spec,
                                                         unit_price: r.price,
                                                         brand: r.brand,
@@ -221,8 +185,6 @@ interface PurchaseOrderCreatorProps {
 
 const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, existingPO, initialData }) => {
     const { vendors, vendorPricelist, pricelist } = useData();
-    // vendorPricelist and pricelist are consumed by POItemCombobox (child component)
-    void vendorPricelist; void pricelist;
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PurchaseOrder>>({
@@ -363,7 +325,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
 
     /** Called when a user selects from the POItemCombobox — fills all fields at once */
     const handleItemSelectFromLookup = (index: number, fields: {
-        item_number: string; description: string; unit_price: number; brand: string; category: string;
+        item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string;
     }) => {
         setItems(prev => prev.map((item, i) =>
             i === index
@@ -418,11 +380,13 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 po_id: poId,
                 line_number: item.line_number,
                 item_number: item.item_number,
+                model_name: item.model_name ?? '',
                 description: item.description,
                 qty: item.qty,
                 unit_price: item.unit_price,
                 brand: item.brand ?? '',
                 category: item.category ?? '',
+                serial_number: item.serial_number ?? '',
             }));
 
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
@@ -443,8 +407,8 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                         .map(item => ({
                             vendor_id: formData.vendor_id,
                             brand: '',
-                            model_name: item.item_number || STRIP_HTML(item.description).substring(0, 50) || 'N/A',
-                            specification: STRIP_HTML(item.description),
+                            model_name: item.item_number || stripHtml(item.description).substring(0, 50) || 'N/A',
+                            specification: stripHtml(item.description),
                             dealer_price: item.unit_price,
                             currency: formData.currency || 'USD',
                             status: 'Available' as const,
@@ -460,32 +424,15 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                     addToast(`PO saved, but pricelist sync failed: ${pe.message}`, 'info');
                 }
 
-                // ── Auto-create Inventory items from PO line items (non-fatal) ──
+                // ── Auto-convert PO → Inventory (non-fatal, guarded against double-conversion) ──
                 try {
-                    const inventoryPayload = items
-                        .filter(item => item.qty > 0)
-                        .map(item => ({
-                            po_id:        poId,
-                            po_number:    formData.po_number || '',
-                            vendor_id:    formData.vendor_id || null,
-                            vendor_name:  formData.vendor_name || '',
-                            brand:        item.brand        || '',
-                            category:     item.category     || '',
-                            model_name:   item.item_number  || STRIP_HTML(item.description).substring(0, 100) || 'N/A',
-                            description:  STRIP_HTML(item.description),
-                            qty:          item.qty,
-                            unit_price:   item.unit_price,
-                            currency:     formData.currency || 'USD',
-                            status:       'In Stock',
-                            created_by:   currentUser?.Name || 'System',
-                        }));
-
-                    if (inventoryPayload.length > 0) {
-                        const { error: invError } = await supabase
-                            .from('inventory')
-                            .insert(inventoryPayload);
-                        if (invError) throw invError;
-                        addToast(`${inventoryPayload.length} item(s) added to Inventory!`, 'success');
+                    const result = await convertPurchaseOrderToInventory(
+                        { ...formData, id: poId, po_number: formData.po_number || '' } as PurchaseOrder,
+                        items,
+                        { pricelist, vendorPricelist, createdBy: currentUser?.Name || 'System' }
+                    );
+                    if (result.converted) {
+                        addToast(`${result.count} item(s) added to Inventory!`, 'success');
                     }
                 } catch (ie: any) {
                     // Non-fatal: PO is already saved — just warn
@@ -527,7 +474,7 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                 items: items.map(item => ({
                     no: item.line_number,
                     itemCode: item.item_number,
-                    description: STRIP_HTML(item.description),
+                    description: stripHtml(item.description),
                     qty: item.qty,
                     unitPrice: item.unit_price,
                     amount: item.qty * item.unit_price
@@ -663,14 +610,16 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                 </button>
                             </div>
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[700px]">
+                                <table className="w-full text-left border-collapse min-w-[940px]">
                                     <thead>
                                         <tr className="bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
                                             <th className="px-4 py-3 w-12">No.</th>
                                             <th className="px-4 py-3 w-36">Item # / Code</th>
+                                            <th className="px-4 py-3 w-28">Model</th>
                                             <th className="px-4 py-3 w-24">Brand</th>
                                             <th className="px-4 py-3 w-28">Category</th>
                                             <th className="px-4 py-3 min-w-[200px]">Description</th>
+                                            <th className="px-4 py-3 min-w-[160px]">Serial Numbers</th>
                                             <th className="px-4 py-3 w-20">Qty</th>
                                             <th className="px-4 py-3 w-28">Unit Price</th>
                                             <th className="px-4 py-3 w-28">Total</th>
@@ -688,6 +637,16 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                                         value={item.item_number}
                                                         onChange={val => handleItemChange(index, 'item_number', val)}
                                                         onSelect={fields => handleItemSelectFromLookup(index, fields)}
+                                                    />
+                                                </td>
+
+                                                {/* ── Model (auto-filled, editable) ── */}
+                                                <td className="px-2 py-3">
+                                                    <input
+                                                        className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm"
+                                                        value={item.model_name ?? ''}
+                                                        onChange={e => handleItemChange(index, 'model_name', e.target.value)}
+                                                        placeholder="Model"
                                                     />
                                                 </td>
 
@@ -718,6 +677,17 @@ const PurchaseOrderCreator: React.FC<PurchaseOrderCreatorProps> = ({ onBack, exi
                                                         value={item.description}
                                                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                                                         placeholder="Add detailed description..."
+                                                        rows={2}
+                                                    />
+                                                </td>
+
+                                                {/* ── Serial Numbers (one per line) ── */}
+                                                <td className="px-2 py-3 min-w-[160px]">
+                                                    <textarea
+                                                        className="w-full bg-background rounded border border-border/50 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm text-xs px-2 py-1.5 resize-y min-h-[60px] outline-none font-mono"
+                                                        value={item.serial_number ?? ''}
+                                                        onChange={(e) => handleItemChange(index, 'serial_number', e.target.value)}
+                                                        placeholder={'SN001\nSN002\nSN003...'}
                                                         rows={2}
                                                     />
                                                 </td>

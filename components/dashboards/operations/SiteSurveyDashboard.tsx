@@ -13,6 +13,7 @@ import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -275,6 +276,12 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
                 >
                   <Pencil size={16} />
                 </button>
+              )}
+              renderRowContextMenu={(row) => (
+                <RowActionMenuItems
+                  onView={() => handleViewSurvey(row)}
+                  onEdit={() => handleEditSurvey(row)}
+                />
               )}
             />
           </div>

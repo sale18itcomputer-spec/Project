@@ -13,6 +13,8 @@ import { supabase } from '../../../lib/supabase';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import ServiceTicketCreator from '../../features/service/ServiceTicketCreator';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-service-ticket-columns-visibility';
@@ -43,6 +45,7 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
   const { serviceTickets, setServiceTickets, loading } = useData();
   const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
+  const { can } = usePermissions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
@@ -250,6 +253,12 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
                 </button>
               </PermissionGate>
             </div>
+          )}
+          renderRowContextMenu={(row) => (
+            <RowActionMenuItems
+              onEdit={can('service_tickets', 'edit') ? () => handleEdit(row) : undefined}
+              onDelete={can('service_tickets', 'delete') ? () => handleDeleteRequest(row) : undefined}
+            />
           )}
         />
       </div>

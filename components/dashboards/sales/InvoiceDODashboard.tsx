@@ -19,6 +19,7 @@ import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
 
 interface InvoiceDODashboardProps {
     initialPayload?: any;
@@ -345,6 +346,13 @@ const InvoiceDashboard: React.FC<InvoiceDODashboardProps> = ({ initialPayload })
                                     </button>
                                 )}
                             </div>
+                        )}
+                        renderRowContextMenu={(row) => (
+                            <RowActionMenuItems
+                                onView={() => handleViewInvoice(row)}
+                                onEdit={can('invoices', 'edit') ? () => handleEditInvoice(row) : undefined}
+                                onDelete={can('invoices', 'delete') ? () => handleDeleteRequest(row) : undefined}
+                            />
                         )}
                     />
                 ) : (

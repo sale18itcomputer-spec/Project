@@ -11,6 +11,8 @@ import { supabase } from '../../../lib/supabase';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import NewSparePartModal from '../../modals/NewSparePartModal';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-spare-part-columns-visibility';
@@ -31,6 +33,7 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
 const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const { spareParts, setSpareParts, loading } = useData();
   const { addToast } = useToast();
+  const { can } = usePermissions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
@@ -224,6 +227,12 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
                 </button>
               </PermissionGate>
             </div>
+          )}
+          renderRowContextMenu={(row) => (
+            <RowActionMenuItems
+              onEdit={can('spare_parts', 'edit') ? () => handleEdit(row) : undefined}
+              onDelete={can('spare_parts', 'delete') ? () => setPartToDelete(row) : undefined}
+            />
           )}
         />
       </div>

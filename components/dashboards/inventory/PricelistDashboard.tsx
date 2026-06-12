@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "../../ui/badge";
 import PricelistFilterBar from "../components/PricelistFilterBar";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
+import RowActionMenuItems from "../../common/RowActionMenuItems";
 
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
@@ -380,6 +381,12 @@ const PricelistDashboard: React.FC = () => {
                                 >
                                     <Pencil size={16} />
                                 </button>
+                            )}
+                            renderRowContextMenu={(row) => (
+                                <RowActionMenuItems
+                                    onView={() => handleViewItem(row)}
+                                    onEdit={() => handleEditItem(row)}
+                                />
                             )}
                         />
                     </div>

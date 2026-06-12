@@ -331,6 +331,15 @@
         --input: 217 19% 27%;
         --ring: 212.7 26.8% 83.9%;
     }
+
+    /* Claude appearance — applied alongside .dark (root gets "dark claude").
+       Keeps the same #262624 warm-charcoal base and swaps the brand accent
+       for Claude.ai's signature terracotta. */
+    .claude {
+        --primary:            15 54% 51%;  /* #c6613f */
+        --primary-foreground: 48 20% 95%;  /* #f5f4f0 */
+        --ring:               15 54% 51%;
+    }
 }
 
 @layer base {

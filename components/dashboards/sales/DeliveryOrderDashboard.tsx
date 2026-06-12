@@ -17,6 +17,7 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
 
 const DO_COLUMNS_KEY = 'limperial-do-columns-visibility';
 type ViewMode = 'table' | 'detail';
@@ -271,6 +272,13 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                                 <button onClick={e => { e.stopPropagation(); handleEdit(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="Edit"><Pencil size={16} /></button>
                                 <button onClick={e => { e.stopPropagation(); setToDelete(row); }} className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full" title="Delete"><Trash2 size={16} /></button>
                             </div>
+                        )}
+                        renderRowContextMenu={row => (
+                            <RowActionMenuItems
+                                onView={() => handleView(row)}
+                                onEdit={() => handleEdit(row)}
+                                onDelete={() => setToDelete(row)}
+                            />
                         )}
                     />
                 ) : (

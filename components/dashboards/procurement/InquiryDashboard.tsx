@@ -13,6 +13,8 @@ import { supabase } from '../../../lib/supabase';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import InquiryCreator from '../../features/procurement/InquiryCreator';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-inquiry-columns-visibility';
@@ -42,6 +44,7 @@ const InquiryDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter 
   const { productInquiries, setProductInquiries, loading } = useData();
   const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
+  const { can } = usePermissions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
@@ -278,6 +281,12 @@ const InquiryDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter 
                 </button>
               </PermissionGate>
             </div>
+          )}
+          renderRowContextMenu={(row) => (
+            <RowActionMenuItems
+              onEdit={can('product_inquiries', 'edit') ? () => handleEdit(row) : undefined}
+              onDelete={can('product_inquiries', 'delete') ? () => handleDeleteRequest(row) : undefined}
+            />
           )}
         />
       </div>

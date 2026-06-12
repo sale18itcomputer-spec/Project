@@ -18,6 +18,7 @@ import { useNavigation } from "../../../contexts/NavigationContext";
 
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
 
@@ -359,6 +360,12 @@ const VendorPricelistDashboard: React.FC = () => {
                         >
                             <Pencil size={16} />
                         </button>
+                    )}
+                    renderRowContextMenu={(row) => (
+                        <RowActionMenuItems
+                            onView={() => handleViewItem(row)}
+                            onEdit={() => handleEditItem(row)}
+                        />
                     )}
                 />
             </div>

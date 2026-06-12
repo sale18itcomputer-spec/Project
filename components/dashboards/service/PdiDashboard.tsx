@@ -13,6 +13,8 @@ import { supabase } from '../../../lib/supabase';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 import PdiCreator from '../../features/service/PdiCreator';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-pdi-columns-visibility';
@@ -42,6 +44,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
   const { pdiRecords, setPdiRecords, loading } = useData();
   const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
+  const { can } = usePermissions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
@@ -246,6 +249,12 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
                 </button>
               </PermissionGate>
             </div>
+          )}
+          renderRowContextMenu={(row) => (
+            <RowActionMenuItems
+              onEdit={can('pdi_records', 'edit') ? () => handleEdit(row) : undefined}
+              onDelete={can('pdi_records', 'delete') ? () => handleDeleteRequest(row) : undefined}
+            />
           )}
         />
       </div>

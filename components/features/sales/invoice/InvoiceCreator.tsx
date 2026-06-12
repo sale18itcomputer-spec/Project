@@ -7,6 +7,7 @@ import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
 import { autoPostInvoiceJournal } from "../../../../services/accountingApi";
+import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
@@ -24,6 +25,7 @@ interface InvoiceCreatorProps {
     initialData?: {
         action: string;
         soData?: SaleOrder;
+        duplicateOf?: Invoice;
     };
 }
 
@@ -54,7 +56,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 };
 
 const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice, initialData }) => {
-    const { invoices, setInvoices, companies, contacts, saleOrders, pricelist, refetchModule } = useData();
+    const { invoices, setInvoices, companies, contacts, saleOrders, pricelist, refetchModule, setSerialNumbers } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -78,7 +80,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [nextInvNo, setNextInvNo] = useState('');
     useEffect(() => {
         if (existingInvoice) return;
-        const taxable: string = initialData?.soData?.['Bill Invoice'] || 'VAT';
+        const taxable: string = initialData?.soData?.['Bill Invoice'] || initialData?.duplicateOf?.['Taxable'] || 'VAT';
         generateInvNo(taxable).then(setNextInvNo).catch(() => {
             // Fallback: derive from current-mode cache if the DB query fails
             const year = new Date().getFullYear().toString();
@@ -150,6 +152,40 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 setItems(soItems.map((item: any) => ({
                     ...item,
                     id: item.id || `item-${Math.random()}`
+                })));
+            }
+        } else if (initialData?.duplicateOf) {
+            const src = initialData.duplicateOf;
+            const invDate = getTodayDateString();
+            const dueDate = calcDueDate(invDate, src['Payment Term']);
+
+            const {
+                'Inv No': _srcInvNo,
+                'Created By': _srcCreatedBy,
+                'Attachment': _srcAttachment,
+                'created_at': _srcCreatedAt,
+                'updated_at': _srcUpdatedAt,
+                ...rest
+            } = src;
+
+            setInvoice({
+                ...rest,
+                'Inv No': nextInvNo,
+                'Inv Date': invDate,
+                'Due Date': dueDate,
+                'Status': 'Draft',
+            });
+
+            let srcItems = [];
+            if (typeof src.ItemsJSON === 'string') {
+                try { srcItems = JSON.parse(src.ItemsJSON); } catch { }
+            } else {
+                srcItems = src.ItemsJSON || [];
+            }
+            if (srcItems.length > 0) {
+                setItems(srcItems.map((item: any) => ({
+                    ...item,
+                    id: `item-${Math.random()}`
                 })));
             }
         } else {
@@ -326,6 +362,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 return isNaN(n) ? null : n;
             };
 
+            const addMonths = (dateStr: string, months: number): string => {
+                const d = new Date(dateStr + 'T00:00:00');
+                d.setMonth(d.getMonth() + months);
+                return d.toISOString().slice(0, 10);
+            };
+
             const payload = {
                 ...invoice,
                 'SO No': invoice['SO No'] || null,
@@ -337,6 +379,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'ItemsJSON': items,
                 'Created By': invoice['Created By'] || currentUser?.Name || '',
             };
+
+            // ── When Invoice is issued (Draft → non-Draft): deduct inventory qty ──
+            // Mirrors the deduction in DeliveryOrderCreator (DO Status === 'Delivered'),
+            // but keyed off the Invoice's Draft → issued transition since not every
+            // sale gets a Delivery Order. Only fires once, on the transition, so
+            // re-saving an already-issued invoice doesn't deduct twice.
+            const wasDraft = !existingInvoice || existingInvoice['Status'] === 'Draft';
+            const isNowIssued = invoice['Status'] !== 'Draft';
+            let deductedInventory = false;
+            let syncedSerials = false;
 
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
@@ -371,7 +423,146 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     }).catch(err => console.warn('[InvoiceCreator] auto-post failed:', err));
                 }
             }
+
+            if (wasDraft && isNowIssued) {
+                // For each line item, find the matching in-stock inventory lot
+                // (oldest first / FIFO) and deduct its qty. Prefer an exact match
+                // on inventory.code, falling back to a fuzzy model_name match for
+                // legacy rows. Also sync any captured serial number(s) into the
+                // serial_numbers table, linked to the matched inventory row, so
+                // warranty tracking stays in sync with what's sold. Non-fatal:
+                // if nothing matches / nothing to sync, skip silently.
+                const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+                const warrantyStart = invoice['Inv Date'] || getTodayDateString();
+                const warrantyEnd = addMonths(warrantyStart, 12);
+
+                try {
+                    for (const item of items) {
+                        const qty = Number(item.qty) || 0;
+                        if (qty <= 0) continue;
+                        const code  = item.itemCode?.trim();
+                        const model = item.modelName?.trim();
+
+                        let matchedInvId: string | null = null;
+
+                        if (code || model) {
+                            let invRows: any[] | null = null;
+
+                            if (code) {
+                                const { data } = await supabase
+                                    .from('inventory')
+                                    .select('id, qty')
+                                    .eq('status', 'In Stock')
+                                    .gt('qty', 0)
+                                    .eq('code', code)
+                                    .order('created_at', { ascending: true })
+                                    .limit(1);
+                                invRows = data;
+                            }
+
+                            if ((!invRows || invRows.length === 0) && model) {
+                                const { data } = await supabase
+                                    .from('inventory')
+                                    .select('id, qty')
+                                    .eq('status', 'In Stock')
+                                    .gt('qty', 0)
+                                    .ilike('model_name', `%${model}%`)
+                                    .order('created_at', { ascending: true })
+                                    .limit(1);
+                                invRows = data;
+                            }
+
+                            if (invRows && invRows.length > 0) {
+                                const inv = invRows[0];
+                                const newQty = Math.max(0, Number(inv.qty) - qty);
+                                await supabase
+                                    .from('inventory')
+                                    .update({
+                                        qty:    newQty,
+                                        status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
+                                    })
+                                    .eq('id', inv.id);
+                                deductedInventory = true;
+                                matchedInvId = inv.id;
+                            }
+                        }
+
+                        const serials = (item.serialNumber || '')
+                            .split('\n')
+                            .map(s => s.trim())
+                            .filter(s => s.length > 0);
+
+                        for (const sn of serials) {
+                            const { data: existingSN } = await supabase
+                                .from('serial_numbers')
+                                .select('id')
+                                .eq('serial_number', sn)
+                                .limit(1);
+
+                            if (existingSN && existingSN.length > 0) {
+                                // Row already exists (e.g. seeded at PO intake) — update it
+                                // with this sale's customer/warranty info instead of skipping,
+                                // so the lifecycle transitions from "in stock" to "sold".
+                                const { data: updatedSN, error: updErr } = await supabase
+                                    .from('serial_numbers')
+                                    .update({
+                                        brand: (code && brandMap.get(code)) || '',
+                                        model_name: item.modelName || '',
+                                        description: item.description || '',
+                                        inventory_id: matchedInvId,
+                                        so_no: invoice['SO No'] || '',
+                                        company_name: invoice['Company Name'] || '',
+                                        contact_name: invoice['Contact Name'] || '',
+                                        warranty_start_date: warrantyStart,
+                                        warranty_period_months: 12,
+                                        warranty_end_date: warrantyEnd,
+                                        status: 'Active',
+                                    })
+                                    .eq('id', existingSN[0].id)
+                                    .select()
+                                    .single();
+
+                                if (!updErr && updatedSN) {
+                                    setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
+                                    syncedSerials = true;
+                                }
+                                continue;
+                            }
+
+                            const { data: newSN, error: snErr } = await supabase
+                                .from('serial_numbers')
+                                .insert({
+                                    serial_number: sn,
+                                    brand: (code && brandMap.get(code)) || '',
+                                    model_name: item.modelName || '',
+                                    description: item.description || '',
+                                    inventory_id: matchedInvId,
+                                    so_no: invoice['SO No'] || '',
+                                    company_name: invoice['Company Name'] || '',
+                                    contact_name: invoice['Contact Name'] || '',
+                                    warranty_start_date: warrantyStart,
+                                    warranty_period_months: 12,
+                                    warranty_end_date: warrantyEnd,
+                                    status: 'Active',
+                                    created_by: currentUser?.Name || '',
+                                })
+                                .select()
+                                .single();
+
+                            if (!snErr && newSN) {
+                                setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
+                                syncedSerials = true;
+                            }
+                        }
+                    }
+                } catch (invErr: any) {
+                    console.warn('[InvoiceCreator] inventory/serial sync failed:', invErr.message);
+                }
+            }
+
             refetchModule('Invoices');
+            if (deductedInventory) refetchModule('Inventory');
+            if (syncedSerials) refetchModule('Serial Numbers');
 
             setSuccessInfo({ invNo: invoice['Inv No'] });
         } catch (err: any) {

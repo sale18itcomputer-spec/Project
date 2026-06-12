@@ -449,6 +449,8 @@ export interface PurchaseOrderItem {
   po_id?: string;
   line_number: number;
   item_number: string;
+  /** Model name — paired with item_number/code, mirrors pricelist.Model and sales line items' modelName */
+  model_name?: string;
   description: string;
   qty: number;
   unit_price: number;
@@ -456,6 +458,8 @@ export interface PurchaseOrderItem {
   /** Populated from vendor/pricelist lookup — stored in DB after migration */
   brand?: string;
   category?: string;
+  /** Serial numbers received for this line item, one per line (newline-separated) */
+  serial_number?: string;
 }
 
 /** Inventory item — converted from a Purchase Order, used to source Sale Orders */

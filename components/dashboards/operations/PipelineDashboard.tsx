@@ -19,6 +19,7 @@ import ViewToggle from "../../common/ViewToggle";
 import PipelineListContainer from "../lists/PipelineListContainer";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 type ProcessedProject = PipelineProject & { calculatedDueDate: Date | null };
 
@@ -581,6 +582,13 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   <Trash2 size={16} />
                 </button>
               </div>
+            )}
+            renderRowContextMenu={(row) => (
+              <RowActionMenuItems
+                onView={() => handleViewProject(row)}
+                onEdit={() => handleEditProject(row)}
+                onDelete={() => handleDeleteRequest(row)}
+              />
             )}
           />
         </div>

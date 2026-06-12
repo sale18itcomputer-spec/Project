@@ -12,6 +12,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
 
@@ -259,6 +260,12 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
               >
                 <Pencil size={16} />
               </button>
+            )}
+            renderRowContextMenu={(row) => (
+              <RowActionMenuItems
+                onView={() => handleViewLog(row)}
+                onEdit={() => handleEditLog(row)}
+              />
             )}
           />
         </div>

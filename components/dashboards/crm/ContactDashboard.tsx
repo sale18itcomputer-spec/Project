@@ -19,6 +19,7 @@ import { useToast } from "../../../contexts/ToastContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -448,6 +449,12 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                     >
                       <Pencil size={16} />
                     </button>
+                  )}
+                  renderRowContextMenu={(row) => (
+                    <RowActionMenuItems
+                      onView={() => handleViewContact(row)}
+                      onEdit={() => handleEditContact(row)}
+                    />
                   )}
                 />
               </div>

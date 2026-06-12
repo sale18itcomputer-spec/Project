@@ -13,6 +13,7 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from '../../common/RowActionMenuItems';
 
 
 interface CompanyDashboardProps {
@@ -338,6 +339,12 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
               >
                 <Pencil size={16} />
               </button>
+            )}
+            renderRowContextMenu={(row) => (
+              <RowActionMenuItems
+                onView={() => handleViewCompany(row)}
+                onEdit={() => handleEditCompany(row)}
+              />
             )}
           />
         </div>

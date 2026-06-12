@@ -21,6 +21,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { readQuotationSheetData } from '../../../services/b2bDb';
 import { sendQuotationToTelegram } from '../../../utils/telegram';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
+import { DropdownMenuItem } from "../../ui/dropdown-menu";
 
 const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
   const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
@@ -626,6 +628,25 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                   {isSendingTelegram ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                 </button>
               </div>
+            )}
+            renderRowContextMenu={(row) => (
+              <RowActionMenuItems
+                onView={() => handleViewQuotation(row)}
+                onEdit={() => handleEditQuotation(row)}
+                onDelete={() => handleDeleteRequest(row)}
+              >
+                {row.Status === 'Close (Win)' && (
+                  <DropdownMenuItem onClick={() => handleCreateSaleOrder(row)}>
+                    <ShoppingCart className="mr-2 h-4 w-4" /> Create Sale Order
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem disabled={isDuplicating} onClick={() => handleDuplicateQuotation(row)}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={isSendingTelegram} onClick={() => handleSendToTelegram(row)}>
+                  <Send className="mr-2 h-4 w-4" /> Send to Telegram
+                </DropdownMenuItem>
+              </RowActionMenuItems>
             )}
           />
         ) : (

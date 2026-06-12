@@ -8,16 +8,21 @@ import DataTable, { ColumnDef } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2 } from 'lucide-react';
+import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceCreator from "../../features/sales/invoice/InvoiceCreator";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
+import { generatePDF } from "../../../lib/pdfClient";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { DropdownMenuItem } from "../../ui/dropdown-menu";
+import RowActionMenuItems from "../../common/RowActionMenuItems";
+import QuickPaymentModal from "../../modals/QuickPaymentModal";
+import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
 
 interface InvoiceDashboardProps {
     initialPayload?: any;
@@ -44,9 +49,10 @@ const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'detail';
 
 const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) => {
-    const { invoices = [], setInvoices, loading, error } = useData();
+    const { invoices = [], setInvoices, companies, receipts, loading, error } = useData();
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+    const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
     const [initialData, setInitialData] = useState<any>(initialPayload);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -117,6 +123,65 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const handleBackToDashboard = () => {
         setInitialData(null);
         handleNavigation({ view: 'invoices', filter: navigation.filter });
+    };
+
+    const handleRecordPayment = (invoice: Invoice) => {
+        setPaymentTarget(computeInvoiceAR(invoice, receipts));
+    };
+
+    const handleCreateDeliveryOrder = (invoice: Invoice) => {
+        handleNavigation({ view: 'delivery-orders', action: 'create', payload: { invoiceData: invoice } });
+    };
+
+    const handleDuplicateInvoice = (invoice: Invoice) => {
+        setInitialData({ action: 'duplicate', duplicateOf: invoice });
+        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'create' });
+        addToast('Duplicating invoice...', 'info');
+    };
+
+    const handlePrintInvoice = async (invoice: Invoice) => {
+        let items: any[] = [];
+        if (typeof invoice.ItemsJSON === 'string') {
+            try { items = JSON.parse(invoice.ItemsJSON); } catch { /* ignore malformed JSON */ }
+        } else {
+            items = invoice.ItemsJSON || [];
+        }
+
+        const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+        const tax = invoice.Taxable === 'VAT' ? subTotal * 0.1 : 0;
+        const grandTotal = subTotal + tax;
+
+        const taxable = invoice['Taxable'] || 'NON-VAT';
+        let pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice';
+        let filePrefix = 'Invoice';
+        if (taxable === 'VAT') { pdfType = 'Tax Invoice'; filePrefix = 'TaxInvoice'; }
+        else if (taxable === 'Commercial Invoice') { pdfType = 'Commercial Invoice'; filePrefix = 'CommercialInvoice'; }
+        else { pdfType = 'Invoice'; filePrefix = 'Invoice'; }
+
+        try {
+            await generatePDF({
+                type: pdfType,
+                headerData: {
+                    ...invoice,
+                    'Company Name (Khmer)': invoice['Company Name (Khmer)'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Company Name (Khmer)'] || '',
+                    'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
+                },
+                items: items.filter((item: any) => item.no > 0).map((item: any) => ({
+                    no: item.no,
+                    itemCode: item.itemCode,
+                    modelName: item.modelName,
+                    description: item.description,
+                    qty: item.qty,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                })),
+                totals: { subTotal, tax, grandTotal },
+                currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
+                filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
+            });
+        } catch (err: any) {
+            addToast(`Failed to generate PDF: ${err.message}`, 'error');
+        }
     };
 
     const filteredData = useMemo(() => {
@@ -340,6 +405,35 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                 </button>
                             </div>
                         )}
+                        renderRowContextMenu={(row) => {
+                            const ar = computeInvoiceAR(row, receipts);
+                            const canRecordPayment = (row.Status === 'Processing' || row.Status === 'Completed') && ar.outstanding > 0.005;
+                            const canCreateDO = row.Status === 'Processing' || row.Status === 'Completed';
+                            return (
+                                <RowActionMenuItems
+                                    onView={() => handleViewInvoice(row)}
+                                    onEdit={() => handleEditInvoice(row)}
+                                    onDelete={() => handleDeleteRequest(row)}
+                                >
+                                    {canCreateDO && (
+                                        <DropdownMenuItem onClick={() => handleCreateDeliveryOrder(row)}>
+                                            <Truck className="mr-2 h-4 w-4" /> Create Delivery Order
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => handlePrintInvoice(row)}>
+                                        <Printer className="mr-2 h-4 w-4" /> Print
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDuplicateInvoice(row)}>
+                                        <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                    </DropdownMenuItem>
+                                    {canRecordPayment && (
+                                        <DropdownMenuItem onClick={() => handleRecordPayment(row)}>
+                                            <Wallet className="mr-2 h-4 w-4" /> Record Payment
+                                        </DropdownMenuItem>
+                                    )}
+                                </RowActionMenuItems>
+                            );
+                        }}
                     />
                 ) : (
                     <div className="h-full flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
@@ -486,6 +580,13 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             >
                 Are you sure you want to delete invoice {invoiceToDelete?.['Inv No']}? This action cannot be undone.
             </ConfirmationModal>
+
+            {paymentTarget && (
+                <QuickPaymentModal
+                    ar={paymentTarget}
+                    onClose={() => setPaymentTarget(null)}
+                />
+            )}
         </div>
     );
 };

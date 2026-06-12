@@ -20,6 +20,8 @@ import { useAuth } from "../../../contexts/AuthContext";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import RowActionMenuItems from "../../common/RowActionMenuItems";
+import { DropdownMenuItem } from "../../ui/dropdown-menu";
 
 
 interface SaleOrderDashboardProps {
@@ -619,6 +621,22 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                     <Trash2 size={16} />
                                 </button>
                             </div>
+                        )}
+                        renderRowContextMenu={(row) => (
+                            <RowActionMenuItems
+                                onView={() => handleViewSaleOrder(row)}
+                                onEdit={() => handleEditSaleOrder(row)}
+                                onDelete={() => handleDeleteRequest(row)}
+                            >
+                                {row.Status === 'Completed' && (
+                                    <DropdownMenuItem onClick={() => handleConvertToInvoice(row)}>
+                                        <FileText className="mr-2 h-4 w-4" /> Create Invoice & DO
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem disabled={isDuplicating} onClick={() => handleDuplicateSaleOrder(row)}>
+                                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                </DropdownMenuItem>
+                            </RowActionMenuItems>
                         )}
                     />
                 ) : (
