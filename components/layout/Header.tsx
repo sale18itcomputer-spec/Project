@@ -159,7 +159,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
 
   const headerClasses = isMobile
     ? "mobile-nav"
-    : `flex-shrink-0 bg-background/80 backdrop-blur-md h-12 px-4 sm:px-5 flex justify-between items-center z-[200] transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
+    : `flex-shrink-0 bg-background/80 backdrop-blur-sm h-12 px-4 sm:px-5 flex justify-between items-center z-[200] transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
 
   return (
     <header className={headerClasses}>

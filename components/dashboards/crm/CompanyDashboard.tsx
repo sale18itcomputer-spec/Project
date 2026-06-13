@@ -265,7 +265,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
 
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
       <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center">
@@ -318,7 +318,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+      <div className="flex-1 min-h-0 overflow-hidden p-4">
         <div className="h-full">
           <DataTable
             tableId="company-table"

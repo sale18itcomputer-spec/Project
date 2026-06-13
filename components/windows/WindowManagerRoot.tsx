@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useWindowManager } from '../../contexts/WindowManagerContext';
 import ManagedWindowFrame from './ManagedWindowFrame';
 import MinimizedDock from './MinimizedDock';
+import WindowGhost from './WindowGhost';
 
 /**
  * Single portal for every window registered via WindowManagerContext.
@@ -12,19 +13,23 @@ import MinimizedDock from './MinimizedDock';
  * their own portals when opted into the window manager.
  */
 const WindowManagerRoot: React.FC = () => {
-    const { windows } = useWindowManager();
+    const { windows, ghosts, removeGhost } = useWindowManager();
 
-    if (windows.length === 0 || typeof document === 'undefined') return null;
+    if ((windows.length === 0 && ghosts.length === 0) || typeof document === 'undefined') return null;
 
     const visible = windows.filter(w => !w.isMinimized);
     const minimized = windows.filter(w => w.isMinimized);
+    const maxZ = visible.length > 0 ? Math.max(...visible.map(w => w.zIndex)) : -1;
 
     return createPortal(
         <>
             {visible.map(win => (
-                <ManagedWindowFrame key={win.id} win={win} />
+                <ManagedWindowFrame key={win.id} win={win} isFocused={win.zIndex === maxZ} />
             ))}
             {minimized.length > 0 && <MinimizedDock windows={minimized} />}
+            {ghosts.map(ghost => (
+                <WindowGhost key={ghost.ghostId} ghost={ghost} onDone={removeGhost} />
+            ))}
         </>,
         document.body
     );

@@ -128,12 +128,12 @@ const PipelineStatusChart: React.FC<Props> = ({ data, totalProjects, onSliceClic
 
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${active
-      ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+      ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
       : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'}`;
 
   return (
     <div className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden" style={{ height: showTable ? 'auto' : '500px' }}>
-      <div className="h-1 bg-gradient-to-r from-blue-900 via-blue-600 to-blue-400 flex-shrink-0" />
+      <div className="h-1 bg-gradient-to-r from-brand-900 via-brand-600 to-brand-400 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 flex-shrink-0">
@@ -144,7 +144,7 @@ const PipelineStatusChart: React.FC<Props> = ({ data, totalProjects, onSliceClic
           </div>
           {topStatus && (
             <div className="flex flex-col items-end flex-shrink-0">
-              <span className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Most Common</span>
+              <span className="text-[10px] font-semibold text-brand-500 uppercase tracking-wider">Most Common</span>
               <span className="text-sm font-bold text-foreground">{topStatus.name}</span>
             </div>
           )}
@@ -154,9 +154,9 @@ const PipelineStatusChart: React.FC<Props> = ({ data, totalProjects, onSliceClic
       {/* Stats + toolbar */}
       <div className="px-3 sm:px-6 pb-2 sm:pb-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 rounded-full">
-            <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{totalProjects}</span>
-            <span className="text-[10px] text-blue-500 font-semibold">Total</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-50 dark:bg-brand-950/40 rounded-full">
+            <span className="text-xs font-bold text-brand-700 dark:text-brand-300">{totalProjects}</span>
+            <span className="text-[10px] text-brand-500 font-semibold">Total</span>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 rounded-full">
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">{activeCount}</span>
@@ -223,11 +223,11 @@ const PipelineStatusChart: React.FC<Props> = ({ data, totalProjects, onSliceClic
                         <span className="font-semibold text-foreground">{d.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-bold text-blue-600">{d.value}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-brand-600">{d.value}</td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%` }} />
+                          <div className="h-full bg-brand-500 rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%` }} />
                         </div>
                         <span className="text-muted-foreground w-10 text-right">
                           {total > 0 ? `${((d.value / total) * 100).toFixed(1)}%` : '0%'}
@@ -240,7 +240,7 @@ const PipelineStatusChart: React.FC<Props> = ({ data, totalProjects, onSliceClic
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30">
                   <td className="px-4 py-2.5 font-black text-foreground uppercase text-[10px] tracking-wider">Total</td>
-                  <td className="px-4 py-2.5 text-right font-black text-blue-600">{total}</td>
+                  <td className="px-4 py-2.5 text-right font-black text-brand-600">{total}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-muted-foreground">100%</td>
                 </tr>
               </tfoot>

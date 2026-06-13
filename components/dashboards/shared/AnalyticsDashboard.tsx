@@ -33,11 +33,11 @@ function getBestDate(item: any): Date | null {
 
 function getBestValue(item: any): number {
   return (
-    parseSheetValue(item['Bid Value'])    ||
-    parseSheetValue(item['Total Amount']) ||
-    parseSheetValue(item['Amount'])       ||
-    parseSheetValue(item['Grand Total'])  ||
-    parseSheetValue(item['sub_total'])    ||
+    parseSheetValue(item['Total Amount'])  ||
+    parseSheetValue(item['Bid Value'])     ||
+    parseSheetValue(item['Amount'])        ||
+    parseSheetValue(item['Grand Total'])   ||
+    parseSheetValue(item['sub_total'])     ||
     0
   );
 }
@@ -111,7 +111,7 @@ const AnalyticsDashboard: React.FC = () => {
       if (!filters.responsibleBy.includes(assignee)) return false;
     }
     if (filters.brand1?.length) {
-      const brand = item['Brand 1']?.trim() || item['Brand']?.trim() || 'Other';
+      const brand = item['Brand']?.trim() || 'Other';
       if (!filters.brand1.includes(brand)) return false;
     }
     return true;
@@ -174,7 +174,7 @@ const AnalyticsDashboard: React.FC = () => {
     const counts: PendingCounts = { Quotations: 0, SaleOrders: 0, Projects: 0, Invoices: 0, Meetings: 0 };
     quotations?.forEach(q  => { if (canView(q['Created By'], q['Prepared By'])  && ['Open', 'Pending'].includes(q.Status))              counts.Quotations++; });
     saleOrders?.forEach(so => { if (canView(so['Created By'], so['Prepared By']) && ['Pending', 'Processing'].includes(so.Status))        counts.SaleOrders++; });
-    projects?.forEach(p    => { if ((isAdmin || p['Responsible By'] === name)    && !(p.Status || '').toLowerCase().includes('close'))    counts.Projects++; });
+    projects?.forEach(p    => { if ((isAdmin || p['Responsible By'] === name)    && !['Closure (Win)', 'Closure (Lose)'].includes(p.Status))    counts.Projects++; });
     invoices?.forEach(inv  => { if ((isAdmin || inv['Created By'] === name)      && ['Draft', 'Processing', 'Partial Paid'].includes(inv.Status)) counts.Invoices++; });
     return counts;
   }, [quotations, saleOrders, projects, invoices, currentUser]);
@@ -189,7 +189,7 @@ const AnalyticsDashboard: React.FC = () => {
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => { groups[`${q} ${activeYear}`] = { val: 0, count: 0 }; });
     }
     const items = (isB2B
-      ? (projects   || []).filter(p  => (p.Status  || '').toLowerCase().includes('win'))
+      ? (projects   || []).filter(p  => p.Status === 'Closure (Win)')
       : (saleOrders || []).filter(so => (so.Status || '').toLowerCase().includes('complete'))
     ).filter(passesFilters);
     items.forEach(item => {
@@ -211,7 +211,7 @@ const AnalyticsDashboard: React.FC = () => {
 
   const customerData: CustomerDataPoint[] = useMemo(() => {
     const items = (isB2B ? (projects || []) : (saleOrders || []))
-      .filter(i => (i.Status || '').toLowerCase().includes('completed') || (i.Status || '').toLowerCase().includes('win'))
+      .filter(i => (i.Status || '').toLowerCase().includes('completed') || i.Status === 'Closure (Win)')
       .filter(passesFilters);
     const map: Record<string, number> = {};
     items.forEach(i => { const n = i['Company Name'] || 'Unknown'; map[n] = (map[n] || 0) + getBestValue(i); });
@@ -222,7 +222,7 @@ const AnalyticsDashboard: React.FC = () => {
     const map: Record<string, number> = {};
     if (isB2B) {
       (projects || []).filter(passesFilters).forEach(item => {
-        const brand = (item as any)['Brand 1']?.trim() || (item as any)['Brand']?.trim() || 'Other';
+        const brand = (item as any)['Brand']?.trim() || 'Other';
         const val   = getBestValue(item);
         if (val > 0) map[brand] = (map[brand] || 0) + val;
       });
@@ -297,7 +297,7 @@ const AnalyticsDashboard: React.FC = () => {
         if (!groups[key]) return;
         groups[key].quotes++;
         const status = (p.Status || '').toLowerCase();
-        if (status.includes('win')) groups[key].converted++;
+        if (p.Status === 'Closure (Win)') groups[key].converted++;
       });
     }
 

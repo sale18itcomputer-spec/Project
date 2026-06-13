@@ -4,14 +4,16 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     PackageCheck, Search, RefreshCw, MapPin, Calendar,
     User, FileText, ChevronDown, ArrowLeftRight,
-    Package, AlertCircle, PlusCircle, X, Check, Edit2, Trash2,
+    Package, AlertCircle, PlusCircle, X, Check, Edit2,
 } from 'lucide-react';
 import {
-    fetchConsignments, createConsignment, updateConsignment, updateConsignmentItem,
+    fetchConsignments, updateConsignment, updateConsignmentItem,
 } from '@/services/consignmentApi';
 import { Consignment, ConsignmentItem } from '@/types';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/ToastContext';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
+import ConsignmentWindowContent from '@/components/windows/content/ConsignmentWindowContent';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -35,13 +37,6 @@ const BRAND_COLORS: Record<string, string> = {
     'MSI':    'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700',
     'Lenovo': 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700',
 };
-
-const TODAY = new Date().toISOString().split('T')[0];
-
-const emptyItem = (): Partial<ConsignmentItem> => ({
-    item_code: '', product_name: '', brand: '', category: '',
-    qty_sent: 1, qty_returned: 0, status: 'Received', notes: '',
-});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,31 +67,12 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string | 
     );
 }
 
-function FieldInput({ label, value, onChange, type = 'text', placeholder = '', required = false, fullWidth = false }: {
-    label: string; value: string; onChange: (v: string) => void;
-    type?: string; placeholder?: string; required?: boolean; fullWidth?: boolean;
-}) {
-    return (
-        <div className={fullWidth ? 'col-span-full' : ''}>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-                {label}{required && <span className="text-destructive ml-0.5">*</span>}
-            </label>
-            <input
-                type={type}
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                className="w-full h-8 px-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-muted-foreground/50"
-            />
-        </div>
-    );
-}
-
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function ConsignmentDashboard() {
     const { can } = usePermissions();
     const { addToast } = useToast();
+    const { openWindow } = useWindowManager();
 
     const canCreate = can('consignment', 'create');
     const canEdit   = can('consignment', 'edit');
@@ -112,15 +88,6 @@ export default function ConsignmentDashboard() {
     const [filterBrand, setFilterBrand]   = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
-
-    // ── New consignment form ──────────────────────────────────────────────────
-    const [showNewForm, setShowNewForm]   = useState(false);
-    const [saving, setSaving]             = useState(false);
-    const [newHeader, setNewHeader]       = useState<Partial<Consignment>>({
-        voucher_no: '', transfer_date: TODAY, from_location: '', to_location: '',
-        status: 'Open', received_by: '', received_date: TODAY, notes: '',
-    });
-    const [newItems, setNewItems]         = useState<Partial<ConsignmentItem>[]>([emptyItem()]);
 
     // ── Item status editing ───────────────────────────────────────────────────
     const [editingItemId, setEditingItemId]         = useState<string | null>(null);
@@ -150,6 +117,18 @@ export default function ConsignmentDashboard() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
+
+    const openConsignmentWindow = () => {
+        openWindow({
+            id: 'consignment-new',
+            title: 'New Consignment',
+            content: <ConsignmentWindowContent windowId="consignment-new" onCreated={load} />,
+            draggable: true,
+            initialWidth: 900,
+            minWidth: 700,
+            minHeight: 500,
+        });
+    };
 
     // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -184,64 +163,6 @@ export default function ConsignmentDashboard() {
         });
         return Object.entries(map).sort((a, b) => b[1].sent - a[1].sent);
     }, [allItems]);
-
-    // ── Handlers: New Consignment ─────────────────────────────────────────────
-
-    const resetNewForm = () => {
-        setNewHeader({ voucher_no: '', transfer_date: TODAY, from_location: '', to_location: '', status: 'Open', received_by: '', received_date: TODAY, notes: '' });
-        setNewItems([emptyItem()]);
-    };
-
-    const addNewItem = () => setNewItems(prev => [...prev, emptyItem()]);
-
-    const removeNewItem = (idx: number) =>
-        setNewItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
-
-    const updateNewItem = (idx: number, field: keyof ConsignmentItem, val: any) =>
-        setNewItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: val } : item));
-
-    const handleCreate = async () => {
-        if (!newHeader.voucher_no?.trim()) { addToast('Voucher number is required.', 'error'); return; }
-        if (!newHeader.transfer_date)      { addToast('Transfer date is required.', 'error'); return; }
-        const validItems = newItems.filter(i => i.item_code?.trim() && i.product_name?.trim());
-        if (!validItems.length)            { addToast('At least one item with a code and name is required.', 'error'); return; }
-
-        setSaving(true);
-        try {
-            const created = await createConsignment(
-                {
-                    voucher_no:     newHeader.voucher_no!.trim(),
-                    transfer_date:  newHeader.transfer_date!,
-                    from_location:  newHeader.from_location || '',
-                    to_location:    newHeader.to_location || '',
-                    status:         newHeader.status || 'Open',
-                    received_by:    newHeader.received_by || '',
-                    received_date:  newHeader.received_date || null,
-                    notes:          newHeader.notes || '',
-                },
-                validItems.map((item, idx) => ({
-                    item_no:      idx + 1,
-                    item_code:    item.item_code!.trim(),
-                    product_name: item.product_name!.trim(),
-                    brand:        item.brand || '',
-                    category:     item.category || '',
-                    qty_sent:     Number(item.qty_sent) || 1,
-                    qty_returned: Number(item.qty_returned) || 0,
-                    status:       item.status || 'Received',
-                    notes:        item.notes || '',
-                })),
-            );
-            setConsignments(prev => [created, ...prev]);
-            setSelectedId(created.id);
-            setShowNewForm(false);
-            resetNewForm();
-            addToast(`Consignment ${created.voucher_no} created.`, 'success');
-        } catch (e: any) {
-            addToast(`Failed to create consignment: ${e.message}`, 'error');
-        } finally {
-            setSaving(false);
-        }
-    };
 
     // ── Handlers: Item Status ─────────────────────────────────────────────────
 
@@ -343,7 +264,7 @@ export default function ConsignmentDashboard() {
                     </button>
                     {canCreate && (
                         <button
-                            onClick={() => { resetNewForm(); setShowNewForm(true); }}
+                            onClick={openConsignmentWindow}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors"
                         >
                             <PlusCircle size={14} /> New Consignment
@@ -357,7 +278,7 @@ export default function ConsignmentDashboard() {
                     <PackageCheck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No consignment records found</p>
                     {canCreate && (
-                        <button onClick={() => { resetNewForm(); setShowNewForm(true); }} className="mt-3 text-sm text-brand-600 hover:underline">
+                        <button onClick={openConsignmentWindow} className="mt-3 text-sm text-brand-600 hover:underline">
                             Create your first consignment
                         </button>
                     )}
@@ -560,7 +481,7 @@ export default function ConsignmentDashboard() {
                                                                     setEditingStatus(e.target.value);
                                                                     if (e.target.value !== 'Transferred Back') setEditingQtyReturned(item.qty_returned);
                                                                 }}
-                                                                className="appearance-none pl-2 pr-6 py-0.5 text-[11px] rounded border border-brand-500 bg-background text-foreground focus:outline-none"
+                                                                className="w-full appearance-none pl-2 pr-6 py-0.5 text-[11px] rounded border border-brand-500 bg-background text-foreground focus:outline-none"
                                                             >
                                                                 {ITEM_STATUSES.map(s => <option key={s}>{s}</option>)}
                                                             </select>
@@ -617,142 +538,6 @@ export default function ConsignmentDashboard() {
                 </>
             ) : null}
 
-            {/* ── New Consignment Modal ── */}
-            {showNewForm && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8 px-4">
-                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl">
-
-                        {/* Modal header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                                <PackageCheck size={18} className="text-brand-600" />
-                                New Consignment
-                            </h2>
-                            <button onClick={() => setShowNewForm(false)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {/* Header fields */}
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Voucher Details</p>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    <FieldInput label="Voucher No" value={newHeader.voucher_no || ''} onChange={v => setNewHeader(p => ({ ...p, voucher_no: v }))} placeholder="e.g. KHST0005868" required />
-                                    <FieldInput label="Transfer Date" value={newHeader.transfer_date || ''} onChange={v => setNewHeader(p => ({ ...p, transfer_date: v }))} type="date" required />
-                                    <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
-                                        <div className="relative">
-                                            <select
-                                                value={newHeader.status || 'Open'}
-                                                onChange={e => setNewHeader(p => ({ ...p, status: e.target.value }))}
-                                                className="w-full appearance-none h-8 pl-2.5 pr-7 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                            >
-                                                {VOUCHER_STATUSES.map(s => <option key={s}>{s}</option>)}
-                                            </select>
-                                            <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                        </div>
-                                    </div>
-                                    <FieldInput label="From Location" value={newHeader.from_location || ''} onChange={v => setNewHeader(p => ({ ...p, from_location: v }))} placeholder="e.g. WH: KH" />
-                                    <FieldInput label="To Location"   value={newHeader.to_location || ''}   onChange={v => setNewHeader(p => ({ ...p, to_location: v }))}   placeholder="e.g. TK (LPT Boeung Kak)" />
-                                    <FieldInput label="Received By"   value={newHeader.received_by || ''}   onChange={v => setNewHeader(p => ({ ...p, received_by: v }))}   placeholder="e.g. LPT Showroom" />
-                                    <FieldInput label="Received Date" value={newHeader.received_date || ''} onChange={v => setNewHeader(p => ({ ...p, received_date: v }))} type="date" />
-                                    <div className="col-span-full">
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
-                                        <textarea
-                                            value={newHeader.notes || ''}
-                                            onChange={e => setNewHeader(p => ({ ...p, notes: e.target.value }))}
-                                            rows={2}
-                                            placeholder="Any remarks about this consignment…"
-                                            className="w-full px-2.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-muted-foreground/50 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Items */}
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Items</p>
-                                    <button onClick={addNewItem} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-                                        <PlusCircle size={13} /> Add Row
-                                    </button>
-                                </div>
-
-                                <div className="overflow-x-auto rounded-lg border border-border">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-muted/40 border-b border-border">
-                                                {['#', 'Item Code *', 'Product Name *', 'Brand', 'Category', 'Qty Sent', 'Qty Returned', 'Status', ''].map(h => (
-                                                    <th key={h} className="text-left px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border/50">
-                                            {newItems.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-muted/10">
-                                                    <td className="px-3 py-1.5 text-[12px] text-muted-foreground w-8">{idx + 1}</td>
-                                                    <td className="px-1.5 py-1.5 w-28">
-                                                        <input type="text" value={item.item_code || ''} onChange={e => updateNewItem(idx, 'item_code', e.target.value)} placeholder="LAC00001"
-                                                            className="w-full h-7 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 min-w-[200px]">
-                                                        <input type="text" value={item.product_name || ''} onChange={e => updateNewItem(idx, 'product_name', e.target.value)} placeholder="Product name"
-                                                            className="w-full h-7 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-24">
-                                                        <input type="text" value={item.brand || ''} onChange={e => updateNewItem(idx, 'brand', e.target.value)} placeholder="ASUS"
-                                                            className="w-full h-7 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-28">
-                                                        <input type="text" value={item.category || ''} onChange={e => updateNewItem(idx, 'category', e.target.value)} placeholder="Laptop"
-                                                            className="w-full h-7 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-16">
-                                                        <input type="number" min={1} value={item.qty_sent ?? 1} onChange={e => updateNewItem(idx, 'qty_sent', Number(e.target.value))}
-                                                            className="w-full h-7 px-2 text-xs text-right rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-16">
-                                                        <input type="number" min={0} max={item.qty_sent ?? 0} value={item.qty_returned ?? 0} onChange={e => updateNewItem(idx, 'qty_returned', Number(e.target.value))}
-                                                            className="w-full h-7 px-2 text-xs text-right rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-500" />
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-36">
-                                                        <div className="relative">
-                                                            <select value={item.status || 'Received'} onChange={e => updateNewItem(idx, 'status', e.target.value)}
-                                                                className="w-full appearance-none h-7 pl-2 pr-6 text-xs rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-brand-500">
-                                                                {ITEM_STATUSES.map(s => <option key={s}>{s}</option>)}
-                                                            </select>
-                                                            <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-1.5 py-1.5 w-8">
-                                                        {newItems.length > 1 && (
-                                                            <button onClick={() => removeNewItem(idx)} className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                                                                <Trash2 size={12} />
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-2">{newItems.filter(i => i.item_code?.trim() && i.product_name?.trim()).length} valid item{newItems.filter(i => i.item_code?.trim() && i.product_name?.trim()).length !== 1 ? 's' : ''}</p>
-                            </div>
-                        </div>
-
-                        {/* Modal footer */}
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-muted/20 rounded-b-2xl">
-                            <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-accent/60 transition-colors">
-                                Cancel
-                            </button>
-                            <button onClick={handleCreate} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-60">
-                                {saving ? 'Creating…' : 'Create Consignment'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

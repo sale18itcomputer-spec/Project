@@ -12,6 +12,8 @@ import { PermissionGate } from '../../common/PermissionGate';
 import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import PricelistWindowContent from '../../windows/content/PricelistWindowContent';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
@@ -183,6 +185,7 @@ const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility
 const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
     const { handleNavigation, navigation } = useNavigation();
+    const { openWindow } = useWindowManager();
     const [statusFilter, setStatusFilter] = useState<string | null>('Available');
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
@@ -206,8 +209,30 @@ const PricelistDashboard: React.FC = () => {
     }, [navigation.action, navigation.id, pricelist]);
 
     const handleCloseModal = () => handleNavigation({ view: 'pricelist', filter: navigation.filter });
-    const handleViewItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'view', id: item.Code });
-    const handleEditItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'edit', id: item.Code });
+    const handleViewItem = (item: ProcessedPricelistItem) => {
+        const winId = `pricelist-${item.Code}`;
+        openWindow({
+            id: winId,
+            title: `Item: ${item.Code}`,
+            content: <PricelistWindowContent windowId={winId} itemCode={item.Code} initialReadOnly={true} />,
+            initialWidth: 560,
+            initialHeight: 640,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
+    const handleEditItem = (item: ProcessedPricelistItem) => {
+        const winId = `pricelist-edit-${item.Code}`;
+        openWindow({
+            id: winId,
+            title: `Editing: ${item.Code}`,
+            content: <PricelistWindowContent windowId={winId} itemCode={item.Code} initialReadOnly={false} />,
+            initialWidth: 560,
+            initialHeight: 640,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
     const handleNewItem = () => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'create' });
     const handleDeleteItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'view', id: item.Code });
 

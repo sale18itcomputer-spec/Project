@@ -197,8 +197,7 @@ const PendingWorks: React.FC = () => {
         }
         if (projects) {
             for (const p of projects) {
-                const status = (p.Status || '').toLowerCase();
-                if (!status.includes('close') && canView(p['Responsible By'])) {
+                if (!['Closure (Win)', 'Closure (Lose)'].includes(p.Status) && canView(p['Responsible By'])) {
                     const dueDate = parseDate(p['Due Date']) || today;
                     const diff    = Math.ceil((dueDate.getTime() - todayTime) / MS_PER_DAY);
                     items.push({ id: p['Pipeline No'], type: 'pipeline', title: `Project ${p['Pipeline No']}`, subtitle: p['Company Name'], dueDate, date: p['Created Date'], time: '', status: p.Status, priority: diff < 0 ? 'critical' : diff <= 5 ? 'high' : 'medium', daysUntil: diff, iconType: 'Briefcase', link: 'projects' });

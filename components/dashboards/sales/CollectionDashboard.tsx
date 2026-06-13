@@ -264,7 +264,7 @@ const CollectionDashboard: React.FC = () => {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4">
                 <div className="flex items-center gap-3 mb-4">
                     <Wallet className="w-5 h-5 text-brand-500" />
@@ -373,7 +373,7 @@ const CollectionDashboard: React.FC = () => {
             </header>
 
             {/* Table */}
-            <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+            <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {loading && allRows.length === 0 ? (
                     <Spinner />
                 ) : filteredRows.length === 0 ? (

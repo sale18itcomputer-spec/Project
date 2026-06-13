@@ -1,27 +1,23 @@
-// Headers for Pipelines Sheet
 export const PIPELINE_HEADERS = [
   'Pipeline No',
   'Company Name',
   'Contact Name',
   'Contact Number',
   'Email',
-  'Require',
-  'Type',
-  'Brand 1',
+  'Requirements',
   'Taxable',
   'Responsible By',
   'Status',
   'Created Date',
   'Time Frame',
   'Due Date',
-  'Inv Date',
-  'Quote',
   'Quote No',
-  'Bid Value',
+  'Total Amount',
+  'Win Rate',
   'Invoice No',
   'SO No',
   'Remarks',
-  'Conditional',
+  'Ref Inquiry No',
   'Currency'
 ] as const;
 
@@ -31,7 +27,7 @@ export const COMPACT_PIPELINE_HEADERS = [
   'Status',
   'Responsible By',
   'Due Date',
-  'Bid Value',
+  'Total Amount',
 ] as const;
 
 // Headers for Companies Sheet

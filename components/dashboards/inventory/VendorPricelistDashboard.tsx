@@ -15,6 +15,8 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { usePermissions } from '../../../hooks/usePermissions';
 import { insertRecord } from "../../../services/b2bDb";
 import { useNavigation } from "../../../contexts/NavigationContext";
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import VendorPricelistWindowContent from '../../windows/content/VendorPricelistWindowContent';
 
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
@@ -29,6 +31,7 @@ const VendorPricelistDashboard: React.FC = () => {
     const { currentUser } = useAuth();
     const { handleNavigation, navigation } = useNavigation();
     const { showField, can } = usePermissions();
+    const { openWindow } = useWindowManager();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [vendorFilter, setVendorFilter] = useState<string>('all');
@@ -45,8 +48,30 @@ const VendorPricelistDashboard: React.FC = () => {
 
     const handleCloseModal = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter });
     const handleOpenNewItem = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'create' });
-    const handleViewItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'view', id: item.id });
-    const handleEditItem = (item: VendorPricelistItem) => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'edit', id: item.id });
+    const handleViewItem = (item: VendorPricelistItem) => {
+        const winId = `vendor-pricelist-${item.id}`;
+        openWindow({
+            id: winId,
+            title: `Item: ${item.model_name}`,
+            content: <VendorPricelistWindowContent windowId={winId} itemId={item.id} initialReadOnly={true} />,
+            initialWidth: 560,
+            initialHeight: 680,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
+    const handleEditItem = (item: VendorPricelistItem) => {
+        const winId = `vendor-pricelist-edit-${item.id}`;
+        openWindow({
+            id: winId,
+            title: `Editing: ${item.model_name}`,
+            content: <VendorPricelistWindowContent windowId={winId} itemId={item.id} initialReadOnly={false} />,
+            initialWidth: 560,
+            initialHeight: 680,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
 
     const handleDownloadTemplate = async () => {
         const headers = [
@@ -266,7 +291,7 @@ const VendorPricelistDashboard: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1">

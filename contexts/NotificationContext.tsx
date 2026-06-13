@@ -163,7 +163,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // 3. Pipelines/Projects
         projects?.forEach(p => {
             if (currentUser.Role !== 'Admin' && p['Responsible By'] !== currentUser.Name) return;
-            if (['Close (win)', 'Close (lose)'].includes(p.Status)) return;
+            if (['Closure (Win)', 'Closure (Lose)'].includes(p.Status)) return;
 
             // Due Date
             const dueDate = parseDate(p['Due Date']);

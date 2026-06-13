@@ -230,7 +230,7 @@ const MonthlyWinValueChart: React.FC<MonthlyWinValueChartProps> = ({ data, perio
             <p className="mt-2 text-sm font-medium">No revenue data to display.</p>
             <p className="text-xs text-muted-foreground max-w-xs text-center border-t border-border/50 pt-3 mt-2">
               {isB2B
-                ? 'Pipeline wins will appear here once projects are marked as Close (win).'
+                ? 'Pipeline wins will appear here once projects are marked as Closure (Win).'
                 : 'Revenue will appear here once sale orders are marked as Completed.'}
             </p>
           </div>

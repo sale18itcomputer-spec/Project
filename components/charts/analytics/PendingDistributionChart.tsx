@@ -118,12 +118,12 @@ const PendingDistributionChart: React.FC<Props> = ({ data }) => {
 
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${active
-      ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+      ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
       : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'}`;
 
   return (
     <div className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden" style={{ height: showTable ? 'auto' : '500px' }}>
-      <div className="h-1 bg-gradient-to-r from-blue-700 via-blue-500 to-blue-300 flex-shrink-0" />
+      <div className="h-1 bg-gradient-to-r from-brand-700 via-brand-500 to-brand-300 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 flex-shrink-0">
@@ -134,7 +134,7 @@ const PendingDistributionChart: React.FC<Props> = ({ data }) => {
           </div>
           {total > 0 && (
             <div className="flex flex-col items-end flex-shrink-0">
-              <span className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Highest</span>
+              <span className="text-[10px] font-semibold text-brand-500 uppercase tracking-wider">Highest</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: topSegment.color }} />
                 <span className="text-sm font-bold text-foreground">{topSegment.label} ({data[topSegment.key]})</span>
@@ -201,7 +201,7 @@ const PendingDistributionChart: React.FC<Props> = ({ data }) => {
                         <span className="font-semibold text-foreground">{s.label}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-bold text-blue-600">{data[s.key] ?? 0}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-brand-600">{data[s.key] ?? 0}</td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
@@ -218,7 +218,7 @@ const PendingDistributionChart: React.FC<Props> = ({ data }) => {
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30">
                   <td className="px-4 py-2.5 font-black text-foreground uppercase text-[10px] tracking-wider">Total</td>
-                  <td className="px-4 py-2.5 text-right font-black text-blue-600">{total}</td>
+                  <td className="px-4 py-2.5 text-right font-black text-brand-600">{total}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-muted-foreground">100%</td>
                 </tr>
               </tfoot>

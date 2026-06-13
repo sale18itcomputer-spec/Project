@@ -500,7 +500,7 @@ const B2BPricelistDashboard: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1">
@@ -608,7 +608,7 @@ const B2BPricelistDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-hidden bg-background transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
+            <div className={`flex-1 overflow-hidden transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
                 <div className="p-4 sm:p-6 space-y-4">
 
                     <PricelistFilterBar

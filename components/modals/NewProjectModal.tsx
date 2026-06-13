@@ -17,22 +17,22 @@ import { Check, Pencil, Trash2, Calendar, MessageSquare, MapPin, Plus } from 'lu
 import SearchableSelect from "../common/SearchableSelect";
 import { useNavigation } from "../../contexts/NavigationContext";
 
-const ensureHyperlink = (url?: string): string => {
-    if (!url || typeof url !== 'string' || url.trim() === '') return '';
-    const trimmedUrl = url.trim();
-    if (trimmedUrl.toUpperCase().startsWith('=HYPERLINK(')) return trimmedUrl;
-    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
-        const escapedUrl = trimmedUrl.replace(/"/g, '""');
-        return `=HYPERLINK("${escapedUrl}", "${escapedUrl}")`;
-    }
-    return trimmedUrl;
-};
+const STATUS_OPTIONS: PipelineProject['Status'][] = [
+    'New Deal',
+    'Requirements',
+    'Study Spec | Survey',
+    'Price Request',
+    'Proposal Submission',
+    'Negotiation | Revision',
+    'Contract | PO',
+    'Order Processing',
+    'Delivery Processing',
+    'Closure (Win)',
+    'Closure (Lose)',
+];
 
-const extractUrlFromFormula = (value?: string): string => {
-    if (!value || typeof value !== 'string') return '';
-    const match = value.match(/^=HYPERLINK\("([^"]+)"/i);
-    return match ? match[1] : value;
-};
+const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
+const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
 interface NewProjectModalProps {
     isOpen: boolean;
@@ -51,16 +51,18 @@ const getTodayDateString = () => {
     return `${year}-${month}-${day}`;
 };
 
-const STATUS_OPTIONS: PipelineProject['Status'][] = ['Qualification', 'Price Request', 'Presentation', 'Quote Submitted', 'Revising Specs', 'Bid Evaluation', 'Pass Evaluation', 'Pending PO', 'Ordering', 'Close (win)', 'Close (lose)'];
-const TYPE_OPTIONS = ['Project', 'Maintenance', 'Consultant'];
-const TAXABLE_OPTIONS: PipelineProject['Taxable'][] = ['VAT', 'NON-VAT'];
-const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
-
 const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, meetings, contactLogs }) => {
-    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders, siteSurveys } = useB2BData();
+    const { projects, setProjects, companies, contacts, quotations, invoices, saleOrders, siteSurveys, productInquiries, fetchModule } = useB2BData();
     const { isB2B } = useB2B();
     const { addToast } = useToast();
     const [formData, setFormData] = useState<Partial<PipelineProject>>({});
+
+    // Ensure product inquiries are loaded
+    useEffect(() => {
+        if (isOpen) {
+            fetchModule('Product Inquiries');
+        }
+    }, [isOpen, fetchModule]);
 
     const quotationOptions = useMemo(() => {
         if (!quotations || !formData['Company Name']) return [];
@@ -75,7 +77,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         const selectedCompany = formData['Company Name'].trim().toLowerCase();
         return invoices
             .filter(i => i['Company Name']?.trim().toLowerCase() === selectedCompany)
-            .map(i => i['Inv No.']);
+            .map(i => i['Inv No']);
     }, [invoices, formData['Company Name']]);
 
     const soOptions = useMemo(() => {
@@ -85,6 +87,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             .filter(s => s['Company Name']?.trim().toLowerCase() === selectedCompany)
             .map(s => s['SO No']);
     }, [saleOrders, formData['Company Name']]);
+
+    // Product Inquiry options — filtered by company if selected
+    const inquiryOptions = useMemo(() => {
+        if (!productInquiries) return [];
+        if (formData['Company Name']) {
+            const selectedCompany = formData['Company Name'].trim().toLowerCase();
+            return productInquiries
+                .filter(inq => inq.company_name?.trim().toLowerCase() === selectedCompany)
+                .map(inq => inq.inquiry_no);
+        }
+        return productInquiries.map(inq => inq.inquiry_no);
+    }, [productInquiries, formData['Company Name']]);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -116,10 +131,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         const initialState: Partial<PipelineProject> = {
             'Pipeline No': nextPipelineNo,
             'Created Date': getTodayDateString(),
-            'Status': 'Qualification',
+            'Status': 'New Deal',
             'Taxable': 'VAT',
-            'Type': 'Project',
+            'Time Frame': '30',
             'Currency': 'USD',
+            'Win Rate': null,
         };
         return initialState;
     }, [projects, isB2B]);
@@ -127,11 +143,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     const getFormDataForEdit = useCallback((p: PipelineProject) => ({
         ...p,
         'Due Date': formatToInputDate(p['Due Date']),
-        'Inv Date': formatToInputDate(p['Inv Date']),
         'Created Date': formatToInputDate(p['Created Date']),
-        'Quote': extractUrlFromFormula(p.Quote),
-        'Attach Invoice': extractUrlFromFormula(p['Attach Invoice']),
-        'Attach DO': extractUrlFromFormula(p['Attach DO']),
     }), []);
 
     useEffect(() => {
@@ -153,7 +165,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
     }, []);
 
     const handleCompanySelect = (companyName: string) => {
-        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '', 'Quote': '', 'Quote No': '', 'Invoice No': '', 'SO No': '', 'Inv Date': '' }));
+        setFormData(prev => ({ ...prev, 'Company Name': companyName, 'Contact Name': '', 'Contact Number': '', 'Email': '', 'Quote No': '', 'Invoice No': '', 'SO No': '', 'Ref Inquiry No': '' }));
     };
 
     const handleQuoteSelect = (quoteNo: string) => {
@@ -161,8 +173,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setFormData(prev => ({
             ...prev,
             'Quote No': quoteNo,
-            'Quote': extractUrlFromFormula(quote?.File) || prev.Quote,
-            'Bid Value': quote?.Amount || prev['Bid Value'],
+            'Total Amount': quote?.Amount || prev['Total Amount'],
             'Currency': (quote?.Currency as any) || prev.Currency
         }));
     };
@@ -172,8 +183,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setFormData(prev => ({
             ...prev,
             'Invoice No': invNo,
-            'Inv Date': inv?.['Inv Date'] ? formatToInputDate(inv['Inv Date']) : prev['Inv Date'],
-            'Bid Value': inv?.Amount || prev['Bid Value'],
+            'Total Amount': inv?.Amount || prev['Total Amount'],
             'Currency': (inv?.Currency as any) || prev.Currency
         }));
     };
@@ -183,9 +193,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         setFormData(prev => ({
             ...prev,
             'SO No': soNo,
-            'Bid Value': so?.['Total Amount'] || prev['Bid Value'],
+            'Total Amount': so?.['Total Amount'] || prev['Total Amount'],
             'Currency': (so?.Currency as any) || prev.Currency
         }));
+    };
+
+    const handleInquirySelect = (inquiryNo: string) => {
+        setFormData(prev => ({ ...prev, 'Ref Inquiry No': inquiryNo }));
     };
 
     const handleContactChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -198,16 +212,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
         e.preventDefault();
         onClose(); // Close modal immediately for optimistic UI
 
-        // Exclude UI-only fields and dropped columns from database submission
-        const { calculatedDueDate: _calculatedDueDate, 'Attach Invoice': _ai, 'Attach DO': _ado, ...dataToSubmit } = formData as any;
+        const { calculatedDueDate: _calculatedDueDate, ...dataToSubmit } = formData as any;
 
         const submissionData = {
             ...dataToSubmit,
             'Created Date': dataToSubmit['Created Date'] || null,
             'Due Date': dataToSubmit['Due Date'] || null,
-            'Inv Date': dataToSubmit['Inv Date'] || null,
-            'Quote': ensureHyperlink(dataToSubmit.Quote),
-            'Bid Value': dataToSubmit['Bid Value'] && dataToSubmit['Bid Value'] !== '' ? parseFloat(dataToSubmit['Bid Value']) : null,
+            'Total Amount': dataToSubmit['Total Amount'] && dataToSubmit['Total Amount'] !== '' ? parseFloat(dataToSubmit['Total Amount']) : null,
+            'Win Rate': dataToSubmit['Win Rate'] && dataToSubmit['Win Rate'] !== '' ? parseFloat(dataToSubmit['Win Rate']) : null,
         };
 
         if (isEditMode) {
@@ -219,29 +231,23 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
             try {
                 await updateRecord('pipelines', 'Pipeline No', updatedId, submissionData, isB2B);
                 addToast('Pipeline updated!', 'success');
-                // The real-time subscription will update the data
             } catch (err: any) {
                 addToast(`Failed to update pipeline: ${err.message}`, 'error');
                 setProjects(originalProjects); // Revert on failure
             }
         } else { // CREATE
             const tempId = submissionData['Pipeline No'];
-            console.log('🚀 Creating pipeline optimistically:', submissionData);
             // Optimistic update
             setProjects(current => {
-                console.log('📊 Current pipelines:', current?.length || 0);
                 const updated = current ? [submissionData as PipelineProject, ...current] : [submissionData as PipelineProject];
-                console.log('📊 Updated pipelines:', updated.length);
                 return updated;
             });
 
             try {
                 await insertRecord('pipelines', submissionData, isB2B);
                 addToast('Pipeline created!', 'success');
-                // The real-time subscription will update the data
             } catch (err: any) {
                 addToast(`Failed to create pipeline: ${err.message}`, 'error');
-                // Revert by removing the optimistic data.
                 setProjects(current => current ? current.filter(p => p['Pipeline No'] !== tempId) : null);
             }
         }
@@ -346,159 +352,184 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, exis
                 footer={modalFooter}
             >
                 <div className="space-y-6">
+                    {/* ── Core Details ────────────────────────────────────────── */}
                     <FormSection title="Core Details">
-                        {isReadOnly ? <FormDisplay label="Pipeline No" value={formData['Pipeline No']} /> : <FormInput name="Pipeline No" label="Pipeline No" value={formData['Pipeline No']} onChange={handleChange} required readOnly />}
-                        {isReadOnly ? <FormDisplay label="Status" value={formData.Status} /> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
-                        {isReadOnly ? <FormDisplay label="Responsible By" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Responsible By" value={formData['Responsible By']} onChange={handleChange} />}
-                        {isReadOnly ? <FormDisplay label="Due Date" value={formatToInputDate(formData['Due Date'])} /> : <FormInput name="Due Date" label="Due Date" value={formData['Due Date']} onChange={handleChange} type="date" />}
-                        {isReadOnly ? <FormDisplay label="Requirement" value={formData.Require} multiline /> : <FormTextarea name="Require" label="Requirement" value={formData.Require} onChange={handleChange} />}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                            {isReadOnly ? <FormDisplay label="Pipeline No" value={formData['Pipeline No']} /> : <FormInput name="Pipeline No" label="Pipeline No" value={formData['Pipeline No']} onChange={handleChange} required readOnly />}
+                            {isReadOnly ? <FormDisplay label="Created Date" value={formatToInputDate(formData['Created Date'])} /> : <FormInput name="Created Date" label="Create Date" value={formData['Created Date']} onChange={handleChange} type="date" required readOnly />}
+                            {isReadOnly ? <FormDisplay label="Taxable" value={formData.Taxable} /> : <FormSelect name="Taxable" label="Taxable" value={formData.Taxable} onChange={handleChange} options={TAXABLE_OPTIONS} required />}
+                            {isReadOnly ? <FormDisplay label="Time Frame" value={formData['Time Frame'] ? `${formData['Time Frame']} days` : ''} /> : <FormInput name="Time Frame" label="Time Frame (days)" value={formData['Time Frame']} onChange={handleChange} type="number" required />}
+                            {isReadOnly ? <FormDisplay label="Due Date" value={formatToInputDate(formData['Due Date'])} /> : <FormInput name="Due Date" label="Due Date" value={formData['Due Date']} onChange={handleChange} type="date" />}
+                            {isReadOnly ? <FormDisplay label="Sale Responsible" value={formData['Responsible By']} /> : <FormInput name="Responsible By" label="Sale Responsible" value={formData['Responsible By']} onChange={handleChange} />}
+                            {isReadOnly ? <FormDisplay label="Status" value={formData.Status} /> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
+                        </div>
                     </FormSection>
+
+                    {/* ── Company & Contact ───────────────────────────────────── */}
                     <FormSection title="Company & Contact">
-                        {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
-                            <SearchableSelect
-                                name="Company Name"
-                                label="Company Name"
-                                value={formData['Company Name'] || ''}
-                                onChange={handleCompanySelect}
-                                options={companyOptions}
-                                required
-                                placeholder="Search companies..."
-                                actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
-                            />}
-                        {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> :
-                            <FormSelect
-                                name="Contact Name"
-                                label="Contact Name"
-                                value={formData['Contact Name']}
-                                onChange={handleContactChange}
-                                options={contactOptions}
-                                disabled={isContactDisabled || contactOptions.length === 0}
-                                disabledPlaceholder={contactPlaceholder}
-                                actionButton={!isReadOnly && !!formData['Company Name'] && <button type="button" onClick={() => setIsNewContactModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
-                            />}
-                        {isReadOnly ? <FormDisplay label="Contact Number" value={formData['Contact Number']} /> : <FormInput name="Contact Number" label="Contact Number" value={formData['Contact Number']} onChange={handleChange} type="tel" readOnly />}
-                        {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} type="email" readOnly />}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                            <div className="sm:col-span-1">
+                                {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
+                                    <SearchableSelect
+                                        name="Company Name"
+                                        label="Company Name"
+                                        value={formData['Company Name'] || ''}
+                                        onChange={handleCompanySelect}
+                                        options={companyOptions}
+                                        required
+                                        placeholder="Search companies..."
+                                        actionButton={!isReadOnly && <button type="button" onClick={() => setIsNewCompanyModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
+                                    />}
+                            </div>
+                            <div className="sm:col-span-1">
+                                {isReadOnly ? <FormDisplay label="Contact Name" value={formData['Contact Name']} /> :
+                                    <FormSelect
+                                        name="Contact Name"
+                                        label="Contact Name"
+                                        value={formData['Contact Name']}
+                                        onChange={handleContactChange}
+                                        options={contactOptions}
+                                        required
+                                        disabled={isContactDisabled || contactOptions.length === 0}
+                                        disabledPlaceholder={contactPlaceholder}
+                                        actionButton={!isReadOnly && !!formData['Company Name'] && <button type="button" onClick={() => setIsNewContactModalOpen(true)} className="text-sm font-semibold text-brand-600 hover:underline">+ New</button>}
+                                    />}
+                            </div>
+                            {isReadOnly ? <FormDisplay label="Contact Number" value={formData['Contact Number']} /> : <FormInput name="Contact Number" label="Contact Number" value={formData['Contact Number']} onChange={handleChange} type="tel" readOnly />}
+                            {isReadOnly ? <FormDisplay label="Email" value={formData.Email} /> : <FormInput name="Email" label="Email" value={formData.Email} onChange={handleChange} type="email" readOnly />}
+                        </div>
                     </FormSection>
-                    <FormSection title="Project Specifics">
-                        {isReadOnly ? <FormDisplay label="Type" value={formData.Type} /> : <FormSelect name="Type" label="Type" value={formData.Type} onChange={handleChange} options={TYPE_OPTIONS} required />}
-                        {isReadOnly ? <FormDisplay label="Brand" value={formData['Brand 1']} /> : <FormInput name="Brand 1" label="Brand" value={formData['Brand 1']} onChange={handleChange} />}
-                        {isReadOnly ? <FormDisplay label="Taxable" value={formData.Taxable} /> : <FormSelect name="Taxable" label="Taxable" value={formData.Taxable} onChange={handleChange} options={TAXABLE_OPTIONS} required />}
-                        {isReadOnly ? <FormDisplay label="Time Frame" value={formData['Time Frame']} /> : <FormInput name="Time Frame" label="Time Frame" value={formData['Time Frame']} onChange={handleChange} />}
+
+                    {/* ── Deal Financials & Documents ─────────────────────────── */}
+                    <FormSection title="Deal Financials & Documents">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
+                            {isReadOnly ? <FormDisplay label="Total Amount" value={formData['Total Amount']} /> : <FormInput name="Total Amount" label="Total Amount" value={formData['Total Amount']} onChange={handleChange} type="text" placeholder="e.g., 5000" />}
+                            {isReadOnly ? <FormDisplay label="Win Rate (%)" value={formData['Win Rate'] != null ? `${formData['Win Rate']}%` : ''} /> : <FormInput name="Win Rate" label="Win Rate (%)" value={formData['Win Rate'] ?? ''} onChange={handleChange} type="number" placeholder="0-100" />}
+                            {isReadOnly ? <FormDisplay label="Currency" value={formData.Currency} /> : <FormSelect name="Currency" label="Currency" value={formData.Currency} onChange={handleChange} options={CURRENCY_OPTIONS} />}
+                        </div>
+                        <div className="mt-4">
+                            {isReadOnly ? <FormDisplay label="Requirements" value={formData.Requirements} multiline /> : <FormTextarea name="Requirements" label="Requirements" value={formData.Requirements} onChange={handleChange} required />}
+                        </div>
+
+                        {/* Reference Links */}
+                        <div className="mt-6 pt-4 border-t border-border/60">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-4">Reference Links</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                {/* Ref-Product Inquiries */}
+                                {isReadOnly ? (
+                                    <FormDisplay label="Ref-Product Inquiry">
+                                        <span>{formData['Ref Inquiry No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                    </FormDisplay>
+                                ) : (
+                                    <SearchableSelect
+                                        name="Ref Inquiry No"
+                                        label="Ref-Product Inquiry"
+                                        value={formData['Ref Inquiry No'] || ''}
+                                        onChange={handleInquirySelect}
+                                        options={inquiryOptions}
+                                        placeholder="Select from system..."
+                                    />
+                                )}
+
+                                {/* Ref-Quote No. */}
+                                {isReadOnly ? (
+                                    <FormDisplay label="Ref-Quote No.">
+                                        <div className="flex items-center justify-between">
+                                            <span>{formData['Quote No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleNavigation({
+                                                    view: 'quotations',
+                                                    payload: {
+                                                        action: 'create',
+                                                        initialData: {
+                                                            'Company Name': formData['Company Name'],
+                                                            'Contact Name': formData['Contact Name'],
+                                                            'Pipeline No': formData['Pipeline No']
+                                                        }
+                                                    }
+                                                })}
+                                                className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
+                                            >
+                                                <Plus className="w-3 h-3" /> Create
+                                            </button>
+                                        </div>
+                                    </FormDisplay>
+                                ) : (
+                                    <SearchableSelect
+                                        name="Quote No"
+                                        label="Ref-Quote No."
+                                        value={formData['Quote No'] || ''}
+                                        onChange={handleQuoteSelect}
+                                        options={quotationOptions}
+                                        placeholder="Select from system..."
+                                        actionButton={<button type="button" onClick={() => handleNavigation({ view: 'quotations', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                                    />
+                                )}
+
+                                {/* Ref-Sale Order No. (Auto Link From Quote) */}
+                                {isReadOnly ? (
+                                    <FormDisplay label="Ref-Sale Order No.">
+                                        <div className="flex items-center justify-between">
+                                            <span>{formData['SO No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleNavigation({
+                                                    view: 'sale-orders',
+                                                    payload: {
+                                                        action: 'create',
+                                                        initialData: {
+                                                            'Company Name': formData['Company Name'],
+                                                            'Quote No': formData['Quote No'] || '',
+                                                            'Pipeline No': formData['Pipeline No']
+                                                        }
+                                                    }
+                                                })}
+                                                className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
+                                            >
+                                                <Plus className="w-3 h-3" /> Create
+                                            </button>
+                                        </div>
+                                    </FormDisplay>
+                                ) : (
+                                    <SearchableSelect
+                                        name="SO No"
+                                        label="Ref-Sale Order No."
+                                        value={formData['SO No'] || ''}
+                                        onChange={handleSOSelect}
+                                        options={soOptions}
+                                        placeholder="Auto link from Quote..."
+                                        actionButton={<button type="button" onClick={() => handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
+                                    />
+                                )}
+
+                                {/* Ref-Invoice No. (Auto Link From Sale Order) */}
+                                {isReadOnly ? (
+                                    <FormDisplay label="Ref-Invoice No.">
+                                        <div className="flex items-center justify-between">
+                                            <span>{formData['Invoice No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
+                                        </div>
+                                    </FormDisplay>
+                                ) : (
+                                    <SearchableSelect
+                                        name="Invoice No"
+                                        label="Ref-Invoice No."
+                                        value={formData['Invoice No'] || ''}
+                                        onChange={handleInvoiceSelect}
+                                        options={invoiceOptions}
+                                        placeholder="Auto link from Sale Order..."
+                                    />
+                                )}
+                            </div>
+                        </div>
                     </FormSection>
+
+                    {/* ── Notes & Remarks ─────────────────────────────────────── */}
                     <FormSection title="Notes & Remarks">
                         {isReadOnly ? <FormDisplay label="Remarks" value={formData.Remarks} multiline /> : <FormTextarea name="Remarks" label="Remarks" value={formData.Remarks} onChange={handleChange} />}
-                        {isReadOnly ? <FormDisplay label="Conditional" value={formData.Conditional} multiline /> : <FormTextarea name="Conditional" label="Conditional" value={formData.Conditional} onChange={handleChange} />}
                     </FormSection>
-                    <FormSection title="Financials & Documents">
-                        {isReadOnly ? <FormDisplay label="Bid Value" value={formData['Bid Value']} /> : <FormInput name="Bid Value" label="Bid Value" value={formData['Bid Value']} onChange={handleChange} type="text" placeholder="e.g., 5000 or =5000*0.7" />}
-                        {isReadOnly ? <FormDisplay label="Currency" value={formData.Currency} /> : <FormSelect name="Currency" label="Currency" value={formData.Currency} onChange={handleChange} options={CURRENCY_OPTIONS} />}
-                        {isReadOnly ? (
-                            <FormDisplay label="Quote Link">
-                                <div className="flex items-center justify-between">
-                                    {formData.Quote ? <a href={formData.Quote} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline truncate max-w-[200px]">{formData.Quote}</a> : <span className="text-muted-foreground italic">N/A</span>}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleNavigation({
-                                            view: 'quotations',
-                                            payload: {
-                                                action: 'create',
-                                                initialData: {
-                                                    'Company Name': formData['Company Name'],
-                                                    'Contact Name': formData['Contact Name'],
-                                                    'Pipeline No': formData['Pipeline No']
-                                                }
-                                            }
-                                        })}
-                                        className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
-                                    >
-                                        <Plus className="w-3 h-3" /> Create
-                                    </button>
-                                </div>
-                            </FormDisplay>
-                        ) : (
-                            <SearchableSelect
-                                name="Quote"
-                                label="Quote No. (from System)"
-                                value={formData['Quote No'] || ''}
-                                onChange={handleQuoteSelect}
-                                options={quotationOptions}
-                                placeholder="Select Quotation..."
-                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'quotations', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
-                            />
-                        )}
 
-                        {isReadOnly ? (
-                            <FormDisplay label="SO No">
-                                <div className="flex items-center justify-between">
-                                    <span>{formData['SO No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleNavigation({
-                                            view: 'sale-orders',
-                                            payload: {
-                                                action: 'create',
-                                                initialData: {
-                                                    'Company Name': formData['Company Name'],
-                                                    'Quote No': quotations?.find(q => q.File === formData.Quote)?.['Quote No'] || '',
-                                                    'Pipeline No': formData['Pipeline No']
-                                                }
-                                            }
-                                        })}
-                                        className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
-                                    >
-                                        <Plus className="w-3 h-3" /> Create
-                                    </button>
-                                </div>
-                            </FormDisplay>
-                        ) : (
-                            <SearchableSelect
-                                name="SO No"
-                                label="Sale Order No. (Select from System)"
-                                value={formData['SO No'] || ''}
-                                onChange={handleSOSelect}
-                                options={soOptions}
-                                placeholder="Select Sale Order..."
-                                actionButton={<button type="button" onClick={() => handleNavigation({ view: 'sale-orders', payload: { action: 'create', initialData: { 'Company Name': formData['Company Name'], 'Pipeline No': formData['Pipeline No'] } } })} className="text-xs text-brand-600 font-semibold hover:underline">+ Create New</button>}
-                            />
-                        )}
-
-                        {isReadOnly ? (
-                            <FormDisplay label="Invoice No.">
-                                <div className="flex items-center justify-between">
-                                    <span>{formData['Invoice No'] || <span className="text-muted-foreground italic">N/A</span>}</span>
-                                    {!formData['Invoice No'] && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleNavigation({
-                                                view: 'sale-orders',
-                                                payload: {
-                                                    isPipeline: true,
-                                                    'Company Name': formData['Company Name'],
-                                                    'Contact Name': formData['Contact Name'],
-                                                    'Quote No': quotations?.find(q => q.File === formData.Quote)?.['Quote No'] || '',
-                                                    'Pipeline No': formData['Pipeline No']
-                                                }
-                                            })}
-                                            className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium ml-2"
-                                        >
-                                            <Plus className="w-3 h-3" /> Create SO
-                                        </button>
-                                    )}
-                                </div>
-                            </FormDisplay>
-                        ) : (
-                            <SearchableSelect
-                                name="Invoice No."
-                                label="Invoice No. (Select from System)"
-                                value={formData['Invoice No'] || ''}
-                                onChange={handleInvoiceSelect}
-                                options={invoiceOptions}
-                                placeholder="Select Invoice..."
-                            />
-                        )}
-
-                        {isReadOnly ? <FormDisplay label="Invoice Date" value={formatToInputDate(formData['Inv Date'])} /> : <FormInput name="Inv Date" label="Invoice Date" value={formData['Inv Date']} onChange={handleChange} type="date" />}
-                    </FormSection>
+                    {/* ── Activities ──────────────────────────────────────────── */}
                     {isEditMode && (
                         <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
                             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60 mb-6">{`Activities (${relatedActivities.length})`}</h3>

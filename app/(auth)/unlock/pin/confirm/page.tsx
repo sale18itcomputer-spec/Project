@@ -99,7 +99,7 @@ export default function ConfirmPinPage() {
         <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans selection:bg-transparent">
             <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
                 <div className="flex flex-col items-center gap-4 mb-10">
-                    <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/20">
+                    <div className="w-16 h-16 bg-brand-500/20 text-brand-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_hsl(var(--brand-500)/0.15)] border border-brand-500/20">
                         <Lock className="w-7 h-7" />
                     </div>
                     <div className="text-center">

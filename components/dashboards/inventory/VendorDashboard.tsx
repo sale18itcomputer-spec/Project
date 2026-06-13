@@ -115,7 +115,7 @@ const VendorDashboard: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1">

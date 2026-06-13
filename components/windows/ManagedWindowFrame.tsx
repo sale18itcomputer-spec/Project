@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
-import { Expand, Minus, X } from 'lucide-react';
+import { Minus, X } from 'lucide-react';
 import { ManagedWindow, SnapZone, useWindowManager } from '../../contexts/WindowManagerContext';
 
 const SNAP_MARGIN = 24;
@@ -12,48 +12,78 @@ const SNAP_MARGIN = 24;
  * adapted from ResizableModal's drag/resize/snap logic, but driven by
  * WindowManagerContext state instead of local component state.
  */
-const ManagedWindowFrame: React.FC<{ win: ManagedWindow }> = React.memo(({ win }) => {
-    const { updateWindow, closeWindow, minimizeWindow, focusWindow } = useWindowManager();
+const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> = React.memo(({ win, isFocused }) => {
+    const { updateWindow, closeWindow, removeWindow, minimizeWindow, focusWindow } = useWindowManager();
 
     const [isShowing, setIsShowing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
+    const [resizeDir, setResizeDir] = useState<string | null>(null);
     const [snapPreview, setSnapPreview] = useState<SnapZone>(null);
 
     const titleId = `managed-window-title-${useId()}`;
+    const frameRef = useRef<HTMLDivElement>(null);
     const dragStartRef = useRef<{ startX: number; startY: number; startLeft: number; startTop: number } | null>(null);
-    const resizeStartRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
+    const resizeStartRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number; startLeft: number; startTop: number } | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsShowing(true), 10);
         return () => clearTimeout(timer);
     }, []);
 
+    // Play the same fade/scale transition in reverse, then unmount once it finishes.
+    useEffect(() => {
+        if (!win.isClosing) return;
+        setIsShowing(false);
+        const timer = setTimeout(() => removeWindow(win.id), 200);
+        return () => clearTimeout(timer);
+    }, [win.isClosing, win.id, removeWindow]);
+
     // ── Resize ──────────────────────────────────────────────────────────────
-    const handleResizeStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const handleResizeStart = useCallback((dir: string) => (e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
         focusWindow(win.id);
         setIsResizing(true);
+        setResizeDir(dir);
         resizeStartRef.current = {
             startX: e.clientX,
             startY: e.clientY,
             startWidth: win.rect.width,
             startHeight: win.rect.height,
+            startLeft: win.rect.x,
+            startTop: win.rect.y,
         };
-    }, [win.id, win.rect.width, win.rect.height, focusWindow]);
+    }, [win.id, win.rect, focusWindow]);
 
     const handleResizeMove = useCallback((e: MouseEvent) => {
-        if (!isResizing || !resizeStartRef.current) return;
+        if (!isResizing || !resizeStartRef.current || !resizeDir) return;
         const dx = e.clientX - resizeStartRef.current.startX;
         const dy = e.clientY - resizeStartRef.current.startY;
-        const newWidth = Math.max(win.minWidth, resizeStartRef.current.startWidth + dx);
-        const newHeight = Math.max(win.minHeight, resizeStartRef.current.startHeight + dy);
-        updateWindow(win.id, { rect: { ...win.rect, width: newWidth, height: newHeight } });
-    }, [isResizing, win.id, win.rect, win.minWidth, win.minHeight, updateWindow]);
+        const { startWidth, startHeight, startLeft, startTop } = resizeStartRef.current;
+
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+        let newX = startLeft;
+        let newY = startTop;
+
+        if (resizeDir.includes('e')) newWidth = Math.max(win.minWidth, startWidth + dx);
+        if (resizeDir.includes('s')) newHeight = Math.max(win.minHeight, startHeight + dy);
+        if (resizeDir.includes('w')) {
+            newWidth = Math.max(win.minWidth, startWidth - dx);
+            newX = startLeft + (startWidth - newWidth);
+        }
+        if (resizeDir.includes('n')) {
+            newHeight = Math.max(win.minHeight, startHeight - dy);
+            newY = startTop + (startHeight - newHeight);
+        }
+
+        updateWindow(win.id, { rect: { x: newX, y: newY, width: newWidth, height: newHeight } });
+    }, [isResizing, resizeDir, win.id, win.minWidth, win.minHeight, updateWindow]);
 
     const handleResizeEnd = useCallback(() => {
         setIsResizing(false);
+        setResizeDir(null);
         resizeStartRef.current = null;
     }, []);
 
@@ -147,22 +177,31 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow }> = React.memo(({ win }
                 />
             )}
             <div
+                ref={frameRef}
                 style={{ ...frameStyle, zIndex: win.zIndex }}
                 onMouseDown={() => focusWindow(win.id)}
-                className={`bg-card rounded-xl shadow-2xl flex flex-col border border-border ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-200'}`}
+                className={`window-frame-glow ${isFocused ? 'window-focused' : ''} bg-card rounded-xl shadow-2xl flex flex-col ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-200'}`}
                 aria-labelledby={titleId}
                 role="dialog"
             >
                 <div
                     onMouseDown={handleDragStart}
-                    className={`flex-shrink-0 bg-card/80 backdrop-blur-md p-4 flex justify-between items-center rounded-t-xl border-b border-border ${win.draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+                    className={`flex-shrink-0 bg-card/80 backdrop-blur-sm p-4 flex justify-between items-center rounded-t-xl border-b border-border ${win.draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
                 >
                     <h2 id={titleId} className="text-base font-bold text-foreground truncate">{win.title}</h2>
                     <div className="flex items-center gap-1">
-                        <button onClick={() => minimizeWindow(win.id)} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Minimize" title="Minimize">
+                        <button
+                            onClick={() => {
+                                const r = frameRef.current?.getBoundingClientRect();
+                                minimizeWindow(win.id, r
+                                    ? { x: r.left, y: r.top, width: r.width, height: r.height }
+                                    : { x: win.rect.x, y: win.rect.y, width: win.rect.width, height: win.rect.height });
+                            }}
+                            className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Minimize" title="Minimize"
+                        >
                             <Minus size={16} />
                         </button>
-                        <button onClick={() => { closeWindow(win.id); win.onClose(); }} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close" title="Close">
+                        <button onClick={() => { win.onClose(); closeWindow(win.id); }} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close" title="Close">
                             <X size={18} />
                         </button>
                     </div>
@@ -173,19 +212,24 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow }> = React.memo(({ win }
                 </div>
 
                 {win.footer && (
-                    <div className="flex-shrink-0 bg-card/80 backdrop-blur-md pt-4 pb-4 border-t border-border px-6 rounded-b-xl">
+                    <div className="flex-shrink-0 bg-card/80 backdrop-blur-sm pt-4 pb-4 border-t border-border px-6 rounded-b-xl">
                         {win.footer}
                     </div>
                 )}
 
                 {!win.snapped && (
-                    <div
-                        onMouseDown={handleResizeStart}
-                        className="absolute bottom-1 right-1 w-6 h-6 cursor-nwse-resize flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors"
-                        title="Resize"
-                    >
-                        <Expand className="w-4 h-4 rotate-90" />
-                    </div>
+                    <>
+                        {/* Edge handles */}
+                        <div onMouseDown={handleResizeStart('n')}  className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />
+                        <div onMouseDown={handleResizeStart('s')}  className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize" />
+                        <div onMouseDown={handleResizeStart('e')}  className="absolute top-2 bottom-2 right-0 w-1 cursor-e-resize" />
+                        <div onMouseDown={handleResizeStart('w')}  className="absolute top-2 bottom-2 left-0 w-1 cursor-w-resize" />
+                        {/* Corner handles */}
+                        <div onMouseDown={handleResizeStart('nw')} className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize" />
+                        <div onMouseDown={handleResizeStart('ne')} className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize" />
+                        <div onMouseDown={handleResizeStart('sw')} className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize" />
+                        <div onMouseDown={handleResizeStart('se')} className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize" />
+                    </>
                 )}
             </div>
         </>

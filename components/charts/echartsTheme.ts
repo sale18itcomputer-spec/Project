@@ -1,5 +1,18 @@
 import { EChartsOption } from 'echarts';
 import * as React from 'react';
+import { hslToHex } from '@/lib/utils';
+
+// Reads a CSS custom property holding an "H S% L%" triple (e.g. --primary)
+// and converts it to a hex string for ECharts, which doesn't understand
+// hsl(var(...)). Falls back when run before mount (SSR) or if unset.
+function hslVarToHex(varName: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  const match = raw.match(/^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+  if (!match) return fallback;
+  const [, h, s, l] = match.map(Number);
+  return hslToHex(h, s, l);
+}
 
 // Call this each time you need a fresh theme that reflects current dark/light mode.
 // Charts re-register on theme toggle via AppProviders.
@@ -9,7 +22,7 @@ export function buildLimperialTheme(): EChartsOption {
     document.documentElement.classList.contains('dark');
 
   const colors = {
-    primary: '#0d9488',   // teal-600
+    primary: hslVarToHex('--primary', '#0d9488'), // follows the user's accent color
     secondary: '#f59e0b', // amber-500
     accent: '#6366f1',    // indigo-500
     text: isDark ? 'rgba(240,236,228,0.90)' : 'rgba(0,0,0,0.85)',

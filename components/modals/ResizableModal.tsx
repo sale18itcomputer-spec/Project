@@ -262,7 +262,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
       >
         <div
           onMouseDown={handleDragStart}
-          className={`flex-shrink-0 bg-card/80 backdrop-blur-md p-6 flex justify-between items-center z-10 rounded-t-xl ${isMinimized ? 'rounded-b-xl' : 'border-b border-border'} ${draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+          className={`flex-shrink-0 bg-card/80 backdrop-blur-sm p-6 flex justify-between items-center z-10 rounded-t-xl ${isMinimized ? 'rounded-b-xl' : 'border-b border-border'} ${draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
         >
           <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-foreground truncate">{title}</h2>
           <div className="flex items-center gap-1">
@@ -284,7 +284,7 @@ const ResizableModal: React.FC<ResizableModalProps> = ({
             </div>
 
             {footer && (
-              <div className="flex-shrink-0 bg-card/80 backdrop-blur-md pt-4 pb-4 mt-auto border-t border-border z-10 px-6 rounded-b-xl">
+              <div className="flex-shrink-0 bg-card/80 backdrop-blur-sm pt-4 pb-4 mt-auto border-t border-border z-10 px-6 rounded-b-xl">
                 {footer}
               </div>
             )}

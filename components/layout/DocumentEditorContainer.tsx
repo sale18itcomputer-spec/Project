@@ -32,7 +32,7 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Creator Header — flex-shrink-0 so it never scrolls away */}
-      <header className="flex-shrink-0 bg-card/80 backdrop-blur-md border-b border-border/60 screen-only">
+      <header className="flex-shrink-0 bg-card/80 backdrop-blur-sm border-b border-border/60 screen-only">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
 
           {/* Navigation & Title */}

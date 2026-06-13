@@ -12,7 +12,7 @@ import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } fr
 import { useB2B } from "../../../contexts/B2BContext";
 
 const DashboardContentSkeleton = () => (
-  <div className="w-full lg:h-full lg:overflow-y-auto custom-scrollbar bg-background/50">
+  <div className="w-full lg:h-full lg:overflow-y-auto custom-scrollbar">
     <div className="p-3 sm:p-4 md:p-8 space-y-5 sm:space-y-8">
 
       {/* Header — visible title anchors the user while data loads */}
@@ -80,7 +80,7 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     if (loading) return null;
 
-    const wonProjects = (projects || []).filter(p => (p.Status || '').toLowerCase().includes('win'));
+    const wonProjects = (projects || []).filter(p => p.Status === 'Closure (Win)');
 
     // Open Quotes: quotations that are not cancelled/rejected/done
     const closedStatuses = ['cancelled', 'rejected', 'done', 'invoiced', 'expired'];
@@ -112,7 +112,7 @@ const Dashboard = () => {
   if (loading) return <DashboardContentSkeleton />;
 
   return (
-    <div className="w-full lg:h-full lg:overflow-y-auto custom-scrollbar bg-background/50">
+    <div className="w-full lg:h-full lg:overflow-y-auto custom-scrollbar">
       <div className="p-3 sm:p-4 md:p-8 space-y-5 sm:space-y-8">
 
         {/* Header */}

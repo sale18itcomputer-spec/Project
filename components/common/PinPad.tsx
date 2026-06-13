@@ -18,7 +18,7 @@ export function PinDots({ length = 4, filled }: PinDotsProps) {
                     key={i}
                     className={`w-4 h-4 rounded-full transition-all duration-300 ${
                         i < filled
-                            ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]'
+                            ? 'bg-brand-500 scale-125 shadow-[0_0_15px_hsl(var(--brand-500)/0.6)]'
                             : 'bg-slate-700/50 border border-slate-600'
                     }`}
                 />
@@ -61,7 +61,7 @@ export function PinPad({ onDigit, onDelete, onSubmit, submitDisabled }: PinPadPr
                     className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors mx-auto ${
                         submitDisabled 
                             ? 'text-slate-700 cursor-not-allowed' 
-                            : 'text-blue-400 hover:text-white hover:bg-white/10 active:bg-white/20'
+                            : 'text-brand-400 hover:text-white hover:bg-white/10 active:bg-white/20'
                     }`}
                 >
                     <Check className="w-8 h-8" />

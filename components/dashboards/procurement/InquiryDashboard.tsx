@@ -5,7 +5,6 @@ import { ProductInquiry } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { useNavigation } from '../../../contexts/NavigationContext';
 import { Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
@@ -15,7 +14,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
-import InquiryCreator from '../../features/procurement/InquiryCreator';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import InquiryWindowContent from '../../windows/content/InquiryWindowContent';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-inquiry-columns-visibility';
 
@@ -42,26 +42,31 @@ const StatusBadge: React.FC<{ value: string; styleMap: Record<string, string> }>
 
 const InquiryDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const { productInquiries, setProductInquiries, loading } = useData();
-  const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const { can } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [inquiryToDelete, setInquiryToDelete] = useState<ProductInquiry | null>(null);
 
-  const isCreating = navigation.action === 'create' || navigation.action === 'edit' || navigation.action === 'view';
+  const openInquiryWindow = (inquiryId: string | null, initialReadOnly: boolean) => {
+    const id = `inquiry-${inquiryId ?? 'new'}`;
+    openWindow({
+      id,
+      title: inquiryId ? 'Product Inquiry' : 'New Product Inquiry',
+      content: <InquiryWindowContent windowId={id} inquiryId={inquiryId} initialReadOnly={initialReadOnly} />,
+      draggable: true,
+      initialWidth: 1100,
+      initialHeight: 720,
+      minWidth: 800,
+      minHeight: 500,
+    });
+  };
 
-  const selectedInquiry = useMemo(() => {
-    if ((navigation.action === 'edit' || navigation.action === 'view') && navigation.id && productInquiries) {
-      return productInquiries.find(i => i.id === navigation.id) ?? null;
-    }
-    return null;
-  }, [navigation.action, navigation.id, productInquiries]);
-
-  const handleOpenNew = () => handleNavigation({ view: 'inquiries', action: 'create' });
-  const handleEdit = (row: ProductInquiry) => handleNavigation({ view: 'inquiries', action: 'edit', id: row.id });
+  const handleOpenNew = () => openInquiryWindow(null, false);
+  const handleEdit = (row: ProductInquiry) => openInquiryWindow(row.id!, false);
   const handleDeleteRequest = (row: ProductInquiry) => setInquiryToDelete(row);
 
   const handleConfirmDelete = async () => {
@@ -175,18 +180,8 @@ const InquiryDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter 
 
   const STATUS_FILTERS = ['All', 'Draft', 'Pending', 'In Progress', 'Quoted', 'Cancelled'];
 
-  if (isCreating) {
-    return (
-      <InquiryCreator
-        existingInquiry={selectedInquiry}
-        initialReadOnly={navigation.action === 'view'}
-        onBack={() => handleNavigation({ view: 'inquiries' })}
-      />
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
       <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-center gap-3">

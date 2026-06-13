@@ -311,7 +311,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     }
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-xl font-bold text-foreground">Invoices</h1>
@@ -364,7 +364,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     </div>
                 </div>
             </header>
-            <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+            <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {loading ? <Spinner /> : viewMode === 'table' ? (
                     <DataTable
                         tableId="invoice-table" data={filteredData} columns={displayedColumns} loading={loading}
@@ -458,7 +458,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                         </div>
 
                         {/* Detail Content */}
-                        <div className="flex-1 bg-background overflow-y-auto p-4 md:p-8">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8">
                             {selectedInvoiceId ? (
                                 (() => {
                                     const selectedInv = invoices.find(i => i['Inv No'] === selectedInvoiceId);

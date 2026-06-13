@@ -5,8 +5,8 @@ import { PurchaseOrder } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
-import PurchaseOrderCreator from "../../features/sales/PurchaseOrderCreator";
-import { useNavigation } from "../../../contexts/NavigationContext";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import PurchaseOrderWindowContent from "../../windows/content/PurchaseOrderWindowContent";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { ClipboardList, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Warehouse } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
@@ -23,27 +23,29 @@ import { DropdownMenuItem } from "../../ui/dropdown-menu";
 
 const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-visibility';
 
-const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPayload }) => {
-    const { purchaseOrders, setPurchaseOrders, pricelist, vendorPricelist, loading, refetchData } = useData();
+const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
+    const { purchaseOrders, setPurchaseOrders, pricelist, vendorPricelist, loading } = useData();
     const [searchQuery, setSearchQuery] = useState('');
-    const { handleNavigation, navigation } = useNavigation();
-
-    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
-
-    const selectedPOToEdit = useMemo(() => {
-        if (navigation.action === 'edit' && navigation.id && purchaseOrders) {
-            return purchaseOrders.find(po => po.id === navigation.id) || null;
-        }
-        if (initialPayload?.action === 'edit' && initialPayload?.data) {
-            return initialPayload.data;
-        }
-        return null;
-    }, [navigation.action, navigation.id, purchaseOrders, initialPayload]);
+    const { openWindow } = useWindowManager();
     const { addToast } = useToast();
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const { currentUser } = useAuth();
+
+    const openPOWindow = (poId: string | null, initialData?: Partial<PurchaseOrder>) => {
+        const id = poId ? `po-${poId}` : (initialData ? 'po-duplicate' : 'po-new');
+        openWindow({
+            id,
+            title: poId ? 'Edit Purchase Order' : 'New Purchase Order',
+            content: <PurchaseOrderWindowContent windowId={id} poId={poId} initialData={initialData} />,
+            draggable: true,
+            initialWidth: 1100,
+            initialHeight: 750,
+            minWidth: 850,
+            minHeight: 550,
+        });
+    };
 
     const fetchPOItems = async (poId: string) => {
         const { data, error } = await supabase
@@ -74,12 +76,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
                 delivery_date: '',
             };
 
-            handleNavigation({
-                view: 'purchase-orders',
-                filter: navigation.filter,
-                action: 'create',
-                payload: { isDuplicate: true, initialData }
-            });
+            openPOWindow(null, initialData);
             addToast('Duplicating purchase order...', 'info');
         } catch (err: any) {
             addToast(`Failed to duplicate: ${err.message}`, 'error');
@@ -88,13 +85,9 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         }
     };
 
-    const handleNewPO = () => {
-        handleNavigation({ view: 'purchase-orders', filter: navigation.filter, action: 'create' });
-    };
+    const handleNewPO = () => openPOWindow(null);
 
-    const handleEditPO = (po: PurchaseOrder) => {
-        handleNavigation({ view: 'purchase-orders', filter: navigation.filter, action: 'edit', id: po.id });
-    };
+    const handleEditPO = (po: PurchaseOrder) => openPOWindow(po.id!);
 
     const handleDeleteRequest = (po: PurchaseOrder) => {
         setPoToDelete(po);
@@ -250,7 +243,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
 
     if (currentUser?.Role !== 'Admin') {
         return (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-background">
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
                 <ClipboardList className="w-16 h-16 text-muted-foreground/30 mb-4" />
                 <h2 className="text-xl font-bold mb-2 text-foreground">Access Restricted</h2>
                 <p className="max-w-md">You don't have permission to view or manage Purchase Orders. This area is restricted to Administrators only.</p>
@@ -258,23 +251,8 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = ({ initialPay
         );
     }
 
-    if (isCreating) {
-        const creatorInitialData = navigation.payload?.initialData;
-        
-        return (
-            <PurchaseOrderCreator
-                onBack={() => {
-                    handleNavigation({ view: 'purchase-orders', filter: navigation.filter });
-                    refetchData();
-                }}
-                existingPO={selectedPOToEdit}
-                initialData={creatorInitialData}
-            />
-        );
-    }
-
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h2 className="text-xl font-bold flex items-center gap-2">

@@ -90,7 +90,7 @@ export default function RequestOtpPage() {
     return (
         <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans">
             <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-                <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/20 mb-6">
+                <div className="w-16 h-16 bg-brand-500/20 text-brand-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_hsl(var(--brand-500)/0.15)] border border-brand-500/20 mb-6">
                     {stage === 'sending' ? (
                         <Loader2 className="w-7 h-7 animate-spin" />
                     ) : (
@@ -119,12 +119,12 @@ export default function RequestOtpPage() {
                         </h2>
                         <p className="text-sm text-slate-400 text-center px-4 mb-6 leading-relaxed">
                             A code was already sent recently. Resending automatically in{' '}
-                            <span className="text-blue-400 font-semibold tabular-nums">{countdown}s</span>…
+                            <span className="text-brand-400 font-semibold tabular-nums">{countdown}s</span>…
                         </p>
                         <div className="w-full space-y-3">
                             <button
                                 onClick={handleRetry}
-                                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.2)]"
+                                className="w-full h-12 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(var(--brand-600)/0.2)]"
                             >
                                 <RefreshCw className="w-4 h-4" />
                                 Send Now
@@ -148,7 +148,7 @@ export default function RequestOtpPage() {
                         <div className="w-full space-y-3">
                             <button
                                 onClick={handleRetry}
-                                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.2)]"
+                                className="w-full h-12 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(var(--brand-600)/0.2)]"
                             >
                                 <RefreshCw className="w-4 h-4" />
                                 Try Again

@@ -85,23 +85,35 @@ export const FormSelect: React.FC<{
 
 
 // Updated textarea with styles consistent with the new FormInput.
-export const FormTextarea: React.FC<{ name: string; label: string; value: any; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void; rows?: number; placeholder?: string; readOnly?: boolean; }> =
-    ({ name, label, value, onChange, rows = 3, placeholder, readOnly }) => (
+export const FormTextarea: React.FC<{
+    name: string;
+    label: string;
+    value: any;
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    rows?: number;
+    placeholder?: string;
+    readOnly?: boolean;
+    required?: boolean;
+}> = ({ name, label, value, onChange, rows = 3, placeholder, readOnly, required = false }) => (
 
-        <div className="md:col-span-2 flex flex-col">
-            <label htmlFor={name} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">{label}</label>
-            <textarea
-                name={name}
-                id={name}
-                value={value || ''}
-                onChange={onChange}
-                rows={rows}
-                placeholder={placeholder}
-                readOnly={readOnly}
-                className={`block w-full px-3.5 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 hover:border-muted-foreground/40 resize-none ${readOnly ? 'opacity-70 cursor-default' : ''}`}
-            />
-        </div>
-    );
+    <div className="md:col-span-2 flex flex-col">
+        <label htmlFor={name} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">
+            {label}
+            {required && <span className="text-rose-500 ml-1">*</span>}
+        </label>
+        <textarea
+            name={name}
+            id={name}
+            value={value || ''}
+            onChange={onChange}
+            rows={rows}
+            placeholder={placeholder}
+            readOnly={readOnly}
+            required={required}
+            className={`block w-full px-3.5 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 hover:border-muted-foreground/40 resize-none ${readOnly ? 'opacity-70 cursor-default' : ''}`}
+        />
+    </div>
+);
 
 // Searchable select — shows a text input that filters options in a dropdown.
 // onChange receives the selected string directly (not a synthetic event).

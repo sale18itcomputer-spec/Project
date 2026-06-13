@@ -13,8 +13,8 @@ const BrandedLoader: React.FC = () => {
           display: inline-block;
           width: 50px;
           height: 50px;
-          border: 4px solid rgba(0, 74, 173, 0.15);
-          border-left-color: #004aad;
+          border: 4px solid hsl(var(--brand-600) / 0.15);
+          border-left-color: hsl(var(--brand-600));
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }

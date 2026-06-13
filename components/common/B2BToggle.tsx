@@ -3,12 +3,11 @@
 import React from 'react';
 import { useB2B } from "../../contexts/B2BContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { useTheme } from "../providers/AppProviders";
-import { Building2, Users2, Sun, Moon, Sparkles } from 'lucide-react';
+import { Building2, Users2 } from 'lucide-react';
+import ThemePicker from './ThemePicker';
 
 const B2BToggle: React.FC = () => {
     const { mode, toggleMode, isB2B } = useB2B();
-    const { theme, toggle: toggleTheme } = useTheme();
     const { currentUser: _currentUser } = useAuth();
 
     // Only show toggle for admin users
@@ -48,20 +47,8 @@ const B2BToggle: React.FC = () => {
                 </button>
             </div>
 
-            {/* Theme Toggle */}
-            <button
-                onClick={toggleTheme}
-                className="flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 shadow-sm"
-                title={`Switch to ${theme === 'light' ? 'Dark' : theme === 'dark' ? 'Claude' : 'Light'} Mode`}
-            >
-                {theme === 'light' ? (
-                    <Moon size={18} className="animate-in zoom-in duration-300" />
-                ) : theme === 'dark' ? (
-                    <Sparkles size={18} className="animate-in zoom-in duration-300" />
-                ) : (
-                    <Sun size={18} className="animate-in zoom-in duration-300" />
-                )}
-            </button>
+            {/* Theme & Accent Picker */}
+            <ThemePicker />
 
             {/* Mode indicator badge */}
             <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/30 border border-border">

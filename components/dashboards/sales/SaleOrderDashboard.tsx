@@ -412,7 +412,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                     loading={loading && !saleOrders}
                 />
             </aside>
-            <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-background">
+            <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
                 {loading && !selectedSaleOrder ? <Spinner /> : selectedSaleOrder ? (
                     <div className="max-w-4xl mx-auto space-y-8">
                         <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
@@ -489,7 +489,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     );
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-xl font-bold text-foreground">Sale Order Record</h1>
@@ -564,7 +564,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                 </div>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+            <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {viewMode === 'table' ? (
                     <DataTable
                         tableId="saleorder-table"

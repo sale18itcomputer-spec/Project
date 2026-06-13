@@ -20,7 +20,7 @@ const Spinner: React.FC<SpinnerProps> = ({
     };
 
     const colorMap = {
-        brand: '#004aad',
+        brand: 'hsl(var(--brand-600))',
         white: '#ffffff',
         slate: '#64748b',
         current: 'currentColor'

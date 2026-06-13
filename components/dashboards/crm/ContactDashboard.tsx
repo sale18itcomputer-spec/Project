@@ -145,7 +145,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
 
     return validContacts.map(contact => {
       const contactName = contact.Name;
-      const isActive = projects?.some(p => p['Contact Name'] === contactName && p.Status === 'Quote Submitted') || false;
+      const isActive = projects?.some(p => p['Contact Name'] === contactName && p.Status === 'Proposal Submission') || false;
 
       // Calculate total from completed Sale Orders, excluding VAT
       const { totalAmountUSD, totalAmountKHR } = saleOrders
@@ -342,7 +342,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
 
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
       {/* Header & Filter Section */}
       <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -410,7 +410,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 min-h-0 ${viewMode === 'list' ? 'overflow-hidden bg-background p-4' : 'overflow-auto bg-background p-6'}`}>
+      <div className={`flex-1 min-h-0 ${viewMode === 'list' ? 'overflow-hidden p-4' : 'overflow-auto p-6'}`}>
         {loading ? <Spinner size="lg" /> : (
           filteredData.length > 0 ? (
             viewMode === 'grid' ? (

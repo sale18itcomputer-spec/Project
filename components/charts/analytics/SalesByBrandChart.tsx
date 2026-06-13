@@ -153,12 +153,12 @@ const SalesByBrandChart: React.FC<Props> = ({ data, onSliceClick }) => {
 
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${active
-      ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+      ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
       : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'}`;
 
   return (
     <div className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden" style={{ height: showTable ? 'auto' : '500px' }}>
-      <div className="h-1 bg-gradient-to-r from-blue-800 via-blue-500 to-amber-400 flex-shrink-0" />
+      <div className="h-1 bg-gradient-to-r from-brand-800 via-brand-500 to-amber-400 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 flex-shrink-0">
@@ -238,11 +238,11 @@ const SalesByBrandChart: React.FC<Props> = ({ data, onSliceClick }) => {
                       {i === 0 ? <span className="text-amber-500">🥇 #1</span> : <span>#{i + 1}</span>}
                     </td>
                     <td className="px-4 py-2.5 font-semibold text-foreground">{d.name}</td>
-                    <td className="px-4 py-2.5 text-right font-bold text-blue-600">{formatFullCurrency(d.value)}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-brand-600">{formatFullCurrency(d.value)}</td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${totalRevenue > 0 ? (d.value / totalRevenue) * 100 : 0}%` }} />
+                          <div className="h-full bg-brand-500 rounded-full" style={{ width: `${totalRevenue > 0 ? (d.value / totalRevenue) * 100 : 0}%` }} />
                         </div>
                         <span className="text-muted-foreground w-10 text-right">
                           {totalRevenue > 0 ? `${((d.value / totalRevenue) * 100).toFixed(1)}%` : '0%'}
@@ -255,7 +255,7 @@ const SalesByBrandChart: React.FC<Props> = ({ data, onSliceClick }) => {
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30">
                   <td className="px-4 py-2.5 font-black text-foreground uppercase text-[10px] tracking-wider" colSpan={2}>Total</td>
-                  <td className="px-4 py-2.5 text-right font-black text-blue-600">{formatFullCurrency(totalRevenue)}</td>
+                  <td className="px-4 py-2.5 text-right font-black text-brand-600">{formatFullCurrency(totalRevenue)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-muted-foreground">100%</td>
                 </tr>
               </tfoot>

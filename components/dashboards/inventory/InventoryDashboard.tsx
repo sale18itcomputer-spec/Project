@@ -296,7 +296,7 @@ const InventoryDashboard: React.FC = () => {
   // ── Access guard ─────────────────────────────────────────────────────────────
   if (!canView('inventory')) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-background">
+      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
         <Warehouse className="w-16 h-16 text-muted-foreground/30 mb-4" />
         <h2 className="text-xl font-bold mb-2 text-foreground">Access Restricted</h2>
         <p className="max-w-md">You don't have permission to view Inventory.</p>
@@ -305,7 +305,7 @@ const InventoryDashboard: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
 
       {/* ── Header ── */}
       <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">

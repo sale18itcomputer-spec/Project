@@ -370,7 +370,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }, [allColumns, visibleColumns]);
 
   const renderDetailView = () => (
-    <div className="flex flex-col md:flex-row h-full bg-background">
+    <div className="flex flex-col md:flex-row h-full">
       <aside className="w-full md:w-80 lg:w-96 border-r border-border bg-card flex flex-col">
         <QuotationListContainer
           quotations={filteredData}
@@ -379,7 +379,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
           loading={loading && !quotations}
         />
       </aside>
-      <main className="flex-1 p-6 sm:p-8 overflow-y-auto bg-background">
+      <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
         {loading && !selectedQuotationForDetail ? <Spinner /> : selectedQuotationForDetail ? (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
@@ -492,7 +492,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
       <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center justify-between lg:justify-start gap-4">
           <div className="flex items-center">
@@ -572,7 +572,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-hidden bg-background p-0 md:p-4">
+      <div className="flex-1 min-h-0 overflow-hidden p-0 md:p-4">
         {viewMode === 'table' ? (
           <DataTable
             tableId="quotation-table"

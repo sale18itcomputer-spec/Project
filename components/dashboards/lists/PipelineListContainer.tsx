@@ -72,7 +72,7 @@ const PipelineListContainer: React.FC<PipelineListContainerProps> = ({ projects,
                                 <div className="text-right flex-shrink-0 ml-2">
                                     <p className={`text-sm font-semibold ${selectedPipelineNo === project['Pipeline No'] ? 'text-brand-500' : 'text-foreground'
                                         }`}>
-                                        {formatCurrencySmartly(project['Bid Value'], project.Currency)}
+                                        {formatCurrencySmartly(project['Total Amount'], project.Currency)}
                                     </p>
                                 </div>
                             </div>

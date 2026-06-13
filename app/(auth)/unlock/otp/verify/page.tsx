@@ -64,7 +64,7 @@ export default function VerifyOtpPage() {
     return (
         <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans">
             <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-                <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/20 mb-6">
+                <div className="w-16 h-16 bg-brand-500/20 text-brand-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_hsl(var(--brand-500)/0.15)] border border-brand-500/20 mb-6">
                     <Mail className="w-7 h-7" />
                 </div>
 
@@ -89,14 +89,14 @@ export default function VerifyOtpPage() {
                         onKeyDown={(e) => e.key === 'Enter' && token.length === 6 && handleVerifyWithToken(token)}
                         placeholder="000000"
                         disabled={loading}
-                        className="w-full bg-slate-900 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg px-4 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+                        className="w-full bg-slate-900 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-lg px-4 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                         autoFocus
                         autoComplete="one-time-code"
                     />
                     <button
                         onClick={() => handleVerifyWithToken(token)}
                         disabled={loading || token.length < 6}
-                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.2)]"
+                        className="w-full h-12 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-[0_0_20px_hsl(var(--brand-600)/0.2)]"
                     >
                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Code'}
                     </button>

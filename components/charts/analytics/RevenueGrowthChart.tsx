@@ -260,14 +260,14 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${
       active
-        ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+        ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
         : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'
     }`;
 
   return (
     <div className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden" style={{ height: showTable ? 'auto' : 'clamp(320px, 50vw, 500px)' }}>
       {/* Top accent */}
-      <div className="h-1 bg-gradient-to-r from-blue-600 via-blue-400 to-blue-300 flex-shrink-0" />
+      <div className="h-1 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-300 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 sm:pb-3 flex-shrink-0">
@@ -364,7 +364,7 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
                     onClick={() => onBarClick?.(d.name)}
                   >
                     <td className="px-4 py-2.5 font-semibold text-foreground">{d.name}</td>
-                    <td className="px-4 py-2.5 text-right font-bold text-blue-600">{formatFullCurrency(d.val)}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-brand-600">{formatFullCurrency(d.val)}</td>
                     <td className="px-4 py-2.5 text-right text-foreground">{d.count}</td>
                     <td className="px-4 py-2.5 text-right text-muted-foreground">
                       {d.count > 0 ? formatFullCurrency(d.val / d.count) : '—'}
@@ -373,7 +373,7 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 rounded-full"
+                            className="h-full bg-brand-500 rounded-full"
                             style={{ width: `${total > 0 ? (d.val / total) * 100 : 0}%` }}
                           />
                         </div>
@@ -388,7 +388,7 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30">
                   <td className="px-4 py-2.5 font-black text-foreground uppercase text-[10px] tracking-wider">Total</td>
-                  <td className="px-4 py-2.5 text-right font-black text-blue-600">{formatFullCurrency(total)}</td>
+                  <td className="px-4 py-2.5 text-right font-black text-brand-600">{formatFullCurrency(total)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-foreground">{data.reduce((s, d) => s + d.count, 0)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-muted-foreground">
                     {data.reduce((s, d) => s + d.count, 0) > 0

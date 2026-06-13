@@ -217,7 +217,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (isMobile) {
         return (
-            <div className="relative min-h-dvh bg-background">
+            <div className="relative min-h-dvh">
                 <Header onMenuClick={() => setSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} isMobile={true} />
                 {isSidebarOpen && (
                     <div onClick={closeSidebar} className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[90] lg:hidden" aria-hidden="true" />
@@ -237,7 +237,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div
-            className="relative h-dvh max-h-dvh flex bg-background overflow-hidden"
+            className="relative h-dvh max-h-dvh flex overflow-hidden"
             style={{ '--sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}
         >
             <Sidebar

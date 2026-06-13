@@ -758,7 +758,7 @@ const WeeklyReportDashboard: React.FC = () => {
     const dataLoading = loading && !saleOrders && !quotations;
 
     return (
-        <div className="h-full flex flex-col bg-background overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden">
 
             {/* Header */}
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-3">

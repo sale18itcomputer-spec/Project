@@ -13,15 +13,17 @@ echarts.registerTheme('limperial', limperialTheme);
 const ECharts = ReactECharts as any;
 
 const _STATUS_COLORS: Record<string, string> = {
-  'close (win)':    '#10b981', // emerald
-  'close (lose)':   '#94a3b8', // slate
-  'price request':  '#f43f5e', // rose
-  'revising specs': '#f97316', // orange
-  'pending po':     '#3b82f6', // blue
-  'ordering':       '#6366f1', // indigo
-  'qualification':  '#8b5cf6', // violet
-  'quote submitted':'#0ea5e9', // sky
-  'pipeline':       '#f59e0b', // amber
+  'closure (win)':          '#10b981', // emerald
+  'closure (lose)':         '#94a3b8', // slate
+  'new deal':               '#0ea5e9', // sky
+  'requirements':           '#8b5cf6', // violet
+  'study spec | survey':    '#6366f1', // indigo
+  'price request':          '#f43f5e', // rose
+  'proposal submission':    '#f59e0b', // amber
+  'negotiation | revision': '#f97316', // orange
+  'contract | po':          '#3b82f6', // blue
+  'order processing':       '#06b6d4', // cyan
+  'delivery processing':    '#14b8a6', // teal
 };
 
 

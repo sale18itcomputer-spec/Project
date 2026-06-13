@@ -94,23 +94,20 @@ export interface PipelineProject {
   'Contact Name': string;
   'Contact Number': string;
   'Email': string;
-  'Require': string;
-  'Type': string;
-  'Brand 1': string;
+  'Requirements': string;
   'Taxable': 'VAT' | 'NON-VAT';
   'Responsible By': string;
-  'Status': 'Qualification' | 'Price Request' | 'Presentation' | 'Quote Submitted' | 'Revising Specs' | 'Bid Evaluation' | 'Pass Evaluation' | 'Pending PO' | 'Ordering' | 'Close (win)' | 'Close (lose)';
+  'Status': 'New Deal' | 'Requirements' | 'Study Spec | Survey' | 'Price Request' | 'Proposal Submission' | 'Negotiation | Revision' | 'Contract | PO' | 'Order Processing' | 'Delivery Processing' | 'Closure (Win)' | 'Closure (Lose)';
   'Created Date': string;
   'Time Frame': string;
   'Due Date': string;
-  'Inv Date': string;
-  'Quote': string;
   'Quote No'?: string;
-  'Bid Value': string | number;
+  'Total Amount': string | number;
+  'Win Rate': number | null;
   'Invoice No': string;
   'SO No'?: string;
   'Remarks': string;
-  'Conditional': string;
+  'Ref Inquiry No'?: string;
   'Currency'?: 'USD' | 'KHR';
 }
 

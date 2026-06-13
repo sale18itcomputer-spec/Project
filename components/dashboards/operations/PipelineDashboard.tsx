@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PipelineProject } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
 import DataTable, { ColumnDef } from "../../common/DataTable";
@@ -14,7 +14,8 @@ import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { formatDateAsMDY, calculateDueDate, formatDisplayDate } from "../../../utils/time";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import NewProjectModal from "../../modals/NewProjectModal";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import PipelineWindowContent from "../../windows/content/PipelineWindowContent";
 import ViewToggle from "../../common/ViewToggle";
 import PipelineListContainer from "../lists/PipelineListContainer";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
@@ -25,17 +26,17 @@ type ProcessedProject = PipelineProject & { calculatedDueDate: Date | null };
 
 const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }) => {
   const statusConfig: Record<string, { label: string; color: string }> = {
-    'Qualification': { label: 'Qualification', color: 'bg-slate-500/10 text-slate-500' },
-    'Price Request': { label: 'Price Request', color: 'bg-rose-600/10 text-rose-600' },
-    'Presentation': { label: 'Presentation', color: 'bg-slate-500/10 text-slate-500' },
-    'Quote Submitted': { label: 'Quote Submitted', color: 'bg-slate-500/10 text-slate-500' },
-    'Revising Specs': { label: 'Revising Specs', color: 'bg-rose-600/10 text-rose-600' },
-    'Bid Evaluation': { label: 'Bid Evaluation', color: 'bg-slate-500/10 text-slate-500' },
-    'Pass Evaluation': { label: 'Pass Evaluation', color: 'bg-slate-500/10 text-slate-500' },
-    'Pending PO': { label: 'Pending PO', color: 'bg-blue-600/10 text-blue-600' },
-    'Ordering': { label: 'Ordering', color: 'bg-blue-600/10 text-blue-600' },
-    'Close (win)': { label: 'Close (win)', color: 'bg-emerald-600/10 text-emerald-600' },
-    'Close (lose)': { label: 'Close (lose)', color: 'bg-slate-500/10 text-slate-500' },
+    'New Deal': { label: 'New Deal', color: 'bg-sky-500/10 text-sky-600' },
+    'Requirements': { label: 'Requirements', color: 'bg-violet-500/10 text-violet-600' },
+    'Study Spec | Survey': { label: 'Study Spec | Survey', color: 'bg-indigo-500/10 text-indigo-600' },
+    'Price Request': { label: 'Price Request', color: 'bg-rose-500/10 text-rose-600' },
+    'Proposal Submission': { label: 'Proposal Submission', color: 'bg-amber-500/10 text-amber-600' },
+    'Negotiation | Revision': { label: 'Negotiation | Revision', color: 'bg-orange-500/10 text-orange-600' },
+    'Contract | PO': { label: 'Contract | PO', color: 'bg-blue-600/10 text-blue-600' },
+    'Order Processing': { label: 'Order Processing', color: 'bg-cyan-500/10 text-cyan-600' },
+    'Delivery Processing': { label: 'Delivery Processing', color: 'bg-teal-500/10 text-teal-600' },
+    'Closure (Win)': { label: 'Closure (Win)', color: 'bg-emerald-600/10 text-emerald-600' },
+    'Closure (Lose)': { label: 'Closure (Lose)', color: 'bg-slate-500/10 text-slate-500' },
   };
   const config = statusConfig[status] || { label: status, color: 'bg-muted text-muted-foreground' };
 
@@ -94,7 +95,7 @@ const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
   { id: 'detail', label: 'Detail', icon: <Columns /> },
 ];
 
-const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility';
+const PIPELINE_COLUMNS_VISIBILITY_KEY = 'limperial-pipeline-columns-visibility-v2';
 
 
 
@@ -102,11 +103,37 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const { projects: pipelineData, setProjects, meetings, contactLogs, loading, error, isB2B } = useB2BData();
   const { addToast } = useToast();
   const { handleNavigation, navigation } = useNavigation();
+  const { openWindow } = useWindowManager();
   const [projectToDelete, setProjectToDelete] = useState<PipelineProject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedPipelineNo, setSelectedPipelineNo] = useState<string | null>(null);
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+
+  const openPipelineWindow = useCallback((pipelineNo: string | null, initialReadOnly = false) => {
+    const id = pipelineNo ? `pipeline-${pipelineNo}` : 'pipeline-new';
+    openWindow({
+      id,
+      title: pipelineNo ? `Pipeline Details: ${pipelineNo}` : 'Create New Pipeline',
+      content: <PipelineWindowContent windowId={id} pipelineNo={pipelineNo} initialReadOnly={initialReadOnly} />,
+      draggable: true,
+      initialWidth: 1100,
+      initialHeight: 720,
+      minWidth: 800,
+      minHeight: 500,
+    });
+  }, [openWindow]);
+
+  // Handle URL navigation actions (e.g. from external links)
+  useEffect(() => {
+    if (navigation.action && ['create', 'edit', 'view'].includes(navigation.action)) {
+      const isReadOnly = navigation.action === 'view';
+      const pNo = navigation.id || null;
+      openPipelineWindow(pNo, isReadOnly);
+      // Clean up URL parameters so it doesn't reopen on every navigation change
+      handleNavigation({ view: 'projects', filter: navigation.filter });
+    }
+  }, [navigation.action, navigation.id, navigation.filter, handleNavigation, openPipelineWindow]);
 
   useEffect(() => {
     if (initialFilter) {
@@ -124,13 +151,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }
   }, [initialFilter]);
 
-  const handleCloseModal = () => handleNavigation({ view: 'projects', filter: navigation.filter });
-  const handleOpenNewProject = () => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'create' });
+  const handleOpenNewProject = () => openPipelineWindow(null, false);
   const handleViewProject = (project: ProcessedProject) => {
     setSelectedPipelineNo(project['Pipeline No']);
     setViewMode('detail');
   };
-  const handleEditProject = (project: ProcessedProject) => handleNavigation({ view: 'projects', filter: navigation.filter, action: 'edit', id: project['Pipeline No'] });
+  const handleEditProject = (project: ProcessedProject) => openPipelineWindow(project['Pipeline No'], false);
 
   const handleDeleteRequest = (project: PipelineProject) => {
     setProjectToDelete(project);
@@ -165,23 +191,16 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }));
   }, [validPipelineData]);
 
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const project = navigation.id && processedData ? processedData.find(p => p['Pipeline No'] === navigation.id) || null : null;
-    return { project, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, processedData]);
-
   const filteredData = useMemo(() => {
     let dataToFilter = processedData;
 
     if (statusFilter) {
       if (statusFilter === 'Active') {
-        dataToFilter = dataToFilter.filter(item => !(item.Status || '').toLowerCase().includes('close'));
+        dataToFilter = dataToFilter.filter(item => !['Closure (Win)', 'Closure (Lose)'].includes(item.Status));
       } else if (statusFilter === 'Won') {
-        dataToFilter = dataToFilter.filter(item => (item.Status || '').toLowerCase() === 'close (win)');
+        dataToFilter = dataToFilter.filter(item => item.Status === 'Closure (Win)');
       } else if (statusFilter === 'Lost') {
-        dataToFilter = dataToFilter.filter(item => (item.Status || '').toLowerCase() === 'close (lose)');
+        dataToFilter = dataToFilter.filter(item => item.Status === 'Closure (Lose)');
       } else {
         dataToFilter = dataToFilter.filter(item => item.Status === statusFilter);
       }
@@ -189,7 +208,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
     if (searchQuery) {
       const lowercasedQuery = searchQuery.toLowerCase();
-      const searchKeys = ['Company Name', 'Pipeline No', 'Responsible By', 'Contact Name', 'Require'];
+      const searchKeys = ['Company Name', 'Pipeline No', 'Responsible By', 'Contact Name', 'Requirements'];
       dataToFilter = dataToFilter.filter(item =>
         searchKeys.some(key =>
           String(item[key as keyof ProcessedProject] ?? '').toLowerCase().includes(lowercasedQuery)
@@ -222,7 +241,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     },
     {
       accessorKey: 'Responsible By',
-      header: 'Sales Rep',
+      header: 'Sale Respond',
       isSortable: true,
       cell: (value: string) => <span className="font-medium text-foreground">{value}</span>
     },
@@ -242,21 +261,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       )
     },
     {
-      accessorKey: 'Contact Name',
-      header: 'Contact Name',
-      isSortable: true,
-      cell: (value: string) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'contacts', filter: value }); }}
-          className="group font-medium text-foreground hover:underline text-left transition-colors"
-        >
-          {value}
-        </button>
-      )
-    },
-    {
       accessorKey: 'Created Date',
-      header: 'Created Date',
+      header: 'Create Date',
       isSortable: true,
       cell: (value: string) => formatDisplayDate(value)
     },
@@ -282,8 +288,16 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       }
     },
     {
-      accessorKey: 'Bid Value',
-      header: 'Bid Value',
+      accessorKey: 'Requirements',
+      header: 'Requirements',
+      isSortable: true,
+      cell: (value: string) => (
+        <div className="max-w-[200px] truncate" title={value}>{value}</div>
+      )
+    },
+    {
+      accessorKey: 'Total Amount',
+      header: 'Total Amount',
       isSortable: true,
       cell: (value: string, row: ProcessedProject) => {
         const formattedValue = formatCurrencySmartly(value, row.Currency);
@@ -304,11 +318,26 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       cell: (status: PipelineProject['Status']) => <StatusBadge status={status} />
     },
     {
-      accessorKey: 'Require',
-      header: 'Requirement',
+      accessorKey: 'Win Rate',
+      header: 'Win Rate (%)',
+      isSortable: true,
+      cell: (value: number | null) => (
+        value != null
+          ? <span className="font-medium text-foreground">{value}%</span>
+          : <span className="text-muted-foreground/30">-</span>
+      )
+    },
+    {
+      accessorKey: 'Contact Name',
+      header: 'Contact Name',
       isSortable: true,
       cell: (value: string) => (
-        <div className="max-w-[200px] truncate" title={value}>{value}</div>
+        <button
+          onClick={(e) => { e.stopPropagation(); handleNavigation({ view: 'contacts', filter: value }); }}
+          className="group font-medium text-foreground hover:underline text-left transition-colors"
+        >
+          {value}
+        </button>
       )
     },
   ], [handleNavigation]);
@@ -381,7 +410,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           loading={loading && !pipelineData}
         />
       </aside>
-      <main className="flex-1 overflow-hidden bg-background p-4">
+      <main className="flex-1 overflow-hidden p-4">
         {loading && !selectedProject ? <Spinner /> : selectedProject ? (
           <div className="max-w-4xl mx-auto space-y-8 h-full overflow-y-auto pr-2">
             <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
@@ -409,8 +438,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-muted/50 p-4 rounded-lg">
-                <dt className="text-sm font-medium text-muted-foreground/60">Bid Value</dt>
-                <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Bid Value'], selectedProject.Currency)}</dd>
+                <dt className="text-sm font-medium text-muted-foreground/60">Total Amount</dt>
+                <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Total Amount'], selectedProject.Currency)}</dd>
               </div>
               <div className="bg-muted/50 p-4 rounded-lg">
                 <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
@@ -433,19 +462,15 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
               </div>
               <div>
                 <dt className="text-sm font-medium text-muted-foreground/60">Time Frame</dt>
-                <dd className="mt-1 text-sm text-foreground">{selectedProject['Time Frame']}</dd>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Time Frame']} days</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-muted-foreground/60">Brand</dt>
-                <dd className="mt-1 text-sm text-foreground">{selectedProject['Brand 1'] || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground/60">Type</dt>
-                <dd className="mt-1 text-sm text-foreground">{selectedProject.Type}</dd>
+                <dt className="text-sm font-medium text-muted-foreground/60">Win Rate</dt>
+                <dd className="mt-1 text-sm text-foreground">{selectedProject['Win Rate'] != null ? `${selectedProject['Win Rate']}%` : 'N/A'}</dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-muted-foreground/60">Requirement</dt>
-                <dd className="mt-1 text-sm text-foreground break-words">{selectedProject.Require}</dd>
+                <dt className="text-sm font-medium text-muted-foreground/60">Requirements</dt>
+                <dd className="mt-1 text-sm text-foreground break-words">{selectedProject.Requirements}</dd>
               </div>
             </dl>
           </div>
@@ -550,14 +575,14 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       </div>
 
       {viewMode === 'table' ? (
-        <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+        <div className="flex-1 min-h-0 overflow-hidden p-4">
           <DataTable
             tableId="pipeline-table"
             data={filteredData}
             columns={displayedColumns}
             loading={loading}
             onRowClick={handleViewProject}
-            mobilePrimaryColumns={['Pipeline No', 'Company Name', 'Bid Value', 'Status']}
+            mobilePrimaryColumns={['Pipeline No', 'Company Name', 'Total Amount', 'Status']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
@@ -593,19 +618,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 bg-background overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {renderDetailView()}
         </div>
       )}
 
-      <NewProjectModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.project}
-        initialReadOnly={modalConfig.isReadOnly}
-        meetings={meetings || []}
-        contactLogs={contactLogs || []}
-      />
+
       <ConfirmationModal
         isOpen={!!projectToDelete}
         onClose={() => setProjectToDelete(null)}

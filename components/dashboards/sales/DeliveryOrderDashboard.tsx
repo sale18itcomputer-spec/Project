@@ -209,7 +209,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     const selectedDO = selectedId ? (deliveryOrders || []).find(d => d['DO No'] === selectedId) : null;
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-full flex flex-col">
             {/* Header */}
             <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -258,7 +258,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
             </header>
 
             {/* Body */}
-            <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+            <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {loading ? <Spinner /> : viewMode === 'table' ? (
                     <DataTable
                         tableId="do-table" data={filteredData} columns={displayedColumns}

@@ -254,7 +254,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden bg-background p-4">
+      <div className="flex-1 min-h-0 overflow-hidden p-4">
         {viewMode === 'table' ? (
           <div className="h-full">
             <DataTable

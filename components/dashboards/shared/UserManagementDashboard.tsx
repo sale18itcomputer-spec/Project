@@ -272,7 +272,7 @@ const UserManagementDashboard: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
+    <div className="flex flex-col h-full animate-in fade-in duration-500">
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="p-4 lg:p-6 border-b flex flex-col lg:flex-row lg:items-center justify-between gap-4">
