@@ -66,6 +66,24 @@ const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
 
 const getTodayISO = () => new Date().toISOString().split('T')[0];
 
+const getMonthEnd = (ym: string): string => {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m, 0).toISOString().split('T')[0];
+};
+
+const monthsBetween = (from: string, to: string): string[] => {
+    const months: string[] = [];
+    let [y, m] = from.split('-').map(Number);
+    const [ty, tm] = to.split('-').map(Number);
+    while (y < ty || (y === ty && m <= tm)) {
+        months.push(`${y}-${String(m).padStart(2, '0')}`);
+        if (++m > 12) { m = 1; y++; }
+    }
+    return months;
+};
+
+type BSMultiItem = { month: string; label: string; data: Awaited<ReturnType<typeof computeBalanceSheet>> };
+
 // ── P&L helper components ─────────────────────────────────────────────────────
 
 // ── Shared financial-statement amount renderer ────────────────────────────────
@@ -132,6 +150,218 @@ const PLSubtotal: React.FC<{
         </span>
     </div>
 );
+
+// ── BSCompareTab ──────────────────────────────────────────────────────────────
+
+const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
+    type D = BSMultiItem['data'];
+    const n = cols.length;
+
+    const mergeAccounts = (types: string[]): BalanceSheetLine[] => {
+        const seen = new Map<string, BalanceSheetLine>();
+        for (const { data } of cols) {
+            for (const l of [...data.assets, ...data.liabilities, ...data.equity]) {
+                if (types.includes(l.account_type) && !seen.has(l.account_number))
+                    seen.set(l.account_number, l);
+            }
+        }
+        return [...seen.values()].sort((a, b) => a.account_number.localeCompare(b.account_number));
+    };
+
+    const getBal = (d: D, num: string) =>
+        [...d.assets, ...d.liabilities, ...d.equity].find(l => l.account_number === num)?.balance ?? 0;
+
+    const fmtCell = (v: number) => v === 0 ? '—' : v < 0 ? `($${fmt(Math.abs(v))})` : `$${fmt(v)}`;
+
+    const delta = (curr: number, prevVal?: number) => {
+        if (prevVal === undefined) return null;
+        const d = curr - prevVal;
+        return Math.abs(d) < 0.01 ? null : { d, up: d > 0 };
+    };
+
+    const DeltaChip = ({ curr, prev }: { curr: number; prev?: number }) => {
+        const info = delta(curr, prev);
+        if (!info) return null;
+        return (
+            <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${info.up ? 'text-green-500' : 'text-red-400'}`}>
+                {info.up ? '▲' : '▼'} ${fmt(Math.abs(info.d))}
+            </div>
+        );
+    };
+
+    // ── Row builders (plain functions, not React components) ──────────────────
+
+    const sectionHeader = (label: string, cls: string, textCls: string, key: string) => (
+        <tr key={key} className={cls}>
+            <td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}>
+                <span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span>
+            </td>
+        </tr>
+    );
+
+    const subHeader = (label: string, key: string) => (
+        <tr key={key}>
+            <td className="sticky left-0 z-10 bg-background px-4 pl-6 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
+                {label}
+            </td>
+            {cols.map(({ month }) => <td key={month} />)}
+        </tr>
+    );
+
+    const accountRows = (types: string[], rowKey: string) => {
+        const accounts = mergeAccounts(types);
+        if (accounts.length === 0) return (
+            <tr key={rowKey}>
+                <td className="sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-xs text-muted-foreground/40 italic">No balances</td>
+                {cols.map(({ month }) => <td key={month} className="px-4 py-1.5 text-right text-xs text-muted-foreground/30">—</td>)}
+            </tr>
+        );
+        return accounts.map(acct => (
+            <tr key={`${rowKey}-${acct.account_number}`} className="border-b border-border/10 hover:bg-muted/20">
+                <td className={`sticky left-0 z-10 bg-background px-4 py-1.5 text-sm leading-snug ${acct.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground pl-10'}`}>
+                    {acct.account_number} · {acct.account_name}
+                </td>
+                {cols.map(({ month, data }, ci) => {
+                    const val = getBal(data, acct.account_number);
+                    const prev = ci > 0 ? getBal(cols[ci - 1].data, acct.account_number) : undefined;
+                    return (
+                        <td key={month} className={`px-4 py-1.5 text-right text-sm tabular-nums leading-snug ${val < 0 ? 'text-red-500 dark:text-red-400' : val === 0 ? 'text-muted-foreground/30' : 'text-foreground'}`}>
+                            <div>{fmtCell(val)}</div>
+                            <DeltaChip curr={val} prev={prev} />
+                        </td>
+                    );
+                })}
+            </tr>
+        ));
+    };
+
+    const subtotalRow = (label: string, extractor: (d: D) => number, color: string, key: string) => (
+        <tr key={key} className="border-t border-border/40 bg-muted/10">
+            <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const val = extractor(data);
+                const prev = ci > 0 ? extractor(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-2 text-right text-sm font-semibold tabular-nums ${color}`}>
+                        <div>${ fmt(val)}</div>
+                        <DeltaChip curr={val} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const grandTotalRow = (label: string, extractor: (d: D) => number, color: string, key: string) => (
+        <tr key={key} className="border-t-2 border-border bg-muted/20">
+            <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const val = extractor(data);
+                const prev = ci > 0 ? extractor(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-3 text-right font-bold tabular-nums text-base ${color}`}>
+                        <div>${fmt(val)}</div>
+                        <DeltaChip curr={val} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const spacerRow = (key: string) => (
+        <tr key={key}><td colSpan={n + 1} className="py-1.5 bg-muted/5" /></tr>
+    );
+
+    return (
+        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+            <table className="w-full text-sm border-collapse" style={{ minWidth: `${Math.max(600, n * 165 + 280)}px` }}>
+                <thead>
+                    <tr className="bg-muted/60 border-b-2 border-border">
+                        <th className="sticky left-0 z-20 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[280px] border-r border-border/40">
+                            Account
+                        </th>
+                        {cols.map(({ month, label, data }) => (
+                            <th key={month} className="px-4 py-3 text-right text-xs min-w-[160px]">
+                                <div className="font-bold text-foreground">{label}</div>
+                                <div className={`text-[9px] font-normal mt-0.5 ${data.isBalanced ? 'text-green-500' : 'text-red-500'}`}>
+                                    {data.isBalanced ? '✓ Balanced' : '⚠ Unbalanced'}
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {sectionHeader('Assets', 'bg-blue-50/50 dark:bg-blue-950/20', 'text-blue-700 dark:text-blue-400', 'sh-assets')}
+                    {subHeader('Cash & Bank', 'sub-bank')}
+                    {accountRows(['Bank'], 'ar-bank')}
+                    {subtotalRow('Total Cash & Bank', d => d.assets.filter(l => l.account_type === 'Bank').reduce((s, l) => s + l.balance, 0), 'text-blue-600 dark:text-blue-400', 'st-bank')}
+
+                    {subHeader('Accounts Receivable', 'sub-ar')}
+                    {accountRows(['Accounts Receivable'], 'ar-ar')}
+                    {subtotalRow('Total Receivables', d => d.assets.filter(l => l.account_type === 'Accounts Receivable').reduce((s, l) => s + l.balance, 0), 'text-blue-600 dark:text-blue-400', 'st-ar')}
+
+                    {subHeader('Other Current Assets', 'sub-oca')}
+                    {accountRows(['Other Current Asset'], 'ar-oca')}
+                    {subtotalRow('Total Other Current Assets', d => d.assets.filter(l => l.account_type === 'Other Current Asset').reduce((s, l) => s + l.balance, 0), 'text-blue-600 dark:text-blue-400', 'st-oca')}
+
+                    {subHeader('Fixed Assets', 'sub-fa')}
+                    {accountRows(['Fixed Asset'], 'ar-fa')}
+                    {subtotalRow('Total Fixed Assets', d => d.assets.filter(l => l.account_type === 'Fixed Asset').reduce((s, l) => s + l.balance, 0), 'text-blue-600 dark:text-blue-400', 'st-fa')}
+
+                    {grandTotalRow('Total Assets', d => d.totalAssets, 'text-blue-600 dark:text-blue-400', 'gt-assets')}
+                    {spacerRow('sp-1')}
+
+                    {sectionHeader('Liabilities', 'bg-rose-50/50 dark:bg-rose-950/20', 'text-rose-700 dark:text-rose-400', 'sh-liab')}
+                    {subHeader('Accounts Payable', 'sub-ap')}
+                    {accountRows(['Accounts Payable'], 'ar-ap')}
+                    {subtotalRow('Total Payables', d => d.liabilities.filter(l => l.account_type === 'Accounts Payable').reduce((s, l) => s + l.balance, 0), 'text-rose-600 dark:text-rose-400', 'st-ap')}
+
+                    {subHeader('Other Current Liabilities', 'sub-ocl')}
+                    {accountRows(['Other Current Liability'], 'ar-ocl')}
+                    {subtotalRow('Total Other Liabilities', d => d.liabilities.filter(l => l.account_type === 'Other Current Liability').reduce((s, l) => s + l.balance, 0), 'text-rose-600 dark:text-rose-400', 'st-ocl')}
+
+                    {grandTotalRow('Total Liabilities', d => d.totalLiabilities, 'text-rose-600 dark:text-rose-400', 'gt-liab')}
+                    {spacerRow('sp-2')}
+
+                    {sectionHeader('Equity', 'bg-purple-50/50 dark:bg-purple-950/20', 'text-purple-700 dark:text-purple-400', 'sh-eq')}
+                    {accountRows(['Equity'], 'ar-eq')}
+                    {/* Net Income row */}
+                    {cols.length > 0 && (() => {
+                        return (
+                            <tr key="ar-netincome" className="border-b border-border/10 hover:bg-muted/20">
+                                <td className="sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground">Net Income (Current Period)</td>
+                                {cols.map(({ month, data }, ci) => {
+                                    const val = data.netIncome;
+                                    const prev = ci > 0 ? cols[ci - 1].data.netIncome : undefined;
+                                    return (
+                                        <td key={month} className={`px-4 py-1.5 text-right text-sm tabular-nums ${val < 0 ? 'text-red-500 dark:text-red-400' : val === 0 ? 'text-muted-foreground/30' : 'text-green-600 dark:text-green-400'}`}>
+                                            <div>{val < 0 ? `($${fmt(Math.abs(val))})` : val === 0 ? '—' : `$${fmt(val)}`}</div>
+                                            <DeltaChip curr={val} prev={prev} />
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        );
+                    })()}
+                    {grandTotalRow('Total Equity', d => d.totalEquity, 'text-purple-600 dark:text-purple-400', 'gt-eq')}
+                    {spacerRow('sp-3')}
+
+                    {/* Balance check */}
+                    <tr key="le-check" className="border-t-2 border-border/60 bg-muted/30">
+                        <td className="sticky left-0 z-10 bg-muted/30 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Liabilities + Equity</td>
+                        {cols.map(({ month, data }) => {
+                            const le = data.totalLiabilities + data.totalEquity;
+                            return (
+                                <td key={month} className={`px-4 py-2.5 text-right text-sm font-bold tabular-nums ${data.isBalanced ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                                    ${fmt(le)} {data.isBalanced ? '✓' : '✗'}
+                                </td>
+                            );
+                        })}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    );
+};
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
@@ -217,9 +447,14 @@ export default function AccountingDashboard() {
     const [postingAll, setPostingAll]         = useState(false);
 
     // ── Balance Sheet state ───────────────────────────────────────────────────
+    const [bsMode, setBsMode]           = useState<'single' | 'compare'>('single');
     const [bsAsOfDate, setBsAsOfDate]   = useState(getTodayISO());
     const [bsData, setBsData]           = useState<Awaited<ReturnType<typeof computeBalanceSheet>> | null>(null);
     const [loadingBS, setLoadingBS]     = useState(false);
+    const [bsMonthFrom, setBsMonthFrom] = useState(() => `${new Date().getFullYear()}-01`);
+    const [bsMonthTo, setBsMonthTo]     = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
+    const [bsMultiData, setBsMultiData] = useState<BSMultiItem[]>([]);
+    const [loadingBSMulti, setLoadingBSMulti] = useState(false);
 
     // ── Cash Flow state ───────────────────────────────────────────────────────
     const [cfDateFrom, setCfDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
@@ -245,6 +480,29 @@ export default function AccountingDashboard() {
             setLoadingBS(false);
         }
     }, [accounts, bsAsOfDate, addToast]);
+
+    const loadBalanceSheetMulti = useCallback(async () => {
+        if (!accounts.length) return;
+        const months = monthsBetween(bsMonthFrom, bsMonthTo);
+        if (months.length === 0) { addToast('From month must not be after To month.', 'error'); return; }
+        if (months.length > 12) { addToast('Maximum 12 months per comparison.', 'error'); return; }
+        try {
+            setLoadingBSMulti(true);
+            const results = await Promise.all(
+                months.map(async (ym) => {
+                    const data = await computeBalanceSheet(accounts, getMonthEnd(ym));
+                    const [y, m2] = ym.split('-').map(Number);
+                    const label = new Date(y, m2 - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                    return { month: ym, label, data };
+                })
+            );
+            setBsMultiData(results);
+        } catch (e: any) {
+            addToast(`Failed to compute comparison: ${e.message}`, 'error');
+        } finally {
+            setLoadingBSMulti(false);
+        }
+    }, [accounts, bsMonthFrom, bsMonthTo, addToast]);
 
     const loadCashFlow = useCallback(async () => {
         if (!accounts.length) return;
@@ -1407,152 +1665,214 @@ export default function AccountingDashboard() {
             {/* ── TAB: Balance Sheet ─────────────────────────────────────────── */}
             {activeTab === 'balance' && (
                 <div className="space-y-4">
+
+                    {/* ── Mode toggle + controls ──────────────────────────────── */}
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">As of</label>
-                            <input
-                                type="date"
-                                value={bsAsOfDate}
-                                onChange={e => setBsAsOfDate(e.target.value)}
-                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
-                            />
+                        {/* Mode toggle */}
+                        <div className="flex items-center bg-muted rounded-lg p-0.5 shrink-0">
+                            <button
+                                onClick={() => setBsMode('single')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${bsMode === 'single' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                Single Date
+                            </button>
+                            <button
+                                onClick={() => setBsMode('compare')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${bsMode === 'compare' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                Compare Months
+                            </button>
                         </div>
-                        <Button size="sm" onClick={loadBalanceSheet} disabled={loadingBS} className="bg-brand-600 hover:bg-brand-700">
-                            {loadingBS ? 'Computing…' : 'Refresh'}
-                        </Button>
-                        {bsData && (
-                            <span className={`flex items-center gap-1.5 text-sm font-medium ${bsData.isBalanced ? 'text-green-600' : 'text-red-500'}`}>
-                                {bsData.isBalanced
-                                    ? <><Check size={14} /> Balanced</>
-                                    : <><AlertTriangle size={14} /> Out of balance — check entries</>
-                                }
-                            </span>
+
+                        {bsMode === 'single' ? (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">As of</label>
+                                    <input
+                                        type="date"
+                                        value={bsAsOfDate}
+                                        onChange={e => setBsAsOfDate(e.target.value)}
+                                        className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    />
+                                </div>
+                                <Button size="sm" onClick={loadBalanceSheet} disabled={loadingBS} className="bg-brand-600 hover:bg-brand-700">
+                                    {loadingBS ? 'Computing…' : 'Refresh'}
+                                </Button>
+                                {bsData && (
+                                    <span className={`flex items-center gap-1.5 text-sm font-medium ${bsData.isBalanced ? 'text-green-600' : 'text-red-500'}`}>
+                                        {bsData.isBalanced
+                                            ? <><Check size={14} /> Balanced</>
+                                            : <><AlertTriangle size={14} /> Out of balance — check entries</>
+                                        }
+                                    </span>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From</label>
+                                    <input
+                                        type="month"
+                                        value={bsMonthFrom}
+                                        onChange={e => setBsMonthFrom(e.target.value)}
+                                        className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">To</label>
+                                    <input
+                                        type="month"
+                                        value={bsMonthTo}
+                                        onChange={e => setBsMonthTo(e.target.value)}
+                                        className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    />
+                                </div>
+                                <Button size="sm" onClick={loadBalanceSheetMulti} disabled={loadingBSMulti} className="bg-brand-600 hover:bg-brand-700">
+                                    {loadingBSMulti ? 'Computing…' : 'Compare'}
+                                </Button>
+                                {bsMultiData.length > 0 && (
+                                    <span className="text-xs text-muted-foreground">{bsMultiData.length} month{bsMultiData.length > 1 ? 's' : ''} · end-of-month balances</span>
+                                )}
+                            </>
                         )}
                     </div>
 
-                    {loadingBS ? (
-                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing balance sheet…</div>
-                    ) : !bsData ? (
-                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the balance sheet.</div>
-                    ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Left: Assets */}
-                            <div className="bg-card border border-border rounded-xl p-5">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <TrendingUp className="w-4 h-4 text-blue-500" />
-                                    <h3 className="font-bold text-foreground">Assets</h3>
-                                </div>
-                                <BSSection
-                                    title="Cash & Bank"
-                                    lines={bsData.assets.filter(l => l.account_type === 'Bank')}
-                                    totalLabel="Total Cash & Bank"
-                                    total={bsData.assets.filter(l => l.account_type === 'Bank').reduce((s, l) => s + l.balance, 0)}
-                                />
-                                <BSSection
-                                    title="Accounts Receivable"
-                                    lines={bsData.assets.filter(l => l.account_type === 'Accounts Receivable')}
-                                    totalLabel="Total Receivables"
-                                    total={bsData.assets.filter(l => l.account_type === 'Accounts Receivable').reduce((s, l) => s + l.balance, 0)}
-                                />
-                                <BSSection
-                                    title="Other Current Assets"
-                                    lines={bsData.assets.filter(l => l.account_type === 'Other Current Asset')}
-                                    totalLabel="Total Current Assets"
-                                    total={bsData.assets.filter(l => l.account_type === 'Other Current Asset').reduce((s, l) => s + l.balance, 0)}
-                                />
-                                <BSSection
-                                    title="Fixed Assets"
-                                    lines={bsData.assets.filter(l => l.account_type === 'Fixed Asset')}
-                                    totalLabel="Total Fixed Assets"
-                                    total={bsData.assets.filter(l => l.account_type === 'Fixed Asset').reduce((s, l) => s + l.balance, 0)}
-                                />
-                                <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
-                                    <span>TOTAL ASSETS</span>
-                                    <span className="text-blue-600">${fmt(bsData.totalAssets)}</span>
-                                </div>
-                            </div>
-
-                            {/* Right: Liabilities + Equity */}
-                            <div className="space-y-4">
+                    {/* ── Single Date view ────────────────────────────────────── */}
+                    {bsMode === 'single' && (
+                        loadingBS ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing balance sheet…</div>
+                        ) : !bsData ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the balance sheet.</div>
+                        ) : (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Left: Assets */}
                                 <div className="bg-card border border-border rounded-xl p-5">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <TrendingDown className="w-4 h-4 text-rose-500" />
-                                        <h3 className="font-bold text-foreground">Liabilities</h3>
+                                        <TrendingUp className="w-4 h-4 text-blue-500" />
+                                        <h3 className="font-bold text-foreground">Assets</h3>
                                     </div>
                                     <BSSection
-                                        title="Accounts Payable"
-                                        lines={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable')}
-                                        totalLabel="Total Payables"
-                                        total={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable').reduce((s, l) => s + l.balance, 0)}
+                                        title="Cash & Bank"
+                                        lines={bsData.assets.filter(l => l.account_type === 'Bank')}
+                                        totalLabel="Total Cash & Bank"
+                                        total={bsData.assets.filter(l => l.account_type === 'Bank').reduce((s, l) => s + l.balance, 0)}
                                     />
                                     <BSSection
-                                        title="Other Current Liabilities"
-                                        lines={bsData.liabilities.filter(l => l.account_type === 'Other Current Liability')}
-                                        totalLabel="Total Liabilities"
-                                        total={bsData.totalLiabilities}
+                                        title="Accounts Receivable"
+                                        lines={bsData.assets.filter(l => l.account_type === 'Accounts Receivable')}
+                                        totalLabel="Total Receivables"
+                                        total={bsData.assets.filter(l => l.account_type === 'Accounts Receivable').reduce((s, l) => s + l.balance, 0)}
+                                    />
+                                    <BSSection
+                                        title="Other Current Assets"
+                                        lines={bsData.assets.filter(l => l.account_type === 'Other Current Asset')}
+                                        totalLabel="Total Current Assets"
+                                        total={bsData.assets.filter(l => l.account_type === 'Other Current Asset').reduce((s, l) => s + l.balance, 0)}
+                                    />
+                                    <BSSection
+                                        title="Fixed Assets"
+                                        lines={bsData.assets.filter(l => l.account_type === 'Fixed Asset')}
+                                        totalLabel="Total Fixed Assets"
+                                        total={bsData.assets.filter(l => l.account_type === 'Fixed Asset').reduce((s, l) => s + l.balance, 0)}
                                     />
                                     <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
-                                        <span>TOTAL LIABILITIES</span>
-                                        <span className="text-rose-600">${fmt(bsData.totalLiabilities)}</span>
+                                        <span>TOTAL ASSETS</span>
+                                        <span className="text-blue-600">${fmt(bsData.totalAssets)}</span>
                                     </div>
                                 </div>
 
-                                <div className="bg-card border border-border rounded-xl p-5">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <Scale className="w-4 h-4 text-purple-500" />
-                                        <h3 className="font-bold text-foreground">Equity</h3>
+                                {/* Right: Liabilities + Equity */}
+                                <div className="space-y-4">
+                                    <div className="bg-card border border-border rounded-xl p-5">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <TrendingDown className="w-4 h-4 text-rose-500" />
+                                            <h3 className="font-bold text-foreground">Liabilities</h3>
+                                        </div>
+                                        <BSSection
+                                            title="Accounts Payable"
+                                            lines={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable')}
+                                            totalLabel="Total Payables"
+                                            total={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable').reduce((s, l) => s + l.balance, 0)}
+                                        />
+                                        <BSSection
+                                            title="Other Current Liabilities"
+                                            lines={bsData.liabilities.filter(l => l.account_type === 'Other Current Liability')}
+                                            totalLabel="Total Liabilities"
+                                            total={bsData.totalLiabilities}
+                                        />
+                                        <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
+                                            <span>TOTAL LIABILITIES</span>
+                                            <span className="text-rose-600">${fmt(bsData.totalLiabilities)}</span>
+                                        </div>
                                     </div>
-                                    <BSSection
-                                        title="Share Capital"
-                                        lines={bsData.equity}
-                                        totalLabel="Total Share Capital"
-                                        total={bsData.equity.reduce((s, l) => s + l.balance, 0)}
-                                    />
-                                    {/* Net Income from P&L */}
-                                    <div className="flex justify-between py-1 text-sm border-b border-border/30 font-medium text-foreground">
-                                        <span>Net Income (Current Period)</span>
-                                        <span className={bsData.netIncome < 0 ? 'text-red-500' : 'text-green-600'}>${fmt(bsData.netIncome)}</span>
-                                    </div>
-                                    <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
-                                        <span>TOTAL EQUITY</span>
-                                        <span className="text-purple-600">${fmt(bsData.totalEquity)}</span>
-                                    </div>
-                                </div>
 
-                                {/* Equation check */}
-                                <div className={`rounded-xl p-4 flex items-center justify-between text-sm font-semibold ${
-                                    bsData.isBalanced
-                                        ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                                        : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-                                }`}>
-                                    <span>Liabilities + Equity</span>
-                                    <span>${fmt(bsData.totalLiabilities + bsData.totalEquity)}</span>
-                                </div>
+                                    <div className="bg-card border border-border rounded-xl p-5">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <Scale className="w-4 h-4 text-purple-500" />
+                                            <h3 className="font-bold text-foreground">Equity</h3>
+                                        </div>
+                                        <BSSection
+                                            title="Share Capital"
+                                            lines={bsData.equity}
+                                            totalLabel="Total Share Capital"
+                                            total={bsData.equity.reduce((s, l) => s + l.balance, 0)}
+                                        />
+                                        <div className="flex justify-between py-1 text-sm border-b border-border/30 font-medium text-foreground">
+                                            <span>Net Income (Current Period)</span>
+                                            <span className={bsData.netIncome < 0 ? 'text-red-500' : 'text-green-600'}>${fmt(bsData.netIncome)}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
+                                            <span>TOTAL EQUITY</span>
+                                            <span className="text-purple-600">${fmt(bsData.totalEquity)}</span>
+                                        </div>
+                                    </div>
 
-                                {/* P&L Summary */}
-                                <div className="bg-card border border-border rounded-xl p-5">
-                                    <h3 className="font-bold text-foreground mb-3">Income Summary</h3>
-                                    <div className="space-y-1.5 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Revenue</span>
-                                            <span className="text-green-600 font-medium">${fmt(bsData.income.reduce((s,l)=>s+l.balance,0) + bsData.otherIncome.reduce((s,l)=>s+l.balance,0))}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Cost of Goods Sold</span>
-                                            <span className="text-rose-600 font-medium">(${fmt(bsData.cogs.reduce((s,l)=>s+l.balance,0))})</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Expenses</span>
-                                            <span className="text-rose-600 font-medium">(${fmt(bsData.expenses.reduce((s,l)=>s+l.balance,0) + bsData.otherExpenses.reduce((s,l)=>s+l.balance,0))})</span>
-                                        </div>
-                                        <div className="flex justify-between font-bold border-t border-border pt-1.5 mt-1.5">
-                                            <span>Net Income</span>
-                                            <span className={bsData.netIncome < 0 ? 'text-red-600' : 'text-green-600'}>${fmt(bsData.netIncome)}</span>
+                                    <div className={`rounded-xl p-4 flex items-center justify-between text-sm font-semibold ${
+                                        bsData.isBalanced
+                                            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                                            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                                    }`}>
+                                        <span>Liabilities + Equity</span>
+                                        <span>${fmt(bsData.totalLiabilities + bsData.totalEquity)}</span>
+                                    </div>
+
+                                    <div className="bg-card border border-border rounded-xl p-5">
+                                        <h3 className="font-bold text-foreground mb-3">Income Summary</h3>
+                                        <div className="space-y-1.5 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Revenue</span>
+                                                <span className="text-green-600 font-medium">${fmt(bsData.income.reduce((s,l)=>s+l.balance,0) + bsData.otherIncome.reduce((s,l)=>s+l.balance,0))}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Cost of Goods Sold</span>
+                                                <span className="text-rose-600 font-medium">(${fmt(bsData.cogs.reduce((s,l)=>s+l.balance,0))})</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Expenses</span>
+                                                <span className="text-rose-600 font-medium">(${fmt(bsData.expenses.reduce((s,l)=>s+l.balance,0) + bsData.otherExpenses.reduce((s,l)=>s+l.balance,0))})</span>
+                                            </div>
+                                            <div className="flex justify-between font-bold border-t border-border pt-1.5 mt-1.5">
+                                                <span>Net Income</span>
+                                                <span className={bsData.netIncome < 0 ? 'text-red-600' : 'text-green-600'}>${fmt(bsData.netIncome)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )
+                    )}
+
+                    {/* ── Compare Months view ─────────────────────────────────── */}
+                    {bsMode === 'compare' && (
+                        loadingBSMulti ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing comparison…</div>
+                        ) : bsMultiData.length === 0 ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+                                Select a month range and click Compare to view the balance sheet side by side.
+                            </div>
+                        ) : (
+                            <BSCompareTab data={bsMultiData} />
+                        )
                     )}
                 </div>
             )}
