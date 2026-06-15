@@ -6,6 +6,7 @@ import { formatDisplayDate } from '../../utils/time';
 import { X, ShoppingBag, TrendingUp, DollarSign, Receipt, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
 import { PosSessionForm } from '../../types';
+import { formatToInputDate } from '../../utils/time';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 
@@ -57,14 +58,21 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
   }, [invoices, POS_PREFIX]);
 
   const periodFiltered = useMemo(() => {
+    const TZ = 'Asia/Bangkok'; // UTC+7, Cambodia
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
+
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
-    const weekStr = startOfWeek.toISOString().split('T')[0];
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const weekStr = startOfWeek.toLocaleDateString('en-CA', { timeZone: TZ });
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toLocaleDateString('en-CA', { timeZone: TZ });
+
     return posInvoices.filter(inv => {
-      const d = inv['Inv Date'] ?? '';
+      // Normalize stored date (may be M/D/YYYY or YYYY-MM-DD) → YYYY-MM-DD
+      const d = formatToInputDate(inv['Inv Date']);
+      if (!d) return false;
       if (period === 'today') return d === today;
       if (period === 'week')  return d >= weekStr;
       if (period === 'month') return d >= startOfMonth;
