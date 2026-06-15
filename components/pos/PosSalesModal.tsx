@@ -372,6 +372,7 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
           session={receiptSession}
           subTotal={receiptSubTotal}
           taxAmount={receiptTaxAmount}
+          isReprint
         />
       )}
     </>

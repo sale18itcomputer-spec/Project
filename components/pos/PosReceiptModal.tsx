@@ -3,7 +3,7 @@
 import React from 'react';
 import { PosCartItem, PosSessionForm } from '../../types';
 import { formatDisplayDate } from '../../utils/time';
-import { Printer, ArrowRight } from 'lucide-react';
+import { Printer, ArrowRight, X } from 'lucide-react';
 
 export interface CompletedSale {
   invNo: string;
@@ -20,6 +20,7 @@ interface PosReceiptModalProps {
   session: PosSessionForm;
   taxAmount: number;
   subTotal: number;
+  isReprint?: boolean;
 }
 
 const Divider = () => (
@@ -27,7 +28,7 @@ const Divider = () => (
 );
 
 const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
-  isOpen, onClose, sale, session, taxAmount, subTotal,
+  isOpen, onClose, sale, session, taxAmount, subTotal, isReprint = false,
 }) => {
   if (!isOpen || !sale) return null;
 
@@ -169,6 +170,18 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden border border-border">
+        {/* Close button (reprint mode) */}
+        {isReprint && (
+          <div className="flex justify-end px-4 pt-4 pb-0">
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
         {/* Receipt preview */}
         <div className="p-6 font-mono text-sm text-gray-900 dark:text-gray-100 overflow-y-auto max-h-[72vh]">
 
@@ -284,7 +297,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             onClick={onClose}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition"
           >
-            New Sale <ArrowRight size={16} />
+            {isReprint ? 'Close' : (<>New Sale <ArrowRight size={16} /></>)}
           </button>
         </div>
       </div>
