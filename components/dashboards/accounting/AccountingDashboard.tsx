@@ -187,16 +187,16 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
         return <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${d > 0 ? 'text-green-500' : 'text-red-400'}`}>{d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d))}</div>;
     };
 
-    const head = (label: string, cls: string, textCls: string) => (
-        <tr className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
+    const head = (k: string, label: string, cls: string, textCls: string) => (
+        <tr key={k} className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
     );
 
-    const sub = (label: string) => (
-        <tr><td className="sticky left-0 z-10 bg-background px-4 pl-6 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">{label}</td>{cols.map(({ month }) => <td key={month} />)}</tr>
+    const sub = (k: string, label: string) => (
+        <tr key={k}><td className="sticky left-0 z-10 bg-background px-4 pl-6 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">{label}</td>{cols.map(({ month }) => <td key={month} />)}</tr>
     );
 
-    const acctRow = (label: string, getVal: (d: D) => number, cls?: string) => (
-        <tr className="border-b border-border/10 hover:bg-muted/20">
+    const acctRow = (k: string, label: string, getVal: (d: D) => number, cls?: string) => (
+        <tr key={k} className="border-b border-border/10 hover:bg-muted/20">
             <td className={`sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground ${cls ?? ''}`}>{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getVal(data);
@@ -210,8 +210,8 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const subtotal = (label: string, getVal: (d: D) => number, color: string) => (
-        <tr className="border-t border-border/40 bg-muted/10">
+    const subtotal = (k: string, label: string, getVal: (d: D) => number, color: string) => (
+        <tr key={k} className="border-t border-border/40 bg-muted/10">
             <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getVal(data);
@@ -225,8 +225,8 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const grand = (label: string, getVal: (d: D) => number, color: string) => (
-        <tr className="border-t-2 border-border bg-muted/20">
+    const grand = (k: string, label: string, getVal: (d: D) => number, color: string) => (
+        <tr key={k} className="border-t-2 border-border bg-muted/20">
             <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getVal(data);
@@ -240,7 +240,7 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const spacer = () => <tr><td colSpan={n + 1} className="py-1.5 bg-muted/5" /></tr>;
+    const spacer = (k: string) => <tr key={k}><td colSpan={n + 1} className="py-1.5 bg-muted/5" /></tr>;
 
     return (
         <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
@@ -254,31 +254,31 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {head('Operating Activities', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
-                    {acctRow('Net Income', d => d.netIncome, 'font-medium text-foreground')}
-                    {allOperAccts.length > 0 && sub('Working Capital Adjustments')}
-                    {allOperAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getOper(d, i.account_number)))}
-                    {subtotal('Net Cash from Operating Activities', d => d.netOperating, 'text-green-600 dark:text-green-400')}
-                    {spacer()}
+                    {head('h-oper', 'Operating Activities', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
+                    {acctRow('ar-netincome', 'Net Income', d => d.netIncome, 'font-medium text-foreground')}
+                    {allOperAccts.length > 0 && sub('sub-wc', 'Working Capital Adjustments')}
+                    {allOperAccts.map(i => acctRow(`oper-${i.account_number}`, `${i.account_number} · ${i.account_name}`, d => getOper(d, i.account_number)))}
+                    {subtotal('st-oper', 'Net Cash from Operating Activities', d => d.netOperating, 'text-green-600 dark:text-green-400')}
+                    {spacer('sp-1')}
 
-                    {head('Investing Activities', 'bg-indigo-50/50 dark:bg-indigo-950/20', 'text-indigo-700 dark:text-indigo-400')}
+                    {head('h-inv', 'Investing Activities', 'bg-indigo-50/50 dark:bg-indigo-950/20', 'text-indigo-700 dark:text-indigo-400')}
                     {allInvAccts.length === 0
-                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No investing activity</td></tr>
-                        : allInvAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getInv(d, i.account_number)))
+                        ? <tr key="inv-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No investing activity</td></tr>
+                        : allInvAccts.map(i => acctRow(`inv-${i.account_number}`, `${i.account_number} · ${i.account_name}`, d => getInv(d, i.account_number)))
                     }
-                    {subtotal('Net Cash from Investing Activities', d => d.netInvesting, 'text-indigo-600 dark:text-indigo-400')}
-                    {spacer()}
+                    {subtotal('st-inv', 'Net Cash from Investing Activities', d => d.netInvesting, 'text-indigo-600 dark:text-indigo-400')}
+                    {spacer('sp-2')}
 
-                    {head('Financing Activities', 'bg-purple-50/50 dark:bg-purple-950/20', 'text-purple-700 dark:text-purple-400')}
+                    {head('h-fin', 'Financing Activities', 'bg-purple-50/50 dark:bg-purple-950/20', 'text-purple-700 dark:text-purple-400')}
                     {allFinAccts.length === 0
-                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No financing activity</td></tr>
-                        : allFinAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getFin(d, i.account_number)))
+                        ? <tr key="fin-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No financing activity</td></tr>
+                        : allFinAccts.map(i => acctRow(`fin-${i.account_number}`, `${i.account_number} · ${i.account_name}`, d => getFin(d, i.account_number)))
                     }
-                    {subtotal('Net Cash from Financing Activities', d => d.netFinancing, 'text-purple-600 dark:text-purple-400')}
-                    {spacer()}
+                    {subtotal('st-fin', 'Net Cash from Financing Activities', d => d.netFinancing, 'text-purple-600 dark:text-purple-400')}
+                    {spacer('sp-3')}
 
-                    {grand('Net Increase (Decrease) in Cash', d => d.netCashChange, 'text-brand-600 dark:text-brand-400')}
-                    <tr className="border-b border-border/20">
+                    {grand('gt-netchange', 'Net Increase (Decrease) in Cash', d => d.netCashChange, 'text-brand-600 dark:text-brand-400')}
+                    <tr key="beg-cash" className="border-b border-border/20">
                         <td className="sticky left-0 z-10 bg-background px-4 py-2 text-sm text-muted-foreground">Cash at Beginning of Period</td>
                         {cols.map(({ month, data }, ci) => {
                             const v = data.beginningCash;
@@ -286,7 +286,7 @@ const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
                             return <td key={month} className="px-4 py-2 text-right text-sm tabular-nums text-foreground"><div>${fmt(v)}</div><DeltaChip2 curr={v} prev={prev} /></td>;
                         })}
                     </tr>
-                    {grand('Cash at End of Period', d => d.endingCash, 'text-green-600 dark:text-green-400')}
+                    {grand('gt-endcash', 'Cash at End of Period', d => d.endingCash, 'text-green-600 dark:text-green-400')}
                 </tbody>
             </table>
         </div>
@@ -318,12 +318,12 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
         return <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${up ? 'text-green-500' : 'text-red-400'}`}>{up ? '▲' : '▼'} ${fmt(Math.abs(d))}</div>;
     };
 
-    const head = (label: string, cls: string, textCls: string) => (
-        <tr className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
+    const head = (k: string, label: string, cls: string, textCls: string) => (
+        <tr key={k} className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
     );
 
-    const acctRow = (label: string, num: string, negate?: boolean) => (
-        <tr className="border-b border-border/10 hover:bg-muted/20">
+    const acctRow = (k: string, label: string, num: string, negate?: boolean) => (
+        <tr key={k} className="border-b border-border/10 hover:bg-muted/20">
             <td className="sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getAcctBal(data, num);
@@ -338,8 +338,8 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const subtotal = (label: string, getVal: (d: D) => number, color: string, negate?: boolean) => (
-        <tr className="border-t border-border/40 bg-muted/10">
+    const subtotal = (k: string, label: string, getVal: (d: D) => number, color: string, negate?: boolean) => (
+        <tr key={k} className="border-t border-border/40 bg-muted/10">
             <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getVal(data);
@@ -353,8 +353,8 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const grand = (label: string, getVal: (d: D) => number, posColor: string, negColor: string) => (
-        <tr className="border-t-2 border-border bg-muted/20">
+    const grand = (k: string, label: string, getVal: (d: D) => number, posColor: string, negColor: string) => (
+        <tr key={k} className="border-t-2 border-border bg-muted/20">
             <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
                 const v = getVal(data);
@@ -368,7 +368,7 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
         </tr>
     );
 
-    const spacer = () => <tr><td colSpan={n + 1} className="py-1 bg-muted/5" /></tr>;
+    const spacer = (k: string) => <tr key={k}><td colSpan={n + 1} className="py-1 bg-muted/5" /></tr>;
 
     const incomeAccts  = allAccts(d => d.income);
     const cogsAccts    = allAccts(d => d.cogs);
@@ -388,40 +388,40 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {head('Revenue', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
-                    {incomeAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number))}
-                    {subtotal('Total Revenue', d => d.totalRevenue, 'text-green-600 dark:text-green-400')}
-                    {spacer()}
+                    {head('h-rev', 'Revenue', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
+                    {incomeAccts.map(l => acctRow(`inc-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number))}
+                    {subtotal('st-rev', 'Total Revenue', d => d.totalRevenue, 'text-green-600 dark:text-green-400')}
+                    {spacer('sp-1')}
 
-                    {head('Cost of Goods Sold', 'bg-orange-50/50 dark:bg-orange-950/20', 'text-orange-700 dark:text-orange-400')}
+                    {head('h-cogs', 'Cost of Goods Sold', 'bg-orange-50/50 dark:bg-orange-950/20', 'text-orange-700 dark:text-orange-400')}
                     {cogsAccts.length === 0
-                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No COGS for these months</td></tr>
-                        : cogsAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))
+                        ? <tr key="cogs-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No COGS for these months</td></tr>
+                        : cogsAccts.map(l => acctRow(`cogs-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number, true))
                     }
-                    {subtotal('Total COGS', d => d.totalCogs, 'text-orange-600 dark:text-orange-400', true)}
-                    {grand('Gross Profit', d => d.grossProfit, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
-                    {spacer()}
+                    {subtotal('st-cogs', 'Total COGS', d => d.totalCogs, 'text-orange-600 dark:text-orange-400', true)}
+                    {grand('gt-gp', 'Gross Profit', d => d.grossProfit, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                    {spacer('sp-2')}
 
-                    {head('Operating Expenses', 'bg-rose-50/50 dark:bg-rose-950/20', 'text-rose-700 dark:text-rose-400')}
+                    {head('h-exp', 'Operating Expenses', 'bg-rose-50/50 dark:bg-rose-950/20', 'text-rose-700 dark:text-rose-400')}
                     {expAccts.length === 0
-                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No expenses for these months</td></tr>
-                        : expAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))
+                        ? <tr key="exp-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No expenses for these months</td></tr>
+                        : expAccts.map(l => acctRow(`exp-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number, true))
                     }
-                    {subtotal('Total Expenses', d => d.totalExpenses, 'text-rose-600 dark:text-rose-400', true)}
-                    {grand('Operating Income', d => d.operatingIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
-                    {spacer()}
+                    {subtotal('st-exp', 'Total Expenses', d => d.totalExpenses, 'text-rose-600 dark:text-rose-400', true)}
+                    {grand('gt-oi', 'Operating Income', d => d.operatingIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                    {spacer('sp-3')}
 
                     {(oiAccts.length > 0 || oeAccts.length > 0) && (<>
-                        {oiAccts.length > 0 && head('Other Income', 'bg-teal-50/50 dark:bg-teal-950/20', 'text-teal-700 dark:text-teal-400')}
-                        {oiAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number))}
-                        {oiAccts.length > 0 && subtotal('Total Other Income', d => d.totalOtherIncome, 'text-teal-600 dark:text-teal-400')}
-                        {oeAccts.length > 0 && head('Other Expenses', 'bg-red-50/50 dark:bg-red-950/20', 'text-red-700 dark:text-red-400')}
-                        {oeAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))}
-                        {oeAccts.length > 0 && subtotal('Total Other Expenses', d => d.totalOtherExpenses, 'text-red-600 dark:text-red-400', true)}
-                        {spacer()}
+                        {oiAccts.length > 0 && head('h-oi', 'Other Income', 'bg-teal-50/50 dark:bg-teal-950/20', 'text-teal-700 dark:text-teal-400')}
+                        {oiAccts.map(l => acctRow(`oi-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number))}
+                        {oiAccts.length > 0 && subtotal('st-oi', 'Total Other Income', d => d.totalOtherIncome, 'text-teal-600 dark:text-teal-400')}
+                        {oeAccts.length > 0 && head('h-oe', 'Other Expenses', 'bg-red-50/50 dark:bg-red-950/20', 'text-red-700 dark:text-red-400')}
+                        {oeAccts.map(l => acctRow(`oe-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number, true))}
+                        {oeAccts.length > 0 && subtotal('st-oe', 'Total Other Expenses', d => d.totalOtherExpenses, 'text-red-600 dark:text-red-400', true)}
+                        {spacer('sp-4')}
                     </>)}
 
-                    {grand('Net Income', d => d.netIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                    {grand('gt-ni', 'Net Income', d => d.netIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
                 </tbody>
             </table>
         </div>
