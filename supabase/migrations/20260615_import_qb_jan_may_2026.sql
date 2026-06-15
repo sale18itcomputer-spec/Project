@@ -1422,13 +1422,7 @@ IF NOT EXISTS (SELECT 1 FROM journal_entries WHERE entry_number = 'QB-0180') THE
     (eid, '30100', '1210+836+1455+1443+4889', 0.00, 9833.00);
 END IF;
 
--- Trans#181 (2026-05-07)
-IF NOT EXISTS (SELECT 1 FROM journal_entries WHERE entry_number = 'QB-0181') THEN
-  INSERT INTO journal_entries (entry_number, entry_date, description, reference, created_by, is_posted)
-  VALUES ('QB-0181', '2026-05-07', 'General Journal — Adjustment VAT out 2025 8,428.00', '', 'quickbooks-import', true)
-  RETURNING id INTO eid;
-  INSERT INTO journal_entry_lines (journal_entry_id, account_number, description, debit, credit) VALUES
-END IF;
+-- Trans#181 skipped: all lines are $0.00 (zero-amount QB entry, no financial impact)
 
 -- Trans#182 (2026-05-22)
 IF NOT EXISTS (SELECT 1 FROM journal_entries WHERE entry_number = 'QB-0182') THEN
