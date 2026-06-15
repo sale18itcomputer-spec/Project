@@ -83,6 +83,13 @@ const monthsBetween = (from: string, to: string): string[] => {
 };
 
 type BSMultiItem = { month: string; label: string; data: Awaited<ReturnType<typeof computeBalanceSheet>> };
+type CFMultiItem = { month: string; label: string; data: Awaited<ReturnType<typeof computeCashFlow>> };
+type PLMultiItem = { month: string; label: string; data: Awaited<ReturnType<typeof computeProfitLoss>> };
+
+const DEBIT_NORMAL_GL = new Set([
+    'Bank', 'Accounts Receivable', 'Other Current Asset', 'Fixed Asset',
+    'Cost of Goods Sold', 'Expense', 'Other Expense',
+]);
 
 // ── P&L helper components ─────────────────────────────────────────────────────
 
@@ -150,6 +157,276 @@ const PLSubtotal: React.FC<{
         </span>
     </div>
 );
+
+// ── CFCompareTab ──────────────────────────────────────────────────────────────
+
+const CFCompareTab: React.FC<{ data: CFMultiItem[] }> = ({ data: cols }) => {
+    type D = CFMultiItem['data'];
+    const n = cols.length;
+
+    const allOperAccts = [...new Map(
+        cols.flatMap(c => c.data.operatingAdjustments.map(i => [i.account_number, i]))
+    ).values()];
+    const allInvAccts = [...new Map(
+        cols.flatMap(c => c.data.investingItems.map(i => [i.account_number, i]))
+    ).values()];
+    const allFinAccts = [...new Map(
+        cols.flatMap(c => c.data.financingItems.map(i => [i.account_number, i]))
+    ).values()];
+
+    const getOper = (d: D, num: string) => d.operatingAdjustments.find(i => i.account_number === num)?.amount ?? 0;
+    const getInv  = (d: D, num: string) => d.investingItems.find(i => i.account_number === num)?.amount ?? 0;
+    const getFin  = (d: D, num: string) => d.financingItems.find(i => i.account_number === num)?.amount ?? 0;
+
+    const fmtAmt2 = (v: number) => v === 0 ? '—' : v < 0 ? `($${fmt(Math.abs(v))})` : `$${fmt(v)}`;
+
+    const DeltaChip2 = ({ curr, prev }: { curr: number; prev?: number }) => {
+        if (prev === undefined) return null;
+        const d = curr - prev;
+        if (Math.abs(d) < 0.01) return null;
+        return <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${d > 0 ? 'text-green-500' : 'text-red-400'}`}>{d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d))}</div>;
+    };
+
+    const head = (label: string, cls: string, textCls: string) => (
+        <tr className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
+    );
+
+    const sub = (label: string) => (
+        <tr><td className="sticky left-0 z-10 bg-background px-4 pl-6 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">{label}</td>{cols.map(({ month }) => <td key={month} />)}</tr>
+    );
+
+    const acctRow = (label: string, getVal: (d: D) => number, cls?: string) => (
+        <tr className="border-b border-border/10 hover:bg-muted/20">
+            <td className={`sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground ${cls ?? ''}`}>{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getVal(data);
+                const prev = ci > 0 ? getVal(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-1.5 text-right text-sm tabular-nums ${v < 0 ? 'text-red-500 dark:text-red-400' : v === 0 ? 'text-muted-foreground/30' : 'text-foreground'}`}>
+                        <div>{fmtAmt2(v)}</div><DeltaChip2 curr={v} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const subtotal = (label: string, getVal: (d: D) => number, color: string) => (
+        <tr className="border-t border-border/40 bg-muted/10">
+            <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getVal(data);
+                const prev = ci > 0 ? getVal(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-2 text-right text-sm font-semibold tabular-nums ${color}`}>
+                        <div>{fmtAmt2(v)}</div><DeltaChip2 curr={v} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const grand = (label: string, getVal: (d: D) => number, color: string) => (
+        <tr className="border-t-2 border-border bg-muted/20">
+            <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getVal(data);
+                const prev = ci > 0 ? getVal(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-3 text-right font-bold tabular-nums text-base ${color}`}>
+                        <div>{fmtAmt2(v)}</div><DeltaChip2 curr={v} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const spacer = () => <tr><td colSpan={n + 1} className="py-1.5 bg-muted/5" /></tr>;
+
+    return (
+        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+            <table className="w-full text-sm border-collapse" style={{ minWidth: `${Math.max(600, n * 165 + 280)}px` }}>
+                <thead>
+                    <tr className="bg-muted/60 border-b-2 border-border">
+                        <th className="sticky left-0 z-20 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[280px] border-r border-border/40">Item</th>
+                        {cols.map(({ month, label }) => (
+                            <th key={month} className="px-4 py-3 text-right text-xs font-bold text-foreground min-w-[160px]">{label}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {head('Operating Activities', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
+                    {acctRow('Net Income', d => d.netIncome, 'font-medium text-foreground')}
+                    {allOperAccts.length > 0 && sub('Working Capital Adjustments')}
+                    {allOperAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getOper(d, i.account_number)))}
+                    {subtotal('Net Cash from Operating Activities', d => d.netOperating, 'text-green-600 dark:text-green-400')}
+                    {spacer()}
+
+                    {head('Investing Activities', 'bg-indigo-50/50 dark:bg-indigo-950/20', 'text-indigo-700 dark:text-indigo-400')}
+                    {allInvAccts.length === 0
+                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No investing activity</td></tr>
+                        : allInvAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getInv(d, i.account_number)))
+                    }
+                    {subtotal('Net Cash from Investing Activities', d => d.netInvesting, 'text-indigo-600 dark:text-indigo-400')}
+                    {spacer()}
+
+                    {head('Financing Activities', 'bg-purple-50/50 dark:bg-purple-950/20', 'text-purple-700 dark:text-purple-400')}
+                    {allFinAccts.length === 0
+                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No financing activity</td></tr>
+                        : allFinAccts.map(i => acctRow(`${i.account_number} · ${i.account_name}`, d => getFin(d, i.account_number)))
+                    }
+                    {subtotal('Net Cash from Financing Activities', d => d.netFinancing, 'text-purple-600 dark:text-purple-400')}
+                    {spacer()}
+
+                    {grand('Net Increase (Decrease) in Cash', d => d.netCashChange, 'text-brand-600 dark:text-brand-400')}
+                    <tr className="border-b border-border/20">
+                        <td className="sticky left-0 z-10 bg-background px-4 py-2 text-sm text-muted-foreground">Cash at Beginning of Period</td>
+                        {cols.map(({ month, data }, ci) => {
+                            const v = data.beginningCash;
+                            const prev = ci > 0 ? cols[ci - 1].data.beginningCash : undefined;
+                            return <td key={month} className="px-4 py-2 text-right text-sm tabular-nums text-foreground"><div>${fmt(v)}</div><DeltaChip2 curr={v} prev={prev} /></td>;
+                        })}
+                    </tr>
+                    {grand('Cash at End of Period', d => d.endingCash, 'text-green-600 dark:text-green-400')}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+// ── PLCompareTab ───────────────────────────────────────────────────────────────
+
+const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
+    type D = PLMultiItem['data'];
+    const n = cols.length;
+
+    const allAccts = (getLines: (d: D) => BalanceSheetLine[]) =>
+        [...new Map(cols.flatMap(c => getLines(c.data).map(l => [l.account_number, l]))).values()];
+
+    const getAcctBal = (d: D, num: string) =>
+        [...d.income, ...d.cogs, ...d.expenses, ...d.otherIncome, ...d.otherExpenses].find(l => l.account_number === num)?.balance ?? 0;
+
+    const fmtAmt3 = (v: number, negate?: boolean) => {
+        const val = negate ? -v : v;
+        return val === 0 ? '—' : val < 0 ? `($${fmt(Math.abs(val))})` : `$${fmt(val)}`;
+    };
+
+    const DeltaChip3 = ({ curr, prev, negate }: { curr: number; prev?: number; negate?: boolean }) => {
+        if (prev === undefined) return null;
+        const d = curr - prev;
+        if (Math.abs(d) < 0.01) return null;
+        const up = negate ? d < 0 : d > 0;
+        return <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${up ? 'text-green-500' : 'text-red-400'}`}>{up ? '▲' : '▼'} ${fmt(Math.abs(d))}</div>;
+    };
+
+    const head = (label: string, cls: string, textCls: string) => (
+        <tr className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
+    );
+
+    const acctRow = (label: string, num: string, negate?: boolean) => (
+        <tr className="border-b border-border/10 hover:bg-muted/20">
+            <td className="sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getAcctBal(data, num);
+                const prev = ci > 0 ? getAcctBal(cols[ci - 1].data, num) : undefined;
+                const displayed = negate ? -v : v;
+                return (
+                    <td key={month} className={`px-4 py-1.5 text-right text-sm tabular-nums ${displayed < 0 ? 'text-red-500 dark:text-red-400' : displayed === 0 ? 'text-muted-foreground/30' : 'text-foreground'}`}>
+                        <div>{fmtAmt3(v, negate)}</div><DeltaChip3 curr={v} prev={prev} negate={negate} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const subtotal = (label: string, getVal: (d: D) => number, color: string, negate?: boolean) => (
+        <tr className="border-t border-border/40 bg-muted/10">
+            <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getVal(data);
+                const prev = ci > 0 ? getVal(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-2 text-right text-sm font-semibold tabular-nums ${color}`}>
+                        <div>{fmtAmt3(v, negate)}</div><DeltaChip3 curr={v} prev={prev} negate={negate} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const grand = (label: string, getVal: (d: D) => number, posColor: string, negColor: string) => (
+        <tr className="border-t-2 border-border bg-muted/20">
+            <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
+            {cols.map(({ month, data }, ci) => {
+                const v = getVal(data);
+                const prev = ci > 0 ? getVal(cols[ci - 1].data) : undefined;
+                return (
+                    <td key={month} className={`px-4 py-3 text-right font-bold tabular-nums text-base ${v >= 0 ? posColor : negColor}`}>
+                        <div>{v < 0 ? `($${fmt(Math.abs(v))})` : `$${fmt(v)}`}</div><DeltaChip3 curr={v} prev={prev} />
+                    </td>
+                );
+            })}
+        </tr>
+    );
+
+    const spacer = () => <tr><td colSpan={n + 1} className="py-1 bg-muted/5" /></tr>;
+
+    const incomeAccts  = allAccts(d => d.income);
+    const cogsAccts    = allAccts(d => d.cogs);
+    const expAccts     = allAccts(d => d.expenses);
+    const oiAccts      = allAccts(d => d.otherIncome);
+    const oeAccts      = allAccts(d => d.otherExpenses);
+
+    return (
+        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+            <table className="w-full text-sm border-collapse" style={{ minWidth: `${Math.max(600, n * 165 + 280)}px` }}>
+                <thead>
+                    <tr className="bg-muted/60 border-b-2 border-border">
+                        <th className="sticky left-0 z-20 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[280px] border-r border-border/40">Account</th>
+                        {cols.map(({ month, label }) => (
+                            <th key={month} className="px-4 py-3 text-right text-xs font-bold text-foreground min-w-[160px]">{label}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {head('Revenue', 'bg-green-50/50 dark:bg-green-950/20', 'text-green-700 dark:text-green-400')}
+                    {incomeAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number))}
+                    {subtotal('Total Revenue', d => d.totalRevenue, 'text-green-600 dark:text-green-400')}
+                    {spacer()}
+
+                    {head('Cost of Goods Sold', 'bg-orange-50/50 dark:bg-orange-950/20', 'text-orange-700 dark:text-orange-400')}
+                    {cogsAccts.length === 0
+                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No COGS for these months</td></tr>
+                        : cogsAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))
+                    }
+                    {subtotal('Total COGS', d => d.totalCogs, 'text-orange-600 dark:text-orange-400', true)}
+                    {grand('Gross Profit', d => d.grossProfit, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                    {spacer()}
+
+                    {head('Operating Expenses', 'bg-rose-50/50 dark:bg-rose-950/20', 'text-rose-700 dark:text-rose-400')}
+                    {expAccts.length === 0
+                        ? <tr><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No expenses for these months</td></tr>
+                        : expAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))
+                    }
+                    {subtotal('Total Expenses', d => d.totalExpenses, 'text-rose-600 dark:text-rose-400', true)}
+                    {grand('Operating Income', d => d.operatingIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                    {spacer()}
+
+                    {(oiAccts.length > 0 || oeAccts.length > 0) && (<>
+                        {oiAccts.length > 0 && head('Other Income', 'bg-teal-50/50 dark:bg-teal-950/20', 'text-teal-700 dark:text-teal-400')}
+                        {oiAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number))}
+                        {oiAccts.length > 0 && subtotal('Total Other Income', d => d.totalOtherIncome, 'text-teal-600 dark:text-teal-400')}
+                        {oeAccts.length > 0 && head('Other Expenses', 'bg-red-50/50 dark:bg-red-950/20', 'text-red-700 dark:text-red-400')}
+                        {oeAccts.map(l => acctRow(`${l.account_number} · ${l.account_name}`, l.account_number, true))}
+                        {oeAccts.length > 0 && subtotal('Total Other Expenses', d => d.totalOtherExpenses, 'text-red-600 dark:text-red-400', true)}
+                        {spacer()}
+                    </>)}
+
+                    {grand('Net Income', d => d.netIncome, 'text-green-600 dark:text-green-400', 'text-red-600 dark:text-red-400')}
+                </tbody>
+            </table>
+        </div>
+    );
+};
 
 // ── BSCompareTab ──────────────────────────────────────────────────────────────
 
@@ -365,7 +642,7 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'journal' | 'balance' | 'cashflow' | 'pl';
+type Tab = 'coa' | 'ledger' | 'journal' | 'balance' | 'cashflow' | 'pl';
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
@@ -415,6 +692,7 @@ export default function AccountingDashboard() {
     useEffect(() => { loadAccounts(); }, [loadAccounts]);
 
     useEffect(() => {
+        if (activeTab === 'ledger'  && !entriesLoaded) loadEntries();
         if (activeTab === 'journal' && !entriesLoaded) loadEntries();
         if (activeTab === 'balance' && !entriesLoaded) loadEntries();
     }, [activeTab, entriesLoaded, loadEntries]);
@@ -430,6 +708,13 @@ export default function AccountingDashboard() {
         account_type: 'Expense', description: '', is_hidden: false,
     });
     const [savingAccount, setSavingAccount] = useState(false);
+
+    // ── General Ledger state ─────────────────────────────────────────────────
+    const [glDateFrom, setGlDateFrom]     = useState(() => `${new Date().getFullYear()}-01-01`);
+    const [glDateTo, setGlDateTo]         = useState(getTodayISO);
+    const [glAccountFilter, setGlAccountFilter] = useState('');
+    const [glPostedOnly, setGlPostedOnly] = useState(true);
+    const [glCollapsed, setGlCollapsed]   = useState<Set<string>>(new Set());
 
     // ── Journal Entry state ───────────────────────────────────────────────────
     const [showEntryForm, setShowEntryForm]   = useState(false);
@@ -457,16 +742,26 @@ export default function AccountingDashboard() {
     const [loadingBSMulti, setLoadingBSMulti] = useState(false);
 
     // ── Cash Flow state ───────────────────────────────────────────────────────
+    const [cfMode, setCfMode]         = useState<'single' | 'compare'>('single');
     const [cfDateFrom, setCfDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
     const [cfDateTo, setCfDateTo]     = useState(getTodayISO);
     const [cfData, setCfData]         = useState<CashFlowData | null>(null);
     const [loadingCF, setLoadingCF]   = useState(false);
+    const [cfMonthFrom, setCfMonthFrom] = useState(() => `${new Date().getFullYear()}-01`);
+    const [cfMonthTo, setCfMonthTo]     = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
+    const [cfMultiData, setCfMultiData] = useState<CFMultiItem[]>([]);
+    const [loadingCFMulti, setLoadingCFMulti] = useState(false);
 
     // ── P&L state ────────────────────────────────────────────────────────────
+    const [plMode, setPlMode]         = useState<'single' | 'compare'>('single');
     const [plDateFrom, setPlDateFrom] = useState(() => `${new Date().getFullYear()}-01-01`);
     const [plDateTo, setPlDateTo]     = useState(getTodayISO);
     const [plData, setPlData]         = useState<PLData | null>(null);
     const [loadingPL, setLoadingPL]   = useState(false);
+    const [plMonthFrom, setPlMonthFrom] = useState(() => `${new Date().getFullYear()}-01`);
+    const [plMonthTo, setPlMonthTo]     = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
+    const [plMultiData, setPlMultiData] = useState<PLMultiItem[]>([]);
+    const [loadingPLMulti, setLoadingPLMulti] = useState(false);
 
     const loadBalanceSheet = useCallback(async () => {
         if (!accounts.length) return;
@@ -529,6 +824,117 @@ export default function AccountingDashboard() {
             setLoadingPL(false);
         }
     }, [accounts, plDateFrom, plDateTo, addToast]);
+
+    const loadCFMulti = useCallback(async () => {
+        if (!accounts.length) return;
+        const months = monthsBetween(cfMonthFrom, cfMonthTo);
+        if (months.length === 0) { addToast('From month must not be after To month.', 'error'); return; }
+        if (months.length > 12) { addToast('Maximum 12 months per comparison.', 'error'); return; }
+        try {
+            setLoadingCFMulti(true);
+            const results = await Promise.all(
+                months.map(async (ym) => {
+                    const [y, m2] = ym.split('-').map(Number);
+                    const data = await computeCashFlow(accounts, `${ym}-01`, getMonthEnd(ym));
+                    const label = new Date(y, m2 - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                    return { month: ym, label, data };
+                })
+            );
+            setCfMultiData(results);
+        } catch (e: any) {
+            addToast(`Failed to compute cash flow comparison: ${e.message}`, 'error');
+        } finally {
+            setLoadingCFMulti(false);
+        }
+    }, [accounts, cfMonthFrom, cfMonthTo, addToast]);
+
+    const loadPLMulti = useCallback(async () => {
+        if (!accounts.length) return;
+        const months = monthsBetween(plMonthFrom, plMonthTo);
+        if (months.length === 0) { addToast('From month must not be after To month.', 'error'); return; }
+        if (months.length > 12) { addToast('Maximum 12 months per comparison.', 'error'); return; }
+        try {
+            setLoadingPLMulti(true);
+            const results = await Promise.all(
+                months.map(async (ym) => {
+                    const [y, m2] = ym.split('-').map(Number);
+                    const data = await computeProfitLoss(accounts, `${ym}-01`, getMonthEnd(ym));
+                    const label = new Date(y, m2 - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                    return { month: ym, label, data };
+                })
+            );
+            setPlMultiData(results);
+        } catch (e: any) {
+            addToast(`Failed to compute P&L comparison: ${e.message}`, 'error');
+        } finally {
+            setLoadingPLMulti(false);
+        }
+    }, [accounts, plMonthFrom, plMonthTo, addToast]);
+
+    // ── General Ledger computed data ──────────────────────────────────────────
+    const glData = useMemo(() => {
+        if (!entries.length || !accounts.length) return [];
+        const accountMap = new Map(accounts.map(a => [a.account_number, a]));
+        type GLLine = {
+            account_number: string; entry_date: string; entry_number: string;
+            source: string; je_description: string; line_description: string;
+            split: string; debit: number; credit: number; is_posted: boolean; running: number;
+        };
+        const grouped = new Map<string, GLLine[]>();
+
+        for (const entry of entries) {
+            if (glPostedOnly && !entry.is_posted) continue;
+            if (entry.entry_date < glDateFrom || entry.entry_date > glDateTo) continue;
+            const lines = entry.lines ?? [];
+            for (const line of lines) {
+                const otherNums = lines.filter(l => l.account_number !== line.account_number).map(l => l.account_number);
+                const split = lines.length > 2 ? '-SPLIT-' : otherNums[0] ?? '';
+                const row: GLLine = {
+                    account_number: line.account_number,
+                    entry_date: entry.entry_date,
+                    entry_number: entry.entry_number,
+                    source: entry.source ?? 'manual',
+                    je_description: entry.description,
+                    line_description: line.description ?? '',
+                    split,
+                    debit: Number(line.debit),
+                    credit: Number(line.credit),
+                    is_posted: entry.is_posted,
+                    running: 0,
+                };
+                if (!grouped.has(line.account_number)) grouped.set(line.account_number, []);
+                grouped.get(line.account_number)!.push(row);
+            }
+        }
+
+        const result: {
+            account_number: string; account_name: string; account_type: string;
+            lines: (GLLine & { running: number })[]; totalDebit: number; totalCredit: number; endingBalance: number;
+        }[] = [];
+
+        for (const acc of accounts) {
+            const lines = grouped.get(acc.account_number);
+            if (!lines || lines.length === 0) continue;
+            if (glAccountFilter && !`${acc.account_number} ${acc.account_name}`.toLowerCase().includes(glAccountFilter.toLowerCase())) continue;
+            lines.sort((a, b) => a.entry_date !== b.entry_date ? a.entry_date.localeCompare(b.entry_date) : a.entry_number.localeCompare(b.entry_number));
+            const isDebitNormal = DEBIT_NORMAL_GL.has(acc.account_type);
+            let running = 0;
+            for (const line of lines) {
+                running += isDebitNormal ? (line.debit - line.credit) : (line.credit - line.debit);
+                line.running = running;
+            }
+            result.push({
+                account_number: acc.account_number,
+                account_name: acc.account_name,
+                account_type: acc.account_type,
+                lines,
+                totalDebit: lines.reduce((s, l) => s + l.debit, 0),
+                totalCredit: lines.reduce((s, l) => s + l.credit, 0),
+                endingBalance: running,
+            });
+        }
+        return result;
+    }, [entries, accounts, glDateFrom, glDateTo, glPostedOnly, glAccountFilter]);
 
     useEffect(() => {
         if (activeTab === 'balance' && accounts.length) loadBalanceSheet();
@@ -859,7 +1265,7 @@ export default function AccountingDashboard() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Chart of Accounts · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">Chart of Accounts · General Ledger · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
                     </div>
                 </div>
             </div>
@@ -867,6 +1273,7 @@ export default function AccountingDashboard() {
             {/* Tabs */}
             <div className="flex gap-1.5 flex-wrap border-b border-border pb-0">
                 <TabBtn id="coa"      label="Chart of Accounts" icon={<Landmark size={15} />} />
+                <TabBtn id="ledger"   label="General Ledger"    icon={<BookOpen size={15} />} />
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
@@ -1073,6 +1480,129 @@ export default function AccountingDashboard() {
                         </div>
                     )}
                     <p className="text-xs text-muted-foreground">{accounts.filter(a => !a.is_hidden).length} active accounts · {accounts.length} total</p>
+                </div>
+            )}
+
+            {/* ── TAB: General Ledger ────────────────────────────────────────── */}
+            {activeTab === 'ledger' && (
+                <div className="space-y-4">
+                    {/* Toolbar */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">From</label>
+                            <input type="date" value={glDateFrom} onChange={e => setGlDateFrom(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">To</label>
+                            <input type="date" value={glDateTo} onChange={e => setGlDateTo(e.target.value)}
+                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Filter by account…"
+                            value={glAccountFilter}
+                            onChange={e => setGlAccountFilter(e.target.value)}
+                            className="h-8 px-3 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 min-w-[200px]"
+                        />
+                        <button
+                            onClick={() => setGlPostedOnly(p => !p)}
+                            className={`h-8 px-3 text-xs font-semibold rounded border transition-colors ${glPostedOnly ? 'bg-brand-600 text-white border-brand-600' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
+                        >
+                            {glPostedOnly ? 'Posted only' : 'All entries'}
+                        </button>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                            {glData.length} account{glData.length !== 1 ? 's' : ''} · {glData.reduce((s, a) => s + a.lines.length, 0)} lines
+                        </span>
+                    </div>
+
+                    {loadingEntries ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Loading entries…</div>
+                    ) : glData.length === 0 ? (
+                        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">No activity for the selected filters.</div>
+                    ) : (
+                        <div className="space-y-3">
+                            {glData.map(acctGroup => {
+                                const isCollapsed = glCollapsed.has(acctGroup.account_number);
+                                const toggle = () => setGlCollapsed(prev => {
+                                    const next = new Set(prev);
+                                    next.has(acctGroup.account_number) ? next.delete(acctGroup.account_number) : next.add(acctGroup.account_number);
+                                    return next;
+                                });
+                                return (
+                                    <div key={acctGroup.account_number} className="bg-card border border-border rounded-xl overflow-hidden">
+                                        {/* Account header */}
+                                        <button
+                                            onClick={toggle}
+                                            className="w-full flex items-center justify-between px-5 py-3 bg-muted/30 hover:bg-muted/50 transition-colors border-b border-border"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {isCollapsed ? <ChevronRight size={14} className="text-muted-foreground shrink-0" /> : <ChevronDown size={14} className="text-muted-foreground shrink-0" />}
+                                                <span className={`text-[10px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded ${TYPE_COLORS[acctGroup.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                                                    {acctGroup.account_type}
+                                                </span>
+                                                <span className="text-sm font-semibold text-foreground">{acctGroup.account_number} · {acctGroup.account_name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-6 text-xs text-muted-foreground shrink-0">
+                                                <span>Dr <span className="text-foreground font-medium tabular-nums">${fmt(acctGroup.totalDebit)}</span></span>
+                                                <span>Cr <span className="text-foreground font-medium tabular-nums">${fmt(acctGroup.totalCredit)}</span></span>
+                                                <span className={`font-semibold tabular-nums ${acctGroup.endingBalance < 0 ? 'text-red-500' : 'text-brand-600 dark:text-brand-400'}`}>
+                                                    Balance {acctGroup.endingBalance < 0 ? `($${fmt(Math.abs(acctGroup.endingBalance))})` : `$${fmt(acctGroup.endingBalance)}`}
+                                                </span>
+                                            </div>
+                                        </button>
+
+                                        {!isCollapsed && (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm border-collapse">
+                                                    <thead>
+                                                        <tr className="border-b border-border/40 bg-muted/10">
+                                                            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-[100px]">Date</th>
+                                                            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-[90px]">JE #</th>
+                                                            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Description</th>
+                                                            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Memo</th>
+                                                            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Split</th>
+                                                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-[100px]">Debit</th>
+                                                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-[100px]">Credit</th>
+                                                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-[110px]">Balance</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {acctGroup.lines.map((line, idx) => (
+                                                            <tr key={`${line.entry_number}-${idx}`} className="border-b border-border/10 hover:bg-muted/20">
+                                                                <td className="px-4 py-1.5 text-xs text-muted-foreground tabular-nums whitespace-nowrap">{line.entry_date}</td>
+                                                                <td className="px-4 py-1.5">
+                                                                    <span className="text-xs font-mono text-brand-600 dark:text-brand-400">{line.entry_number}</span>
+                                                                    {!line.is_posted && <span className="ml-1 text-[9px] text-amber-600 font-bold">DRAFT</span>}
+                                                                </td>
+                                                                <td className="px-4 py-1.5 text-xs text-foreground max-w-[200px] truncate" title={line.je_description}>{line.je_description}</td>
+                                                                <td className="px-4 py-1.5 text-xs text-muted-foreground max-w-[180px] truncate" title={line.line_description}>{line.line_description || '—'}</td>
+                                                                <td className="px-4 py-1.5 text-xs text-muted-foreground font-mono whitespace-nowrap">{line.split || '—'}</td>
+                                                                <td className="px-4 py-1.5 text-right text-xs tabular-nums text-foreground">{line.debit > 0 ? `$${fmt(line.debit)}` : '—'}</td>
+                                                                <td className="px-4 py-1.5 text-right text-xs tabular-nums text-foreground">{line.credit > 0 ? `$${fmt(line.credit)}` : '—'}</td>
+                                                                <td className={`px-4 py-1.5 text-right text-xs tabular-nums font-medium ${line.running < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                                                    {line.running < 0 ? `($${fmt(Math.abs(line.running))})` : `$${fmt(line.running)}`}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        {/* Totals row */}
+                                                        <tr className="border-t-2 border-border/40 bg-muted/20 font-semibold">
+                                                            <td colSpan={5} className="px-4 py-2 text-xs text-muted-foreground font-bold uppercase tracking-wide">Total</td>
+                                                            <td className="px-4 py-2 text-right text-xs tabular-nums text-foreground">${fmt(acctGroup.totalDebit)}</td>
+                                                            <td className="px-4 py-2 text-right text-xs tabular-nums text-foreground">${fmt(acctGroup.totalCredit)}</td>
+                                                            <td className={`px-4 py-2 text-right text-xs tabular-nums font-bold ${acctGroup.endingBalance < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>
+                                                                {acctGroup.endingBalance < 0 ? `($${fmt(Math.abs(acctGroup.endingBalance))})` : `$${fmt(acctGroup.endingBalance)}`}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1387,12 +1917,20 @@ export default function AccountingDashboard() {
             {activeTab === 'cashflow' && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">From</label>
-                            <input
-                                type="date"
-                                value={cfDateFrom}
-                                onChange={e => setCfDateFrom(e.target.value)}
+                        {/* Mode toggle */}
+                        <div className="flex items-center bg-muted rounded-lg p-0.5 shrink-0">
+                            <button onClick={() => setCfMode('single')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${cfMode === 'single' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Single Period</button>
+                            <button onClick={() => setCfMode('compare')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${cfMode === 'compare' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare Months</button>
+                        </div>
+
+                        {cfMode === 'single' ? (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From</label>
+                                    <input
+                                        type="date"
+                                        value={cfDateFrom}
+                                        onChange={e => setCfDateFrom(e.target.value)}
                                 className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
                             />
                         </div>
@@ -1408,9 +1946,35 @@ export default function AccountingDashboard() {
                         <Button size="sm" onClick={loadCashFlow} disabled={loadingCF} className="bg-brand-600 hover:bg-brand-700">
                             {loadingCF ? 'Computing…' : 'Refresh'}
                         </Button>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From</label>
+                                    <input type="month" value={cfMonthFrom} onChange={e => setCfMonthFrom(e.target.value)} className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">To</label>
+                                    <input type="month" value={cfMonthTo} onChange={e => setCfMonthTo(e.target.value)} className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                </div>
+                                <Button size="sm" onClick={loadCFMulti} disabled={loadingCFMulti} className="bg-brand-600 hover:bg-brand-700">
+                                    {loadingCFMulti ? 'Computing…' : 'Compare'}
+                                </Button>
+                                {cfMultiData.length > 0 && <span className="text-xs text-muted-foreground">{cfMultiData.length} month{cfMultiData.length > 1 ? 's' : ''}</span>}
+                            </>
+                        )}
                     </div>
 
-                    {loadingCF ? (
+                    {/* ── Single Period view ──────────────────────────────────── */}
+                    {cfMode === 'compare' ? (
+                        loadingCFMulti ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing comparison…</div>
+                        ) : cfMultiData.length === 0 ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Select a month range and click Compare.</div>
+                        ) : (
+                            <CFCompareTab data={cfMultiData} />
+                        )
+                    ) : loadingCF ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing cash flow…</div>
                     ) : !cfData ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
@@ -1545,32 +2109,66 @@ export default function AccountingDashboard() {
             {/* ── TAB: Profit & Loss ────────────────────────────────────────── */}
             {activeTab === 'pl' && (
                 <div className="space-y-4">
-                    {/* Date range picker */}
+                    {/* Date range picker + mode toggle */}
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">From</label>
-                            <input
-                                type="date"
-                                value={plDateFrom}
-                                onChange={e => setPlDateFrom(e.target.value)}
-                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
-                            />
+                        {/* Mode toggle */}
+                        <div className="flex items-center bg-muted rounded-lg p-0.5 shrink-0">
+                            <button onClick={() => setPlMode('single')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${plMode === 'single' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Single Period</button>
+                            <button onClick={() => setPlMode('compare')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${plMode === 'compare' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare Months</button>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">To</label>
-                            <input
-                                type="date"
-                                value={plDateTo}
-                                onChange={e => setPlDateTo(e.target.value)}
-                                className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
-                            />
-                        </div>
-                        <Button size="sm" onClick={loadProfitLoss} disabled={loadingPL} className="bg-brand-600 hover:bg-brand-700">
-                            {loadingPL ? 'Computing…' : 'Refresh'}
-                        </Button>
+
+                        {plMode === 'single' ? (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From</label>
+                                    <input
+                                        type="date"
+                                        value={plDateFrom}
+                                        onChange={e => setPlDateFrom(e.target.value)}
+                                        className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">To</label>
+                                    <input
+                                        type="date"
+                                        value={plDateTo}
+                                        onChange={e => setPlDateTo(e.target.value)}
+                                        className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    />
+                                </div>
+                                <Button size="sm" onClick={loadProfitLoss} disabled={loadingPL} className="bg-brand-600 hover:bg-brand-700">
+                                    {loadingPL ? 'Computing…' : 'Refresh'}
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From</label>
+                                    <input type="month" value={plMonthFrom} onChange={e => setPlMonthFrom(e.target.value)} className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">To</label>
+                                    <input type="month" value={plMonthTo} onChange={e => setPlMonthTo(e.target.value)} className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                </div>
+                                <Button size="sm" onClick={loadPLMulti} disabled={loadingPLMulti} className="bg-brand-600 hover:bg-brand-700">
+                                    {loadingPLMulti ? 'Computing…' : 'Compare'}
+                                </Button>
+                                {plMultiData.length > 0 && <span className="text-xs text-muted-foreground">{plMultiData.length} month{plMultiData.length > 1 ? 's' : ''}</span>}
+                            </>
+                        )}
                     </div>
 
-                    {loadingPL ? (
+                    {/* ── Compare view ──────────────────────────────────────── */}
+                    {plMode === 'compare' ? (
+                        loadingPLMulti ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing comparison…</div>
+                        ) : plMultiData.length === 0 ? (
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Select a month range and click Compare.</div>
+                        ) : (
+                            <PLCompareTab data={plMultiData} />
+                        )
+                    ) : loadingPL ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Computing profit & loss…</div>
                     ) : !plData ? (
                         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Click Refresh to load the statement.</div>
