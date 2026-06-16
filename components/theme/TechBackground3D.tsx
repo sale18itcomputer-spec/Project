@@ -27,15 +27,15 @@ export default function TechBackground3D({ color, intensity }: Props) {
             el.appendChild(renderer.domElement);
 
             const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 4000);
-            camera.position.set(0, 0, 750);
+            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 5000);
+            camera.position.set(0, 0, 1000);
             camera.lookAt(0, 0, 0);
 
             const themeCol = new THREE.Color(color);
 
-            // ── Nodes ────────────────────────────────────────────────────
-            const N = 180;
-            const RX = 720, RY = 420, RZ = 320;
+            // ── Nodes ─────────────────────────────────────────────────────
+            const N = 220;
+            const RX = 1100, RY = 650, RZ = 520;
             const pos = new Float32Array(N * 3);
             const vel = new Float32Array(N * 3);
             for (let i = 0; i < N; i++) {
@@ -50,7 +50,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
             const ptGeo = new THREE.BufferGeometry();
             ptGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
-            // Soft radial glow texture for points
             const ptCanvas = document.createElement('canvas');
             ptCanvas.width = ptCanvas.height = 32;
             const ptCtx = ptCanvas.getContext('2d')!;
@@ -69,10 +68,10 @@ export default function TechBackground3D({ color, intensity }: Props) {
             });
             scene.add(new THREE.Points(ptGeo, ptMat));
 
-            // ── Edges ─────────────────────────────────────────────────────
-            const DIST = 165;
+            // ── Edges ──────────────────────────────────────────────────────
+            const DIST = 195;
             const DIST_SQ = DIST * DIST;
-            const MAX_EDGES = 400;
+            const MAX_EDGES = 500;
             const ePos = new Float32Array(MAX_EDGES * 6);
             const eCol = new Float32Array(MAX_EDGES * 6);
             const eGeo = new THREE.BufferGeometry();
@@ -84,7 +83,7 @@ export default function TechBackground3D({ color, intensity }: Props) {
             });
             scene.add(new THREE.LineSegments(eGeo, eMat));
 
-            // ── Signals ───────────────────────────────────────────────────
+            // ── Signals ────────────────────────────────────────────────────
             interface Signal { ai: number; bi: number; t: number; speed: number; mesh: THREE.Mesh; }
             const sigGeo = new THREE.SphereGeometry(3.5, 8, 8);
             const sigBaseCol = new THREE.Color().lerpColors(new THREE.Color(0xffffff), themeCol, 0.25);
@@ -94,7 +93,54 @@ export default function TechBackground3D({ color, intensity }: Props) {
             interface Pair { ai: number; bi: number; }
             const activeEdges: Pair[] = [];
 
-            // ── Mouse ─────────────────────────────────────────────────────
+            // ── Logo sprite (white, transparent bg) ───────────────────────
+            let logoSprite: THREE.Sprite | null = null;
+            let logoTex: THREE.Texture | null = null;
+
+            const loadLogo = () => new Promise<void>(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    // Down-sample for texture — original is huge
+                    const scale = 0.08;
+                    const w = Math.round(img.width  * scale);
+                    const h = Math.round(img.height * scale);
+                    const lc = document.createElement('canvas');
+                    lc.width = w; lc.height = h;
+                    const lx = lc.getContext('2d')!;
+                    lx.drawImage(img, 0, 0, w, h);
+
+                    // Convert: blue-on-white → white-on-transparent
+                    const id = lx.getImageData(0, 0, w, h);
+                    const d = id.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
+                        const a = Math.min(255, Math.round((255 - avg) * 2.2));
+                        d[i] = 255; d[i + 1] = 255; d[i + 2] = 255;
+                        d[i + 3] = a;
+                    }
+                    lx.putImageData(id, 0, 0);
+
+                    logoTex = new THREE.CanvasTexture(lc);
+                    const spriteMat = new THREE.SpriteMaterial({
+                        map: logoTex, transparent: true,
+                        opacity: 0.17 * intensity,
+                        blending: THREE.AdditiveBlending, depthWrite: false,
+                    });
+                    logoSprite = new THREE.Sprite(spriteMat);
+                    // Logo is ~5.115:1 aspect — width 520, height ~102
+                    logoSprite.scale.set(520, 102, 1);
+                    logoSprite.position.set(0, 0, 0);
+                    scene.add(logoSprite);
+                    resolve();
+                };
+                img.onerror = () => resolve(); // silently skip if missing
+                img.src = encodeURI('/Limperial Technology Logo01.png(004aad).png');
+            });
+
+            await loadLogo();
+            if (disposed) return;
+
+            // ── Mouse ──────────────────────────────────────────────────────
             let mx = 0, my = 0;
             const onMove = (e: MouseEvent) => {
                 mx = (e.clientX / window.innerWidth  - 0.5) * 2;
@@ -102,7 +148,7 @@ export default function TechBackground3D({ color, intensity }: Props) {
             };
             window.addEventListener('mousemove', onMove);
 
-            // ── Resize ────────────────────────────────────────────────────
+            // ── Resize ─────────────────────────────────────────────────────
             const onResize = () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
@@ -110,7 +156,7 @@ export default function TechBackground3D({ color, intensity }: Props) {
             };
             window.addEventListener('resize', onResize);
 
-            // ── Animate ───────────────────────────────────────────────────
+            // ── Animate ────────────────────────────────────────────────────
             const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
             let tRX = 0, tRY = 0, cRX = 0, cRY = 0;
             let lastT = performance.now();
@@ -184,15 +230,21 @@ export default function TechBackground3D({ color, intensity }: Props) {
                     }
                 }
 
+                // Logo gentle pulse
+                if (logoSprite) {
+                    const pulse = 0.14 + Math.sin(now * 0.0006) * 0.04;
+                    (logoSprite.material as THREE.SpriteMaterial).opacity = pulse * intensity;
+                }
+
                 // Slow orbit + mouse parallax
                 const orb = now * 0.00006;
                 tRX = my * 0.2  + Math.sin(orb * 0.7) * 0.1;
                 tRY = mx * 0.25 + Math.sin(orb)       * 0.18;
                 cRX = lerp(cRX, tRX, 0.025);
                 cRY = lerp(cRY, tRY, 0.025);
-                camera.position.x = Math.sin(cRY) * 750;
-                camera.position.y = Math.sin(cRX) * 180;
-                camera.position.z = Math.cos(cRY) * 750;
+                camera.position.x = Math.sin(cRY) * 1000;
+                camera.position.y = Math.sin(cRX) * 220;
+                camera.position.z = Math.cos(cRY) * 1000;
                 camera.lookAt(0, 0, 0);
 
                 renderer.render(scene, camera);
@@ -207,6 +259,8 @@ export default function TechBackground3D({ color, intensity }: Props) {
                 ptGeo.dispose(); ptMat.dispose(); ptTex.dispose();
                 eGeo.dispose();  eMat.dispose();
                 sigGeo.dispose();
+                if (logoTex) logoTex.dispose();
+                if (logoSprite) (logoSprite.material as THREE.Material).dispose();
                 for (const s of signals) {
                     scene.remove(s.mesh);
                     (s.mesh.material as THREE.Material).dispose();
