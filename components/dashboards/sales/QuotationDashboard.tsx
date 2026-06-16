@@ -101,6 +101,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       initialHeight: 820,
       minWidth: 900,
       minHeight: 600,
+      detachUrl: quoteNo ? `/standalone/quotation/${encodeURIComponent(quoteNo)}` : undefined,
     });
   };
 

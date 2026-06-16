@@ -26,6 +26,7 @@ export interface ManagedWindow {
     minHeight: number;
     onClose: () => void;
     noPadding?: boolean;
+    detachUrl?: string;
 }
 
 export interface OpenWindowInput {
@@ -40,6 +41,7 @@ export interface OpenWindowInput {
     initialWidth?: number;
     initialHeight?: number;
     noPadding?: boolean;
+    detachUrl?: string;
 }
 
 /** A short-lived "flying" placeholder animated (FLIP-style) between a window frame's
@@ -137,6 +139,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
                 minHeight: input.minHeight ?? 300,
                 onClose: input.onClose ?? (() => {}),
                 noPadding: input.noPadding,
+                detachUrl: input.detachUrl,
             };
             return [...prev, win];
         });

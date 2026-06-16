@@ -73,6 +73,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
             initialHeight: 820,
             minWidth: 900,
             minHeight: 600,
+            detachUrl: doNo ? `/standalone/delivery-order/${encodeURIComponent(doNo)}` : undefined,
         });
     };
 

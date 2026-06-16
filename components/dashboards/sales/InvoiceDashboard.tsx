@@ -84,6 +84,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             initialHeight: 820,
             minWidth: 900,
             minHeight: 600,
+            detachUrl: invNo ? `/standalone/invoice/${encodeURIComponent(invNo)}` : undefined,
         });
     };
 

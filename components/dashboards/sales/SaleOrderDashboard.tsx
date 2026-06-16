@@ -93,6 +93,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             initialHeight: 820,
             minWidth: 900,
             minHeight: 600,
+            detachUrl: soNo ? `/standalone/sale-order/${encodeURIComponent(soNo)}` : undefined,
         });
     };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
-import { Minus, X } from 'lucide-react';
+import { Minus, X, ExternalLink } from 'lucide-react';
 import { ManagedWindow, SnapZone, useWindowManager } from '../../contexts/WindowManagerContext';
 
 const SNAP_MARGIN = 24;
@@ -190,6 +190,16 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                 >
                     <h2 id={titleId} className="text-base font-bold text-foreground truncate">{win.title}</h2>
                     <div className="flex items-center gap-1">
+                        {win.detachUrl && (
+                            <button
+                                onClick={() => window.open(win.detachUrl, '_blank', 'noopener,noreferrer')}
+                                className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                aria-label="Open in new tab"
+                                title="Open in new tab"
+                            >
+                                <ExternalLink size={14} />
+                            </button>
+                        )}
                         <button
                             onClick={() => {
                                 const r = frameRef.current?.getBoundingClientRect();
