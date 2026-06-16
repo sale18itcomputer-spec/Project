@@ -6,15 +6,10 @@ import { ManagedWindow, getWindowRect, useWindowManager } from '../../contexts/W
 
 const DOCK_Z_INDEX = 999999;
 
-/**
- * Single taskbar-style dock listing every minimized window across the app.
- * Rendered once by WindowManagerRoot alongside the visible window frames.
- */
 const MinimizedDock: React.FC<{ windows: ManagedWindow[] }> = ({ windows }) => {
     const { restoreWindow, focusWindow, reportGhostTarget } = useWindowManager();
     const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
-    // Reports each chip's rect so a pending minimize ghost knows where to land.
     useLayoutEffect(() => {
         for (const win of windows) {
             const el = chipRefs.current.get(win.id);
@@ -37,20 +32,20 @@ const MinimizedDock: React.FC<{ windows: ManagedWindow[] }> = ({ windows }) => {
 
     return (
         <div
-            className="fixed bottom-0 left-0 right-0 flex items-center gap-2 p-2 pointer-events-none"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 pointer-events-none"
             style={{ zIndex: DOCK_Z_INDEX }}
         >
-            <div className="flex items-center gap-2 overflow-x-auto pointer-events-auto">
+            <div className="flex items-center gap-1.5 pointer-events-auto bg-card/80 backdrop-blur-md border border-border shadow-xl rounded-2xl px-3 py-2">
                 {windows.map(win => (
                     <button
                         key={win.id}
                         ref={el => { if (el) chipRefs.current.set(win.id, el); else chipRefs.current.delete(win.id); }}
                         onClick={() => handleRestore(win)}
-                        className="flex items-center gap-2 bg-card border border-border rounded-lg shadow-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
                         title={`Restore ${win.title}`}
                     >
-                        <Square size={14} className="text-muted-foreground" />
-                        {win.title}
+                        <Square size={13} className="text-muted-foreground shrink-0" />
+                        <span className="max-w-[140px] truncate">{win.title}</span>
                     </button>
                 ))}
             </div>

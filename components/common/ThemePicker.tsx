@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useTheme, THEME_META } from '../providers/AppProviders';
+import { useTheme, THEME_META, type BgPattern } from '../providers/AppProviders';
 import { Ban } from 'lucide-react';
 import { hexToHsl } from '@/lib/utils';
 
@@ -87,10 +87,71 @@ const AccentPickerPanel: React.FC = () => {
     );
 };
 
+const PATTERN_OPTIONS: { id: BgPattern; label: string; icon: string }[] = [
+    { id: 'none',           label: 'None',         icon: '○' },
+    { id: 'dots',           label: 'Dots',         icon: '·' },
+    { id: 'synapse',        label: 'Synapse',      icon: '◎' },
+    { id: 'rain',           label: 'Rain',         icon: '|' },
+    { id: 'constellations', label: 'Stars',        icon: '✦' },
+    { id: 'perlin-flow',    label: 'Flow',         icon: '~' },
+    { id: 'petals',         label: 'Petals',       icon: '❀' },
+    { id: 'sparkles',       label: 'Sparkles',     icon: '✴' },
+    { id: 'embers',         label: 'Embers',       icon: '🔥' },
+    { id: 'antigravity',    label: 'Antigravity',  icon: '⬆' },
+    { id: 'tech',           label: 'Tech 2D',      icon: '⬡' },
+    { id: 'tech-3d',        label: 'Tech 3D',      icon: '⬡' },
+];
+
+const NON_TECH_PATTERNS = PATTERN_OPTIONS.filter(p => p.id !== 'tech' && p.id !== 'tech-3d');
+
+const BackgroundPanel: React.FC = () => {
+    const { patternOverride, setPatternOverride } = useTheme();
+    const active = patternOverride;
+    const isTech = active === 'tech' || active === 'tech-3d';
+
+    return (
+        <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Override the theme&apos;s background animation.</p>
+            <div className="grid grid-cols-5 gap-1">
+                {NON_TECH_PATTERNS.map(p => (
+                    <button
+                        key={p.id}
+                        onClick={() => setPatternOverride(active === p.id ? null : p.id)}
+                        title={p.label}
+                        className={`flex flex-col items-center gap-1 rounded-md py-2 px-1 text-xs transition-colors ${active === p.id ? 'bg-primary/15 text-primary ring-1 ring-primary/40' : 'hover:bg-muted text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <span className="text-base leading-none">{p.icon}</span>
+                        <span className="truncate w-full text-center text-[10px]">{p.label}</span>
+                    </button>
+                ))}
+                {isTech ? (
+                    <div className="col-span-1 flex flex-col items-center gap-1 rounded-md py-1.5 px-1 bg-primary/15 ring-1 ring-primary/40">
+                        <span className="text-base leading-none text-primary">⬡</span>
+                        <div className="flex gap-0.5 mt-0.5">
+                            <button onClick={() => setPatternOverride('tech')} className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${active === 'tech' ? 'bg-primary text-primary-foreground' : 'text-primary/70 hover:bg-primary/20'}`}>2D</button>
+                            <button onClick={() => setPatternOverride('tech-3d')} className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${active === 'tech-3d' ? 'bg-primary text-primary-foreground' : 'text-primary/70 hover:bg-primary/20'}`}>3D</button>
+                        </div>
+                    </div>
+                ) : (
+                    <button onClick={() => setPatternOverride('tech')} title="Tech" className="flex flex-col items-center gap-1 rounded-md py-2 px-1 text-xs transition-colors hover:bg-muted text-muted-foreground hover:text-foreground">
+                        <span className="text-base leading-none">⬡</span>
+                        <span className="truncate w-full text-center text-[10px]">Tech</span>
+                    </button>
+                )}
+            </div>
+            {patternOverride && (
+                <button onClick={() => setPatternOverride(null)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                    Reset to theme default
+                </button>
+            )}
+        </div>
+    );
+};
+
 const ThemePicker: React.FC = () => {
     const { theme, setTheme, setAccent } = useTheme();
     const [open, setOpen] = useState(false);
-    const [tab, setTab] = useState<'themes' | 'customize'>('themes');
+    const [tab, setTab] = useState<'themes' | 'customize' | 'background'>('themes');
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -128,7 +189,13 @@ const ThemePicker: React.FC = () => {
                             onClick={() => setTab('customize')}
                             className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${tab === 'customize' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                            Customize
+                            Accent
+                        </button>
+                        <button
+                            onClick={() => setTab('background')}
+                            className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${tab === 'background' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            BG
                         </button>
                     </div>
 
@@ -143,9 +210,13 @@ const ThemePicker: React.FC = () => {
                                 />
                             ))}
                         </div>
-                    ) : (
+                    ) : tab === 'customize' ? (
                         <div className="p-3">
                             <AccentPickerPanel />
+                        </div>
+                    ) : (
+                        <div className="p-3">
+                            <BackgroundPanel />
                         </div>
                     )}
                 </div>

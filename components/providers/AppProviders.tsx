@@ -70,7 +70,7 @@ const NEW_THEME_IDS: ThemeMode[] = THEME_META.map(t => t.id).filter(id => id !==
 // particle density/opacity (0..1, default 1).
 export type BgPattern =
     | 'none' | 'dots' | 'synapse' | 'rain' | 'constellations'
-    | 'perlin-flow' | 'petals' | 'sparkles' | 'embers';
+    | 'perlin-flow' | 'petals' | 'sparkles' | 'embers' | 'antigravity' | 'tech' | 'tech-3d';
 
 export type ThemeBackground = {
     pattern: BgPattern;
@@ -108,7 +108,9 @@ const ThemeContext = React.createContext<{
     setTheme: (theme: ThemeMode) => void;
     accent: AccentColor;
     setAccent: (accent: AccentColor) => void;
-}>({ theme: 'light', isDark: false, setTheme: () => {}, accent: null, setAccent: () => {} });
+    patternOverride: BgPattern | null;
+    setPatternOverride: (p: BgPattern | null) => void;
+}>({ theme: 'light', isDark: false, setTheme: () => {}, accent: null, setAccent: () => {}, patternOverride: null, setPatternOverride: () => {} });
 
 export const useTheme = () => React.useContext(ThemeContext);
 
@@ -211,10 +213,43 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const isDark = THEME_META.find(t => t.id === theme)?.dark ?? false;
 
+    const ALL_PATTERNS: BgPattern[] = ['none', 'dots', 'synapse', 'rain', 'constellations', 'perlin-flow', 'petals', 'sparkles', 'embers', 'antigravity', 'tech', 'tech-3d'];
+    const [patternOverride, setPatternOverrideState] = React.useState<BgPattern | null>(() => {
+        if (typeof window === 'undefined') return null;
+        const saved = localStorage.getItem('limperial-pattern-override') as BgPattern | null;
+        return saved && ALL_PATTERNS.includes(saved) ? saved : null;
+    });
+    const setPatternOverride = React.useCallback((p: BgPattern | null) => {
+        setPatternOverrideState(p);
+        if (p === null) localStorage.removeItem('limperial-pattern-override');
+        else localStorage.setItem('limperial-pattern-override', p);
+    }, []);
+
+    const [bgPreview, setBgPreview] = React.useState(false);
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            setBgPreview(prev => !prev);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     return (
-        <ThemeContext.Provider value={{ theme, isDark, setTheme, accent, setAccent }}>
+        <ThemeContext.Provider value={{ theme, isDark, setTheme, accent, setAccent, patternOverride, setPatternOverride }}>
             <ThemeBackground />
-            {children}
+            {bgPreview && (
+                <div
+                    className="fixed bottom-8 left-1/2 -translate-x-1/2 text-foreground/50 text-xs font-medium tracking-wide pointer-events-none select-none"
+                    style={{ zIndex: 9999999 }}
+                >
+                    Press Esc to exit preview
+                </div>
+            )}
+            <div className={`transition-opacity duration-500 ${bgPreview ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                {children}
+            </div>
         </ThemeContext.Provider>
     );
 }
