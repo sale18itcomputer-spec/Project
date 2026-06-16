@@ -1,42 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type * as THREE from 'three';
 
 interface Props { color: string; intensity: number; }
 
-function useWhiteLogo(src: string) {
-    const [dataUrl, setDataUrl] = useState('');
-    useEffect(() => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            const scale = 0.15;
-            const w = Math.round(img.width * scale);
-            const h = Math.round(img.height * scale);
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img, 0, 0, w, h);
-            const id = ctx.getImageData(0, 0, w, h);
-            const d = id.data;
-            for (let i = 0; i < d.length; i += 4) {
-                // Perceptual brightness — blue logo pixels are dark, white BG is bright
-                const brightness = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
-                const alpha = Math.min(255, Math.round((1 - brightness) * 300));
-                d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = alpha;
-            }
-            ctx.putImageData(id, 0, 0);
-            setDataUrl(canvas.toDataURL('image/png'));
-        };
-        img.src = src;
-    }, [src]);
-    return dataUrl;
-}
-
 export default function TechBackground3D({ color, intensity }: Props) {
     const mountRef = useRef<HTMLDivElement>(null);
-    const logoUrl = useWhiteLogo('/logo.png');
 
     useEffect(() => {
         const el = mountRef.current;
@@ -251,34 +221,5 @@ export default function TechBackground3D({ color, intensity }: Props) {
         };
     }, [color, intensity]);
 
-    return (
-        <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }}>
-            <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
-            {logoUrl && (
-                <>
-                    <img
-                        src={logoUrl}
-                        alt=""
-                        aria-hidden
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            width: '38vw',
-                            userSelect: 'none',
-                            pointerEvents: 'none',
-                            animation: 'tech3dLogoPulse 4s ease-in-out infinite',
-                        }}
-                    />
-                    <style>{`
-                        @keyframes tech3dLogoPulse {
-                            0%, 100% { opacity: ${(0.42 * intensity).toFixed(2)}; }
-                            50%       { opacity: ${(0.65 * intensity).toFixed(2)}; }
-                        }
-                    `}</style>
-                </>
-            )}
-        </div>
-    );
+    return <div ref={mountRef} aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }} />;
 }
