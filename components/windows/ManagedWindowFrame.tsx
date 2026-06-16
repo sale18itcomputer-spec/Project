@@ -192,10 +192,21 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                     <div className="flex items-center gap-1">
                         {win.detachUrl && (
                             <button
-                                onClick={() => window.open(win.detachUrl, '_blank', 'noopener,noreferrer')}
+                                onClick={() => {
+                                    const rect = frameRef.current?.getBoundingClientRect();
+                                    const left = Math.round(rect?.left ?? win.rect.x) + window.screenX;
+                                    const top  = Math.round(rect?.top  ?? win.rect.y) + window.screenY;
+                                    const w    = Math.round(win.rect.width);
+                                    const h    = Math.round(win.rect.height);
+                                    window.open(
+                                        win.detachUrl,
+                                        `pip-${win.id}`,
+                                        `popup=yes,width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no`,
+                                    );
+                                }}
                                 className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                aria-label="Open in new tab"
-                                title="Open in new tab"
+                                aria-label="Pop out"
+                                title="Pop out to floating window"
                             >
                                 <ExternalLink size={14} />
                             </button>
