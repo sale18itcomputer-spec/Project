@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { batchReadRecords, setApiMode, resolveTableByBase } from '../services/api';
+import { onDataChange } from '../lib/dataSync';
 import { supabase } from '../lib/supabase';
 import { useB2B } from './B2BContext';
 import {
@@ -250,6 +251,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     inFlightModulesRef.current.clear();
     setRefetchCounter(c => c + 1);
   }, []);
+
+  // Refresh when another tab (e.g. a detached popup) saves a record
+  useEffect(() => onDataChange(() => refetchData()), [refetchData]);
 
   const [projects,       setProjects]       = useState<PipelineProject[] | null>(null);
   const [companies,      setCompanies]      = useState<Company[] | null>(null);

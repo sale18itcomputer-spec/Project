@@ -142,6 +142,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
       initialHeight: 750,
       minWidth: 500,
       minHeight: 400,
+      detachUrl: companyId ? `/standalone/company/${encodeURIComponent(companyId)}` : undefined,
     });
   };
 

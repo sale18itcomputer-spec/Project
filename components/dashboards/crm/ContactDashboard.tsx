@@ -191,6 +191,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       initialHeight: 700,
       minWidth: 500,
       minHeight: 400,
+      detachUrl: contactId ? `/standalone/contact/${encodeURIComponent(contactId)}` : undefined,
     });
   };
 

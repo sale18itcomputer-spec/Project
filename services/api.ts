@@ -1,6 +1,7 @@
 
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/promise';
+import { broadcastDataChange } from '../lib/dataSync';
 import { ProductInquiry, InquiryItem, PdiRecord, PdiItem } from '../types';
 
 const DETAIL_READ_TIMEOUT_MS = 30000;
@@ -180,6 +181,7 @@ export const createRecord = async (sheetName: string, payload: any, isB2B?: bool
         console.error('[createRecord] Supabase error:', error);
         throw new Error(error.message);
     }
+    broadcastDataChange(sheetName);
     return data;
 };
 
@@ -282,6 +284,7 @@ export const updateRecord = async (sheetName: string, primaryKeyValue: string, p
         console.error('[updateRecord] Supabase error:', error);
         throw new Error(error.message);
     }
+    broadcastDataChange(sheetName);
     return data;
 };
 
@@ -299,6 +302,7 @@ export const deleteRecord = async (sheetName: string, primaryKeyValue: string, i
         console.error('[deleteRecord] Supabase error:', error);
         throw new Error(error.message);
     }
+    broadcastDataChange(sheetName);
     return { deletedId: primaryKeyValue };
 };
 

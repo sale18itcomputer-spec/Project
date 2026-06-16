@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Company, PipelineProject, Quotation } from '../types';
 import { withTimeout } from '../utils/promise';
+import { broadcastDataChange } from '../lib/dataSync';
 
 const DETAIL_READ_TIMEOUT_MS = 30000;
 const WRITE_TIMEOUT_MS = 30000;
@@ -197,6 +198,7 @@ export const insertRecord = async (table: string, data: any, isB2B: boolean) => 
         .select();
 
     if (error) throw error;
+    broadcastDataChange(table);
     return result;
 };
 
@@ -219,6 +221,7 @@ export const updateRecord = async (
         .select();
 
     if (error) throw error;
+    broadcastDataChange(table);
     return data;
 };
 
@@ -238,6 +241,7 @@ export const deleteRecord = async (
         .eq(primaryKey, primaryValue);
 
     if (error) throw error;
+    broadcastDataChange(table);
 };
 
 /**
