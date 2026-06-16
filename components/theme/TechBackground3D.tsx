@@ -123,18 +123,18 @@ export default function TechBackground3D({ color, intensity }: Props) {
                     logoTex = new THREE.CanvasTexture(lc);
                     const spriteMat = new THREE.SpriteMaterial({
                         map: logoTex, transparent: true,
-                        opacity: 0.17 * intensity,
-                        blending: THREE.AdditiveBlending, depthWrite: false,
+                        opacity: 0.45 * intensity,
+                        blending: THREE.NormalBlending, depthWrite: false,
                     });
                     logoSprite = new THREE.Sprite(spriteMat);
-                    // Logo is ~5.115:1 aspect — width 520, height ~102
-                    logoSprite.scale.set(520, 102, 1);
+                    // Logo is ~5.115:1 aspect — width 600, height ~117
+                    logoSprite.scale.set(600, 117, 1);
                     logoSprite.position.set(0, 0, 0);
                     scene.add(logoSprite);
                     resolve();
                 };
                 img.onerror = () => resolve(); // silently skip if missing
-                img.src = encodeURI('/Limperial Technology Logo01.png(004aad).png');
+                img.src = '/logo.png';
             });
 
             await loadLogo();
@@ -232,7 +232,7 @@ export default function TechBackground3D({ color, intensity }: Props) {
 
                 // Logo gentle pulse
                 if (logoSprite) {
-                    const pulse = 0.14 + Math.sin(now * 0.0006) * 0.04;
+                    const pulse = 0.4 + Math.sin(now * 0.0006) * 0.1;
                     (logoSprite.material as THREE.SpriteMaterial).opacity = pulse * intensity;
                 }
 
