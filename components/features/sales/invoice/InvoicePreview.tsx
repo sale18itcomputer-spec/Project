@@ -114,7 +114,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
         <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
                 <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                    <div className="w-1.5 h-6 bg-brand-500 rounded-full"></div>
                     <div>
                         <h3 className="text-sm font-bold text-gray-800">Invoice Preview</h3>
                         <p className="text-[10px] text-gray-500">{invoice['Inv No']} • {invoice['Company Name'] || 'No Company Selected'}</p>

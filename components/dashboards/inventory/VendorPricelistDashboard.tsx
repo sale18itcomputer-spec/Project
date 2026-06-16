@@ -7,14 +7,12 @@ import { Pencil, Search, ArrowRightToLine, WrapText, Filter, Tag, Download, Uplo
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useWindowSize } from "../../../hooks/useWindowSize";
-import NewVendorPricelistItemModal from "../../modals/NewVendorPricelistItemModal";
 import { Badge } from "../../ui/badge";
 import ExcelJS from 'exceljs';
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePermissions } from '../../../hooks/usePermissions';
 import { insertRecord } from "../../../services/b2bDb";
-import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import VendorPricelistWindowContent from '../../windows/content/VendorPricelistWindowContent';
 
@@ -29,7 +27,6 @@ const VendorPricelistDashboard: React.FC = () => {
 
     const { addToast } = useToast();
     const { currentUser } = useAuth();
-    const { handleNavigation, navigation } = useNavigation();
     const { showField, can } = usePermissions();
     const { openWindow } = useWindowManager();
 
@@ -39,15 +36,18 @@ const VendorPricelistDashboard: React.FC = () => {
     const [isUploading, setIsUploading] = useState(false);
     useWindowSize();
 
-    const modalConfig = useMemo(() => {
-        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-        const isReadOnly = navigation.action === 'view';
-        const item = navigation.id && vendorPricelist ? vendorPricelist.find(i => i.id === navigation.id) || null : null;
-        return { item, isReadOnly, isOpen };
-    }, [navigation.action, navigation.id, vendorPricelist]);
-
-    const handleCloseModal = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter });
-    const handleOpenNewItem = () => handleNavigation({ view: 'vendor-pricelist', filter: navigation.filter, action: 'create' });
+    const handleOpenNewItem = () => {
+        const winId = 'vendor-pricelist-new';
+        openWindow({
+            id: winId,
+            title: 'Add Pricelist Item',
+            content: <VendorPricelistWindowContent windowId={winId} itemId={null} />,
+            initialWidth: 560,
+            initialHeight: 680,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
     const handleViewItem = (item: VendorPricelistItem) => {
         const winId = `vendor-pricelist-${item.id}`;
         openWindow({
@@ -394,14 +394,6 @@ const VendorPricelistDashboard: React.FC = () => {
                     )}
                 />
             </div>
-
-            <NewVendorPricelistItemModal
-                isOpen={modalConfig.isOpen}
-                onClose={handleCloseModal}
-                existingData={modalConfig.item}
-                initialReadOnly={modalConfig.isReadOnly}
-                vendors={vendors || []}
-            />
         </div>
     );
 };

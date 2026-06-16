@@ -59,6 +59,7 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
         case 'Sale Order':
             return buildSaleOrderClient(
                 hd, items as any, totals as any, opts.currency, sym, tax, opts.columnWidths,
+                opts.signaturePadding, opts.labelPadding,
             );
         case 'Purchase Order':
             return buildPurchaseOrderClient(

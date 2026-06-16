@@ -509,7 +509,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             <button
                 type="button"
                 onClick={() => setShowFormPanel(p => !p)}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-slate-100 text-slate-900 border-slate-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-muted text-foreground border-border' : 'bg-card text-muted-foreground border-border hover:bg-muted/50'}`}
             >
                 <PanelRight className="w-4 h-4" />
                 <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
@@ -588,13 +588,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     />
 
                     {/* Form Sidebar */}
-                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                    <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 bg-brand-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-gray-800">Delivery Order Information</h3>
+                                <h3 className="text-sm font-bold text-foreground">Delivery Order Information</h3>
                             </div>
-                            <button type="button" onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md"><X className="w-4 h-4" /></button>
+                            <button type="button" onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md"><X className="w-4 h-4" /></button>
                         </div>
 
                         <ScrollArea className="flex-1 p-4">

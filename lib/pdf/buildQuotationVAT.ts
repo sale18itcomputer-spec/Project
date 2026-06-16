@@ -253,20 +253,9 @@ export function buildQuotationVAT(
       <tbody>
         ${itemRows}
       </tbody>
-    </table>
-
-    <table class="w-full mx-auto" style="border-collapse: collapse; margin-top: -1px; table-layout: fixed;">
-      <colgroup>
-        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
-        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
-        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
-        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
-        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
-        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
-      </colgroup>
       <tbody class="break-inside-avoid">
         <tr>
-          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${totalRows}" style="border:none;">
+          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${totalRows}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important; border-bottom-style:hidden !important;">
             <div class="w-full" style="font-size:10px;">
               <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Terms &amp; Conditions:</h4>
               <ul style="padding-left:14px;margin:0;list-style-type:disc;">
@@ -276,15 +265,15 @@ export function buildQuotationVAT(
               </ul>
             </div>
           </td>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Sub Total</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000; border-left:none;">Sub Total</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         ${vatAmount > 0 ? `<tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">VAT (10%)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000; border-left:none;">VAT (10%)</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount)}</td>
         </tr>` : ''}
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total in Dollar</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000; border-left:none;">Grand Total in Dollar</td>
           <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
         </tr>
       </tbody>

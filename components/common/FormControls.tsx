@@ -17,10 +17,13 @@ export const FormSection: React.FC<{ title?: string; children: React.ReactNode }
 
 // Updated input with a cleaner, more professional look.
 // Features a light gray background, subtle borders, and an elegant focus state with a soft glow.
-export const FormInput: React.FC<{ name: string; label: string; value: any; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; placeholder?: string; readOnly?: boolean; step?: string; list?: string; datalistOptions?: readonly string[]; }> =
-    ({ name, label, value, onChange, type = 'text', required = false, placeholder, readOnly = false, step, list, datalistOptions }) => (
+export const FormInput: React.FC<{ name: string; label: string; value: any; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; placeholder?: string; readOnly?: boolean; step?: string; list?: string; datalistOptions?: readonly string[]; actionButton?: React.ReactNode; }> =
+    ({ name, label, value, onChange, type = 'text', required = false, placeholder, readOnly = false, step, list, datalistOptions, actionButton }) => (
         <div className="flex flex-col">
-            <label htmlFor={name} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">{label}{required && <span className="text-rose-500 ml-1">*</span>}</label>
+            <div className="flex justify-between items-baseline mb-1.5">
+                <label htmlFor={name} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">{label}{required && <span className="text-rose-500 ml-1">*</span>}</label>
+                {actionButton}
+            </div>
             <input
                 type={type}
                 name={name}

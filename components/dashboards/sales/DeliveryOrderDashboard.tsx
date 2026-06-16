@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DeliveryOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { useNavigation } from '../../../contexts/NavigationContext';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import DeliveryOrderWindowContent from '../../windows/content/DeliveryOrderWindowContent';
 import { Truck, Table, Columns, Info, Pencil, LayoutGrid, Search, Trash2, WrapText, ArrowRightToLine, Scissors, Plus } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import Spinner from '../../common/Spinner';
-import DeliveryOrderCreator from '../../features/sales/DeliveryOrderCreator';
 import { useWindowSize } from '../../../hooks/useWindowSize';
 import { deleteRecord, updateRecord } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -48,35 +49,59 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const { handleNavigation, navigation } = useNavigation();
+    const { openWindow } = useWindowManager();
     const { width } = useWindowSize();
     const isMobile = width < 768;
-
-    const isCreating = navigation.action === 'create' || navigation.action === 'edit'
-        || (!!initialPayload && !navigation.action);
 
     const selectedId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
         return null;
     }, [navigation.action, navigation.id]);
 
-    const selectedToEdit = useMemo(() => {
-        if (navigation.action === 'edit' && navigation.id && deliveryOrders) {
-            return deliveryOrders.find(d => d['DO No'] === navigation.id) || null;
-        }
-        return null;
-    }, [navigation.action, navigation.id, deliveryOrders]);
-
     useEffect(() => {
         if (navigation.action === 'view') setViewMode('detail');
     }, [navigation.action]);
 
-    const handleNew = () => handleNavigation({ view: 'delivery-orders', action: 'create' });
-    const handleEdit = (row: DeliveryOrder) => handleNavigation({ view: 'delivery-orders', action: 'edit', id: row['DO No'] });
-    const handleView = (row: DeliveryOrder) => {
-        if (isMobile) { handleEdit(row); return; }
-        handleNavigation({ view: 'delivery-orders', action: 'view', id: row['DO No'] });
+    const openDOWindow = (doNo: string | null, initialData?: { action?: string; invoiceData?: any; soData?: any }) => {
+        const id = doNo ? `delivery-order-${doNo}` : `delivery-order-new-${Date.now()}`;
+        openWindow({
+            id,
+            title: doNo ? `Delivery Order: ${doNo}` : 'New Delivery Order',
+            content: <DeliveryOrderWindowContent windowId={id} doNo={doNo} initialData={initialData} />,
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
     };
-    const handleBack = () => handleNavigation({ view: 'delivery-orders' });
+
+    // Auto-open window when navigated from another page with create/edit action
+    const lastNavKeyRef = useRef('');
+    useEffect(() => {
+        if (!navigation.action || navigation.action === 'view') return;
+        const key = `${navigation.action}:${navigation.id ?? ''}`;
+        if (lastNavKeyRef.current === key) return;
+        lastNavKeyRef.current = key;
+
+        if (navigation.action === 'create') {
+            const payload = navigation.payload;
+            const initData = payload?.invoiceData
+                ? { action: 'create', invoiceData: payload.invoiceData }
+                : payload?.soData
+                ? { action: 'create', soData: payload.soData }
+                : undefined;
+            openDOWindow(null, initData);
+        } else if (navigation.action === 'edit' && navigation.id) {
+            openDOWindow(navigation.id);
+        }
+        handleNavigation({ view: 'delivery-orders' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigation.action, navigation.id]);
+
+    const handleNew = () => openDOWindow(null);
+    const handleEdit = (row: DeliveryOrder) => openDOWindow(row['DO No']);
+    const handleView = (row: DeliveryOrder) => openDOWindow(row['DO No']);
 
     const handleConfirmDelete = async () => {
         if (!toDelete) return;
@@ -198,13 +223,6 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
         </div>
     );
 
-    if (isCreating) return (
-        <DeliveryOrderCreator
-            onBack={handleBack}
-            existingDO={selectedToEdit}
-            initialData={initialPayload}
-        />
-    );
 
     const selectedDO = selectedId ? (deliveryOrders || []).find(d => d['DO No'] === selectedId) : null;
 

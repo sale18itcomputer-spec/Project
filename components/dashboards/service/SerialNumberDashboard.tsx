@@ -14,7 +14,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
-import NewSerialNumberModal from '../../modals/NewSerialNumberModal';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import SerialNumberWindowContent from '../../windows/content/SerialNumberWindowContent';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-serial-number-columns-visibility';
 
@@ -52,15 +53,13 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
   const { serialNumbers, setSerialNumbers, invoices, pricelist, fetchModule, loading } = useData();
   const { addToast } = useToast();
   const { can } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('registered');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [snToDelete, setSnToDelete] = useState<SerialNumber | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingSN, setEditingSN] = useState<SerialNumber | null>(null);
-  const [prefillForModal, setPrefillForModal] = useState<Partial<SerialNumber> | undefined>(undefined);
 
   useEffect(() => {
     if (activeTab === 'from-invoices') {
@@ -68,12 +67,21 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
     }
   }, [activeTab, fetchModule]);
 
-  const handleOpenNew = () => { setEditingSN(null); setPrefillForModal(undefined); setModalOpen(true); };
-  const handleEdit = (row: SerialNumber) => { setEditingSN(row); setPrefillForModal(undefined); setModalOpen(true); };
+  const openSerialNumberWindow = (id: string | null, initialReadOnly: boolean, prefillData?: Partial<SerialNumber>) => {
+    const windowId = `serial-number-${id ?? 'new'}`;
+    openWindow({
+      id: windowId,
+      title: id ? 'Serial Number' : 'Add Serial Number',
+      content: <SerialNumberWindowContent windowId={windowId} snId={id} initialReadOnly={initialReadOnly} prefillData={prefillData} />,
+      draggable: true,
+    });
+  };
+
+  const handleOpenNew = () => openSerialNumberWindow(null, false);
+  const handleEdit = (row: SerialNumber) => openSerialNumberWindow(row.id!, false);
 
   const handleRegisterFromInvoice = (item: SoldItem) => {
-    setEditingSN(null);
-    setPrefillForModal({
+    openSerialNumberWindow(null, false, {
       company_name: item.companyName,
       contact_name: item.contactName,
       so_no: item.soNo,
@@ -82,7 +90,6 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       description: item.description,
       status: 'Active',
     });
-    setModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -379,13 +386,6 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
           />
         )}
       </div>
-
-      <NewSerialNumberModal
-        isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setPrefillForModal(undefined); }}
-        existingSN={editingSN}
-        prefillData={prefillForModal}
-      />
 
       <ConfirmationModal
         isOpen={!!snToDelete}

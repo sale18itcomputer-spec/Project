@@ -17,14 +17,14 @@ const WindowManagerRoot: React.FC = () => {
 
     if ((windows.length === 0 && ghosts.length === 0) || typeof document === 'undefined') return null;
 
-    const visible = windows.filter(w => !w.isMinimized);
     const minimized = windows.filter(w => w.isMinimized);
-    const maxZ = visible.length > 0 ? Math.max(...visible.map(w => w.zIndex)) : -1;
+    const visibleWindows = windows.filter(w => !w.isMinimized);
+    const maxZ = visibleWindows.length > 0 ? Math.max(...visibleWindows.map(w => w.zIndex)) : -1;
 
     return createPortal(
         <>
-            {visible.map(win => (
-                <ManagedWindowFrame key={win.id} win={win} isFocused={win.zIndex === maxZ} />
+            {windows.map(win => (
+                <ManagedWindowFrame key={win.id} win={win} isFocused={!win.isMinimized && win.zIndex === maxZ} />
             ))}
             {minimized.length > 0 && <MinimizedDock windows={minimized} />}
             {ghosts.map(ghost => (

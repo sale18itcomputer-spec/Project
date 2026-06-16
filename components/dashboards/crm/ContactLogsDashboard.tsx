@@ -3,16 +3,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ContactLog } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
+import { deleteRecord } from "../../../services/api";
 import { parseDate, formatDisplayDate } from "../../../utils/time";
-import NewContactLogModal from "../../modals/NewContactLogModal";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { ExternalLink, ArrowRightToLine, WrapText, Scissors, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from "../../../contexts/AuthContext";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import { useToast } from '../../../contexts/ToastContext';
+import ContactLogWindowContent from '../../windows/content/ContactLogWindowContent';
+import ConfirmationModal from '../../modals/ConfirmationModal';
 
 const KANBAN_COLUMN_IDS = ['Call', 'Message', 'Email'] as const;
 
@@ -32,18 +37,44 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [logTypeFilter, setLogTypeFilter] = useState('All Types');
   const [responsibleUserFilter, setResponsibleUserFilter] = useState('All Users');
-  const { handleNavigation, navigation } = useNavigation();
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const log = navigation.id && contactLogs ? contactLogs.find(l => l['Log ID'] === navigation.id) || null : null;
-    return { log, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, contactLogs]);
+  const { handleNavigation } = useNavigation();
+  const { openWindow } = useWindowManager();
+  const { addToast } = useToast();
+  const { can } = usePermissions();
+  const [logToDelete, setLogToDelete] = useState<ContactLog | null>(null);
 
-  const handleCloseModal = () => handleNavigation({ view: 'contact-logs', filter: navigation.filter });
-  const handleOpenNewLog = () => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'create' });
-  const handleViewLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'view', id: log['Log ID'] });
-  const handleEditLog = (log: ContactLog) => handleNavigation({ view: 'contact-logs', filter: navigation.filter, action: 'edit', id: log['Log ID'] });
+  const openLogWindow = (logId: string | null) => {
+    const id = `contact-log-${logId ?? 'new'}`;
+    openWindow({
+      id,
+      title: logId ? `Log: ${logId}` : 'New Contact Log',
+      content: <ContactLogWindowContent windowId={id} logId={logId} />,
+      draggable: true,
+      initialWidth: 800,
+      initialHeight: 640,
+      minWidth: 600,
+      minHeight: 480,
+    });
+  };
+
+  const handleOpenNewLog = () => openLogWindow(null);
+  const handleViewLog = (log: ContactLog) => openLogWindow(log['Log ID'] || null);
+  const handleEditLog = (log: ContactLog) => openLogWindow(log['Log ID'] || null);
+  const handleDeleteRequest = (log: ContactLog) => setLogToDelete(log);
+  const handleConfirmDelete = async () => {
+    if (!logToDelete?.['Log ID']) return;
+    const id = logToDelete['Log ID'];
+    const originalLogs = contactLogs ? [...contactLogs] : [];
+    setContactLogs(cur => cur ? cur.filter(l => l['Log ID'] !== id) : null);
+    setLogToDelete(null);
+    try {
+      await deleteRecord('Contact_Logs', id);
+      addToast('Contact log deleted!', 'success');
+    } catch (err: any) {
+      addToast(`Failed to delete: ${err.message}`, 'error');
+      setContactLogs(originalLogs);
+    }
+  };
   const logTypeOptions = useMemo(() => ['All Types', ...KANBAN_COLUMN_IDS], []);
   const userOptions = useMemo(() => {
     if (!users) return ['All Users'];
@@ -251,31 +282,41 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             mobilePrimaryColumns={['Contact Date', 'Company Name', 'Type']}
             cellWrapStyle={cellWrapStyle}
             renderRowActions={(row) => (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditLog(row);
-                }}
-                className="p-2 text-muted-foreground hover:text-brand-600 transition"
-              >
-                <Pencil size={16} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditLog(row);
+                  }}
+                  className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                  title="Edit"
+                >
+                  <Pencil size={15} />
+                </button>
+                <PermissionGate module="contact_logs" action="delete">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteRequest(row);
+                    }}
+                    className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                    title="Delete"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </PermissionGate>
+              </div>
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
                 onView={() => handleViewLog(row)}
                 onEdit={() => handleEditLog(row)}
+                onDelete={can('contact_logs', 'delete') ? () => handleDeleteRequest(row) : undefined}
               />
             )}
           />
         </div>
 
-      <NewContactLogModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.log}
-        initialReadOnly={modalConfig.isReadOnly}
-      />
       <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
           <button
@@ -298,6 +339,16 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
           </button>
         </div>
       </footer>
+
+      <ConfirmationModal
+        isOpen={!!logToDelete}
+        onClose={() => setLogToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Contact Log"
+        variant="danger"
+      >
+        Are you sure you want to delete this contact log with "{logToDelete?.['Company Name']}"? This cannot be undone.
+      </ConfirmationModal>
     </div >
   );
 };

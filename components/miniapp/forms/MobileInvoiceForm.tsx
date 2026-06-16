@@ -353,7 +353,17 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
 
                 <MobileFormSection title="Additional">
                     <MobileField label="Deposit" last={false}>
-                        <MobileInput type="number" value={doc['Deposit']} onChange={v => set('Deposit', v)} placeholder="0.00" />
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1"><MobileInput type="number" value={doc['Deposit']} onChange={v => set('Deposit', v)} placeholder="0.00" /></div>
+                            <button
+                                type="button"
+                                onClick={() => set('Deposit', Number((totals.subTotal * 0.2).toFixed(2)))}
+                                className="text-[11px] font-bold uppercase tracking-wide px-2 py-1 rounded-md flex-shrink-0"
+                                style={{ color: ACCENT, border: `1px solid ${ACCENT}55` }}
+                            >
+                                20%
+                            </button>
+                        </div>
                     </MobileField>
                     <MobileField label="Remark" last={true}>
                         <MobileTextarea value={doc['Remark']} onChange={v => set('Remark', v)} rows={3} />

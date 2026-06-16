@@ -1,15 +1,16 @@
 'use client';
 
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SaleOrder, Quotation } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
-import SaleOrderCreator from "../../features/sales/SaleOrderCreator";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import SaleOrderWindowContent from "../../windows/content/SaleOrderWindowContent";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy, Loader2 } from 'lucide-react';
+import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import SaleOrderListContainer from "../lists/SaleOrderListContainer";
 import Spinner from "../../common/Spinner";
@@ -64,50 +65,12 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const { saleOrders, setSaleOrders, loading, error } = useData();
     const { addToast } = useToast();
     const [saleOrderToDelete, setSaleOrderToDelete] = useState<SaleOrder | null>(null);
-    const [isDuplicating, setIsDuplicating] = useState(false);
-    const [initialData, setInitialData] = useState<Partial<SaleOrder> | undefined>(() => {
-        if (!initialPayload) return undefined;
-
-        // Case 1: From Quotation
-        if (initialPayload['Quote No'] && !initialPayload.isPipeline) {
-            const quotation = initialPayload as Quotation;
-            return {
-                'Quote No': quotation['Quote No'],
-                'Company Name': quotation['Company Name'],
-                'Contact Name': quotation['Contact Name'],
-                'Phone Number': quotation['Contact Number'],
-                'Email': quotation['Contact Email'],
-                'Total Amount': quotation.Amount,
-                'Payment Term': quotation['Payment Term'],
-                'Status': 'Pending',
-                'Currency': quotation.Currency,
-                'Bill Invoice': quotation['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
-                'ItemsJSON': quotation.ItemsJSON,
-            };
-        }
-
-        // Case 2: From Pipeline
-        if (initialPayload.isPipeline) {
-            return {
-                'Quote No': initialPayload['Quote No'] || '',
-                'Company Name': initialPayload['Company Name'] || '',
-                'Contact Name': initialPayload['Contact Name'] || '',
-                'Status': 'Pending',
-                'Currency': 'USD',
-                'Bill Invoice': 'VAT',
-            };
-        }
-
-        return undefined;
-    });
-
     const { handleNavigation, navigation } = useNavigation();
+    const { openWindow } = useWindowManager();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
-
-    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
 
     const selectedSaleOrderId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
@@ -115,30 +78,77 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         return null;
     }, [navigation.action, navigation.id, initialPayload]);
 
-    const selectedSaleOrderToEdit = useMemo(() => {
-        if (navigation.action === 'edit' && navigation.id && saleOrders) {
-            return saleOrders.find(so => so['SO No'] === navigation.id) || null;
-        }
-        return null;
-    }, [navigation.action, navigation.id, saleOrders]);
-
     useEffect(() => {
-        if (navigation.action === 'view') {
-            setViewMode('detail');
-        }
+        if (navigation.action === 'view') setViewMode('detail');
     }, [navigation.action]);
 
-    const handleNewSaleOrder = () => {
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'create' });
+    const openSOWindow = (soNo: string | null, initialData?: Partial<SaleOrder>) => {
+        const id = soNo ? `sale-order-${soNo}` : `sale-order-new-${Date.now()}`;
+        openWindow({
+            id,
+            title: soNo ? `Sale Order: ${soNo}` : 'New Sale Order',
+            content: <SaleOrderWindowContent windowId={id} soNo={soNo} initialData={initialData} />,
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
     };
 
-    const handleEditSaleOrder = (saleOrder: SaleOrder) => {
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'edit', id: saleOrder['SO No'] });
-    };
+    // Auto-open window when navigated from another page with create/edit action
+    const lastNavKeyRef = useRef('');
+    useEffect(() => {
+        if (!navigation.action || navigation.action === 'view') return;
+        const key = `${navigation.action}:${navigation.id ?? ''}`;
+        if (lastNavKeyRef.current === key) return;
+        lastNavKeyRef.current = key;
 
-    const handleViewSaleOrder = (saleOrder: SaleOrder) => {
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter, action: 'view', id: saleOrder['SO No'] });
-    };
+        if (navigation.action === 'create') {
+            const payload = navigation.payload;
+            let initData: Partial<SaleOrder> | undefined;
+
+            if (payload?.isDuplicate) {
+                initData = payload.initialData;
+            } else if (payload?.['Quote No'] && !payload?.isPipeline) {
+                // From Quotation
+                const q = payload as Quotation;
+                initData = {
+                    'Quote No': q['Quote No'],
+                    'Company Name': q['Company Name'],
+                    'Contact Name': q['Contact Name'],
+                    'Phone Number': q['Contact Number'],
+                    'Email': q['Contact Email'],
+                    'Total Amount': String(q.Amount ?? ''),
+                    'Payment Term': q['Payment Term'],
+                    'Status': 'Pending',
+                    'Currency': q.Currency,
+                    'Bill Invoice': q['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
+                    'ItemsJSON': q.ItemsJSON,
+                };
+            } else if (payload?.isPipeline) {
+                initData = {
+                    'Quote No': payload['Quote No'] || '',
+                    'Company Name': payload['Company Name'] || '',
+                    'Contact Name': payload['Contact Name'] || '',
+                    'Status': 'Pending',
+                    'Currency': 'USD',
+                    'Bill Invoice': 'VAT',
+                };
+            }
+            openSOWindow(null, initData);
+        } else if (navigation.action === 'edit' && navigation.id) {
+            openSOWindow(navigation.id);
+        }
+        handleNavigation({ view: 'sale-orders', filter: navigation.filter });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigation.action, navigation.id]);
+
+    const handleNewSaleOrder = () => openSOWindow(null);
+
+    const handleEditSaleOrder = (saleOrder: SaleOrder) => openSOWindow(saleOrder['SO No']);
+
+    const handleViewSaleOrder = (saleOrder: SaleOrder) => openSOWindow(saleOrder['SO No']);
 
     const handleDeleteRequest = (saleOrder: SaleOrder) => {
         setSaleOrderToDelete(saleOrder);
@@ -174,40 +184,22 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         }
     };
 
-    const handleBackToDashboard = () => {
-        setInitialData(undefined);
-        handleNavigation({ view: 'sale-orders', filter: navigation.filter });
-    };
-
-    const handleDuplicateSaleOrder = async (so: SaleOrder) => {
-        setIsDuplicating(true);
+    const handleDuplicateSaleOrder = (so: SaleOrder) => {
         try {
-            // Items are stored in ItemsJSON in the SO record
             const items = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : so.ItemsJSON;
-            
-            // Store items in sessionStorage (consistent with Quotation duplication)
             sessionStorage.setItem('duplicate_sale_order_items', JSON.stringify(items));
-            
-            const initialData: Partial<SaleOrder> = {
+            const initData: Partial<SaleOrder> = {
                 ...so,
-                'SO No': undefined as any, // Will be auto-generated
+                'SO No': undefined as any,
                 'Status': 'Pending',
-                'SO Date': undefined as any, // Reset to today
+                'SO Date': undefined as any,
                 'Delivery Date': undefined as any,
-                'ItemsJSON': undefined, // Handled via sessionStorage
+                'ItemsJSON': undefined,
             };
-
-            handleNavigation({
-                view: 'sale-orders',
-                filter: navigation.filter,
-                action: 'create',
-                payload: { isDuplicate: true, initialData }
-            });
+            openSOWindow(null, initData);
             addToast('Duplicating sale order...', 'info');
         } catch (err: any) {
             addToast(`Failed to duplicate: ${err.message}`, 'error');
-        } finally {
-            setIsDuplicating(false);
         }
     };
 
@@ -381,16 +373,6 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
-    if (isCreating) {
-        return (
-            <SaleOrderCreator
-                onBack={handleBackToDashboard}
-                existingSaleOrder={selectedSaleOrderToEdit}
-                initialData={initialData}
-            />
-        );
-    }
-
     if (error) {
         return (
             <div className="p-6 md:p-8">
@@ -439,10 +421,9 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                     </button>
                                     <button
                                         onClick={() => handleDuplicateSaleOrder(selectedSaleOrder)}
-                                        disabled={isDuplicating}
-                                        className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                                        className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5"
                                     >
-                                        {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                        <Copy className="w-4 h-4" />
                                         Duplicate
                                     </button>
                                     <button
@@ -604,8 +585,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                         e.stopPropagation();
                                         handleDuplicateSaleOrder(row);
                                     }}
-                                    disabled={isDuplicating}
-                                    className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
+                                    className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full"
                                     title="Duplicate"
                                 >
                                     <Copy size={16} />
@@ -633,7 +613,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                         <FileText className="mr-2 h-4 w-4" /> Create Invoice & DO
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem disabled={isDuplicating} onClick={() => handleDuplicateSaleOrder(row)}>
+                                <DropdownMenuItem onClick={() => handleDuplicateSaleOrder(row)}>
                                     <Copy className="mr-2 h-4 w-4" /> Duplicate
                                 </DropdownMenuItem>
                             </RowActionMenuItems>

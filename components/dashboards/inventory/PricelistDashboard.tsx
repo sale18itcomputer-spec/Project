@@ -9,8 +9,6 @@ import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, S
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import { PermissionGate } from '../../common/PermissionGate';
-import NewPricelistItemModal from "../../modals/NewPricelistItemModal";
-import { useNavigation } from "../../../contexts/NavigationContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import PricelistWindowContent from '../../windows/content/PricelistWindowContent';
@@ -184,7 +182,6 @@ const PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-pricelist-columns-visibility
 
 const PricelistDashboard: React.FC = () => {
     const { pricelist, loading, error } = useData();
-    const { handleNavigation, navigation } = useNavigation();
     const { openWindow } = useWindowManager();
     const [statusFilter, setStatusFilter] = useState<string | null>('Available');
     const [searchQuery, setSearchQuery] = useState('');
@@ -201,14 +198,6 @@ const PricelistDashboard: React.FC = () => {
         }
     }, [loading]);
 
-    const modalConfig = useMemo(() => {
-        const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-        const isReadOnly = navigation.action === 'view';
-        const item = navigation.id && pricelist ? pricelist.find(i => i.Code === navigation.id) || null : null;
-        return { item, isReadOnly, isOpen };
-    }, [navigation.action, navigation.id, pricelist]);
-
-    const handleCloseModal = () => handleNavigation({ view: 'pricelist', filter: navigation.filter });
     const handleViewItem = (item: ProcessedPricelistItem) => {
         const winId = `pricelist-${item.Code}`;
         openWindow({
@@ -233,8 +222,18 @@ const PricelistDashboard: React.FC = () => {
             onClose: () => {},
         });
     };
-    const handleNewItem = () => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'create' });
-    const handleDeleteItem = (item: ProcessedPricelistItem) => handleNavigation({ view: 'pricelist', filter: navigation.filter, action: 'view', id: item.Code });
+    const handleNewItem = () => {
+        const winId = 'pricelist-new';
+        openWindow({
+            id: winId,
+            title: 'Create New Pricelist Item',
+            content: <PricelistWindowContent windowId={winId} itemCode={null} />,
+            initialWidth: 560,
+            initialHeight: 640,
+            draggable: true,
+            onClose: () => {},
+        });
+    };
 
     const filterOptions = useMemo(() => {
         if (!pricelist) return { categories: [], brands: [] };
@@ -425,7 +424,7 @@ const PricelistDashboard: React.FC = () => {
                                 item={item}
                                 onView={() => handleViewItem(item)}
                                 onEdit={() => handleEditItem(item)}
-                                onDelete={() => handleDeleteItem(item)}
+                                onDelete={() => handleViewItem(item)}
                             />
                         ))}
                     </div>
@@ -442,7 +441,7 @@ const PricelistDashboard: React.FC = () => {
                                     items={items}
                                     onViewItem={handleViewItem}
                                     onEditItem={handleEditItem}
-                                    onDeleteItem={handleDeleteItem}
+                                    onDeleteItem={handleViewItem}
                                 />
                             ))}
                     </div>
@@ -560,12 +559,6 @@ const PricelistDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <NewPricelistItemModal
-                isOpen={modalConfig.isOpen}
-                onClose={handleCloseModal}
-                existingData={modalConfig.item}
-                initialReadOnly={modalConfig.isReadOnly}
-            />
             <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
                     <button

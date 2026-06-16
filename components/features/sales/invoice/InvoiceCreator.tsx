@@ -657,7 +657,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
     const headerLeft = (
         <div className="flex items-center gap-2 ml-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg border border-slate-200 text-sm font-bold text-slate-600">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border border-border text-sm font-bold text-muted-foreground">
                 <FileText className="w-4 h-4" /> Invoice
             </div>
         </div>
@@ -665,10 +665,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
     const headerRight = (
         <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 border-r border-slate-200 pr-3 mr-1">
+            <div className="flex items-center gap-2 border-r border-border pr-3 mr-1">
                 <button
                     onClick={() => setShowFormPanel(!showFormPanel)}
-                    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${showFormPanel ? 'bg-slate-100 text-slate-900 shadow-inner' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 shadow-sm'}`}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${showFormPanel ? 'bg-muted text-foreground shadow-inner' : 'bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-border shadow-sm'}`}
                     title="Toggle Form Panel"
                 >
                     <PanelRight className="w-4 h-4" />

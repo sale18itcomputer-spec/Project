@@ -13,7 +13,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
-import NewSparePartModal from '../../modals/NewSparePartModal';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import SparePartWindowContent from '../../windows/content/SparePartWindowContent';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-spare-part-columns-visibility';
 
@@ -34,16 +35,25 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
   const { spareParts, setSpareParts, loading } = useData();
   const { addToast } = useToast();
   const { can } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [partToDelete, setPartToDelete] = useState<SparePart | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingPart, setEditingPart] = useState<SparePart | null>(null);
 
-  const handleOpenNew = () => { setEditingPart(null); setModalOpen(true); };
-  const handleEdit = (row: SparePart) => { setEditingPart(row); setModalOpen(true); };
+  const openSparePartWindow = (id: string | null, initialReadOnly: boolean) => {
+    const windowId = `spare-part-${id ?? 'new'}`;
+    openWindow({
+      id: windowId,
+      title: id ? 'Spare Part' : 'Add Spare Part',
+      content: <SparePartWindowContent windowId={windowId} partId={id} initialReadOnly={initialReadOnly} />,
+      draggable: true,
+    });
+  };
+
+  const handleOpenNew = () => openSparePartWindow(null, false);
+  const handleEdit = (row: SparePart) => openSparePartWindow(row.id!, false);
 
   const handleConfirmDelete = async () => {
     if (!partToDelete?.id) return;
@@ -236,12 +246,6 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
           )}
         />
       </div>
-
-      <NewSparePartModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        existingPart={editingPart}
-      />
 
       <ConfirmationModal
         isOpen={!!partToDelete}

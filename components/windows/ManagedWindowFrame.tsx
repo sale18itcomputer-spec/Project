@@ -178,7 +178,7 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
             )}
             <div
                 ref={frameRef}
-                style={{ ...frameStyle, zIndex: win.zIndex }}
+                style={{ ...frameStyle, zIndex: win.zIndex, display: win.isMinimized ? 'none' : undefined }}
                 onMouseDown={() => focusWindow(win.id)}
                 className={`window-frame-glow ${isFocused ? 'window-focused' : ''} bg-card rounded-xl shadow-2xl flex flex-col ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-200'}`}
                 aria-labelledby={titleId}
@@ -207,7 +207,7 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-border">
+                <div className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border ${win.noPadding ? 'p-0' : 'p-6'}`}>
                     {win.content}
                 </div>
 

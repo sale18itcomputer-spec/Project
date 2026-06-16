@@ -3,8 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import { useNavigation } from "../../../contexts/NavigationContext";
-import NewContactModal from "../../modals/NewContactModal";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import ContactWindowContent from "../../windows/content/ContactWindowContent";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
 import { Users, LayoutGrid, Table, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
@@ -100,8 +100,8 @@ const ContactCard: React.FC<{
 }
 
 const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) => {
-  const { contacts, setContacts, projects, contactLogs, meetings, quotations, saleOrders, loading, error, companies } = useData();
-  const { navigation, handleNavigation } = useNavigation();
+  const { contacts, setContacts, projects, saleOrders, loading, error, companies } = useData();
+  const { openWindow } = useWindowManager();
   const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
@@ -181,17 +181,18 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
     });
   }, [validContacts, projects, saleOrders]);
 
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const contact = navigation.id ? processedData.find(c => c['Customer ID'] === navigation.id) || null : null;
-    return { contact, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, processedData]);
-
-  const handleCloseModal = () => handleNavigation({ view: 'contacts', filter: navigation.filter });
-  const handleOpenNewContact = () => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'create' });
-  const handleViewContact = (contact: ProcessedContact) => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'view', id: contact['Customer ID'] });
-  const handleEditContact = (contact: ProcessedContact) => handleNavigation({ view: 'contacts', filter: navigation.filter, action: 'edit', id: contact['Customer ID'] });
+  const openContactWindow = (contactId: string | null) => {
+    const id = `contact-${contactId ?? 'new'}`;
+    openWindow({
+      id,
+      title: contactId ? 'Contact' : 'Create New Contact',
+      content: <ContactWindowContent windowId={id} contactId={contactId} />,
+      initialWidth: 640,
+      initialHeight: 700,
+      minWidth: 500,
+      minHeight: 400,
+    });
+  };
 
   const companyOptions = useMemo(() => {
     if (!companies) return ['All Companies'];
@@ -397,7 +398,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
               )}
               <PermissionGate module="contacts" action="create">
                 <button
-                  onClick={handleOpenNewContact}
+                  onClick={() => openContactWindow(null)}
                   className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
                 >
                   <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
@@ -420,8 +421,8 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                     <ContactCard
                       key={contact['Customer ID']}
                       contact={contact}
-                      onView={() => handleViewContact(contact)}
-                      onEdit={() => handleEditContact(contact)}
+                      onView={() => openContactWindow(contact['Customer ID'])}
+                      onEdit={() => openContactWindow(contact['Customer ID'])}
                       onDelete={() => handleDeleteRequest(contact)}
                     />
                   ))}
@@ -434,7 +435,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   data={filteredData}
                   columns={displayedColumns}
                   loading={loading}
-                  onRowClick={handleViewContact}
+                  onRowClick={(row) => openContactWindow(row['Customer ID'])}
                   initialSort={{ key: 'Customer ID', direction: 'descending' }}
                   highlightedCheck={(contact) => contact.status === 'Active'}
                   mobilePrimaryColumns={['Name', 'Company Name', 'status']}
@@ -443,7 +444,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleEditContact(row);
+                        openContactWindow(row['Customer ID']);
                       }}
                       className="p-2 text-muted-foreground hover:text-brand-500 transition"
                     >
@@ -452,8 +453,8 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   )}
                   renderRowContextMenu={(row) => (
                     <RowActionMenuItems
-                      onView={() => handleViewContact(row)}
-                      onEdit={() => handleEditContact(row)}
+                      onView={() => openContactWindow(row['Customer ID'])}
+                      onEdit={() => openContactWindow(row['Customer ID'])}
                     />
                   )}
                 />
@@ -470,16 +471,6 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
         )}
       </div>
 
-      <NewContactModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.contact}
-        initialReadOnly={modalConfig.isReadOnly}
-        projects={projects || []}
-        contactLogs={contactLogs || []}
-        meetings={meetings || []}
-        quotations={quotations || []}
-      />
       <ConfirmationModal
         isOpen={!!contactToDelete}
         onClose={() => setContactToDelete(null)}

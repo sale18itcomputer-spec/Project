@@ -5,7 +5,6 @@ import { PdiRecord } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { useNavigation } from '../../../contexts/NavigationContext';
 import { ClipboardCheck, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
@@ -15,7 +14,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
-import PdiCreator from '../../features/service/PdiCreator';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import PdiWindowContent from '../../windows/content/PdiWindowContent';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-pdi-columns-visibility';
 
@@ -42,26 +42,32 @@ const StatusBadge: React.FC<{ value: string; styleMap: Record<string, string> }>
 
 const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const { pdiRecords, setPdiRecords, loading } = useData();
-  const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const { can } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [recordToDelete, setRecordToDelete] = useState<PdiRecord | null>(null);
 
-  const isCreating = navigation.action === 'create' || navigation.action === 'edit' || navigation.action === 'view';
+  const openPdiWindow = (id: string | null, initialReadOnly: boolean) => {
+    const windowId = `pdi-record-${id ?? 'new'}`;
+    openWindow({
+      id: windowId,
+      title: id ? 'PDI Record' : 'New PDI Record',
+      content: <PdiWindowContent windowId={windowId} pdiId={id} initialReadOnly={initialReadOnly} />,
+      draggable: true,
+      initialWidth: 900,
+      initialHeight: 760,
+      minWidth: 640,
+      minHeight: 480,
+    });
+  };
 
-  const selectedRecord = useMemo(() => {
-    if ((navigation.action === 'edit' || navigation.action === 'view') && navigation.id && pdiRecords) {
-      return pdiRecords.find(r => r.id === navigation.id) ?? null;
-    }
-    return null;
-  }, [navigation.action, navigation.id, pdiRecords]);
-
-  const handleOpenNew = () => handleNavigation({ view: 'pdi-records', action: 'create' });
-  const handleEdit = (row: PdiRecord) => handleNavigation({ view: 'pdi-records', action: 'edit', id: row.id });
+  const handleOpenNew = () => openPdiWindow(null, false);
+  const handleViewPdi = (row: PdiRecord) => openPdiWindow(row.id!, true);
+  const handleEditPdi = (row: PdiRecord) => openPdiWindow(row.id!, false);
   const handleDeleteRequest = (row: PdiRecord) => setRecordToDelete(row);
 
   const handleConfirmDelete = async () => {
@@ -146,16 +152,6 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
 
   const STATUS_FILTERS = ['All', 'Pending', 'In Progress', 'Completed', 'Failed'];
 
-  if (isCreating) {
-    return (
-      <PdiCreator
-        existingRecord={selectedRecord}
-        initialReadOnly={navigation.action === 'view'}
-        onBack={() => handleNavigation({ view: 'pdi-records' })}
-      />
-    );
-  }
-
   return (
     <div className="h-full flex flex-col">
       <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
@@ -224,7 +220,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
           data={filteredData}
           columns={displayedColumns}
           loading={loading}
-          onRowClick={handleEdit}
+          onRowClick={handleViewPdi}
           initialSort={{ key: 'pdi_date', direction: 'descending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['pdi_no', 'company_name', 'status']}
@@ -232,7 +228,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
             <div className="flex items-center gap-1">
               <PermissionGate module="pdi_records" action="edit">
                 <button
-                  onClick={e => { e.stopPropagation(); handleEdit(row); }}
+                  onClick={e => { e.stopPropagation(); handleEditPdi(row); }}
                   className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                   title="Edit"
                 >
@@ -252,7 +248,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
-              onEdit={can('pdi_records', 'edit') ? () => handleEdit(row) : undefined}
+              onEdit={can('pdi_records', 'edit') ? () => handleEditPdi(row) : undefined}
               onDelete={can('pdi_records', 'delete') ? () => handleDeleteRequest(row) : undefined}
             />
           )}

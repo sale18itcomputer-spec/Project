@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useId, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { ScrollArea } from "../ui/scroll-area";
 
@@ -31,13 +32,19 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listId = useId();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            const insideWrapper = wrapperRef.current && wrapperRef.current.contains(target);
+            const insideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+            if (!insideWrapper && !insideDropdown) {
                 if (allowCustomValue && searchTerm && searchTerm !== value) {
                     onChange(searchTerm);
                 }
@@ -48,6 +55,32 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Position the dropdown relative to the viewport via a portal so it isn't
+    // clipped by ancestor `overflow-y-auto` containers (e.g. floating windows).
+    useEffect(() => {
+        if (!isOpen) {
+            setDropdownStyle(null);
+            return;
+        }
+        const updatePosition = () => {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUpward = spaceBelow < 200 && rect.top > spaceBelow;
+            setDropdownStyle(openUpward
+                ? { position: 'fixed', left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 8, zIndex: 1000001 }
+                : { position: 'fixed', left: rect.left, width: rect.width, top: rect.bottom + 8, zIndex: 1000001 }
+            );
+        };
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [isOpen]);
 
     const filteredOptions = useMemo(() => {
         const search = searchTerm.toLowerCase();
@@ -87,7 +120,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 </div>
             )}
 
-            <div className={`relative group transition-all duration-300 ${isOpen ? 'z-[9999]' : 'z-10'}`}>
+            <div ref={triggerRef} className="relative group transition-all duration-300">
                 <div className="relative">
                     <Search className={`h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${isOpen ? 'text-brand-500' : 'text-muted-foreground'}`} />
                     <input
@@ -117,56 +150,59 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     />
                     <ChevronDown className={`h-4 w-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-300 ${isOpen ? 'rotate-180 text-brand-500' : ''}`} />
                 </div>
-
-                {isOpen && !disabled && (
-                    <div
-                        id={listId}
-                        role="listbox"
-                        className="absolute w-full mt-2 bg-card rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.25)] border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]"
-                    >
-                        <ScrollArea className="max-h-[280px]">
-                            <div className="p-2 space-y-1">
-                                {filteredOptions.length > 0 ? (
-                                    filteredOptions.map(option => (
-                                        <button
-                                            key={option}
-                                            type="button"
-                                            onClick={() => handleSelect(option)}
-                                            className={`
-                                                w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150
-                                                ${value === option
-                                                    ? 'bg-brand-500/10 text-brand-600 font-semibold'
-                                                    : 'text-foreground hover:bg-muted active:bg-accent'}
-                                            `}
-                                        >
-                                            <span className="truncate">{option}</span>
-                                            {value === option && (
-                                                <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />
-                                            )}
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className="px-4 py-6 text-center">
-                                        <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                                        <p className="text-sm text-muted-foreground font-medium">No results for "{searchTerm}"</p>
-                                        {allowCustomValue && searchTerm ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSelect(searchTerm)}
-                                                className="mt-3 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-500/10 hover:bg-brand-500/20 px-3 py-1.5 rounded-lg transition"
-                                            >
-                                                + Use "{searchTerm}"
-                                            </button>
-                                        ) : (
-                                            <p className="text-xs text-muted-foreground/60 mt-1">Try a different search term</p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                )}
             </div>
+
+            {isOpen && !disabled && dropdownStyle && typeof document !== 'undefined' && createPortal(
+                <div
+                    ref={dropdownRef}
+                    id={listId}
+                    role="listbox"
+                    style={dropdownStyle}
+                    className="bg-card rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.25)] border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                    <ScrollArea className="max-h-[280px]">
+                        <div className="p-2 space-y-1">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map(option => (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        onClick={() => handleSelect(option)}
+                                        className={`
+                                            w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150
+                                            ${value === option
+                                                ? 'bg-brand-500/10 text-brand-600 font-semibold'
+                                                : 'text-foreground hover:bg-muted active:bg-accent'}
+                                        `}
+                                    >
+                                        <span className="truncate">{option}</span>
+                                        {value === option && (
+                                            <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />
+                                        )}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="px-4 py-6 text-center">
+                                    <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                                    <p className="text-sm text-muted-foreground font-medium">No results for "{searchTerm}"</p>
+                                    {allowCustomValue && searchTerm ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelect(searchTerm)}
+                                            className="mt-3 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-500/10 hover:bg-brand-500/20 px-3 py-1.5 rounded-lg transition"
+                                        >
+                                            + Use "{searchTerm}"
+                                        </button>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground/60 mt-1">Try a different search term</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

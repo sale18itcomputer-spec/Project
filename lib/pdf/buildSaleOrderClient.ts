@@ -1,32 +1,11 @@
 /**
- * buildSaleOrderClient.ts — CLIENT-SAFE
- * Same layout as the inline buildSaleOrder in pdfTemplate.ts.
- * Uses system serif fonts instead of base64-embedded fonts (preview only).
- * PDF download still goes through pdfTemplate.ts with embedded fonts.
+ * buildSaleOrderClient.ts — CLIENT-SAFE preview
+ * Matches buildSaleOrder.ts and mirrors buildQuotationNonVAT.ts visual style:
+ * Tailwind CDN + Koh Santepheap/Moul Google Fonts, bilingual headers, two-column info.
  */
-import { esc, fmtDate, moneyInner, moneyTd, LOGO, PdfItem, PdfTotals } from './shared-pure';
+import { esc, fmtDate, fmtNum, PdfItem, PdfTotals } from './shared-pure';
 
-const MM = 3.7795;
-const mm = (v: number) => `${v * MM}px`;
-const pt = (v: number) => `${v}pt`;
-
-const L = {
-    logo:        { width: 40, height: 15 },
-    company:     { nameFontSize: 12, contactFontSize: 8, addressFontSize: 8.5 },
-    separator:   { paddingBottom: 3, marginBottom: 3 },
-    title:       { fontSize: 16, marginTop: 3, marginBottom: 5 },
-    customerInfo: { fontSize: 9, rowGap: 10, colLabel: 90, colColon: 12, colRightLabel: 90, colRightValue: 120 },
-    table:       { headerFontSize: 9, contentFontSize: 9 },
-    terms:       { spacingAbove: 7, titleFontSize: 9, contentFontSize: 9 },
-    signatures:  { labelBottom: 100, fontSize: 9, lineFontSize: 9, padding: 30 },
-};
-
-function infoRow(l1: string, v1: string, l2: string, v2: string): string {
-    return `<div class="lbl">${esc(l1)}</div><div class="cln">:</div><div class="val val-left">${esc(v1)}</div><div class="lbl-right">${esc(l2)}</div><div class="cln">:</div><div class="val">${esc(v2)}</div>`;
-}
-function sigBlock(label: string, name: string, pos: string): string {
-    return `<div class="sig-box"><div class="sig-label">${esc(label)}</div><div class="sig-line">${esc(name)||'&nbsp;'}<br/>${esc(pos)||'&nbsp;'}</div></div>`;
-}
+const DEFAULT_WIDTHS = [5, 16, 47, 6, 12, 14];
 
 export function buildSaleOrderClient(
     hd: Record<string, any>,
@@ -36,120 +15,270 @@ export function buildSaleOrderClient(
     sym: string,
     tax: number,
     columnWidths?: number[],
+    signaturePadding = 0,
+    labelPadding = 100,
 ): string {
-    const cw = columnWidths ?? [7, 17, 46, 6, 10, 14];
+    const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
-    const visibleCols = cw.filter(w => w > 0).length;
 
-    const rows = items.filter(i => Number(i.no) > 0).map(item => {
-        const qty       = typeof item.qty    === 'number' ? item.qty    : parseFloat(String(item.qty))    || 0;
-        const amt       = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
-        const comm      = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
-        const uPrice    = typeof item.unitPrice  === 'number' ? item.unitPrice  : parseFloat(String(item.unitPrice))  || 0;
-        const dispPrice = qty > 0 ? (amt / qty) : (uPrice + comm);
-        const combined  = item.modelName
-            ? (item.description ? `${item.modelName} - ${item.description}` : item.modelName)
-            : (item.description || '');
-        return `<tr>
-          ${wNo>0   ? `<td class="center">${esc(item.no)}</td>` : ''}
-          ${wCode>0 ? `<td>${esc(item.itemCode)}</td>` : ''}
-          ${wDesc>0 ? `<td>${esc(combined)}</td>` : ''}
-          ${wQty>0  ? `<td class="center">${esc(item.qty)}</td>` : ''}
-          ${wPrice>0 ? moneyTd(dispPrice, sym) : ''}
-          ${wAmt>0   ? moneyTd(amt, sym) : ''}
-        </tr>`;
-    }).join('');
+    const soNo      = esc(hd['Sale Order ID'] || '');
+    const soDate    = esc(fmtDate(hd['Order Date'] || ''));
+    const delDate   = esc(fmtDate(hd['Delivery Date'] || ''));
+    const billInv   = esc(hd['Bill Invoice'] || '');
+    const payTerm   = esc(hd['Payment Term'] || '');
+    const company   = esc(hd['Company Name'] || '');
+    const address   = esc(hd['Company Address'] || '');
+    const contact   = esc(hd['Contact Name'] || '');
+    const tel       = esc(hd['Contact Tel'] || '');
+    const email     = esc(hd['Email'] || '');
+
+    const visibleCols    = cw.filter(w => w > 0).length;
+    const footerLeftSpan = Math.max([wNo, wCode, wDesc].filter(w => w > 0).length, 1);
+    const footerRightSpan = visibleCols - footerLeftSpan;
+    const footerRows     = 2 + (tax > 0 ? 1 : 0);
+
+    const dataItems = items.filter(i => Number(i.no) > 0);
+
+    const makeItemRow = (item: typeof dataItems[0]) => {
+        const qty      = typeof item.qty        === 'number' ? item.qty        : parseFloat(String(item.qty))        || 0;
+        const amt      = typeof item.amount     === 'number' ? item.amount     : parseFloat(String(item.amount))     || 0;
+        const comm     = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
+        const uPrice   = typeof item.unitPrice  === 'number' ? item.unitPrice  : parseFloat(String(item.unitPrice))  || 0;
+        const dispPrice = qty > 0 ? amt / qty : uPrice + comm;
+
+        const amtDisplay = `<div class="flex justify-between"><span>${sym}</span><span>${amt > 0 ? fmtNum(amt) : '-'}</span></div>`;
+        const priceDisplay = dispPrice > 0 ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(dispPrice)}</span></div>` : '';
+
+        if (!item.description) {
+            return `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-2">${esc(item.no)}</td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-2">${esc(item.itemCode)}</td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-2">${esc(item.qty)}</td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-2">${priceDisplay}</td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-2">${amtDisplay}</td>` : ''}
+            </tr>`;
+        }
+
+        const descLines = item.description.split('\n');
+        let rows = `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.itemCode)}</td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-bold align-top py-2" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.qty)}</td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-2" style="border-bottom:none !important;">${priceDisplay}</td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-2" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
+            </tr>`;
+
+        descLines.forEach((line, idx) => {
+            const isLast = idx === descLines.length - 1;
+            const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important; border-top:none !important;';
+            const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+            rows += `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(line)}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+            </tr>`;
+        });
+
+        return rows;
+    };
+
+    const itemRows = dataItems.map(makeItemRow).join('');
+
+    const moneyCellUsd = (v: number) =>
+        `<div class="flex justify-between"><span>${sym}</span><span>${v > 0 ? fmtNum(v) : '-'}</span></div>`;
 
     const softwareList = (hd['Install Software'] || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    const checkboxes = softwareList.length > 0
-        ? `<div style="margin-top:10px"><div style="font-weight:bold;font-size:9pt;margin-bottom:5px">Set up software:</div><div class="checklist">${softwareList.map((opt: string) => `<div class="check-item"><div class="check-box"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8.5 2.5" stroke="black" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg></div><span>${esc(opt)}</span></div>`).join('')}</div></div>`
+    const softwareHtml = softwareList.length > 0 ? `
+      <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Set up software:</h4>
+      <ul style="padding-left:14px;margin:0;list-style-type:disc;">
+        ${softwareList.map((s: string) => `<li style="margin-bottom:3px;">${esc(s)}</li>`).join('')}
+      </ul>` : '';
+
+    const remarkHtml = hd['Remark'] ? `
+      <div style="margin-top:6px;"><strong>Remark:</strong>
+        <div style="white-space:pre-wrap;">${esc(hd['Remark'])}</div>
+      </div>` : '';
+
+    const footerLeftContent = (softwareHtml || remarkHtml)
+        ? `<div style="font-size:10px;">${softwareHtml}${remarkHtml}</div>`
         : '';
-    const remark = hd['Remark']
-        ? `<div style="margin-top:10px;font-size:9pt"><div style="font-weight:bold">Remark:</div><div style="white-space:pre-wrap">${esc(hd['Remark'])}</div></div>`
-        : '';
+
+    const colgroup = `
+      ${wNo>0    ? `<col style="width:${wNo}%"/>` : ''}
+      ${wCode>0  ? `<col style="width:${wCode}%"/>` : ''}
+      ${wDesc>0  ? `<col style="width:${wDesc}%"/>` : ''}
+      ${wQty>0   ? `<col style="width:${wQty}%"/>` : ''}
+      ${wPrice>0 ? `<col style="width:${wPrice}%"/>` : ''}
+      ${wAmt>0   ? `<col style="width:${wAmt}%"/>` : ''}`;
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sale Order - LIMPERIAL TECHNOLOGY CO., LTD.</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
-  @page { size:A4; margin:10mm 11mm 14mm 11mm; }
-  html,body { margin:0; padding:0; }
-  body { font-family:Georgia,'Times New Roman',serif; font-size:9pt; color:#000; background:#fff; }
-  .page-inner { box-sizing:border-box; }
-  .hdr { display:flex; align-items:center; border-bottom:1px solid #000; padding-bottom:${mm(L.separator.paddingBottom)}; margin-bottom:${mm(L.separator.marginBottom)}; gap:14px; }
-  .hdr img { width:${mm(L.logo.width)}; height:${mm(L.logo.height)}; object-fit:contain; flex-shrink:0; }
-  .hdr-info { font-size:${pt(L.company.contactFontSize)}; line-height:1.6; }
-  .hdr-name { font-weight:bold; color:#004aad; font-size:${pt(L.company.nameFontSize)}; margin-bottom:3px; }
-  .hdr-addr { white-space:nowrap; font-size:${pt(L.company.addressFontSize)}; overflow:hidden; }
-  h1.doc-title { text-align:center; font-size:${pt(L.title.fontSize)}; font-weight:bold; text-decoration:underline; margin:${mm(L.title.marginTop)} 0 ${mm(L.title.marginBottom)}; }
-  .info-grid { display:grid; grid-template-columns:${L.customerInfo.colLabel}px ${L.customerInfo.colColon}px 1fr ${L.customerInfo.colRightLabel}px ${L.customerInfo.colColon}px ${L.customerInfo.colRightValue}px; gap:${L.customerInfo.rowGap}px 0; margin-bottom:10px; font-size:${pt(L.customerInfo.fontSize)}; }
-  .info-grid .lbl,.info-grid .lbl-right { white-space:nowrap; }
-  .info-grid .cln { text-align:center; }
-  .info-grid .val { white-space:pre-line; line-height:1.5; padding-left:8px; }
-  .info-grid .val-left { padding-right:60px; }
-  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:${pt(L.table.contentFontSize)}; table-layout:fixed; }
-  th { background:#004aad; color:#fff; padding:5px 6px; text-align:center; font-weight:bold; border:1px solid #000; font-size:${pt(L.table.headerFontSize)}; }
-  td { padding:5px 6px; border:1px solid #000; vertical-align:top; word-wrap:break-word; }
-  td.center { text-align:center; }
-  tfoot td { padding:4px 6px; }
-  tfoot tr.grand td { font-weight:bold; border-top:2px solid #000; }
-  .sigs { display:flex; justify-content:space-between; margin-top:50px; padding:0 ${L.signatures.padding}px; page-break-inside:avoid; }
-  .sig-box { text-align:center; flex:0 0 160px; }
-  .sig-label { font-weight:bold; font-size:${pt(L.signatures.fontSize)}; margin-bottom:${L.signatures.labelBottom}px; }
-  .sig-line { border-top:1px solid #000; padding-top:5px; font-size:${pt(L.signatures.lineFontSize)}; line-height:1.5; }
-  .checklist { display:flex; flex-wrap:wrap; gap:10px; margin:5px 0 12px; }
-  .check-item { display:flex; align-items:center; gap:4px; font-size:9pt; }
-  .check-box { width:11px; height:11px; border:1px solid #000; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&display=swap');
+  body { font-family:'Koh Santepheap',sans-serif; font-size:11px; color:#000; }
+  .brand-blue { color:#004aad; }
+  .bg-brand-blue { background-color:#004aad; }
+  .border-brand-blue { border-color:#004aad; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:4px 8px; }
+  .items-table th, .items-table td { border:1px solid #000 !important; }
+  .items-table thead { break-after:avoid; page-break-after:avoid; }
+  .items-table tbody tr:first-child { break-before:avoid; page-break-before:avoid; }
+  .addr-clamp { white-space:normal; word-break:break-word; }
+  @page { size:A4; margin:10mm 8mm; }
+  .no-break { page-break-inside:avoid; break-inside:avoid; }
+  @media print {
+    body { -webkit-print-color-adjust:exact; print-color-adjust:exact; background-color:white !important; padding:0 !important; }
+  }
 </style>
 </head>
 <body>
-<div class="page-inner">
-  <div class="hdr">
-    <img src="${LOGO}" alt="Logo"/>
-    <div class="hdr-info">
-      <div class="hdr-name">LIMPERIAL TECHNOLOGY CO., LTD.</div>
-      <div>Tel : (+855) 92 218 333 || Email : info@limperialtech.com || Website : www.limperialtech.com</div>
-      <div class="hdr-addr">Address : Building #15, Street Ayeaksmaiyean Bo (139), Sangkat Srah Chak, Khan Daun Penh, Phnom Penh, Cambodia.</div>
+
+<div style="width:210mm;margin:0 auto;padding:0 8px;">
+
+  <div class="no-break">
+
+    <div class="text-center mb-6 pt-6">
+      <h4 class="text-lg font-bold">SALE ORDER (B2C)</h4>
+    </div>
+
+    <div class="flex justify-between gap-0 mb-6">
+      <div class="w-[62%]">
+        <table class="w-full border-none">
+          <tbody class="text-[12px]">
+            <tr>
+              <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Company Name</td>
+              <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+              <td class="border-none py-1">${company}</td>
+            </tr>
+            <tr>
+              <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;vertical-align:top;">Address</td>
+              <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;vertical-align:top;">:</td>
+              <td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td>
+            </tr>
+            <tr>
+              <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Contact Person</td>
+              <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+              <td class="border-none py-1">${contact}</td>
+            </tr>
+            <tr>
+              <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Tel</td>
+              <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+              <td class="border-none py-1">${tel}</td>
+            </tr>
+            <tr>
+              <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">E-mail</td>
+              <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
+              <td class="border-none py-1">${email}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="w-[38%] flex flex-col">
+        <table class="w-auto ml-auto border-none table-fixed">
+          <tbody class="text-[12px]">
+            <tr>
+              <td class="w-[100px] font-bold border-none py-1 whitespace-nowrap">SO No</td>
+              <td class="w-[10px] border-none py-1 text-center">:</td>
+              <td class="w-auto border-none py-1 align-middle">${soNo}</td>
+            </tr>
+            <tr>
+              <td class="w-[100px] font-bold border-none py-1 whitespace-nowrap">SO Date</td>
+              <td class="w-[10px] border-none py-1 text-center">:</td>
+              <td class="w-auto border-none py-1 align-middle">${soDate}</td>
+            </tr>
+            <tr>
+              <td class="w-[100px] font-bold border-none py-1 whitespace-nowrap">Delivery Date</td>
+              <td class="w-[10px] border-none py-1 text-center">:</td>
+              <td class="w-auto border-none py-1 align-middle">${delDate}</td>
+            </tr>
+            <tr>
+              <td class="w-[100px] font-bold border-none py-1 whitespace-nowrap">Bill Invoice</td>
+              <td class="w-[10px] border-none py-1 text-center">:</td>
+              <td class="w-auto border-none py-1 align-middle">${billInv}</td>
+            </tr>
+            <tr>
+              <td class="w-[100px] font-bold border-none py-1 whitespace-nowrap">Payment Term</td>
+              <td class="w-[10px] border-none py-1 text-center">:</td>
+              <td class="w-auto border-none py-1 align-middle">${payTerm}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mb-4">
+    <table class="items-table w-full mx-auto" style="table-layout:fixed;">
+      <colgroup>${colgroup}</colgroup>
+      <thead>
+        <tr class="bg-brand-blue text-white text-center text-[12px]">
+          ${wNo>0    ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>ល.រ</div><div>No.</div></th>` : ''}
+          ${wCode>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>លេខកូដទំនិញ</div><div>Item Code</div></th>` : ''}
+          ${wDesc>0  ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិយាយទំនិញ</div><div>Description</div></th>` : ''}
+          ${wQty>0   ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>បរិមាណ</div><div>Qty</div></th>` : ''}
+          ${wPrice>0 ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃឯកតា</div><div>Unit Price</div></th>` : ''}
+          ${wAmt>0   ? `<th class="py-2 whitespace-nowrap leading-tight text-center"><div>តម្លៃសរុប</div><div>Amount</div></th>` : ''}
+        </tr>
+      </thead>
+      <tfoot style="display:table-footer-group;">
+        <tr><td colspan="${visibleCols}" style="padding:0 !important;border:none !important;border-top:1px solid #000 !important;height:0;"></td></tr>
+      </tfoot>
+      <tbody>
+        ${itemRows}
+      </tbody>
+    </table>
+
+    <table class="w-full mx-auto" style="border-collapse:collapse;margin-top:-1px;table-layout:fixed;">
+      <colgroup>${colgroup}</colgroup>
+      <tbody class="break-inside-avoid">
+        <tr>
+          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${footerRows}" style="border:none;">
+            ${footerLeftContent}
+          </td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Sub Total (${esc(currency)})</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totals.subTotal)}</td>
+        </tr>
+        ${tax > 0 ? `
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">VAT 10% (${esc(currency)})</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(tax)}</td>
+        </tr>` : ''}
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">Grand Total (${esc(currency)})</td>
+          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totals.grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
+    <div class="w-[35%] text-center">
+      <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Ordered By:</p>
+      <div class="border-t-2 border-black mb-1"></div>
+      <p class="text-[11px]">&nbsp;</p>
+    </div>
+    <div class="w-[35%] text-center">
+      <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Received By:</p>
+      <div class="border-t-2 border-black mb-1"></div>
+      <p class="text-[11px]">&nbsp;</p>
     </div>
   </div>
-  <h1 class="doc-title">SALE ORDER (B2C)</h1>
-  <div class="info-grid">
-    ${infoRow('Company Name', hd['Company Name']||'', 'SO No', hd['Sale Order ID']||'')}
-    ${infoRow('Address', hd['Company Address']||'', 'SO Date', fmtDate(hd['Order Date']))}
-    ${infoRow('Contact Person', hd['Contact Name']||'', 'Delivery Date', fmtDate(hd['Delivery Date']))}
-    ${infoRow('Tel', hd['Contact Tel']||'', 'Bill Invoice', hd['Bill Invoice']||'')}
-    ${infoRow('Email', hd['Email']||'', 'Payment Term', hd['Payment Term']||'')}
-  </div>
-  <table>
-    <colgroup>
-      ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
-      ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
-      ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
-      ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
-      ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
-      ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
-    </colgroup>
-    <thead><tr>
-      ${wNo>0   ? '<th>No.</th>' : ''}
-      ${wCode>0 ? '<th>Item Code</th>' : ''}
-      ${wDesc>0 ? '<th>Description</th>' : ''}
-      ${wQty>0  ? '<th>Qty</th>' : ''}
-      ${wPrice>0? '<th>Unit Price</th>' : ''}
-      ${wAmt>0  ? '<th>Amount</th>' : ''}
-    </tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot>
-      <tr><td colspan="${visibleCols-1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">Sub Total (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(totals.subTotal,sym)}</td></tr>
-      ${tax>0?`<tr><td colspan="${visibleCols-1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">VAT 10% (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(tax,sym)}</td></tr>`:''}
-      <tr class="grand"><td colspan="${visibleCols-1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">Grand Total (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(totals.grandTotal,sym)}</td></tr>
-    </tfoot>
-  </table>
-  ${checkboxes}${remark}
-  <div class="sigs">
-    ${sigBlock('ORDERED BY','','')}
-    ${sigBlock('RECEIVED BY','','')}
-  </div>
+
 </div>
 </body>
 </html>`;

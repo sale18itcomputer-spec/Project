@@ -105,7 +105,7 @@ export const ColumnWidthPopover: React.FC<Props> = ({ docType, widths, onChange,
     const panel = open ? (
         <div
             ref={panelRef}
-            style={{ position: 'fixed', top: panelPos.top, right: panelPos.right, zIndex: 9999, width: 320 }}
+            style={{ position: 'fixed', top: panelPos.top, right: panelPos.right, zIndex: 1000001, width: 320 }}
             className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
         >
             {/* ── Header ── */}

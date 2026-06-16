@@ -53,37 +53,77 @@ export function buildTaxInvoice(
     const rateNum      = parseFloat(String(exchangeRate).replace(/,/g, '')) || 0;
 
     const subTotal  = totals.subTotal;
-    const vatAmount = showVat ? (tax > 0 ? tax : subTotal * 0.1) : 0;
-    const grandUsd  = subTotal + vatAmount;
-    const grandRiel = rateNum > 0 ? Math.round(grandUsd * rateNum) : 0;
     const hasDeposit = deposit > 0;
+    const depositPercent = hasDeposit && subTotal > 0 ? Math.round((deposit / subTotal) * 100) : 0;
     const totalLessDeposit = subTotal - deposit;
+    // When a deposit is present, this VAT invoice bills only the deposit portion now —
+    // VAT and Grand Total are computed on the deposit amount, not the full subtotal.
+    const vatBase   = hasDeposit ? deposit : subTotal;
+    const vatAmount = showVat ? (hasDeposit ? vatBase * 0.1 : (tax > 0 ? tax : vatBase * 0.1)) : 0;
+    const grandUsd  = vatBase + vatAmount;
+    const grandRiel = rateNum > 0 ? Math.round(grandUsd * rateNum) : 0;
     // Non-VAT footer is simplified to just a "Total" row (+ Deposit/Less Deposit when present).
-    // VAT footer keeps the full breakdown: Sub Total, [Deposit, Less Deposit], VAT, Grand USD, Exchange Rate, Grand Riel.
+    // VAT footer keeps the full breakdown: Sub Total, [Deposit], VAT, Grand USD, Exchange Rate, Grand Riel.
     const footerRows = showVat
-        ? (hasDeposit ? 7 : 5)
+        ? (hasDeposit ? 6 : 5)
         : (hasDeposit ? 3 : 1);
 
     const dataItems = items.filter(i => Number(i.no) > 0);
 
-    const makeItemRow = (item: typeof dataItems[0], isLast = false) => {
-        const lastStyle = isLast ? 'border-bottom:none !important;' : '';
+    const makeItemRow = (item: PdfItem): string => {
         const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const amt   = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
         const amtDisplay  = amt > 0   ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`   : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
         const priceDisplay = price > 0 ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>` : '';
-        return `
-        <tr class="text-center">
-          ${wNo>0   ? `<td class="align-top py-2" style="${lastStyle}">${esc(item.no)}</td>` : ''}
-          ${wCode>0 ? `<td class="align-top py-2" style="${lastStyle}">${esc(item.itemCode)}</td>` : ''}
-          ${wDesc>0 ? `<td class="text-left font-bold align-top py-2" style="${lastStyle}">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px] whitespace-pre-wrap mt-1">${esc(item.description)}</div>` : ''}</td>` : ''}
-          ${wQty>0  ? `<td class="align-top py-2" style="${lastStyle}">${esc(item.qty)}</td>` : ''}
-          ${wPrice>0? `<td class="align-top py-2" style="${lastStyle}">${priceDisplay}</td>` : ''}
-          ${wAmt>0  ? `<td class="align-top py-2" style="${lastStyle}">${amtDisplay}</td>` : ''}
+
+        if (!item.description) {
+            return `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-2">${esc(item.no)}</td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-2">${esc(item.itemCode)}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-bold align-top py-2">${esc(item.modelName ?? '')}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-2">${esc(item.qty)}</td>` : ''}
+          ${wPrice>0? `<td class="align-top py-2">${priceDisplay}</td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-2">${amtDisplay}</td>` : ''}
         </tr>`;
+        }
+
+        // Header row for a multi-line description — bottom border suppressed
+        // because a description-line row always follows.
+        let rows = `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
+          ${wCode>0 ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.itemCode)}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-bold align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.qty)}</td>` : ''}
+          ${wPrice>0? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${priceDisplay}</td>` : ''}
+          ${wAmt>0  ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
+        </tr>`;
+
+        // Multi-line descriptions get their own row per line (each marked
+        // break-inside-avoid) so a page break can fall between lines instead
+        // of forcing the whole item block onto the next page and leaving a
+        // large blank gap at the bottom of the previous page.
+        const descLines = item.description.split('\n');
+        descLines.forEach((line, idx) => {
+            const isLastLine = idx === descLines.length - 1;
+            const borderStyle = isLastLine ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
+            const padStyle = isLastLine ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+            rows += `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(line)}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wPrice>0? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+        </tr>`;
+        });
+
+        return rows;
     };
 
-    const itemRows = dataItems.map((item, idx) => makeItemRow(item, idx === dataItems.length - 1)).join('');
+    const itemRows = dataItems.map(makeItemRow).join('');
 
     const moneyCellUsd = (v: number | null) =>
         v !== null && v > 0
@@ -96,6 +136,88 @@ export function buildTaxInvoice(
     // references the first 3 columns (No, Code, Desc). Adjust if some are hidden.
     const footerLeftSpan = [wNo, wCode, wDesc].filter(w => w > 0).length || 1;
     const footerRightSpan = visibleItemCols - footerLeftSpan;
+
+    // Shorthand style strings for footer label cells (top/bottom/right border only, no left)
+    const lblCellStyle = `border-top:1px solid #000 !important; border-bottom:1px solid #000 !important; border-right:1px solid #000 !important; border-left:none !important;`;
+
+    const colgroupHtml = `<colgroup>
+        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
+        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
+        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
+        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
+        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
+        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
+      </colgroup>`;
+
+    const theadHtml = `<thead>
+        <tr class="bg-brand-blue text-white text-center text-[12px]">
+          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('ល.រ', 'N&#186;')}</th>` : ''}
+          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('លេខសម្គាល់ទំនិញ', 'Part Number')}</th>` : ''}
+          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិយាយទំនិញ', 'Description')}</th>` : ''}
+          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិមាណ', 'Qty')}</th>` : ''}
+          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃឯកតា', 'Unit Price')}</th>` : ''}
+          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃទំនិញ', 'Amount')}</th>` : ''}
+        </tr>
+      </thead>`;
+
+    // Zero-height row with border-top only — Chromium repeats <thead> and
+    // <tfoot> on every printed page when a table spans multiple pages, so
+    // this supplies the missing closing bottom border on every page break.
+    const tfootHtml = `<tfoot style="display: table-footer-group;">
+        <tr><td colspan="${visibleItemCols}" style="padding:0 !important; border:none !important; border-top:1px solid #000 !important; height:0;"></td></tr>
+      </tfoot>`;
+
+    const footerTbodyHtml = showVat ? `<tbody class="break-inside-avoid">
+        <tr>
+          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${footerRows}" style="border-top:1px solid #000 !important; border-bottom:none !important; border-left:1px solid #000 !important; border-right:1px solid #000 !important;">
+            <div class="w-full" style="font-size:10px;">
+              <h4 style="font-weight:bold;font-size:10px;text-decoration:underline;text-transform:uppercase;margin-bottom:4px;">Terms &amp; Conditions:</h4>
+              <ul style="padding-left:14px;margin:0;list-style-type:disc;">
+                <li style="margin-bottom:3px;"><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                <li style="margin-bottom:3px;"><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                <li style="margin-bottom:3px;"><strong>Warranty:</strong> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+              </ul>
+            </div>
+          </td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុប (Sub Total)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
+        </tr>
+        ${hasDeposit ? `
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">កក់ប្រាក់${depositPercent}% (Deposit ${depositPercent}%)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(deposit)}</td>
+        </tr>` : ''}
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អាករ (VAT 10%)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(vatAmount > 0 ? vatAmount : null)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុបរួម (Grand Total in Dollar)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
+          <td class="text-right pr-2 align-middle" style="border:1px solid #000 !important;">${exchangeRate ? esc(String(exchangeRate)) : '-'}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${grandRiel > 0 ? `<div class="flex justify-between"><span>&#x17DB;</span><span>${fmtNum(grandRiel)}</span></div>` : `<div class="flex justify-between"><span>&#x17DB;</span><span>-</span></div>`}</td>
+        </tr>
+      </tbody>` : `<tbody class="break-inside-avoid">
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">${lblTotal}</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
+        </tr>
+        ${hasDeposit ? `
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">${lblDeposit}</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(deposit)}</td>
+        </tr>
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">Total Less Deposit</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
+        </tr>` : ''}
+      </tbody>`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -117,7 +239,7 @@ export function buildTaxInvoice(
   .items-table tbody tr:first-child { break-before:avoid; page-break-before:avoid; }
   .header-info p { margin-bottom:2px; }
   .addr-clamp { white-space:normal; word-break:break-word; }
-  @page { size:A4; margin:10mm 8mm; }
+  @page { size:A4; margin:10mm 8mm 18mm 8mm; }
   .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 </style>
@@ -164,97 +286,25 @@ export function buildTaxInvoice(
 
   <div class="mb-4">
     <table class="items-table w-full mx-auto" style="table-layout:fixed;">
-      <colgroup>
-        ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
-        ${wCode>0 ? `<col style="width:${wCode}%"/>` : ''}
-        ${wDesc>0 ? `<col style="width:${wDesc}%"/>` : ''}
-        ${wQty>0  ? `<col style="width:${wQty}%"/>` : ''}
-        ${wPrice>0? `<col style="width:${wPrice}%"/>` : ''}
-        ${wAmt>0  ? `<col style="width:${wAmt}%"/>` : ''}
-      </colgroup>
-      <thead>
-        <tr class="bg-brand-blue text-white text-center text-[12px]">
-          ${wNo>0   ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('ល.រ', 'N&#186;')}</th>` : ''}
-          ${wCode>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('លេខសម្គាល់ទំនិញ', 'Part Number')}</th>` : ''}
-          ${wDesc>0 ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិយាយទំនិញ', 'Description')}</th>` : ''}
-          ${wQty>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('បរិមាណ', 'Qty')}</th>` : ''}
-          ${wPrice>0? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃឯកតា', 'Unit Price')}</th>` : ''}
-          ${wAmt>0  ? `<th class="py-2 whitespace-nowrap leading-tight">${th2('តម្លៃទំនិញ', 'Amount')}</th>` : ''}
-        </tr>
-      </thead>
+      ${colgroupHtml}
+      ${theadHtml}
+      ${tfootHtml}
       <tbody>${itemRows}</tbody>
-      ${showVat ? `<tbody class="break-inside-avoid">
-        <tr>
-          <td class="align-top p-4" colspan="${footerLeftSpan}" rowspan="${footerRows}" style="border:none !important; border-top:1px solid #000 !important; border-left-style:hidden !important;">
-            <div class="w-full text-[10px] space-y-4">
-              <div>
-                <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
-                <ul class="list-disc list-inside space-y-0.5">
-                  <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
-                  <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-                  <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
-                </ul>
-              </div>
-              <div>
-                <h4 class="font-bold text-[11px] underline uppercase mb-1">Payment Information:</h4>
-                <p><span class="font-bold">Bank:</span> Advanced Bank of Asia Ltd (ABA Bank)</p>
-                <p><span class="font-bold">Account Name:</span> LIMPERIAL TECHNOLOGY CO., LTD.</p>
-                <p><span class="font-bold">Account Number:</span> 003 916 564</p>
-              </div>
-            </div>
-          </td>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុប (Sub Total)</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
-        </tr>
-        ${hasDeposit ? `
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">ប្រាក់កក់ (Deposit)</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(deposit)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបក្រោយកាត់ប្រាក់កក់ (Total Less Deposit)</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
-        </tr>` : ''}
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">អាករ (VAT 10%)</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(vatAmount > 0 ? vatAmount : null)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបរួម (Grand Total in Dollar)</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
-          <td class="text-right pr-2 font-bold align-middle" style="border:1px solid #000;">${exchangeRate ? `&#x17DB;${esc(String(exchangeRate))}` : '-'}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="border:1px solid #000;">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
-          <td class="align-middle" style="border:1px solid #000;">${grandRiel > 0 ? `<div class="flex justify-between"><span>&#x17DB;</span><span>${fmtNum(grandRiel)}</span></div>` : `<div class="flex justify-between"><span>&#x17DB;</span><span>-</span></div>`}</td>
-        </tr>
-      </tbody>` : `<tbody class="break-inside-avoid">
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">${lblTotal}</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
-        </tr>
-        ${hasDeposit ? `
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">${lblDeposit}</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(deposit)}</td>
-        </tr>
-        <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="border:1px solid #000;">Total Less Deposit</td>
-          <td class="align-middle" style="border:1px solid #000;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
-        </tr>` : ''}
-      </tbody>`}
+      ${footerTbodyHtml}
     </table>
-    ${!showVat ? `<div class="mt-4 text-[10px] no-break">
+    ${showVat ? `<div class="mt-4 text-[10px] no-break">
+      <h4 class="font-bold text-[11px] underline uppercase mb-1">Payment Information:</h4>
+      <p><span class="font-bold">Bank:</span> Advanced Bank of Asia Ltd (ABA Bank)</p>
+      <p><span class="font-bold">Account Name:</span> LIMPERIAL TECHNOLOGY CO., LTD.</p>
+      <p><span class="font-bold">Account Number:</span> 003916564</p>
+    </div>` : `<div class="mt-4 text-[10px] no-break">
       <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
       <ul class="list-disc list-inside space-y-0.5">
         <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
         <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
         <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
       </ul>
-    </div>` : ''}
+    </div>`}
   </div>
 
   <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">

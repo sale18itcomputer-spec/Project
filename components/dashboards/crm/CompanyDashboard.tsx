@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Company } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
-import { useNavigation } from "../../../contexts/NavigationContext";
-import NewCompanyModal from "../../modals/NewCompanyModal";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import CompanyWindowContent from "../../windows/content/CompanyWindowContent";
 import { ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
 import { parseSheetValue, formatMixedCurrency, determineCurrency } from "../../../utils/formatters";
 import DataTable, { ColumnDef } from "../../common/DataTable";
@@ -58,9 +58,10 @@ const _CompanyMobileCard: React.FC<{ company: ProcessedCompany; onView: () => vo
 );
 
 const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) => {
-  const { companies: companyData, projects, contacts, quotations, saleOrders, loading, error } = useB2BData();
-  const { navigation, handleNavigation } = useNavigation();
+  const { companies: companyData, saleOrders, loading, error } = useB2BData();
+  const { openWindow } = useWindowManager();
   const [searchQuery, setSearchQuery] = useState('');
+  const autoOpenedRef = useRef<string | null>(null);
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const { width: _width } = useWindowSize();
 
@@ -119,7 +120,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
         status: isActive ? 'Active' : 'Inactive'
       };
     });
-  }, [validCompanies, projects, saleOrders]);
+  }, [validCompanies, saleOrders]);
 
   const filteredData = useMemo(() => {
     if (!searchQuery) return processedData;
@@ -131,26 +132,26 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
     );
   }, [processedData, searchQuery]);
 
-  // Derive modal config from URL navigation state
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const company = navigation.id ? processedData.find(c => c['Company ID'] === navigation.id) || null : null;
-    return { company, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, processedData]);
+  const openCompanyWindow = (companyId: string | null) => {
+    const id = `company-${companyId ?? 'new'}`;
+    openWindow({
+      id,
+      title: companyId ? 'Company' : 'Create New Company',
+      content: <CompanyWindowContent windowId={id} companyId={companyId} />,
+      initialWidth: 700,
+      initialHeight: 750,
+      minWidth: 500,
+      minHeight: 400,
+    });
+  };
 
-  const handleCloseModal = () => handleNavigation({ view: 'companies', filter: navigation.filter });
-  const handleOpenNewCompany = () => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'create' });
-  const handleViewCompany = (company: ProcessedCompany) => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'view', id: company['Company ID'] });
-  const handleEditCompany = (company: ProcessedCompany) => handleNavigation({ view: 'companies', filter: navigation.filter, action: 'edit', id: company['Company ID'] });
-
-  // Handle initial filter by opening modal if a match is found
+  // Auto-open when navigated here with an initialFilter
   useEffect(() => {
-    if (initialFilter && filteredData.length > 0) {
-      const found = filteredData.find(c => c['Company Name'] === initialFilter || c['Company ID'] === initialFilter);
-      if (found) {
-        handleViewCompany(found);
-      }
+    if (!initialFilter || filteredData.length === 0) return;
+    const found = filteredData.find(c => c['Company Name'] === initialFilter || c['Company ID'] === initialFilter);
+    if (found && autoOpenedRef.current !== found['Company ID']) {
+      autoOpenedRef.current = found['Company ID'];
+      openCompanyWindow(found['Company ID']);
     }
   }, [initialFilter, filteredData]);
 
@@ -306,7 +307,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
 
               <PermissionGate module="companies" action="create">
                 <button
-                  onClick={() => handleOpenNewCompany()}
+                  onClick={() => openCompanyWindow(null)}
                   className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
                 >
                   <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
@@ -325,7 +326,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
             data={filteredData}
             columns={displayedColumns}
             loading={loading}
-            onRowClick={handleViewCompany}
+            onRowClick={(row) => openCompanyWindow(row['Company ID'])}
             initialSort={{ key: 'Company ID', direction: 'descending' }}
             mobilePrimaryColumns={['Company Name', 'Field', 'totalValueUSD', 'status']}
             cellWrapStyle={cellWrapStyle}
@@ -333,7 +334,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleEditCompany(row);
+                  openCompanyWindow(row['Company ID']);
                 }}
                 className="p-2 text-muted-foreground hover:text-brand-500 transition"
               >
@@ -342,24 +343,14 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
-                onView={() => handleViewCompany(row)}
-                onEdit={() => handleEditCompany(row)}
+                onView={() => openCompanyWindow(row['Company ID'])}
+                onEdit={() => openCompanyWindow(row['Company ID'])}
               />
             )}
           />
         </div>
       </div>
 
-      <NewCompanyModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.company}
-        initialReadOnly={modalConfig.isReadOnly}
-        projects={projects || []}
-        contacts={contacts || []}
-        quotations={quotations || []}
-        saleOrders={saleOrders || []}
-      />
     </div>
   );
 };

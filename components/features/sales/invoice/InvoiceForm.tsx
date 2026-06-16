@@ -41,15 +41,15 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     STATUS_OPTIONS, TAXABLE_OPTIONS, CURRENCY_OPTIONS, getCurrencySymbol
 }) => {
     return (
-                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-white">
+                    <div className={`bg-card border-l border-border transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
-                                <h3 className="text-sm font-bold text-gray-800">Document Information</h3>
+                                <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
+                                <h3 className="text-sm font-bold text-foreground">Document Information</h3>
                             </div>
                             <button
                                 onClick={() => setShowFormPanel(false)}
-                                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded-md transition-all"
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-all"
                                 aria-label="Close panel"
                             >
                                 <X className="w-4 h-4" />
@@ -76,7 +76,18 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                 </FormSection>
 
                                 <FormSection title="Payment Details">
-                                    <FormInput label="Deposit" name="Deposit" type="number" value={invoice['Deposit']} onChange={handleInputChange} />
+                                    <FormInput
+                                        label="Deposit" name="Deposit" type="number" value={invoice['Deposit']} onChange={handleInputChange}
+                                        actionButton={
+                                            <button
+                                                type="button"
+                                                onClick={() => setInvoice(prev => ({ ...prev, Deposit: Number((totals.subTotal * 0.2).toFixed(2)) }))}
+                                                className="text-[10px] font-bold uppercase tracking-wide text-brand-600 hover:underline"
+                                            >
+                                                Set 20%
+                                            </button>
+                                        }
+                                    />
                                     <FormInput label="Exchange Rate (៛)" name="Exchange Rate" type="number" value={invoice['Exchange Rate']} onChange={handleInputChange} />
                                 </FormSection>
 
@@ -99,90 +110,90 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                     <FormTextarea label="Company Address" name="Company Address" value={invoice['Company Address']} onChange={handleInputChange} rows={3} />
                                 </FormSection>
 
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                                <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Line Items</h3>
                                     <div className="space-y-4">
                                         {items.map((item) => (
-                                            <div key={item.id} className="relative p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md group">
+                                            <div key={item.id} className="relative p-4 bg-muted/50 rounded-xl border border-border shadow-sm transition-all hover:border-brand-400 hover:shadow-md group">
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItem(item.id)}
-                                                    className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                    className="absolute top-3 right-3 text-muted-foreground hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all z-10"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
 
                                                 <div className="flex flex-wrap gap-3 pr-8 mb-3">
                                                     <div className="w-10">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
-                                                        <div className="h-9 flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600 shadow-sm">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block text-center">No.</label>
+                                                        <div className="h-9 flex items-center justify-center bg-card rounded-lg border border-border font-mono text-sm font-semibold text-foreground shadow-sm">
                                                             {item.no}
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-[140px]">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Item Code</label>
                                                         <PricelistCombobox item={item} onItemChange={handleItemChange} onPricelistItemSelect={handlePricelistItemSelect} />
                                                     </div>
                                                     <div className="flex-[1.5] min-w-[160px]">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Model</label>
                                                         <input
                                                             type="text"
                                                             value={item.modelName}
                                                             onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                            className="w-full h-9 px-3 text-sm font-medium border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all shadow-sm "
+                                                            className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm "
                                                         />
                                                     </div>
                                                 </div>
 
                                                 <div className="mb-3">
-                                                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Description / Spec</label>
-                                                    <textarea value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} className="w-full text-sm p-3 rounded-lg border border-slate-200 transition-all bg-white" rows={2} />
+                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Description / Spec</label>
+                                                    <textarea value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} className="w-full text-sm p-3 rounded-lg border border-border transition-all bg-input text-foreground" rows={2} />
                                                 </div>
 
                                                 <div className="flex flex-wrap gap-3">
                                                     <div className="w-20">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
-                                                        <input type="number" value={item.qty} onChange={(e) => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm bg-white border border-slate-200 rounded-lg" />
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Qty</label>
+                                                        <input type="number" value={item.qty} onChange={(e) => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm bg-input border border-border rounded-lg text-foreground" />
                                                     </div>
                                                     <div className="w-28">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
-                                                        <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-white border border-slate-200 rounded-lg" />
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Unit Price</label>
+                                                        <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-input border border-border rounded-lg text-foreground" />
                                                     </div>
                                                     <div className="w-full">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Serial Numbers <span className="normal-case font-normal text-slate-300">(one per line)</span></label>
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Serial Numbers <span className="normal-case font-normal text-muted-foreground/40">(one per line)</span></label>
                                                         <textarea
                                                             value={item.serialNumber || ''}
                                                             onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                            className="w-full text-xs p-2 font-mono rounded-lg border border-slate-200 bg-white resize-y min-h-[60px]"
+                                                            className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-input text-foreground resize-y min-h-[60px]"
                                                             rows={3}
                                                             placeholder={`SN001\nSN002\nSN003...`}
                                                         />
-                                                        <div className="text-[9px] text-slate-400 mt-0.5">{(item.serialNumber || '').split('\n').filter(s => s.trim()).length} S/N entered</div>
+                                                        <div className="text-[9px] text-muted-foreground mt-0.5">{(item.serialNumber || '').split('\n').filter(s => s.trim()).length} S/N entered</div>
                                                     </div>
                                                     <div className="flex-1 text-right pt-4">
-                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Total</div>
-                                                        <div className="text-lg font-bold text-slate-700">{getCurrencySymbol(invoice.Currency as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                                        <div className="text-[10px] font-bold text-muted-foreground uppercase">Total</div>
+                                                        <div className="text-lg font-bold text-foreground">{getCurrencySymbol(invoice.Currency as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
 
-                                        <button onClick={addItem} className="w-full py-2.5 rounded-lg border border-dashed border-blue-300 text-blue-600 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 font-bold text-sm transition-all flex items-center justify-center gap-2">
+                                        <button onClick={addItem} className="w-full py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 hover:border-brand-400 font-bold text-sm transition-all flex items-center justify-center gap-2">
                                             <Plus className="w-4 h-4" /> Add Item
                                         </button>
 
-                                        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mt-6 space-y-3">
+                                        <div className="bg-muted/50 rounded-xl p-5 border border-border mt-6 space-y-3">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500 font-medium">Sub Total</span>
-                                                <span className="text-slate-700 font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-muted-foreground font-medium">Sub Total</span>
+                                                <span className="text-foreground font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500 font-medium">Tax (VAT 10%)</span>
-                                                <span className="text-slate-700 font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-muted-foreground font-medium">Tax (VAT 10%)</span>
+                                                <span className="text-foreground font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
-                                            <div className="flex justify-between items-center pt-3 border-t border-slate-300">
-                                                <span className="text-xs text-slate-800 font-black uppercase tracking-wider">Grand Total</span>
-                                                <span className="text-xl text-blue-700 font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <div className="flex justify-between items-center pt-3 border-t border-border">
+                                                <span className="text-xs text-foreground font-black uppercase tracking-wider">Grand Total</span>
+                                                <span className="text-xl text-brand-600 font-black">{getCurrencySymbol(invoice.Currency as any)}{totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -192,23 +203,23 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                     <div className="space-y-4">
                                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                                         {isUploading ? (
-                                            <div className="flex items-center gap-3 text-sm text-slate-600 p-4 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200">
+                                            <div className="flex items-center gap-3 text-sm text-muted-foreground p-4 rounded-xl bg-muted/50 border-2 border-dashed border-border">
                                                 <Spinner size="sm" />
                                                 <span className="font-bold">Uploading...</span>
                                             </div>
                                         ) : invoice['Attachment'] ? (
-                                            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100 shadow-sm">
-                                                <a href={invoice['Attachment']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-700 hover:underline truncate max-w-[200px]">
+                                            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-sm">
+                                                <a href={invoice['Attachment']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-500 hover:underline truncate max-w-[200px]">
                                                     View Uploaded File
                                                 </a>
-                                                <button type="button" onClick={() => setInvoice(prev => ({ ...prev, Attachment: '' }))} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-colors">
+                                                <button type="button" onClick={() => setInvoice(prev => ({ ...prev, Attachment: '' }))} className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors">
                                                     <X className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center p-4 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 transition-all flex flex-col items-center gap-2">
-                                                <Upload className="w-5 h-5 text-slate-400" />
-                                                <span className="text-[10px] uppercase tracking-widest text-slate-400">Click to Upload File</span>
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-center p-4 bg-muted/50 hover:bg-muted text-muted-foreground font-bold rounded-xl border-2 border-dashed border-border hover:border-border/80 transition-all flex flex-col items-center gap-2">
+                                                <Upload className="w-5 h-5 text-muted-foreground" />
+                                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Click to Upload File</span>
                                             </button>
                                         )}
                                     </div>

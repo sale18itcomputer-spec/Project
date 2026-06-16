@@ -1,17 +1,18 @@
 'use client';
 
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
-import InvoiceCreator from "../../features/sales/invoice/InvoiceCreator";
+import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
 import { generatePDF } from "../../../lib/pdfClient";
@@ -53,16 +54,14 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
-    const [initialData, setInitialData] = useState<any>(initialPayload);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
     const { handleNavigation, navigation } = useNavigation();
+    const { openWindow } = useWindowManager();
     const { width } = useWindowSize();
     const isMobile = width < 768;
-
-    const isCreating = navigation.action === 'create' || navigation.action === 'edit' || (!!initialPayload && !navigation.action);
 
     const selectedInvoiceId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
@@ -70,36 +69,52 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         return null;
     }, [navigation.action, navigation.id, initialPayload]);
 
-    const selectedInvoiceToEdit = useMemo(() => {
-        if (navigation.action === 'edit' && navigation.id && invoices) {
-            return invoices.find(inv => inv['Inv No'] === navigation.id) || null;
-        }
-        return null;
-    }, [navigation.action, navigation.id, invoices]);
-
     useEffect(() => {
-        if (navigation.action === 'view') {
-            setViewMode('detail');
-        }
+        if (navigation.action === 'view') setViewMode('detail');
     }, [navigation.action]);
 
-    const handleNewInvoice = () => {
-        setInitialData(null);
-        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'create' });
+    const openInvoiceWindow = (invNo: string | null, initialData?: { action: string; soData?: any; duplicateOf?: Invoice }) => {
+        const id = invNo ? `invoice-${invNo}` : `invoice-new-${Date.now()}`;
+        openWindow({
+            id,
+            title: invNo ? `Invoice: ${invNo}` : 'New Invoice',
+            content: <InvoiceWindowContent windowId={id} invNo={invNo} initialData={initialData} />,
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
     };
 
-    const handleEditInvoice = (invoice: Invoice) => {
-        setInitialData(null);
-        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'edit', id: invoice['Inv No'] });
-    };
+    // Auto-open window when navigated from another page with create/edit action
+    const lastNavKeyRef = useRef('');
+    useEffect(() => {
+        if (!navigation.action || navigation.action === 'view') return;
+        const key = `${navigation.action}:${navigation.id ?? ''}`;
+        if (lastNavKeyRef.current === key) return;
+        lastNavKeyRef.current = key;
 
-    const handleViewInvoice = (invoice: Invoice) => {
-        if (isMobile) {
-            handleEditInvoice(invoice);
-        } else {
-            handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'view', id: invoice['Inv No'] });
+        if (navigation.action === 'create') {
+            const payload = navigation.payload;
+            const initData = payload?.soData
+                ? { action: 'create', soData: payload.soData }
+                : payload?.action === 'duplicate' || payload?.duplicateOf
+                ? { action: 'duplicate', duplicateOf: payload.duplicateOf }
+                : undefined;
+            openInvoiceWindow(null, initData);
+        } else if (navigation.action === 'edit' && navigation.id) {
+            openInvoiceWindow(navigation.id);
         }
-    };
+        handleNavigation({ view: 'invoices', filter: navigation.filter });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigation.action, navigation.id]);
+
+    const handleNewInvoice = () => openInvoiceWindow(null);
+
+    const handleEditInvoice = (invoice: Invoice) => openInvoiceWindow(invoice['Inv No']);
+
+    const handleViewInvoice = (invoice: Invoice) => openInvoiceWindow(invoice['Inv No']);
 
     const handleDeleteRequest = (invoice: Invoice) => {
         setInvoiceToDelete(invoice);
@@ -120,11 +135,6 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         }
     };
 
-    const handleBackToDashboard = () => {
-        setInitialData(null);
-        handleNavigation({ view: 'invoices', filter: navigation.filter });
-    };
-
     const handleRecordPayment = (invoice: Invoice) => {
         setPaymentTarget(computeInvoiceAR(invoice, receipts));
     };
@@ -134,8 +144,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     };
 
     const handleDuplicateInvoice = (invoice: Invoice) => {
-        setInitialData({ action: 'duplicate', duplicateOf: invoice });
-        handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'create' });
+        openInvoiceWindow(null, { action: 'duplicate', duplicateOf: invoice });
         addToast('Duplicating invoice...', 'info');
     };
 
@@ -297,16 +306,6 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     <p>Could not load invoices data: {error}</p>
                 </div>
             </div>
-        );
-    }
-
-    if (isCreating) {
-        return (
-            <InvoiceCreator
-                onBack={handleBackToDashboard}
-                existingInvoice={selectedInvoiceToEdit}
-                initialData={initialData}
-            />
         );
     }
 

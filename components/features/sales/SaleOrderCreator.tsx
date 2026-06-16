@@ -796,6 +796,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
             signaturePadding,
+            labelPadding,
             columnWidths: colWidths,
             previewMode: false,
             filename: `SaleOrder_${saleOrder['SO No']}.pdf`
@@ -918,13 +919,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     />
 
                     {/* Form Sidebar — right side */}
-                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                    <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 bg-brand-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-gray-800">Sale Order Information</h3>
+                                <h3 className="text-sm font-bold text-foreground">Sale Order Information</h3>
                             </div>
-                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md">
+                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>

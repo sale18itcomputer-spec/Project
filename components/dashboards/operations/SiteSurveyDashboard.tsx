@@ -3,17 +3,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SiteSurveyLog } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
+import { deleteRecord } from "../../../services/api";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY } from "../../../utils/time";
-import NewSiteSurveyModal from "../../modals/NewSiteSurveyModal";
-import { useNavigation } from "../../../contexts/NavigationContext";
-import { Table, CalendarDays, MapPin, Clock, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { Table, CalendarDays, MapPin, Clock, ArrowRightToLine, WrapText, Scissors, Pencil, Trash2 } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import { useToast } from '../../../contexts/ToastContext';
+import SiteSurveyWindowContent from '../../windows/content/SiteSurveyWindowContent';
+import ConfirmationModal from '../../modals/ConfirmationModal';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -30,23 +34,47 @@ const SITE_SURVEY_COLUMNS_VISIBILITY_KEY = 'limperial-site-survey-columns-visibi
 
 
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
-  const { siteSurveys: surveyData, loading, error } = useData();
+  const { siteSurveys: surveyData, setSiteSurveys, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
-  const { handleNavigation, navigation } = useNavigation();
+  const { openWindow } = useWindowManager();
+  const { addToast } = useToast();
+  const { can } = usePermissions();
+  const [surveyToDelete, setSurveyToDelete] = useState<SiteSurveyLog | null>(null);
 
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const survey = navigation.id && surveyData ? surveyData.find(s => s['Site ID'] === navigation.id) || null : null;
-    return { survey, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, surveyData]);
+  const openSurveyWindow = (siteId: string | null) => {
+    const id = `site-survey-${siteId ?? 'new'}`;
+    openWindow({
+      id,
+      title: siteId ? `Survey: ${siteId}` : 'New Site Survey',
+      content: <SiteSurveyWindowContent windowId={id} siteId={siteId} />,
+      draggable: true,
+      initialWidth: 800,
+      initialHeight: 700,
+      minWidth: 600,
+      minHeight: 500,
+    });
+  };
 
-  const handleCloseModal = () => handleNavigation({ view: 'site-surveys', filter: navigation.filter });
-  const handleOpenNewSurvey = () => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'create' });
-  const handleViewSurvey = (survey: SiteSurveyLog) => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'view', id: survey['Site ID'] });
-  const handleEditSurvey = (survey: SiteSurveyLog) => handleNavigation({ view: 'site-surveys', filter: navigation.filter, action: 'edit', id: survey['Site ID'] });
+  const handleOpenNewSurvey = () => openSurveyWindow(null);
+  const handleViewSurvey = (survey: SiteSurveyLog) => openSurveyWindow(survey['Site ID'] || null);
+  const handleEditSurvey = (survey: SiteSurveyLog) => openSurveyWindow(survey['Site ID'] || null);
+  const handleDeleteRequest = (survey: SiteSurveyLog) => setSurveyToDelete(survey);
+  const handleConfirmDelete = async () => {
+    if (!surveyToDelete?.['Site ID']) return;
+    const id = surveyToDelete['Site ID'];
+    const originalSurveys = surveyData ? [...surveyData] : [];
+    setSiteSurveys(cur => cur ? cur.filter(s => s['Site ID'] !== id) : null);
+    setSurveyToDelete(null);
+    try {
+      await deleteRecord('Site_Survey_Logs', id);
+      addToast('Survey deleted!', 'success');
+    } catch (err: any) {
+      addToast(`Failed to delete: ${err.message}`, 'error');
+      setSiteSurveys(originalSurveys);
+    }
+  };
 
   const filteredData = useMemo(() => {
     let dataToFilter = surveyData ?? [];
@@ -119,7 +147,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         </p>
       )
     },
-  ], [handleNavigation]);
+  ], []);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
@@ -267,20 +295,38 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
               mobilePrimaryColumns={['Date', 'Location', 'Responsible By']}
               cellWrapStyle={cellWrapStyle}
               renderRowActions={(row) => (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditSurvey(row);
-                  }}
-                  className="p-2 text-muted-foreground hover:text-brand-600 transition"
-                >
-                  <Pencil size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <PermissionGate module="site_surveys" action="edit">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditSurvey(row);
+                      }}
+                      className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate module="site_surveys" action="delete">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRequest(row);
+                      }}
+                      className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </PermissionGate>
+                </div>
               )}
               renderRowContextMenu={(row) => (
                 <RowActionMenuItems
                   onView={() => handleViewSurvey(row)}
-                  onEdit={() => handleEditSurvey(row)}
+                  onEdit={can('site_surveys', 'edit') ? () => handleEditSurvey(row) : undefined}
+                  onDelete={can('site_surveys', 'delete') ? () => handleDeleteRequest(row) : undefined}
                 />
               )}
             />
@@ -295,12 +341,6 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         )}
       </div>
 
-      <NewSiteSurveyModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.survey}
-        initialReadOnly={modalConfig.isReadOnly}
-      />
       <footer className="flex-shrink-0 bg-card border-t border-border p-3">
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
           <button
@@ -310,6 +350,16 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
           </button>
         </div>
       </footer>
+
+      <ConfirmationModal
+        isOpen={!!surveyToDelete}
+        onClose={() => setSurveyToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Site Survey"
+        variant="danger"
+      >
+        Are you sure you want to delete survey "{surveyToDelete?.['Site ID']}" for "{surveyToDelete?.Location}"? This cannot be undone.
+      </ConfirmationModal>
     </div>
   );
 };

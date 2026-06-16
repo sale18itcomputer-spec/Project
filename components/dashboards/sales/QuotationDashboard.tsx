@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Quotation } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
-import QuotationCreator from "../../features/sales/QuotationCreator";
 import { useNavigation } from "../../../contexts/NavigationContext";
+import { useWindowManager } from "../../../contexts/WindowManagerContext";
+import QuotationWindowContent from "../../windows/content/QuotationWindowContent";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { ShoppingCart, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
@@ -69,6 +70,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>('Quote Pending');
   const { handleNavigation, navigation } = useNavigation();
+  const { openWindow } = useWindowManager();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
@@ -76,9 +78,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
   const { width } = useWindowSize();
-  const isMobile = width < 1024; // lg breakpoint
-
-  const isCreating = navigation.action === 'create' || navigation.action === 'edit';
+  const isMobile = width < 1024;
 
   const selectedQuotationId = useMemo(() => {
     if (navigation.action === 'view') return navigation.id || null;
@@ -86,41 +86,49 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     return null;
   }, [navigation.action, navigation.id, initialPayload]);
 
-  const selectedQuotationToEdit = useMemo(() => {
-    if (navigation.action === 'edit' && navigation.id && quotations) {
-      return quotations.find(q => q['Quote No'] === navigation.id) || null;
-    }
-    if (initialPayload && 'Quote No' in (initialPayload as any)) {
-      return initialPayload as Quotation; // backward compatibility
-    }
-    if (initialPayload && (initialPayload as any).action === 'edit' && (initialPayload as any).data) {
-      return (initialPayload as any).data;
-    }
-    return null;
-  }, [navigation.action, navigation.id, quotations, initialPayload]);
-
   useEffect(() => {
-    if (navigation.action === 'view') {
-      setViewMode('detail');
-    }
+    if (navigation.action === 'view') setViewMode('detail');
   }, [navigation.action]);
 
-
-  const handleNewQuotation = () => {
-    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'create' });
+  const openQuotationWindow = (quoteNo: string | null, initialData?: Partial<Quotation>) => {
+    const id = quoteNo ? `quotation-${quoteNo}` : `quotation-new-${Date.now()}`;
+    openWindow({
+      id,
+      title: quoteNo ? `Quotation: ${quoteNo}` : 'New Quotation',
+      content: <QuotationWindowContent windowId={id} quoteNo={quoteNo} initialData={initialData} />,
+      noPadding: true,
+      initialWidth: 1200,
+      initialHeight: 820,
+      minWidth: 900,
+      minHeight: 600,
+    });
   };
 
-  const handleEditQuotation = (quotation: Quotation) => {
-    handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'edit', id: quotation['Quote No'] });
-  };
+  // Auto-open window when navigated from another page with create/edit action
+  const lastNavKeyRef = useRef('');
+  useEffect(() => {
+    if (!navigation.action || navigation.action === 'view') return;
+    const key = `${navigation.action}:${navigation.id ?? ''}`;
+    if (lastNavKeyRef.current === key) return;
+    lastNavKeyRef.current = key;
 
-  const handleViewQuotation = (quotation: Quotation) => {
-    if (isMobile) {
-      handleEditQuotation(quotation); // On mobile, viewing is editing
-    } else {
-      handleNavigation({ view: 'quotations', filter: navigation.filter, action: 'view', id: quotation['Quote No'] });
+    if (navigation.action === 'create') {
+      const creatorInitialData =
+        navigation.payload?.initialData ||
+        (initialPayload && (initialPayload as any).action === 'create' ? (initialPayload as any).initialData : undefined);
+      openQuotationWindow(null, creatorInitialData);
+    } else if (navigation.action === 'edit' && navigation.id) {
+      openQuotationWindow(navigation.id);
     }
-  };
+    handleNavigation({ view: 'quotations', filter: navigation.filter });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation.action, navigation.id]);
+
+  const handleNewQuotation = () => openQuotationWindow(null);
+
+  const handleEditQuotation = (quotation: Quotation) => openQuotationWindow(quotation['Quote No']);
+
+  const handleViewQuotation = (quotation: Quotation) => openQuotationWindow(quotation['Quote No']);
 
   const handleDeleteRequest = (quotation: Quotation) => {
     setQuotationToDelete(quotation);
@@ -144,43 +152,28 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   };
 
   const handleCreateSaleOrder = (quotation: Quotation) => {
-    // Pass action at the top-level so navigation.action === 'create' in the URL.
-    // Pass the quotation directly as payload so SaleOrderDashboard's Case 1
-    // field mapping (initialPayload['Quote No']) resolves correctly.
     handleNavigation({ view: 'sale-orders', action: 'create', payload: quotation });
   };
 
   const handleDuplicateQuotation = async (quotation: Quotation) => {
     setIsDuplicating(true);
     try {
-      // Fetch full quotation data (including items) from DB
       const { items } = await readQuotationSheetData(quotation['Quote No'], isB2B);
-      // Store items in sessionStorage to pass to creator without URL length limits
       sessionStorage.setItem('duplicate_quotation_items', JSON.stringify(items));
-      // Navigate to create with header fields as initialData (Quote No. will be auto-generated)
       const initialData: Partial<Quotation> = {
         ...quotation,
-        'Quote No': undefined as any,   // Will be auto-generated
+        'Quote No': undefined as any,
         'Status': 'Open',
-        'Quote Date': undefined as any,   // Reset to today in creator
+        'Quote Date': undefined as any,
         'Validity Date': undefined as any,
       };
-      handleNavigation({
-        view: 'quotations',
-        filter: navigation.filter,
-        action: 'create',
-        payload: { isDuplicate: true, initialData },
-      });
+      openQuotationWindow(null, initialData);
       addToast('Duplicating quotation...', 'info');
     } catch (err: any) {
       addToast(`Failed to duplicate: ${err.message}`, 'error');
     } finally {
       setIsDuplicating(false);
     }
-  };
-
-  const handleBackToDashboard = () => {
-    handleNavigation({ view: 'quotations', filter: navigation.filter });
   };
 
   const handleSendToTelegram = async (quotation: Quotation) => {
@@ -391,7 +384,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => handleEditQuotation(selectedQuotationForDetail)}
+                      onClick={() => openQuotationWindow(selectedQuotationForDetail['Quote No'])}
                       className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
                     >
                       <Pencil className="w-4 h-4" /> Edit
@@ -464,21 +457,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       </main>
     </div>
   );
-
-  if (isCreating) {
-    // Resolve initialData: prefer navigation.payload.initialData (duplicate flow), then initialPayload prop
-    const creatorInitialData =
-      navigation.payload?.initialData ||
-      (initialPayload?.action === 'create' ? (initialPayload as any).initialData : undefined);
-
-    return (
-      <QuotationCreator
-        onBack={handleBackToDashboard}
-        existingQuotation={selectedQuotationToEdit}
-        initialData={creatorInitialData}
-      />
-    );
-  }
 
   if (error) {
     return (

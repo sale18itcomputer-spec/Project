@@ -7,7 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useB2B } from '../../../contexts/B2BContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
-import { updateRecord, deleteRecord } from '../../../services/api';
+import { createRecord, updateRecord, deleteRecord } from '../../../services/api';
 import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from '../../common/FormControls';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { Check, Pencil, Trash2 } from 'lucide-react';
@@ -16,7 +16,7 @@ const STATUS_OPTIONS = ['Available', 'Pre-Order', 'Out of Stock'];
 
 interface PricelistWindowContentProps {
     windowId: string;
-    itemCode: string;
+    itemCode: string | null;
     initialReadOnly?: boolean;
 }
 
@@ -27,15 +27,18 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
     const { addToast } = useToast();
     const { closeWindow, updateWindow } = useWindowManager();
 
-    const item = pricelist?.find(i => i.Code === itemCode) ?? null;
+    const isEditMode = !!itemCode;
+    const item = itemCode ? (pricelist?.find(i => i.Code === itemCode) ?? null) : null;
 
     const showDealerPrice = React.useMemo(() => {
         const role = currentUser?.Role?.toLowerCase();
         return role === 'admin' || role === 'b2b' || isB2B;
     }, [currentUser, isB2B]);
 
-    const [formData, setFormData] = useState<Partial<PricelistItem>>(item ?? {});
-    const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
+    const [formData, setFormData] = useState<Partial<PricelistItem>>(() =>
+        isEditMode ? (item ?? {}) : { Status: 'Available', Currency: 'USD', 'Dealer Price': '' }
+    );
+    const [isReadOnly, setIsReadOnly] = useState(isEditMode ? initialReadOnly : false);
     const [saving, setSaving] = useState(false);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -44,9 +47,17 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
 
+    const handleCancelClick = useCallback(() => {
+        if (isEditMode) {
+            setFormData(item ?? {});
+            setIsReadOnly(true);
+        } else {
+            closeWindow(windowId);
+        }
+    }, [isEditMode, item, windowId, closeWindow]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
 
         const toNumeric = (val: any) => {
             if (!val) return 0;
@@ -61,19 +72,33 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
             'End User Price': toNumeric(formData['End User Price']),
         };
 
+        if (!isEditMode && !submissionData.Code) {
+            addToast('Code is required.', 'error');
+            return;
+        }
+
+        setSaving(true);
         try {
-            const updatedRecord: PricelistItem = await updateRecord('Raw', itemCode, submissionData);
-            setPricelist(curr => curr ? curr.map(p => p.Code === itemCode ? updatedRecord : p) : [updatedRecord]);
-            addToast('Pricelist item updated!', 'success');
-            setIsReadOnly(true);
+            if (isEditMode && itemCode) {
+                const updatedRecord: PricelistItem = await updateRecord('Raw', itemCode, submissionData);
+                setPricelist(curr => curr ? curr.map(p => p.Code === itemCode ? updatedRecord : p) : [updatedRecord]);
+                addToast('Pricelist item updated!', 'success');
+                setIsReadOnly(true);
+            } else {
+                const createdRecord: PricelistItem = await createRecord('Raw', submissionData);
+                setPricelist(curr => curr ? [createdRecord, ...curr] : [createdRecord]);
+                addToast('Pricelist item created!', 'success');
+                closeWindow(windowId);
+            }
         } catch (err: any) {
-            addToast(`Failed to update: ${err.message}`, 'error');
+            addToast(`Failed to ${isEditMode ? 'update' : 'create'}: ${err.message}`, 'error');
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async () => {
+        if (!itemCode) return;
         setDeleteConfirmOpen(false);
         const original = pricelist ? [...pricelist] : [];
         setPricelist(curr => curr ? curr.filter(p => p.Code !== itemCode) : null);
@@ -89,50 +114,48 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
 
     // Sync footer whenever read/edit mode or saving state changes
     useEffect(() => {
-        const title = `${isReadOnly ? 'Item' : 'Editing'}: ${formData.Code || itemCode}`;
+        const title = isEditMode
+            ? `${isReadOnly ? 'Item' : 'Editing'}: ${formData.Code || itemCode}`
+            : 'Create New Pricelist Item';
 
-        const footer = (
+        const footer = isReadOnly ? (
             <div className="flex justify-between items-center w-full">
-                {isReadOnly ? (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => setDeleteConfirmOpen(true)}
-                            className="flex items-center gap-2 text-rose-500 hover:bg-rose-500/10 py-2 px-4 rounded-lg transition-colors font-semibold border border-rose-500/40"
-                        >
-                            <Trash2 size={16} /> Delete
-                        </button>
-                        <div className="flex gap-3">
-                            <button type="button" onClick={() => closeWindow(windowId)} className="py-2 px-4 border border-border rounded-lg hover:bg-muted transition">Close</button>
-                            <button
-                                type="button"
-                                onClick={() => setIsReadOnly(false)}
-                                className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
-                            >
-                                <Pencil size={16} /> Edit
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex justify-end gap-3 w-full">
-                        <button type="button" onClick={() => { setFormData(item ?? {}); setIsReadOnly(true); }} className="py-2 px-4 border border-border rounded-lg hover:bg-muted transition">Cancel</button>
-                        <button
-                            type="submit"
-                            form={`pricelist-window-form-${windowId}`}
-                            disabled={saving}
-                            className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-600/20 transition"
-                        >
-                            <Check size={16} /> {saving ? 'Saving…' : 'Save Changes'}
-                        </button>
-                    </div>
-                )}
+                <button
+                    type="button"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="flex items-center gap-2 text-rose-500 hover:bg-rose-500/10 py-2 px-4 rounded-lg transition-colors font-semibold border border-rose-500/40"
+                >
+                    <Trash2 size={16} /> Delete
+                </button>
+                <div className="flex gap-3">
+                    <button type="button" onClick={() => closeWindow(windowId)} className="py-2 px-4 border border-border rounded-lg hover:bg-muted transition">Close</button>
+                    <button
+                        type="button"
+                        onClick={() => setIsReadOnly(false)}
+                        className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
+                    >
+                        <Pencil size={16} /> Edit
+                    </button>
+                </div>
+            </div>
+        ) : (
+            <div className="flex justify-end gap-3 w-full">
+                <button type="button" onClick={handleCancelClick} className="py-2 px-4 border border-border rounded-lg hover:bg-muted transition">Cancel</button>
+                <button
+                    type="submit"
+                    form={`pricelist-window-form-${windowId}`}
+                    disabled={saving}
+                    className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-600/20 transition"
+                >
+                    <Check size={16} /> {saving ? 'Saving…' : (isEditMode ? 'Save Changes' : 'Save Item')}
+                </button>
             </div>
         );
 
         updateWindow(windowId, { title, footer });
-    }, [isReadOnly, saving, formData.Code, itemCode, windowId, updateWindow, closeWindow, item]);
+    }, [isEditMode, isReadOnly, saving, formData.Code, itemCode, windowId, updateWindow, closeWindow, handleCancelClick]);
 
-    if (!item) {
+    if (isEditMode && !item) {
         return <p className="text-muted-foreground">This pricelist item no longer exists.</p>;
     }
 
@@ -140,7 +163,10 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
         <>
             <form id={`pricelist-window-form-${windowId}`} onSubmit={handleSubmit} className="space-y-6">
                 <FormSection title="General Information">
-                    <FormDisplay label="Code" value={formData.Code} />
+                    {isEditMode
+                        ? <FormDisplay label="Code" value={formData.Code} />
+                        : <FormInput name="Code" label="Code" value={formData.Code} onChange={handleChange} required />
+                    }
                     {isReadOnly ? <FormDisplay label="Brand" value={formData.Brand} /> : <FormInput name="Brand" label="Brand" value={formData.Brand} onChange={handleChange} />}
                     {isReadOnly ? <FormDisplay label="Model" value={formData.Model} /> : <FormInput name="Model" label="Model" value={formData.Model} onChange={handleChange} />}
                     {isReadOnly ? <FormDisplay label="Category" value={formData.Category} /> : <FormInput name="Category" label="Category" value={formData.Category} onChange={handleChange} />}
@@ -165,15 +191,17 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
                 </FormSection>
             </form>
 
-            <ConfirmationModal
-                isOpen={isDeleteConfirmOpen}
-                onClose={() => setDeleteConfirmOpen(false)}
-                onConfirm={handleDelete}
-                title="Delete Pricelist Item"
-                confirmText="Delete"
-            >
-                Are you sure you want to delete <strong>{itemCode}</strong>? This action cannot be undone.
-            </ConfirmationModal>
+            {isEditMode && (
+                <ConfirmationModal
+                    isOpen={isDeleteConfirmOpen}
+                    onClose={() => setDeleteConfirmOpen(false)}
+                    onConfirm={handleDelete}
+                    title="Delete Pricelist Item"
+                    confirmText="Delete"
+                >
+                    Are you sure you want to delete <strong>{itemCode}</strong>? This action cannot be undone.
+                </ConfirmationModal>
+            )}
         </>
     );
 };

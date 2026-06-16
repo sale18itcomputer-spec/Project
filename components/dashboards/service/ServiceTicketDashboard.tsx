@@ -5,7 +5,6 @@ import { ServiceTicket } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { useNavigation } from '../../../contexts/NavigationContext';
 import { Wrench, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
@@ -15,7 +14,8 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
-import ServiceTicketCreator from '../../features/service/ServiceTicketCreator';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import ServiceTicketWindowContent from '../../windows/content/ServiceTicketWindowContent';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-service-ticket-columns-visibility';
 
@@ -43,26 +43,32 @@ const StatusBadge: React.FC<{ value: string; styleMap: Record<string, string> }>
 
 const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const { serviceTickets, setServiceTickets, loading } = useData();
-  const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const { can } = usePermissions();
+  const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [ticketToDelete, setTicketToDelete] = useState<ServiceTicket | null>(null);
 
-  const isCreating = navigation.action === 'create' || navigation.action === 'edit' || navigation.action === 'view';
+  const openTicketWindow = (id: string | null, initialReadOnly: boolean) => {
+    const windowId = `service-ticket-${id ?? 'new'}`;
+    openWindow({
+      id: windowId,
+      title: id ? 'Service Ticket' : 'New Service Ticket',
+      content: <ServiceTicketWindowContent windowId={windowId} ticketId={id} initialReadOnly={initialReadOnly} />,
+      draggable: true,
+      initialWidth: 900,
+      initialHeight: 760,
+      minWidth: 640,
+      minHeight: 480,
+    });
+  };
 
-  const selectedTicket = useMemo(() => {
-    if ((navigation.action === 'edit' || navigation.action === 'view') && navigation.id && serviceTickets) {
-      return serviceTickets.find(t => t.id === navigation.id) ?? null;
-    }
-    return null;
-  }, [navigation.action, navigation.id, serviceTickets]);
-
-  const handleOpenNew = () => handleNavigation({ view: 'service-tickets', action: 'create' });
-  const handleEdit = (row: ServiceTicket) => handleNavigation({ view: 'service-tickets', action: 'edit', id: row.id });
+  const handleOpenNew = () => openTicketWindow(null, false);
+  const handleViewTicket = (row: ServiceTicket) => openTicketWindow(row.id!, true);
+  const handleEditTicket = (row: ServiceTicket) => openTicketWindow(row.id!, false);
   const handleDeleteRequest = (row: ServiceTicket) => setTicketToDelete(row);
 
   const handleConfirmDelete = async () => {
@@ -150,16 +156,6 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
 
   const STATUS_FILTERS = ['All', 'Open', 'In Progress', 'Pending Parts', 'Resolved', 'Closed', 'Cancelled'];
 
-  if (isCreating) {
-    return (
-      <ServiceTicketCreator
-        existingTicket={selectedTicket}
-        initialReadOnly={navigation.action === 'view'}
-        onBack={() => handleNavigation({ view: 'service-tickets' })}
-      />
-    );
-  }
-
   return (
     <div className="h-full flex flex-col">
       <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
@@ -228,7 +224,7 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
           data={filteredData}
           columns={displayedColumns}
           loading={loading}
-          onRowClick={handleEdit}
+          onRowClick={handleViewTicket}
           initialSort={{ key: 'ticket_date', direction: 'descending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['ticket_no', 'company_name', 'status', 'priority']}
@@ -236,7 +232,7 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
             <div className="flex items-center gap-1">
               <PermissionGate module="service_tickets" action="edit">
                 <button
-                  onClick={e => { e.stopPropagation(); handleEdit(row); }}
+                  onClick={e => { e.stopPropagation(); handleEditTicket(row); }}
                   className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
                   title="Edit"
                 >
@@ -256,7 +252,7 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
-              onEdit={can('service_tickets', 'edit') ? () => handleEdit(row) : undefined}
+              onEdit={can('service_tickets', 'edit') ? () => handleEditTicket(row) : undefined}
               onDelete={can('service_tickets', 'delete') ? () => handleDeleteRequest(row) : undefined}
             />
           )}

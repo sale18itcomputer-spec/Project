@@ -25,6 +25,7 @@ export interface ManagedWindow {
     minWidth: number;
     minHeight: number;
     onClose: () => void;
+    noPadding?: boolean;
 }
 
 export interface OpenWindowInput {
@@ -38,6 +39,7 @@ export interface OpenWindowInput {
     minHeight?: number;
     initialWidth?: number;
     initialHeight?: number;
+    noPadding?: boolean;
 }
 
 /** A short-lived "flying" placeholder animated (FLIP-style) between a window frame's
@@ -134,6 +136,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
                 minWidth: input.minWidth ?? 400,
                 minHeight: input.minHeight ?? 300,
                 onClose: input.onClose ?? (() => {}),
+                noPadding: input.noPadding,
             };
             return [...prev, win];
         });

@@ -3,17 +3,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Meeting } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
+import { deleteRecord } from "../../../services/api";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, Table, CalendarDays, Clock, Users, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { ExternalLink, Table, CalendarDays, Clock, Users, ArrowRightToLine, WrapText, Scissors, Pencil, Trash2 } from 'lucide-react';
 import { parseDate, formatDateAsMDY } from "../../../utils/time";
-import NewMeetingModal from "../../modals/NewMeetingModal";
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
+import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import { useWindowManager } from '../../../contexts/WindowManagerContext';
+import { useToast } from '../../../contexts/ToastContext';
+import MeetingWindowContent from '../../windows/content/MeetingWindowContent';
+import ConfirmationModal from '../../modals/ConfirmationModal';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
@@ -58,34 +63,48 @@ const MEETING_COLUMNS_VISIBILITY_KEY = 'limperial-meeting-columns-visibility';
 
 
 const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) => {
-  const { meetings: meetingData, loading, error } = useData();
+  const { meetings: meetingData, setMeetings, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
-  const { handleNavigation, navigation } = useNavigation();
+  const { handleNavigation } = useNavigation();
+  const { openWindow } = useWindowManager();
+  const { addToast } = useToast();
+  const { can } = usePermissions();
+  const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null);
 
-  const modalConfig = useMemo(() => {
-    const isOpen = !!navigation.action && ['create', 'view', 'edit'].includes(navigation.action);
-    const isReadOnly = navigation.action === 'view';
-    const meeting = navigation.id && meetingData ? meetingData.find(m => m['Meeting ID'] === navigation.id) || null : null;
-    return { meeting, isReadOnly, isOpen };
-  }, [navigation.action, navigation.id, meetingData]);
+  const openMeetingWindow = (meetingId: string | null) => {
+    const id = `meeting-${meetingId ?? 'new'}`;
+    openWindow({
+      id,
+      title: meetingId ? `Meeting: ${meetingId}` : 'New Meeting',
+      content: <MeetingWindowContent windowId={id} meetingId={meetingId} />,
+      draggable: true,
+      initialWidth: 800,
+      initialHeight: 640,
+      minWidth: 600,
+      minHeight: 480,
+    });
+  };
 
-  const handleCloseModal = () => handleNavigation({ view: 'meetings', filter: navigation.filter });
-  const handleOpenNewMeeting = () => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'create' });
-  const handleViewMeeting = (meeting: Meeting) => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'view', id: meeting['Meeting ID'] });
-  const handleEditMeeting = (meeting: Meeting) => handleNavigation({ view: 'meetings', filter: navigation.filter, action: 'edit', id: meeting['Meeting ID'] });
-
-  useEffect(() => {
-    if (initialFilter) {
-      setSearchQuery(initialFilter);
-      // Auto-open meeting if direct ID match
-      const match = meetingData?.find(m => m['Meeting ID'] === initialFilter);
-      if (match && !navigation.action) {
-        handleViewMeeting(match);
-      }
+  const handleOpenNewMeeting = () => openMeetingWindow(null);
+  const handleViewMeeting = (meeting: Meeting) => openMeetingWindow(meeting['Meeting ID'] || null);
+  const handleEditMeeting = (meeting: Meeting) => openMeetingWindow(meeting['Meeting ID'] || null);
+  const handleDeleteRequest = (meeting: Meeting) => setMeetingToDelete(meeting);
+  const handleConfirmDelete = async () => {
+    if (!meetingToDelete?.['Meeting ID']) return;
+    const id = meetingToDelete['Meeting ID'];
+    const originalMeetings = meetingData ? [...meetingData] : [];
+    setMeetings(cur => cur ? cur.filter(m => m['Meeting ID'] !== id) : null);
+    setMeetingToDelete(null);
+    try {
+      await deleteRecord('Meeting_Logs', id);
+      addToast('Meeting deleted!', 'success');
+    } catch (err: any) {
+      addToast(`Failed to delete: ${err.message}`, 'error');
+      setMeetings(originalMeetings);
     }
-  }, [initialFilter, meetingData, navigation.action]);
+  };
 
   const [statusFilter, setStatusFilter] = useState<string | null>('Open');
 
@@ -326,20 +345,38 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
               mobilePrimaryColumns={['Meeting Date', 'Company Name', 'Status']}
               cellWrapStyle={cellWrapStyle}
               renderRowActions={(row) => (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditMeeting(row);
-                  }}
-                  className="p-2 text-muted-foreground hover:text-brand-600 transition"
-                >
-                  <Pencil size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <PermissionGate module="meetings" action="edit">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditMeeting(row);
+                      }}
+                      className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate module="meetings" action="delete">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRequest(row);
+                      }}
+                      className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </PermissionGate>
+                </div>
               )}
               renderRowContextMenu={(row) => (
                 <RowActionMenuItems
                   onView={() => handleViewMeeting(row)}
-                  onEdit={() => handleEditMeeting(row)}
+                  onEdit={can('meetings', 'edit') ? () => handleEditMeeting(row) : undefined}
+                  onDelete={can('meetings', 'delete') ? () => handleDeleteRequest(row) : undefined}
                 />
               )}
             />
@@ -354,12 +391,6 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
         )}
       </div>
 
-      <NewMeetingModal
-        isOpen={modalConfig.isOpen}
-        onClose={handleCloseModal}
-        existingData={modalConfig.meeting}
-        initialReadOnly={modalConfig.isReadOnly}
-      />
       <footer className="flex-shrink-0 bg-card border-t border-border p-3">
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
           <button
@@ -382,6 +413,16 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
           </button>
         </div>
       </footer>
+
+      <ConfirmationModal
+        isOpen={!!meetingToDelete}
+        onClose={() => setMeetingToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Meeting"
+        variant="danger"
+      >
+        Are you sure you want to delete the meeting with "{meetingToDelete?.['Company Name']}" on {meetingToDelete?.['Meeting Date']}? This cannot be undone.
+      </ConfirmationModal>
     </div>
   );
 };

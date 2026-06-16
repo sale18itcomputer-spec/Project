@@ -15,6 +15,7 @@ import { buildDeliveryNote }        from './pdf/buildDeliveryNote';
 import { buildQuotationVAT }        from './pdf/buildQuotationVAT';
 import { buildQuotationNonVAT }     from './pdf/buildQuotationNonVAT';
 import { buildReceipt }             from './pdf/buildReceipt';
+import { buildSaleOrder as buildSaleOrderPdf } from './pdf/buildSaleOrder';
 
 const MM = 3.7795; // px per mm at 96 dpi
 const mm = (v: number) => `${v * MM}px`;
@@ -226,76 +227,10 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     let body = '';
     switch (opts.type) {
         case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
-        case 'Sale Order': body = buildSaleOrder(hd, items, totals, opts.currency, sym, tax, cw); break;
+        case 'Sale Order': return buildSaleOrderPdf(hd, items as any, totals as any, opts.currency, sym, tax, opts.signaturePadding, opts.labelPadding, cw);
         case 'Purchase Order': body = buildPO(hd, items, totals, opts.currency, sym, tax, cw); break;
     }
     return `<!DOCTYPE html><html lang="km"><head><meta charset="UTF-8"/>${baseStyle()}</head><body><div class="page"><div class="page-inner">${body}</div></div></body></html>`;
-}
-
-// ── Sale Order ────────────────────────────────────────────────────────────────
-function buildSaleOrder(hd: any, items: any[], totals: any, currency: string, sym: string, tax: number, cw: number[]): string {
-    const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
-    const rows = items.filter(i => i.no > 0).map(item => {
-        const qty      = typeof item.qty    === 'number' ? item.qty    : parseFloat(String(item.qty))    || 0;
-        const amt      = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
-        const comm     = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
-        const uPrice   = typeof item.unitPrice  === 'number' ? item.unitPrice  : parseFloat(String(item.unitPrice))  || 0;
-        const dispPrice = qty > 0 ? (amt / qty) : (uPrice + comm);
-        const combined  = item.modelName ? (item.description ? `${item.modelName} - ${item.description}` : item.modelName) : (item.description || '');
-        return `<tr>
-          <td class="center">${esc(item.no)}</td>
-          <td>${esc(item.itemCode)}</td>
-          <td>${esc(combined)}</td>
-          <td class="center">${esc(item.qty)}</td>
-          ${wPrice > 0 ? moneyTd(dispPrice, sym) : ''}
-          ${wAmt   > 0 ? moneyTd(amt, sym) : ''}
-        </tr>`;
-    }).join('');
-
-    const softwareList = (hd['Install Software'] || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    const checkboxes = softwareList.length > 0 ? `<div style="margin-top:10px"><div style="font-weight:bold;font-size:9pt;margin-bottom:5px">Set up software:</div><div class="checklist">${softwareList.map((opt: string) => `<div class="check-item"><div class="check-box"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8.5 2.5" stroke="black" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg></div><span>${esc(opt)}</span></div>`).join('')}</div></div>` : '';
-    const remark = hd['Remark'] ? `<div style="margin-top:10px;font-size:9pt"><div style="font-weight:bold">Remark:</div><div style="white-space:pre-wrap">${esc(hd['Remark'])}</div></div>` : '';
-
-    const visibleCols = [wNo, wCode, wDesc, wQty, wPrice, wAmt].filter(w => w > 0).length;
-
-    return `
-    <h1 class="doc-title">SALE ORDER (B2C)</h1>
-    <div class="info-grid">
-      ${infoRow('Company Name', hd['Company Name']||'', 'SO No', hd['Sale Order ID']||'')}
-      ${infoRow('Address', hd['Company Address']||'', 'SO Date', fmtDate(hd['Order Date']))}
-      ${infoRow('Contact Person', hd['Contact Name']||'', 'Delivery Date', fmtDate(hd['Delivery Date']))}
-      ${infoRow('Tel', hd['Contact Tel']||'', 'Bill Invoice', hd['Bill Invoice']||'')}
-      ${infoRow('Email', hd['Email']||'', 'Payment Term', hd['Payment Term']||'')}
-    </div>
-    <table>
-      <colgroup>
-        ${wNo>0?`<col style="width:${wNo}%"/>`:''}
-        ${wCode>0?`<col style="width:${wCode}%"/>`:''}
-        ${wDesc>0?`<col style="width:${wDesc}%"/>`:''}
-        ${wQty>0?`<col style="width:${wQty}%"/>`:''}
-        ${wPrice>0?`<col style="width:${wPrice}%"/>`:''}
-        ${wAmt>0?`<col style="width:${wAmt}%"/>`:''}
-      </colgroup>
-      <thead><tr>
-        ${wNo>0?'<th>No.</th>':''}
-        ${wCode>0?'<th>Item Code</th>':''}
-        ${wDesc>0?'<th>Description</th>':''}
-        ${wQty>0?'<th>Qty</th>':''}
-        ${wPrice>0?'<th>Unit Price</th>':''}
-        ${wAmt>0?'<th>Amount</th>':''}
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr><td colspan="${visibleCols - 1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">Sub Total (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(totals.subTotal, sym)}</td></tr>
-        ${tax>0?`<tr><td colspan="${visibleCols - 1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">VAT 10% (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(tax, sym)}</td></tr>`:''}
-        <tr class="grand"><td colspan="${visibleCols - 1}" style="border:1px solid #000;text-align:right;white-space:nowrap;padding:4px 8px">Grand Total (${esc(currency)})</td><td style="border:1px solid #000;padding:4px 8px;white-space:nowrap">${moneyInner(totals.grandTotal, sym)}</td></tr>
-      </tfoot>
-    </table>
-    ${checkboxes}${remark}
-    <div class="sigs">
-      ${sigBlock('ORDERED BY','','')}
-      ${sigBlock('RECEIVED BY','','')}
-    </div>`;
 }
 
 // ── Purchase Order ────────────────────────────────────────────────────────────
