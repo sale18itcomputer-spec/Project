@@ -93,53 +93,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
             interface Pair { ai: number; bi: number; }
             const activeEdges: Pair[] = [];
 
-            // ── Logo sprite (white, transparent bg) ───────────────────────
-            let logoSprite: THREE.Sprite | null = null;
-            let logoTex: THREE.Texture | null = null;
-
-            const loadLogo = () => new Promise<void>(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    // Down-sample for texture — original is huge
-                    const scale = 0.08;
-                    const w = Math.round(img.width  * scale);
-                    const h = Math.round(img.height * scale);
-                    const lc = document.createElement('canvas');
-                    lc.width = w; lc.height = h;
-                    const lx = lc.getContext('2d')!;
-                    lx.drawImage(img, 0, 0, w, h);
-
-                    // Convert: blue-on-white → white-on-transparent
-                    const id = lx.getImageData(0, 0, w, h);
-                    const d = id.data;
-                    for (let i = 0; i < d.length; i += 4) {
-                        const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
-                        const a = Math.min(255, Math.round((255 - avg) * 2.2));
-                        d[i] = 255; d[i + 1] = 255; d[i + 2] = 255;
-                        d[i + 3] = a;
-                    }
-                    lx.putImageData(id, 0, 0);
-
-                    logoTex = new THREE.CanvasTexture(lc);
-                    const spriteMat = new THREE.SpriteMaterial({
-                        map: logoTex, transparent: true,
-                        opacity: 0.45 * intensity,
-                        blending: THREE.NormalBlending, depthWrite: false,
-                    });
-                    logoSprite = new THREE.Sprite(spriteMat);
-                    // Logo is ~5.115:1 aspect — width 600, height ~117
-                    logoSprite.scale.set(600, 117, 1);
-                    logoSprite.position.set(0, 0, 0);
-                    scene.add(logoSprite);
-                    resolve();
-                };
-                img.onerror = () => resolve(); // silently skip if missing
-                img.src = '/logo.png';
-            });
-
-            await loadLogo();
-            if (disposed) return;
-
             // ── Mouse ──────────────────────────────────────────────────────
             let mx = 0, my = 0;
             const onMove = (e: MouseEvent) => {
@@ -168,7 +121,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
                 const dt = Math.min(now - lastT, 50) / 16;
                 lastT = now;
 
-                // Move nodes
                 for (let i = 0; i < N; i++) {
                     pos[i * 3]     += vel[i * 3]     * dt;
                     pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
@@ -179,7 +131,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
                 }
                 (ptGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
 
-                // Rebuild edges
                 activeEdges.length = 0;
                 let ei = 0;
                 for (let i = 0; i < N && ei < MAX_EDGES; i++) {
@@ -205,7 +156,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
                 (eGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
                 (eGeo.attributes.color    as THREE.BufferAttribute).needsUpdate = true;
 
-                // Signals
                 if (now - lastSig > 650 && activeEdges.length > 0) {
                     const e = activeEdges[Math.floor(Math.random() * activeEdges.length)];
                     const m = new THREE.Mesh(sigGeo, new THREE.MeshBasicMaterial({
@@ -230,13 +180,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
                     }
                 }
 
-                // Logo gentle pulse
-                if (logoSprite) {
-                    const pulse = 0.4 + Math.sin(now * 0.0006) * 0.1;
-                    (logoSprite.material as THREE.SpriteMaterial).opacity = pulse * intensity;
-                }
-
-                // Slow orbit + mouse parallax
                 const orb = now * 0.00006;
                 tRX = my * 0.2  + Math.sin(orb * 0.7) * 0.1;
                 tRY = mx * 0.25 + Math.sin(orb)       * 0.18;
@@ -259,8 +202,6 @@ export default function TechBackground3D({ color, intensity }: Props) {
                 ptGeo.dispose(); ptMat.dispose(); ptTex.dispose();
                 eGeo.dispose();  eMat.dispose();
                 sigGeo.dispose();
-                if (logoTex) logoTex.dispose();
-                if (logoSprite) (logoSprite.material as THREE.Material).dispose();
                 for (const s of signals) {
                     scene.remove(s.mesh);
                     (s.mesh.material as THREE.Material).dispose();
@@ -280,5 +221,36 @@ export default function TechBackground3D({ color, intensity }: Props) {
         };
     }, [color, intensity]);
 
-    return <div ref={mountRef} aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }} />;
+    return (
+        <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }}>
+            {/* Three.js canvas mounts here */}
+            <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+            {/* Logo overlay — grayscale+invert turns blue logo white;
+                mix-blend-mode:screen makes the white background vanish on dark scenes */}
+            <img
+                src="/logo.png"
+                alt=""
+                aria-hidden
+                style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '38vw',
+                    filter: 'grayscale(1) invert(1)',
+                    mixBlendMode: 'screen',
+                    opacity: 0.55 * intensity,
+                    userSelect: 'none',
+                    pointerEvents: 'none',
+                    animation: 'tech3dLogoPulse 4s ease-in-out infinite',
+                }}
+            />
+            <style>{`
+                @keyframes tech3dLogoPulse {
+                    0%, 100% { opacity: ${0.42 * intensity}; }
+                    50%       { opacity: ${0.65 * intensity}; }
+                }
+            `}</style>
+        </div>
+    );
 }
