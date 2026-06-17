@@ -9,12 +9,14 @@ import { formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck } from 'lucide-react';
+import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck, BookOpen } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
+import { autoPostInvoiceJournal } from "../../../services/accountingApi";
+import { useAuth } from "../../../contexts/AuthContext";
 import { generatePDF } from "../../../lib/pdfClient";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
@@ -50,7 +52,8 @@ const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'detail';
 
 const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) => {
-    const { invoices = [], setInvoices, companies, receipts, loading, error } = useData();
+    const { invoices = [], setInvoices, companies, receipts, pricelist, loading, error } = useData();
+    const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
@@ -147,6 +150,49 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const handleDuplicateInvoice = (invoice: Invoice) => {
         openInvoiceWindow(null, { action: 'duplicate', duplicateOf: invoice });
         addToast('Duplicating invoice...', 'info');
+    };
+
+    const handlePostToJournal = async (invoice: Invoice) => {
+        let items: any[] = [];
+        if (typeof invoice.ItemsJSON === 'string') {
+            try { items = JSON.parse(invoice.ItemsJSON); } catch { /* ignore */ }
+        } else {
+            items = invoice.ItemsJSON || [];
+        }
+
+        const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+        const isVAT = invoice['Taxable'] === 'VAT' || invoice['Taxable'] === 'Yes';
+        const taxAmount = isVAT ? subTotal * 0.1 : 0;
+        const grandTotal = subTotal + taxAmount;
+
+        const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+        const brandTotals: Record<string, number> = {};
+        for (const item of items) {
+            if (item.isPromotion || Number(item.no) === 0) continue;
+            const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
+            brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+        }
+        const brandAmounts = Object.entries(brandTotals)
+            .map(([brand, subtotal]) => ({ brand, subtotal }))
+            .filter(b => b.subtotal > 0.005);
+
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        try {
+            await autoPostInvoiceJournal({
+                invNo: invoice['Inv No'],
+                entryDate: invoice['Inv Date'] || todayStr,
+                grandTotal,
+                taxAmount,
+                isVAT,
+                createdBy: currentUser?.Name || 'system',
+                brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
+            });
+            addToast('Journal entry posted!', 'success');
+        } catch (err: any) {
+            addToast(`Failed to post journal: ${err.message}`, 'error');
+        }
     };
 
     const handlePrintInvoice = async (invoice: Invoice) => {
@@ -432,6 +478,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                             <Wallet className="mr-2 h-4 w-4" /> Record Payment
                                         </DropdownMenuItem>
                                     )}
+                                    <DropdownMenuItem onClick={() => handlePostToJournal(row)}>
+                                        <BookOpen className="mr-2 h-4 w-4" /> Post to Journal
+                                    </DropdownMenuItem>
                                 </RowActionMenuItems>
                             );
                         }}
