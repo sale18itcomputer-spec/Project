@@ -17,6 +17,7 @@ import { FileText, Download, PanelRight } from 'lucide-react';
 import { generatePDF } from "../../../../lib/pdfClient";
 import { useColumnWidths } from "@/hooks/useColumnWidths";
 import { ColumnWidthPopover } from "../ColumnWidthPopover";
+import { readFormDraft, useFormDraft } from "../../../../hooks/useFormDraft";
 import { useToast } from "../../../../contexts/ToastContext";
 
 interface InvoiceCreatorProps {
@@ -65,15 +66,21 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+    const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
 
-    const [invoice, setInvoice] = useState<Partial<Invoice & { [key: string]: any }>>({});
+    const [invoice, setInvoice] = useState<Partial<Invoice & { [key: string]: any }>>(() => draft?.invoice ?? {});
 
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
     const [hideKhmer, setHideKhmer] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
+
+    const draftKey = existingInvoice ? `inv-edit-${existingInvoice['Inv No']}` : 'inv-new';
+    const draft = useRef(readFormDraft<{ invoice: Partial<Invoice & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
     // Next invoice number — fetched async from BOTH b2c+b2b tables so the
     // sequence is globally unique regardless of which mode the user is in.
@@ -98,6 +105,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     }, [existingInvoice, initialData]);
 
     useEffect(() => {
+        if (hasDraft.current) return;
         if (existingInvoice) {
             const loadedInvDate = existingInvoice['Inv Date'] ? formatToInputDate(existingInvoice['Inv Date']) : getTodayDateString();
             // Backfill Due Date for older/edited invoices that have a Payment
@@ -201,6 +209,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             });
         }
     }, [existingInvoice, initialData, nextInvNo]);
+
+    useEffect(() => {
+        if (!invoice['Inv No']) return;
+        saveDraft({ invoice, items });
+        setHasDraftState(true);
+    }, [invoice, items, saveDraft]);
 
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -564,6 +578,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             if (deductedInventory) refetchModule('Inventory');
             if (syncedSerials) refetchModule('Serial Numbers');
 
+            clearDraft();
+            setHasDraftState(false);
             setSuccessInfo({ invNo: invoice['Inv No'] });
         } catch (err: any) {
             addToast(err.message || 'Failed to save invoice', 'error');
@@ -708,6 +724,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 isSubmitting={isSubmitting}
                 leftActions={headerLeft}
                 rightActions={headerRight}
+                draftBadge={hasDraftState ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Unsaved draft
+                    </span>
+                ) : undefined}
             >
                 <div className="screen-only h-full flex relative overflow-hidden">
                     {/* Center area: PDF Preview */}

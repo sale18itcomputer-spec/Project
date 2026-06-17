@@ -22,6 +22,7 @@ import SearchableSelect from "../../common/SearchableSelect";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useColumnWidths } from "../../../hooks/useColumnWidths";
 import { ColumnWidthPopover } from "./ColumnWidthPopover";
+import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
 
 interface SaleOrderCreatorProps {
     onBack: () => void;
@@ -282,14 +283,20 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     // ── Column layout ──────────────────────────────────────────────────────────
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('sale-order');
 
+    const draftKey = existingSaleOrder ? `so-edit-${existingSaleOrder['SO No']}` : 'so-new';
+    const draft = useRef(readFormDraft<{ saleOrder: Partial<SaleOrder & { [key: string]: any }>; items: LineItem[]; selectedSoftware: string[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successInfo, setSuccessInfo] = useState<{ soNo: string } | null>(null);
     const [itemsLoading, setItemsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
-    const [selectedSoftware, setSelectedSoftware] = useState<string[]>([]);
+    const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+    const [selectedSoftware, setSelectedSoftware] = useState<string[]>(() => draft?.selectedSoftware ?? []);
 
     const [showFormPanel, setShowFormPanel] = useState(true);
     const [signaturePadding, setSignaturePadding] = useState(0);
@@ -326,7 +333,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         return `SO-${String(maxNum + 1).padStart(7, '0')}`;
     }, [saleOrders]);
 
-    const [saleOrder, setSaleOrder] = useState<Partial<SaleOrder & { [key: string]: any }>>({});
+    const [saleOrder, setSaleOrder] = useState<Partial<SaleOrder & { [key: string]: any }>>(() => draft?.saleOrder ?? {});
 
     const fetchQuoteItems = React.useCallback(async (quoteId: string) => {
         setItemsLoading(true);
@@ -361,6 +368,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     }, [pricelist, addToast]);
 
     useEffect(() => {
+        if (hasDraft.current) return;
         if (existingSaleOrder && companies && contacts) {
             const companyName = existingSaleOrder['Company Name'];
             const contactName = existingSaleOrder['Contact Name'];
@@ -474,6 +482,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     }, [existingSaleOrder, initialData]);
 
     useEffect(() => {
+        if (hasDraft.current) return;
         if (existingSaleOrder && existingSaleOrder['Install Software']) {
             setSelectedSoftware(existingSaleOrder['Install Software'].split(',').map(s => s.trim()).filter(Boolean));
         } else if (!existingSaleOrder) {
@@ -486,6 +495,13 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     }, [selectedSoftware]);
 
     useEffect(() => {
+        if (!saleOrder['SO No']) return;
+        saveDraft({ saleOrder, items, selectedSoftware });
+        setHasDraftState(true);
+    }, [saleOrder, items, selectedSoftware, saveDraft]);
+
+    useEffect(() => {
+        if (hasDraft.current) return;
         if (!existingSaleOrder && initialData && companies && contacts) {
             const companyName = initialData['Company Name'];
             const contactName = initialData['Contact Name'];
@@ -694,6 +710,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             } else {
                 setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
             }
+            clearDraft();
+            setHasDraftState(false);
             setSuccessInfo({ soNo: masterSheetData['SO No'] });
         } finally {
             setIsSubmitting(false);
@@ -881,6 +899,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
                 rightActions={headerRight}
+                draftBadge={hasDraftState ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Unsaved draft
+                    </span>
+                ) : undefined}
             >
                 <div className="h-full flex overflow-hidden">
                     {/* PDF Preview — left side */}

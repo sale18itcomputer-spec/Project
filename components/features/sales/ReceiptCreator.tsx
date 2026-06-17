@@ -17,6 +17,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { ColumnWidthPopover } from './ColumnWidthPopover';
+import { readFormDraft, useFormDraft } from '../../../hooks/useFormDraft';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 
 const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
@@ -68,6 +69,12 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('receipt');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const draftKey = existingReceipt ? `rv-edit-${existingReceipt['RV No']}` : 'rv-new';
+    const draft = useRef(readFormDraft<{ doc: Partial<Receipt>; items: LineItem[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+
     // Receipts are immutable artifacts of payment events. ReceiptCreator is now
     // only reachable in VIEW mode (open an existing receipt for printing/PDF).
     // Standalone creation has been removed — record payments via Collection.
@@ -80,10 +87,10 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
      
     }, []);
 
-    const [items, setItems] = useState<LineItem[]>([
+    const [items, setItems] = useState<LineItem[]>(() => (!existingReceipt && draft?.items) ? draft.items : [
         { id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }
     ]);
-    const [doc, setDoc] = useState<Partial<Receipt>>({});
+    const [doc, setDoc] = useState<Partial<Receipt>>(() => (!existingReceipt && draft?.doc) ? draft.doc : {});
 
     // Auto-generate RV No
     const calculatedNextRVNo = useMemo(() => {
@@ -109,6 +116,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
 
     // Initialise
     useEffect(() => {
+        if (!existingReceipt && hasDraft.current) return;
         if (existingReceipt) {
             setDoc({
                 ...existingReceipt,
@@ -177,6 +185,13 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             }
         }
     }, [existingReceipt, initialData, calculatedNextRVNo]);
+
+    useEffect(() => {
+        if (existingReceipt) return;
+        if (!doc['RV No']) return;
+        saveDraft({ doc, items });
+        setHasDraftState(true);
+    }, [doc, items, saveDraft, existingReceipt]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -293,6 +308,8 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 setReceipts(cur => cur ? [payload as Receipt, ...cur] : [payload as Receipt]);
             }
             refetchModule('Receipts');
+            clearDraft();
+            setHasDraftState(false);
             setSuccessInfo({ rvNo: doc['RV No']! });
         } catch (err: any) {
             addToast(err.message || 'Failed to save Receipt', 'error');
@@ -371,6 +388,12 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
                 rightActions={headerRight}
+                draftBadge={!isReadOnly && hasDraftState ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Unsaved draft
+                    </span>
+                ) : undefined}
             >
                 <div className="h-full flex overflow-hidden">
                     {/* PDF Preview */}

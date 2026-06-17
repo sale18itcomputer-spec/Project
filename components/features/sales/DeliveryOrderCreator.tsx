@@ -20,6 +20,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { ColumnWidthPopover } from './ColumnWidthPopover';
+import { readFormDraft, useFormDraft } from '../../../hooks/useFormDraft';
 
 const DO_STATUS_OPTIONS: DeliveryOrder['Status'][] = ['Pending', 'Delivered', 'Cancelled'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
@@ -64,10 +65,16 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const fileInputRef = useRef<HTMLInputElement>(null);
     const initialisedRef = useRef(false);
 
-    const [items, setItems] = useState<LineItem[]>([
+    const draftKey = existingDO ? `do-edit-${existingDO['DO No']}` : 'do-new';
+    const draft = useRef(readFormDraft<{ doc: Partial<DeliveryOrder & { 'Tin No'?: string }>; items: LineItem[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+
+    const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [
         { id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1 }
     ]);
-    const [doc, setDoc] = useState<Partial<DeliveryOrder & { 'Tin No'?: string }>>({});
+    const [doc, setDoc] = useState<Partial<DeliveryOrder & { 'Tin No'?: string }>>(() => draft?.doc ?? {});
 
     // ── Auto-generate DO No ───────────────────────────────────────────────────
     const nextDONo = useMemo(() => {
@@ -85,6 +92,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     useEffect(() => {
         if (initialisedRef.current) return;
         initialisedRef.current = true;
+        if (hasDraft.current) return;
 
         if (existingDO) {
             setDoc({
@@ -146,6 +154,12 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
         } catch { /* keep default */ }
      
     }, []);
+
+    useEffect(() => {
+        if (!doc['DO No']) return;
+        saveDraft({ doc, items });
+        setHasDraftState(true);
+    }, [doc, items, saveDraft]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -433,6 +447,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
 
             refetchModule('Delivery Orders');
             if (syncedSerials) refetchModule('Serial Numbers');
+            clearDraft();
+            setHasDraftState(false);
             setSuccessInfo({ doNo: doc['DO No']! });
         } catch (err: any) {
             addToast(err.message || 'Failed to save Delivery Order', 'error');
@@ -547,6 +563,12 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
                 rightActions={headerRight}
+                draftBadge={hasDraftState ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Unsaved draft
+                    </span>
+                ) : undefined}
             >
                 <div className="h-full flex overflow-hidden">
                     {/* PDF Preview */}

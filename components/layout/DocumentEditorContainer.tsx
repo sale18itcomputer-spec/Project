@@ -15,6 +15,7 @@ interface DocumentEditorContainerProps {
   children: React.ReactNode;
   leftActions?: React.ReactNode;
   rightActions?: React.ReactNode;
+  draftBadge?: React.ReactNode;
 }
 
 const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
@@ -28,6 +29,7 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
   children,
   leftActions,
   rightActions,
+  draftBadge,
 }) => {
   return (
     <div className="h-full flex flex-col bg-background">
@@ -53,6 +55,8 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
               <h1 className="text-lg sm:text-xl font-bold text-foreground truncate tracking-tight">{title}</h1>
               {subtitle && <p className="text-xs text-muted-foreground font-medium truncate">{subtitle}</p>}
             </div>
+
+            {draftBadge && <div className="hidden sm:block flex-shrink-0">{draftBadge}</div>}
 
             <div className="hidden lg:flex items-center">
               {leftActions}

@@ -22,6 +22,7 @@ import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { parseSheetValue } from "../../../utils/formatters";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useToast } from "../../../contexts/ToastContext";
+import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
 
 interface QuotationCreatorProps {
     onBack: () => void;
@@ -194,10 +195,17 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [isSendingTelegram, setIsSendingTelegram] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('quotation');
 
-    const [items, setItems] = useState<LineItem[]>([{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
+    const draftKey = existingQuotation ? `quote-edit-${existingQuotation['Quote No']}` : 'quote-new';
+    const draft = useRef(readFormDraft<{ quote: Partial<Quotation & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+
+    const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]);
 
     // When duplicating, restore stored items from sessionStorage
     useEffect(() => {
+        if (hasDraft.current) return;
         if (!existingQuotation && initialData) {
             const stored = sessionStorage.getItem('duplicate_quotation_items');
             if (stored) {
@@ -289,6 +297,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     }, [quotations, existingQuotation, isB2B]);
 
     const [quote, setQuote] = useState<Partial<Quotation & { [key: string]: any }>>(() => {
+        if (draft?.quote) return draft.quote;
         if (existingQuotation) {
             return {
                 ...existingQuotation,
@@ -343,8 +352,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         }
     }, [nextQuotationNumber, existingQuotation]);
 
+    useEffect(() => {
+        if (!quote['Quote No']) return;
+        saveDraft({ quote, items });
+        setHasDraftState(true);
+    }, [quote, items, saveDraft]);
+
     // Auto-fill customer details from companies/contacts when coming from initialData (+Create)
     useEffect(() => {
+        if (hasDraft.current) return;
         if (!existingQuotation && initialData && companies && contacts) {
             const companyName = initialData['Company Name'];
             const contactName = initialData['Contact Name'];
@@ -366,6 +382,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
 
     useEffect(() => {
+        if (hasDraft.current) return;
         if (!existingQuotation || !existingQuotation['Quote No']) return;
 
         // Cancellation guard — if the user navigates to a different quotation
@@ -659,6 +676,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 }
             });
 
+            clearDraft();
+            setHasDraftState(false);
             // Handle "Close (Win)" auto-conversion logic
             if (masterSheetData.Status === 'Close (Win)') {
                 // Open Success Modal with option to create Sale Order
@@ -945,6 +964,12 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 isSubmitting={isSubmitting}
                 leftActions={headerLeft}
                 rightActions={headerRight}
+                draftBadge={hasDraftState ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Unsaved draft
+                    </span>
+                ) : undefined}
             >
                 {error && (
                     <div className="mb-6 bg-rose-500/10 border-l-4 border-rose-500 text-rose-500 p-4 rounded-md text-sm flex items-start gap-3" role="alert">
