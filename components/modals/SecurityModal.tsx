@@ -156,7 +156,7 @@ const SecurityModal: React.FC = () => {
     const currentTimeoutLabel = TIMEOUT_OPTIONS.find(o => o.value === (currentRecord?.AutoLockTimeout || '1h'))?.label || '1 hour';
 
     return createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-[#17212b] border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-[#eff0f1]">
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center">

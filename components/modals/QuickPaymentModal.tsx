@@ -225,7 +225,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
 
     return createPortal(
         <div
-            className={`fixed inset-0 z-[10000] flex justify-center items-center p-4 transition-opacity duration-200 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+            className={`fixed inset-0 z-[99999] flex justify-center items-center p-4 transition-opacity duration-200 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
             onClick={isSubmitting ? undefined : handleClose}
             aria-modal="true"
             role="dialog"
