@@ -293,6 +293,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 qty: item.qty,
                 unitPrice: item.unit_price,
                 amount: item.qty * item.unit_price,
+                isPromotion: item.is_promotion,
             })),
             totals: {
                 subTotal: totals.sub_total || 0,
@@ -376,8 +377,9 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
         if (data) {
             setItems(data.map(row => ({
                 ...row,
-                brand:    row.brand    ?? '',
-                category: row.category ?? '',
+                brand:        row.brand    ?? '',
+                category:     row.category ?? '',
+                is_promotion: row.line_number === 0 && row.unit_price < 0,
             })));
         }
     };
@@ -423,8 +425,20 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
 
     const removeItem = (index: number) => {
         if (items.length > 1) {
-            setItems(prev => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, line_number: i + 1 })));
+            setItems(prev => prev.filter((_, i) => i !== index).map((item, i) => ({
+                ...item,
+                line_number: item.is_promotion ? 0 : i + 1
+            })));
         }
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { line_number: 0, item_number: '', description: '', qty: 1, unit_price: 0, is_promotion: true }]);
+    };
+
+    const handlePromoAmountChange = (index: number, value: string) => {
+        const abs = Math.abs(parseFloat(value) || 0);
+        setItems(prev => prev.map((item, i) => i === index ? { ...item, unit_price: -abs } : item));
     };
 
     const handleSave = async () => {
@@ -480,13 +494,13 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 autoPostPurchaseOrderJournal({
                     poNumber: formData.po_number || savedPoId || '',
                     entryDate: formData.order_date || new Date().toISOString().slice(0, 10),
-                    items: items.map(i => ({ brand: i.brand, qty: i.qty, unit_price: i.unit_price })),
+                    items: items.filter(i => !i.is_promotion).map(i => ({ brand: i.brand, qty: i.qty, unit_price: i.unit_price })),
                     createdBy: currentUser?.Name || 'system',
                 }).catch(err => console.warn('[PurchaseOrderWindowContent] auto-post failed:', err));
 
                 try {
                     const pricelistPayload = items
-                        .filter(item => item.item_number || item.description)
+                        .filter(item => !item.is_promotion && (item.item_number || item.description))
                         .map(item => ({
                             vendor_id: formData.vendor_id,
                             brand: '',
@@ -630,9 +644,14 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                 <div className="bg-muted/30 px-4 py-3 border-b border-border flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-brand-500" /> Line Items</h3>
-                    <button type="button" onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
-                        <Plus className="w-4 h-4" /> Add Item
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={addItem} className="text-sm font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 transition">
+                            <Plus className="w-4 h-4" /> Add Item
+                        </button>
+                        <button type="button" onClick={addPromoRow} className="text-sm font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 flex items-center gap-1 transition">
+                            + Add Cashback
+                        </button>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[940px]">
@@ -652,7 +671,42 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {items.map((item, index) => (
+                            {items.map((item, index) => item.is_promotion ? (
+                                <tr key={index} className="border-b border-amber-500/20 bg-amber-500/5">
+                                    <td colSpan={9} className="px-4 py-3">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                <span className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400 whitespace-nowrap">Cashback / Promotion</span>
+                                            </div>
+                                            <input
+                                                className="flex-1 bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm italic text-muted-foreground"
+                                                value={item.description}
+                                                onChange={e => handleItemChange(index, 'description', e.target.value)}
+                                                placeholder="e.g. Buy 10-29pcs get cash back $40 · Period: 01st - 30th June 2026"
+                                            />
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="text-xs text-muted-foreground">Amount:</span>
+                                                <input
+                                                    type="number" min={0} step="0.01"
+                                                    className="w-28 bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm text-right text-rose-600"
+                                                    value={Math.abs(item.unit_price)}
+                                                    onChange={e => handlePromoAmountChange(index, e.target.value)}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-semibold text-right text-rose-600">
+                                        ({formatCurrencySmartly(Math.abs(item.unit_price), formData.currency)})
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button type="button" onClick={() => removeItem(index)} className="text-muted-foreground hover:text-rose-500 transition">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ) : (
                                 <tr key={index} className="border-b border-border/50 hover:bg-muted/5 transition-colors">
                                     <td className="px-4 py-3 text-sm text-muted-foreground">{item.line_number}</td>
 

@@ -9,6 +9,7 @@ interface LineItem {
     qty: number | string;
     unitPrice: number | string;
     amount: number;
+    isPromotion?: boolean;
 }
 
 interface QuotationPreviewProps {
@@ -36,7 +37,7 @@ const QuotationPreview: React.FC<QuotationPreviewProps> = ({ headerData, items, 
     // Mirror the PDF builder routing: Non-VAT hides VAT TIN in header + customer info
     const isVat = (headerData['Tax Type'] || 'VAT').toUpperCase() !== 'NON-VAT';
     const sym = getCurrencySymbol(currency);
-    const actualItems = items.filter(item => item.no > 0);
+    const actualItems = items.filter(item => item.no > 0 || item.isPromotion);
 
     const fmtNum = (v: number | string) => {
         const n = typeof v === 'number' ? v : parseFloat(String(v)) || 0;
@@ -252,6 +253,22 @@ const QuotationPreview: React.FC<QuotationPreviewProps> = ({ headerData, items, 
                         </thead>
                         <tbody>
                             {actualItems.map((item, index) => {
+                                if (item.isPromotion) {
+                                    const promoAmt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+                                    const promoAbs = Math.abs(promoAmt);
+                                    return (
+                                        <tr key={item.id || index} className="text-center break-inside-avoid">
+                                            <td className="align-top py-2"></td>
+                                            <td className="align-top py-2"></td>
+                                            <td className="text-left italic align-top py-2 text-[12px]" style={{ color: '#666' }}>{item.description || 'Cashback / Promotion'}</td>
+                                            <td className="align-top py-2"></td>
+                                            <td className="align-top py-2"></td>
+                                            <td className="align-top py-2" style={{ color: '#c00000' }}>
+                                                <div className="flex justify-between w-full"><span>{sym}</span><span>({fmtNum(promoAbs)})</span></div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
                                 const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
                                 const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
                                 return (

@@ -457,6 +457,8 @@ export interface PurchaseOrderItem {
   category?: string;
   /** Serial numbers received for this line item, one per line (newline-separated) */
   serial_number?: string;
+  /** True when this row is a cashback/promotion deduction (no item code, negative total) */
+  is_promotion?: boolean;
 }
 
 /** Inventory item — converted from a Purchase Order, used to source Sale Orders */

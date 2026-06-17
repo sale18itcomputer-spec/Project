@@ -38,6 +38,7 @@ interface LineItem {
     description: string;
     qty: number | string;
     serialNumber?: string;
+    isPromotion?: boolean;
 }
 
 interface Props {
@@ -219,17 +220,26 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
         setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
     };
 
+    const renumberItems = (list: LineItem[]): LineItem[] => {
+        let num = 0;
+        return list.map(item => {
+            if (item.isPromotion) return { ...item, no: 0 };
+            num++;
+            return { ...item, no: num };
+        });
+    };
+
     const addItem = () => {
-        const nextNo = items.length > 0 ? Math.max(...items.map(i => i.no)) + 1 : 1;
-        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: nextNo, itemCode: '', modelName: '', description: '', qty: 1 }]);
+        setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1 }]));
     };
 
     const removeItem = (id: string) => {
         if (items.length <= 1) return;
-        setItems(prev => {
-            const filtered = prev.filter(i => i.id !== id);
-            return filtered.map((item, idx) => ({ ...item, no: idx + 1 }));
-        });
+        setItems(prev => renumberItems(prev.filter(i => i.id !== id)));
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, isPromotion: true }]);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,7 +494,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             'Email':          doc['Email'] || '',
             'Tax Type':       taxType,
         },
-        items: items.map(item => ({
+        items: items.filter(i => Number(i.no) > 0 || i.isPromotion).map(item => ({
             no: item.no,
             itemCode: item.itemCode,
             modelName: item.modelName,
@@ -493,6 +503,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             serialNumber: item.serialNumber || '',
             unitPrice: 0,
             amount: 0,
+            isPromotion: item.isPromotion,
         })),
         totals: { subTotal: 0, tax: 0, grandTotal: 0 },
         currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
@@ -594,7 +605,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 'Email':          doc['Email'] || '',
                                 'Tax Type':       taxType,
                             },
-                            items: items.map(item => ({
+                            items: items.filter(i => Number(i.no) > 0 || i.isPromotion).map(item => ({
                                 no: item.no,
                                 itemCode: item.itemCode,
                                 modelName: item.modelName,
@@ -603,6 +614,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 serialNumber: item.serialNumber || '',
                                 unitPrice: 0,
                                 amount: 0,
+                                isPromotion: item.isPromotion,
                             })),
                             totals: { subTotal: 0, tax: 0, grandTotal: 0 },
                             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
@@ -689,8 +701,10 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-4">Line Items</h3>
                                     <div className="space-y-3">
-                                        {items.map(item => (
-                                            <div key={item.id} className="relative p-4 bg-muted/30 rounded-xl border border-border group hover:border-brand-500/50 transition-all">
+                                        {items.map(item => {
+                                            const isPromoRow = !!item.isPromotion;
+                                            return (
+                                            <div key={item.id} className={`relative p-4 rounded-xl border group transition-all ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-muted/30 border-border hover:border-brand-500/50'}`}>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItem(item.id)}
@@ -698,77 +712,107 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
-
-                                                <div className="flex gap-3 pr-8 mb-3">
-                                                    <div className="w-10">
-                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block text-center">No.</label>
-                                                        <div className="h-9 flex items-center justify-center bg-card rounded-lg border border-border font-mono text-sm font-semibold text-foreground">
-                                                            {item.no}
+                                                {isPromoRow ? (
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                            <span className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Cashback / Promotion</span>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Promotion Terms</label>
+                                                            <textarea
+                                                                value={item.description}
+                                                                onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                                className="w-full text-sm p-3 rounded-lg border border-amber-500/30 bg-input text-foreground focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 resize-none"
+                                                                rows={2}
+                                                                placeholder={"e.g. Buy 10-29pcs get cash back $40\nPeriod: 01st - 30th June 2026"}
+                                                            />
                                                         </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Item Code</label>
-                                                        <input
-                                                            type="text" value={item.itemCode}
-                                                            onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
-                                                            className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
-                                                        />
+                                                ) : (
+                                                    <>
+                                                    <div className="flex gap-3 pr-8 mb-3">
+                                                        <div className="w-10">
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block text-center">No.</label>
+                                                            <div className="h-9 flex items-center justify-center bg-card rounded-lg border border-border font-mono text-sm font-semibold text-foreground">
+                                                                {item.no}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Item Code</label>
+                                                            <input
+                                                                type="text" value={item.itemCode}
+                                                                onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
+                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-[1.5]">
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Model</label>
+                                                            <input
+                                                                type="text" value={item.modelName}
+                                                                onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
+                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-[1.5]">
-                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Model</label>
-                                                        <input
-                                                            type="text" value={item.modelName}
-                                                            onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                            className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
-                                                        />
-                                                    </div>
-                                                </div>
 
-                                                <div className="mb-3">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Description</label>
-                                                    <textarea
-                                                        value={item.description}
-                                                        onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                        className="w-full text-sm p-3 rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-none"
-                                                        rows={2}
-                                                    />
-                                                </div>
-
-                                                <div className="flex gap-3">
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
-                                                        <input
-                                                            type="number" value={item.qty}
-                                                            onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
-                                                            className="w-full h-9 px-2 text-center text-sm bg-input border border-border rounded-lg text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-                                                        />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">
-                                                            Serial Numbers <span className="normal-case font-normal opacity-50">(one per line)</span>
-                                                        </label>
+                                                    <div className="mb-3">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Description</label>
                                                         <textarea
-                                                            value={item.serialNumber || ''}
-                                                            onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                            className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-y min-h-[60px]"
-                                                            rows={3}
-                                                            placeholder={`SN001\nSN002\nSN003...`}
+                                                            value={item.description}
+                                                            onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                            className="w-full text-sm p-3 rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-none"
+                                                            rows={2}
                                                         />
-                                                        <div className="text-[9px] text-muted-foreground mt-0.5">
-                                                            {(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered
+                                                    </div>
+
+                                                    <div className="flex gap-3">
+                                                        <div className="w-24">
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
+                                                            <input
+                                                                type="number" value={item.qty}
+                                                                onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
+                                                                className="w-full h-9 px-2 text-center text-sm bg-input border border-border rounded-lg text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">
+                                                                Serial Numbers <span className="normal-case font-normal opacity-50">(one per line)</span>
+                                                            </label>
+                                                            <textarea
+                                                                value={item.serialNumber || ''}
+                                                                onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
+                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-y min-h-[60px]"
+                                                                rows={3}
+                                                                placeholder={`SN001\nSN002\nSN003...`}
+                                                            />
+                                                            <div className="text-[9px] text-muted-foreground mt-0.5">
+                                                                {(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                    </>
+                                                )}
                                             </div>
-                                        ))}
+                                            );
+                                        })}
 
+                                        <div className="flex gap-3">
                                         <button
                                             type="button"
                                             onClick={addItem}
-                                            className="w-full py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
                                         >
                                             <Plus className="w-4 h-4" /> Add Item
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={addPromoRow}
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            <span>+ Add Cashback</span>
+                                        </button>
+                                        </div>
                                     </div>
                                 </div>
 

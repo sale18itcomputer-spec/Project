@@ -10,6 +10,7 @@ interface LineItem {
     unitPrice: number | string;
     commission: number | string;
     amount: number;
+    isPromotion?: boolean;
 }
 
 interface PrintableSaleOrderProps {
@@ -33,7 +34,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 };
 
 const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, items, totals, currency, signaturePadding = 0 }) => {
-    const actualItems = items.filter(item => item.no > 0);
+    const actualItems = items.filter(item => item.no > 0 || item.isPromotion);
     const currencySymbol = getCurrencySymbol(currency);
 
     const formatCurrency = (value: number | string) => {
@@ -90,7 +91,7 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                 {/* Header removed for Sale Order as per request */}
 
                 {/* Title */}
-                <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 0 30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER (B2C)</h1>
+                <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 0 30px 0', textDecoration: 'underline', color: '#000', textDecorationColor: '#000' }}>SALE ORDER ({headerData['_isB2B'] ? 'B2B' : 'B2C'})</h1>
 
                 {/* Info Section */}
                 <div style={{ display: 'grid', gridTemplateColumns: '85px 10px 1fr 85px 10px 130px', gap: '8px 0', marginBottom: '20px', fontSize: '12px' }}>
@@ -148,42 +149,64 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                         </tr>
                     </thead>
                     <tbody>
-                        {actualItems.map((item, index) => (
-                            <React.Fragment key={item.id || `item-${index}`}>
-                                <tr>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
-                                        {item.no || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
-                                        {item.itemCode || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
-                                        {item.modelName || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
-                                        {item.qty || ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                        {item.unitPrice ? formatCurrency(item.unitPrice) : ''}
-                                    </td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
-                                        {item.amount ? formatCurrency(item.amount) : ''}
-                                    </td>
-                                </tr>
-                                {item.description && (
+                        {actualItems.map((item, index) => {
+                            if (item.isPromotion) {
+                                const promoAmt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+                                const promoAbs = Math.abs(promoAmt);
+                                return (
+                                    <React.Fragment key={item.id || `item-${index}`}>
+                                        <tr>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}></td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}></td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', fontStyle: 'italic', color: '#666', fontSize: '10px', whiteSpace: 'pre-wrap' }}>
+                                                {item.description || 'Cashback / Promotion'}
+                                            </td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}></td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top' }}></td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', verticalAlign: 'top', textAlign: 'right', color: '#c00000' }}>
+                                                {`(${currencySymbol} ${promoAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`}
+                                            </td>
+                                        </tr>
+                                    </React.Fragment>
+                                );
+                            }
+                            return (
+                                <React.Fragment key={item.id || `item-${index}`}>
                                     <tr>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
-                                            {item.description}
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                            {item.no || ''}
                                         </td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
-                                        <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top' }}>
+                                            {item.itemCode || ''}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', fontWeight: 'bold' }}>
+                                            {item.modelName || ''}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'center' }}>
+                                            {item.qty || ''}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                            {item.unitPrice ? formatCurrency(item.unitPrice) : ''}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #000', borderBottom: item.description ? 'none' : '1px solid #000', verticalAlign: 'top', textAlign: 'right' }}>
+                                            {item.amount ? formatCurrency(item.amount) : ''}
+                                        </td>
                                     </tr>
-                                )}
-                            </React.Fragment>
-                        ))}
+                                    {item.description && (
+                                        <tr>
+                                            <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                            <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderTop: 'none', verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: '10px', color: '#333' }}>
+                                                {item.description}
+                                            </td>
+                                            <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                            <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                            <td style={{ border: '1px solid #000', borderTop: 'none' }}></td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
                     </tbody>
                     <tfoot style={{ fontSize: '12px' }}>
                         <tr>

@@ -87,9 +87,23 @@ export function buildReceipt(
     }).join('');
 
     // ── Item rows ─────────────────────────────────────────────────────────────
-    const dataItems = items.filter(i => Number(i.no) > 0);
+    const dataItems = items.filter(i => Number(i.no) > 0 || i.isPromotion);
 
     const itemRows = dataItems.map((item) => {
+        if (item.isPromotion) {
+            const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+            const amtAbs = Math.abs(amt);
+            const promoDesc = esc((item.description || item.modelName || 'Cashback / Promotion').trim());
+            return `<tr class="text-center">
+              <td class="align-top"></td>
+              <td class="align-top text-left"></td>
+              <td class="align-top text-left italic" style="color:#666;">${promoDesc}</td>
+              <td class="align-top" style="color:#c00000;">
+                <div class="flex justify-between whitespace-nowrap"><span>${sym}</span><span>(${fmtNum(amtAbs)})</span></div>
+              </td>
+            </tr>`;
+        }
+
         const amt   = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
         const ref   = esc(item.itemCode || '');
         const isReal = !!(item.modelName || item.description || item.itemCode);

@@ -17,6 +17,7 @@ interface QuotationPDFPreviewProps {
             unitPrice: number | string;
             commission?: number | string;
             amount: number;
+            isPromotion?: boolean;
         }>;
         totals: { subTotal: number; vat: number; grandTotal: number };
         currency: 'USD' | 'KHR';
@@ -41,7 +42,7 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
             return buildPreviewHtml({
                 type: 'Quotation',
                 headerData: printableProps.headerData,
-                items: printableProps.items.filter(i => i.no > 0),
+                items: printableProps.items.filter(i => i.no > 0 || i.isPromotion),
                 totals: { subTotal: printableProps.totals.subTotal, vat: printableProps.totals.vat, grandTotal: printableProps.totals.grandTotal },
                 currency: printableProps.currency,
                 signaturePadding: linePadding,

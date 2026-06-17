@@ -4,7 +4,7 @@
  * Uses system serif fonts instead of base64-embedded fonts (preview only).
  * PDF download still goes through pdfTemplate.ts with embedded fonts.
  */
-import { esc, fmtDate, moneyInner, moneyTd, LOGO, PdfItem, PdfTotals } from './shared-pure';
+import { esc, fmtDate, fmtNum, moneyInner, moneyTd, LOGO, PdfItem, PdfTotals } from './shared-pure';
 
 const MM = 3.7795;
 const mm = (v: number) => `${v * MM}px`;
@@ -36,7 +36,20 @@ export function buildPurchaseOrderClient(
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
     const visibleCols = cw.filter(w => w > 0).length;
 
-    const rows = items.filter(i => i.itemCode || i.description || i.modelName).map(item => {
+    const rows = items.filter(i => i.isPromotion || i.itemCode || i.description || i.modelName).map(item => {
+        if (item.isPromotion) {
+            const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+            const amtAbs = Math.abs(amt);
+            const descText = esc((item.description || item.modelName || 'Cashback / Promotion').trim());
+            return `<tr>
+              ${wNo>0   ? `<td class="center"></td>` : ''}
+              ${wCode>0 ? `<td></td>` : ''}
+              ${wDesc>0 ? `<td style="font-style:italic;color:#666;">${descText}</td>` : ''}
+              ${wQty>0  ? `<td class="center"></td>` : ''}
+              ${wPrice>0 ? `<td style="padding:5px 6px;border:1px solid #000;"></td>` : ''}
+              ${wAmt>0   ? `<td style="padding:5px 6px;border:1px solid #000;color:#c00000;"><span style="display:flex;justify-content:space-between;white-space:nowrap"><span>${sym}</span><span>(${fmtNum(amtAbs)})</span></span></td>` : ''}
+            </tr>`;
+        }
         const uPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const amt    = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
         return `<tr>

@@ -64,9 +64,10 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
     const baseOpts = useMemo(() => ({
         type: pdfType,
         headerData: printableProps.headerData,
-        items: items.filter(i => i.no > 0).map(i => ({
+        items: items.filter(i => i.no > 0 || i.isPromotion).map(i => ({
             no: i.no, itemCode: i.itemCode, modelName: i.modelName,
             description: i.description, qty: i.qty, unitPrice: i.unitPrice, amount: i.amount,
+            isPromotion: i.isPromotion,
         })),
         totals: printableProps.totals,
         currency: printableProps.currency,

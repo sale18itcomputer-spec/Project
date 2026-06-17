@@ -9,6 +9,7 @@ interface LineItem {
     qty: number | string;
     unitPrice: number | string;
     amount: number;
+    isPromotion?: boolean;
 }
 
 interface PrintableReceiptProps {
@@ -46,8 +47,10 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
         return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    // Pad items to at least 3 rows
-    const displayItems = [...items.filter(i => i.no > 0)];
+    // Pad regular items to at least 3 rows, then append promo rows after
+    const regularItems = items.filter(i => i.no > 0);
+    const promoItems   = items.filter(i => i.isPromotion);
+    const displayItems = [...regularItems];
     while (displayItems.length < 3) {
         displayItems.push({
             id: `pad-${displayItems.length}`,
@@ -56,6 +59,7 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
             qty: '', unitPrice: 0, amount: 0,
         });
     }
+    displayItems.push(...promoItems);
 
     const subTotal = totals.subTotal;
     const vatAmount = isVAT ? (totals.tax > 0 ? totals.tax : subTotal * 0.1) : 0;
@@ -230,6 +234,26 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
 
                         <tbody>
                             {displayItems.map((item, idx) => {
+                                if (item.isPromotion) {
+                                    const promoAmt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+                                    const promoAbs = Math.abs(promoAmt);
+                                    return (
+                                        <tr key={item.id || idx} style={{ textAlign: 'center' }}>
+                                            <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                            <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                            <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, paddingBottom: 8, fontStyle: 'italic', color: '#666', fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                                                {item.description || 'Cashback / Promotion'}
+                                            </td>
+                                            <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                            <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                            <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8, color: '#c00000' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>{sym}</span><span>({fmtNum(promoAbs)})</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
                                 const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
                                 const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
                                 return (

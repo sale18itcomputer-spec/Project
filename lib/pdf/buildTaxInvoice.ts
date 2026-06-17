@@ -68,9 +68,52 @@ export function buildTaxInvoice(
         ? (hasDeposit ? 6 : 5)
         : (hasDeposit ? 3 : 1);
 
-    const dataItems = items.filter(i => Number(i.no) > 0);
+    const dataItems = items.filter(i => Number(i.no) > 0 || i.isPromotion);
 
     const makeItemRow = (item: PdfItem): string => {
+        if (item.isPromotion) {
+            const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+            const amtAbs = Math.abs(amt);
+            const promoAmt = `<div class="flex justify-between"><span>${sym}</span><span>(${fmtNum(amtAbs)})</span></div>`;
+            const descText = (item.description || item.modelName || '').trim();
+            if (!descText.includes('\n')) {
+                return `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-2"></td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-2"></td>` : ''}
+          ${wDesc>0 ? `<td class="text-left italic align-top py-2 text-[12px]" style="color:#666;">${esc(descText || 'Cashback / Promotion')}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-2"></td>` : ''}
+          ${wPrice>0? `<td class="align-top py-2"></td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-2" style="color:#c00000;">${promoAmt}</td>` : ''}
+        </tr>`;
+            }
+            const lines = descText.split('\n');
+            let promoRows = `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+          ${wDesc>0 ? `<td class="text-left italic align-top py-2 text-[12px]" style="border-bottom:none !important;color:#666;">${esc(lines[0])}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+          ${wPrice>0? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-2" style="border-bottom:none !important;color:#c00000;">${promoAmt}</td>` : ''}
+        </tr>`;
+            lines.slice(1).forEach((line, idx) => {
+                const isLast = idx === lines.length - 2;
+                const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important;border-top:none !important;';
+                const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+                promoRows += `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+          ${wDesc>0 ? `<td class="text-left italic text-[12px] align-top whitespace-pre-wrap" style="${tdStyle}padding-top:2px;${padStyle}color:#666;">${esc(line)}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+          ${wPrice>0? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+        </tr>`;
+            });
+            return promoRows;
+        }
+
         const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const amt   = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
         const amtDisplay  = amt > 0   ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`   : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
@@ -137,8 +180,10 @@ export function buildTaxInvoice(
     const footerLeftSpan = [wNo, wCode, wDesc].filter(w => w > 0).length || 1;
     const footerRightSpan = visibleItemCols - footerLeftSpan;
 
-    // Shorthand style strings for footer label cells (top/bottom/right border only, no left)
+    // VAT footer label cells: no left border (T&C rowspan cell sits to the left)
     const lblCellStyle = `border-top:1px solid #000 !important; border-bottom:1px solid #000 !important; border-right:1px solid #000 !important; border-left:none !important;`;
+    // Non-VAT footer label cells: full border (label IS the leftmost column)
+    const nonVatLblCellStyle = `border:1px solid #000 !important;`;
 
     const colgroupHtml = `<colgroup>
         ${wNo>0   ? `<col style="width:${wNo}%"/>` : ''}
@@ -205,16 +250,16 @@ export function buildTaxInvoice(
         </tr>
       </tbody>` : `<tbody class="break-inside-avoid">
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">${lblTotal}</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${nonVatLblCellStyle}">${lblTotal}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         ${hasDeposit ? `
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">${lblDeposit}</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${nonVatLblCellStyle}">${lblDeposit}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(deposit)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${lblCellStyle}">Total Less Deposit</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${visibleItemCols - 1}" style="${nonVatLblCellStyle}">Total Less Deposit</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
         </tr>` : ''}
       </tbody>`;
@@ -302,7 +347,7 @@ export function buildTaxInvoice(
       <ul class="list-disc list-inside space-y-0.5">
         <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
         <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-        <li><span class="font-bold">Warranty:</span> All goods sold are covered under Limperial Technology&apos;s warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+        <li><span class="font-bold">Warranty:</span> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
       </ul>
     </div>`}
   </div>

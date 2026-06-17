@@ -58,6 +58,7 @@ export interface PdfItem {
     amount?: number | string;
     serialNumber?: string;
     serialNumbers?: string[];
+    isPromotion?: boolean;
 }
 
 export interface PdfTotals {

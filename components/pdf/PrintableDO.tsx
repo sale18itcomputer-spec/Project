@@ -9,6 +9,7 @@ interface LineItem {
     qty: number | string;
     serialNumber?: string;
     serialNumbers?: string[];
+    isPromotion?: boolean;
 }
 
 interface PrintableDOProps {
@@ -21,10 +22,10 @@ const LOGO_URL = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(
 const BRAND_BLUE = '#0056b3';
 
 const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signaturePadding = 0 }) => {
-    const actualItems = items.filter(item => item.no > 0);
-
-    // Pad to at least 3 rows
-    const displayItems = [...actualItems];
+    // Pad regular items to at least 3 rows, then append promo rows after
+    const regularItems = items.filter(item => item.no > 0);
+    const promoItems   = items.filter(item => item.isPromotion);
+    const displayItems = [...regularItems];
     while (displayItems.length < 3) {
         displayItems.push({
             id: `pad-${displayItems.length}`,
@@ -32,6 +33,7 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signatureP
             itemCode: '', modelName: '', description: '', qty: '',
         });
     }
+    displayItems.push(...promoItems);
 
     const fmtDate = (ds?: string) => {
         if (!ds) return '';
@@ -193,38 +195,55 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signatureP
                             </tr>
                         </thead>
                         <tbody>
-                            {displayItems.map((item, idx) => (
-                                <React.Fragment key={item.id || idx}>
-                                    <tr style={{ height: 48, textAlign: 'center' }}>
-                                        <td style={tdBorder}>{item.no > 0 ? item.no : ''}</td>
-                                        <td style={tdBorder}>{item.itemCode}</td>
-                                        <td style={{ ...tdBorder, textAlign: 'left', fontWeight: 'bold' }}>{item.modelName || ''}</td>
-                                        <td style={tdBorder}>{item.qty || ''}</td>
-                                        {(() => {
-                                            const sns = (item.serialNumbers && item.serialNumbers.length > 0)
-                                                ? item.serialNumbers
-                                                : item.serialNumber ? [item.serialNumber] : [];
-                                            const filtered = sns.filter(s => s.trim());
-                                            return (
-                                                <td style={{ ...tdBorder, textAlign: 'left', fontSize: 8, verticalAlign: 'top', paddingTop: 6 }}>
-                                                    {filtered.map((s, i) => (
-                                                        <div key={i} style={{ lineHeight: 1.6 }}>{s}</div>
-                                                    ))}
+                            {displayItems.map((item, idx) => {
+                                if (item.isPromotion) {
+                                    return (
+                                        <React.Fragment key={item.id || idx}>
+                                            <tr style={{ height: 48, textAlign: 'center' }}>
+                                                <td style={tdBorder}></td>
+                                                <td style={tdBorder}></td>
+                                                <td style={{ ...tdBorder, textAlign: 'left', fontStyle: 'italic', color: '#666', fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                                                    {item.description || 'Cashback / Promotion'}
                                                 </td>
-                                            );
-                                        })()}
-                                    </tr>
-                                    {item.description && (
-                                        <tr>
-                                            <td style={{ ...tdBorder, borderTop: 'none' }}></td>
-                                            <td style={{ ...tdBorder, borderTop: 'none' }}></td>
-                                            <td style={{ ...tdBorder, borderTop: 'none', fontSize: 8, whiteSpace: 'pre-wrap', fontWeight: 'normal' }}>{item.description}</td>
-                                            <td style={{ ...tdBorder, borderTop: 'none' }}></td>
-                                            <td style={{ ...tdBorder, borderTop: 'none' }}></td>
+                                                <td style={tdBorder}></td>
+                                                <td style={tdBorder}></td>
+                                            </tr>
+                                        </React.Fragment>
+                                    );
+                                }
+                                return (
+                                    <React.Fragment key={item.id || idx}>
+                                        <tr style={{ height: 48, textAlign: 'center' }}>
+                                            <td style={tdBorder}>{item.no > 0 ? item.no : ''}</td>
+                                            <td style={tdBorder}>{item.itemCode}</td>
+                                            <td style={{ ...tdBorder, textAlign: 'left', fontWeight: 'bold' }}>{item.modelName || ''}</td>
+                                            <td style={tdBorder}>{item.qty || ''}</td>
+                                            {(() => {
+                                                const sns = (item.serialNumbers && item.serialNumbers.length > 0)
+                                                    ? item.serialNumbers
+                                                    : item.serialNumber ? [item.serialNumber] : [];
+                                                const filtered = sns.filter(s => s.trim());
+                                                return (
+                                                    <td style={{ ...tdBorder, textAlign: 'left', fontSize: 8, verticalAlign: 'top', paddingTop: 6 }}>
+                                                        {filtered.map((s, i) => (
+                                                            <div key={i} style={{ lineHeight: 1.6 }}>{s}</div>
+                                                        ))}
+                                                    </td>
+                                                );
+                                            })()}
                                         </tr>
-                                    )}
-                                </React.Fragment>
-                            ))}
+                                        {item.description && (
+                                            <tr>
+                                                <td style={{ ...tdBorder, borderTop: 'none' }}></td>
+                                                <td style={{ ...tdBorder, borderTop: 'none' }}></td>
+                                                <td style={{ ...tdBorder, borderTop: 'none', fontSize: 8, whiteSpace: 'pre-wrap', fontWeight: 'normal' }}>{item.description}</td>
+                                                <td style={{ ...tdBorder, borderTop: 'none' }}></td>
+                                                <td style={{ ...tdBorder, borderTop: 'none' }}></td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
                             {/* Spacer */}
                             <tr style={{ height: 80 }}>
                                 <td style={tdBorder}></td>

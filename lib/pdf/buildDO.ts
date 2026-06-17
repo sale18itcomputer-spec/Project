@@ -109,7 +109,17 @@ export function buildDO(
     const T = LAYOUT.table;
     const doNo = (hd['Inv No.'] || hd['Inv No'] || '').replace('INV', 'DO');
 
-    const rows = items.filter(i => Number(i.no) > 0).map(item => {
+    const rows = items.filter(i => Number(i.no) > 0 || i.isPromotion).map(item => {
+        if (item.isPromotion) {
+            const descText = (item.description || item.modelName || 'Cashback / Promotion').trim();
+            return `
+        <tr>
+          <td class="center"></td>
+          <td></td>
+          <td style="font-style:italic;color:#666;">${esc(descText)}</td>
+          <td class="center"></td>
+        </tr>`;
+        }
         const hasSub = item.description;
         return `
         <tr>

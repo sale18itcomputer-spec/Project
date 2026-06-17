@@ -40,6 +40,7 @@ interface LineItem {
     unitPrice: number | string;
     commission: number | string;
     amount: number;
+    isPromotion?: boolean;
 }
 
 const BULLET_TYPES = [
@@ -552,36 +553,49 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         });
     };
 
+    const renumberItems = (list: LineItem[]) => {
+        let n = 0;
+        return list.map(item => item.isPromotion ? { ...item, no: 0 } : { ...item, no: ++n });
+    };
+
     const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount'>, value: string | number) => {
         setItems(currentItems => {
             const newItems = currentItems.map(item => {
                 if (item.id === id) {
                     const updatedItem = { ...item, [field]: value } as any;
-                    const q = parseFloat(String(updatedItem.qty)) || 0;
-                    const p = parseFloat(String(updatedItem.unitPrice)) || 0;
-                    const c = parseFloat(String(updatedItem.commission)) || 0;
-                    updatedItem.amount = q * (p + c);
+                    if (!updatedItem.isPromotion) {
+                        const q = parseFloat(String(updatedItem.qty)) || 0;
+                        const p = parseFloat(String(updatedItem.unitPrice)) || 0;
+                        const c = parseFloat(String(updatedItem.commission)) || 0;
+                        updatedItem.amount = q * (p + c);
+                    }
                     return updatedItem;
                 }
                 return item;
             });
-            return newItems.map((item, index) => ({ ...item, no: index + 1 }));
+            return renumberItems(newItems);
         });
+    };
+
+    const handlePromoAmountChange = (id: string, value: string) => {
+        const amt = parseFloat(value) || 0;
+        setItems(prev => prev.map(item => item.id === id ? { ...item, amount: -Math.abs(amt) } : item));
     };
 
     const addItem = () => {
-        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: prev.length + 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]);
+        setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]));
     };
 
     const removeItem = (id: string) => {
-        setItems(prev => {
-            const newItems = prev.filter(item => item.id !== id);
-            return newItems.map((item, index) => ({ ...item, no: index + 1 }));
-        });
+        setItems(prev => renumberItems(prev.filter(item => item.id !== id)));
     };
 
     const addDescriptionRow = () => {
         setItems(prev => [...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, commission: 0, amount: 0 }]);
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, commission: 0, amount: 0, isPromotion: true }]);
     };
 
     const totals = useMemo(() => {
@@ -805,11 +819,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Email': saleOrder.Email,
                 'Payment Term': saleOrder['Payment Term'],
                 'Bill Invoice': saleOrder['Bill Invoice'],
+                '_isB2B': isB2B,
             },
-            items: items.filter(item => item.no > 0).map(item => ({
+            items: items.filter(item => item.no > 0 || item.isPromotion).map(item => ({
                 no: item.no, itemCode: item.itemCode, modelName: item.modelName,
                 description: item.description, qty: item.qty, unitPrice: item.unitPrice,
-                amount: item.amount, commission: item.commission
+                amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
             })),
             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
@@ -840,11 +855,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             'Prepared By Position': saleOrder['Prepared By Position'],
             'Approved By': saleOrder['Approved By'],
             'Approved By Position': saleOrder['Approved By Position'],
+            '_isB2B': isB2B,
         },
         items: items.map(item => ({
             id: item.id, no: item.no, itemCode: item.itemCode, modelName: item.modelName,
             description: item.description, qty: item.qty, unitPrice: item.unitPrice,
-            amount: item.amount, commission: item.commission
+            amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
         })),
         totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
         currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',
@@ -931,11 +947,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                 'Email': saleOrder.Email,
                                 'Payment Term': saleOrder['Payment Term'],
                                 'Bill Invoice': saleOrder['Bill Invoice'],
+                                '_isB2B': isB2B,
                             },
-                            items: items.filter(i => i.no > 0).map(item => ({
+                            items: items.filter(i => i.no > 0 || i.isPromotion).map(item => ({
                                 no: item.no, itemCode: item.itemCode, modelName: item.modelName,
                                 description: item.description, qty: item.qty, unitPrice: item.unitPrice,
-                                amount: item.amount, commission: item.commission,
+                                amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
                             })),
                             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
                             currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',
@@ -1081,14 +1098,49 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     ) : (
                                         <div className="space-y-4">
                                             {items.map((item) => {
-                                                const isDescriptionRow = item.no === 0;
+                                                const isDescriptionRow = item.no === 0 && !item.isPromotion;
+                                                const isPromoRow = !!item.isPromotion;
                                                 return (
-                                                    <div key={item.id} className="relative p-4 bg-muted/30 rounded-xl border border-border shadow-sm transition-all hover:border-brand-500/50 hover:shadow-md group">
+                                                    <div key={item.id} className={`relative p-4 rounded-xl border shadow-sm transition-all hover:shadow-md group ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-muted/30 border-border hover:border-brand-500/50'}`}>
                                                         <button type="button" onClick={() => removeItem(item.id)} className="absolute top-3 right-3 text-muted-foreground/50 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all z-10" title="Remove Item">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
 
-                                                        {isDescriptionRow ? (
+                                                        {isPromoRow ? (
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                    <span className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Cashback / Promotion</span>
+                                                                </div>
+                                                                <div className="space-y-3">
+                                                                    <div>
+                                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Promotion Terms</label>
+                                                                        <textarea
+                                                                            value={item.description}
+                                                                            onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                                            className="w-full text-sm p-3 rounded-lg border border-amber-500/30 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
+                                                                            rows={2}
+                                                                            placeholder={"e.g. Buy 10-29pcs get cash back $40\nPeriod: 01st - 30th June 2026"}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div>
+                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cashback Amount</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                min="0"
+                                                                                value={Math.abs(item.amount)}
+                                                                                onChange={e => handlePromoAmountChange(item.id, e.target.value)}
+                                                                                className="w-32 h-9 px-3 text-right text-sm border border-amber-500/30 rounded-lg bg-input text-foreground focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                                                                placeholder="0.00"
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-xs font-semibold text-rose-500 pt-5">deducted from total</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : isDescriptionRow ? (
                                                             <div>
                                                                 <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Note / Description</label>
                                                                 <textarea
@@ -1169,6 +1221,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 </button>
                                                 <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground bg-muted hover:bg-muted/80 hover:border-muted-foreground/30 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                     <span>+ Add Note Block</span>
+                                                </button>
+                                                <button type="button" onClick={addPromoRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                    <span>+ Add Cashback</span>
                                                 </button>
                                             </div>
 

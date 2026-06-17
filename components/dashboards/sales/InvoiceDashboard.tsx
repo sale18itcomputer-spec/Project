@@ -176,7 +176,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     'Company Name (Khmer)': invoice['Company Name (Khmer)'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Company Name (Khmer)'] || '',
                     'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
                 },
-                items: items.filter((item: any) => item.no > 0).map((item: any) => ({
+                items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
                     no: item.no,
                     itemCode: item.itemCode,
                     modelName: item.modelName,
@@ -184,6 +184,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     qty: item.qty,
                     unitPrice: item.unitPrice,
                     amount: item.amount,
+                    isPromotion: item.isPromotion,
                 })),
                 totals: { subTotal, tax, grandTotal },
                 currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',

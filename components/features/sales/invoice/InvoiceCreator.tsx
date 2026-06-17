@@ -66,6 +66,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const draftKey = existingInvoice ? `inv-edit-${existingInvoice['Inv No']}` : 'inv-new';
+    const draft = useRef(readFormDraft<{ invoice: Partial<Invoice & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
+    const hasDraft = useRef(!!draft);
+    const [hasDraftState, setHasDraftState] = useState(!!draft);
+    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+
     const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
 
     const [invoice, setInvoice] = useState<Partial<Invoice & { [key: string]: any }>>(() => draft?.invoice ?? {});
@@ -75,12 +81,6 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [labelPadding, setLabelPadding] = useState(200);
     const [hideKhmer, setHideKhmer] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
-
-    const draftKey = existingInvoice ? `inv-edit-${existingInvoice['Inv No']}` : 'inv-new';
-    const draft = useRef(readFormDraft<{ invoice: Partial<Invoice & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
-    const hasDraft = useRef(!!draft);
-    const [hasDraftState, setHasDraftState] = useState(!!draft);
-    const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
     // Next invoice number — fetched async from BOTH b2c+b2b tables so the
     // sequence is globally unique regardless of which mode the user is in.
@@ -324,25 +324,44 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         } : i));
     };
 
+    const renumberItems = (list: LineItem[]): LineItem[] => {
+        let num = 0;
+        return list.map(item => {
+            if (item.isPromotion) return { ...item, no: 0 };
+            num++;
+            return { ...item, no: num };
+        });
+    };
+
     const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => {
         setItems(prev => prev.map(item => {
             if (item.id === id) {
                 const newItem = { ...item, [field]: value };
-                newItem.amount = (Number(newItem.qty) || 0) * (Number(newItem.unitPrice) || 0);
+                if (!newItem.isPromotion) {
+                    newItem.amount = (Number(newItem.qty) || 0) * (Number(newItem.unitPrice) || 0);
+                }
                 return newItem;
             }
             return item;
         }));
     };
 
+    const handlePromoAmountChange = (id: string, value: string) => {
+        const abs = Math.abs(parseFloat(value) || 0);
+        setItems(prev => prev.map(item => item.id === id ? { ...item, amount: -abs } : item));
+    };
+
     const addItem = () => {
-        const nextNo = items.length > 0 ? Math.max(...items.map(i => i.no)) + 1 : 1;
-        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: nextNo, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+        setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]));
     };
 
     const removeItem = (id: string) => {
         if (items.length === 1) return;
-        setItems(prev => prev.filter(item => item.id !== id));
+        setItems(prev => renumberItems(prev.filter(item => item.id !== id)));
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, isPromotion: true }]);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -630,14 +649,15 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Deposit': invoice['Deposit'] || 0,
                 'Exchange Rate': invoice['Exchange Rate'] || '',
             },
-            items: items.filter(item => item.no > 0).map(item => ({
+            items: items.filter(item => item.no > 0 || item.isPromotion).map(item => ({
                 no: item.no,
                 itemCode: item.itemCode,
                 modelName: item.modelName,
                 description: item.description,
                 qty: item.qty,
                 unitPrice: item.unitPrice,
-                amount: item.amount
+                amount: item.amount,
+                isPromotion: item.isPromotion,
             })),
             totals: {
                 subTotal: totals.subTotal,
@@ -750,7 +770,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} />
+                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} addPromoRow={addPromoRow} handlePromoAmountChange={handlePromoAmountChange} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} />
                 </div>
 
                 <div className="print-only">

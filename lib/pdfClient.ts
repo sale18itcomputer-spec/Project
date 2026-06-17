@@ -23,6 +23,7 @@ export interface PdfClientOptions {
         unitPrice?: number | string;
         commission?: number | string;
         amount?: number | string;
+        isPromotion?: boolean;
     }>;
     totals: { subTotal: number; tax?: number; vat?: number; grandTotal: number };
     currency: 'USD' | 'KHR';

@@ -9,4 +9,5 @@ export interface LineItem {
     amount: number;
     serialNumber?: string;
     serialNumbers?: string[];
+    isPromotion?: boolean;
 }

@@ -43,9 +43,52 @@ export function buildQuotationVAT(
     const footerLeftSpan = Math.max([wNo, wCode, wDesc].filter(w => w > 0).length, 1);
     const footerRightSpan = visibleCols - footerLeftSpan;
 
-    const dataItems = items.filter(i => Number(i.no) > 0);
+    const dataItems = items.filter(i => Number(i.no) > 0 || i.isPromotion);
 
     const makeItemRow = (item: typeof dataItems[0]) => {
+        if (item.isPromotion) {
+            const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+            const amtAbs = Math.abs(amt);
+            const promoAmt = `<div class="flex justify-between"><span>${sym}</span><span>(${fmtNum(amtAbs)})</span></div>`;
+            const descText = (item.description || item.modelName || '').trim();
+            if (!descText.includes('\n')) {
+                return `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0   ? `<td class="align-top py-2"></td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-2"></td>` : ''}
+              ${wDesc>0 ? `<td class="text-left italic align-top py-2 text-[12px]" style="color:#666;">${esc(descText || 'Cashback / Promotion')}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-2"></td>` : ''}
+              ${wPrice>0? `<td class="align-top py-2"></td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-2" style="color:#c00000;">${promoAmt}</td>` : ''}
+            </tr>`;
+            }
+            const lines = descText.split('\n');
+            let promoRows = `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0   ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wDesc>0 ? `<td class="text-left italic align-top py-2 text-[12px]" style="border-bottom:none !important;color:#666;">${esc(lines[0])}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wPrice>0? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-2" style="border-bottom:none !important;color:#c00000;">${promoAmt}</td>` : ''}
+            </tr>`;
+            lines.slice(1).forEach((line, idx) => {
+                const isLast = idx === lines.length - 2;
+                const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important;border-top:none !important;';
+                const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+                promoRows += `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wCode>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wDesc>0 ? `<td class="text-left italic text-[12px] align-top whitespace-pre-wrap" style="${tdStyle}padding-top:2px;${padStyle}color:#666;">${esc(line)}</td>` : ''}
+              ${wQty>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wPrice>0? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wAmt>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+            </tr>`;
+            });
+            return promoRows;
+        }
+
         const uPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const comm   = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
         const price  = uPrice + comm;

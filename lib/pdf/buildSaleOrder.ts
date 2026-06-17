@@ -38,9 +38,52 @@ export function buildSaleOrder(
     const footerRightSpan = visibleCols - footerLeftSpan;
     const footerRows     = 2 + (tax > 0 ? 1 : 0);
 
-    const dataItems = items.filter(i => Number(i.no) > 0);
+    const dataItems = items.filter(i => Number(i.no) > 0 || i.isPromotion);
 
     const makeItemRow = (item: typeof dataItems[0]) => {
+        if (item.isPromotion) {
+            const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+            const amtAbs = Math.abs(amt);
+            const promoAmt = `<div class="flex justify-between"><span>${sym}</span><span>(${fmtNum(amtAbs)})</span></div>`;
+            const descText = (item.description || item.modelName || '').trim();
+            if (!descText.includes('\n')) {
+                return `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-2"></td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-2"></td>` : ''}
+              ${wDesc>0  ? `<td class="text-left italic align-top py-2 text-[12px]" style="color:#666;">${esc(descText || 'Cashback / Promotion')}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-2"></td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-2"></td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-2" style="color:#c00000;">${promoAmt}</td>` : ''}
+            </tr>`;
+            }
+            const lines = descText.split('\n');
+            let promoRows = `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wDesc>0  ? `<td class="text-left italic align-top py-2 text-[12px]" style="border-bottom:none !important;color:#666;">${esc(lines[0])}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-2" style="border-bottom:none !important;"></td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-2" style="border-bottom:none !important;color:#c00000;">${promoAmt}</td>` : ''}
+            </tr>`;
+            lines.slice(1).forEach((line, idx) => {
+                const isLast = idx === lines.length - 2;
+                const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important;border-top:none !important;';
+                const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+                promoRows += `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wDesc>0  ? `<td class="text-left italic text-[12px] align-top whitespace-pre-wrap" style="${tdStyle}padding-top:2px;${padStyle}color:#666;">${esc(line)}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+            </tr>`;
+            });
+            return promoRows;
+        }
+
         const qty      = typeof item.qty        === 'number' ? item.qty        : parseFloat(String(item.qty))        || 0;
         const amt      = typeof item.amount     === 'number' ? item.amount     : parseFloat(String(item.amount))     || 0;
         const comm     = typeof item.commission === 'number' ? item.commission : parseFloat(String(item.commission)) || 0;
@@ -153,7 +196,7 @@ export function buildSaleOrder(
   <div class="no-break">
 
     <div class="text-center mb-6 pt-6">
-      <h4 class="text-lg font-bold">SALE ORDER (B2C)</h4>
+      <h4 class="text-lg font-bold">SALE ORDER (${hd['_isB2B'] ? 'B2B' : 'B2C'})</h4>
     </div>
 
     <div class="flex justify-between gap-0 mb-6">

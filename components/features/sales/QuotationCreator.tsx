@@ -46,6 +46,7 @@ interface LineItem {
     unitPrice: number | string;
     amount: number;
     commission: number | string;
+    isPromotion?: boolean;
 }
 
 
@@ -494,14 +495,21 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setQuote(prev => ({ ...prev, 'Contact Name': contactName, 'Contact Number': contact?.['Tel (1)'] || prev['Contact Number'] || '', 'Contact Email': contact?.Email || prev['Contact Email'] || '' }));
     };
 
+    const renumberItems = (list: LineItem[]) => {
+        let n = 1;
+        return list.map(item => {
+            if (item.isPromotion) return { ...item, no: 0 };
+            if (item.itemCode || item.modelName || item.qty || item.unitPrice) return { ...item, no: n++ };
+            return { ...item, no: 0 };
+        });
+    };
+
     const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => {
         setItems(currentItems => {
             const newItems = currentItems.map(item => {
                 if (item.id === id) {
-                    const isDescriptionRow = item.no === 0;
                     const updatedItem = { ...item, [field]: value };
-
-                    if (!isDescriptionRow) {
+                    if (!item.isPromotion && item.no !== 0) {
                         const q = parseFloat(String(updatedItem.qty)) || 0;
                         const p = parseFloat(String(updatedItem.unitPrice)) || 0;
                         const c = parseFloat(String(updatedItem.commission)) || 0;
@@ -511,14 +519,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 }
                 return item;
             });
-            let currentNo = 1;
-            return newItems.map(item => {
-                if (item.itemCode || item.modelName || item.qty || item.unitPrice) {
-                    return { ...item, no: currentNo++ }
-                }
-                return { ...item, no: 0 };
-            });
+            return renumberItems(newItems);
         });
+    };
+
+    const handlePromoAmountChange = (id: string, value: string) => {
+        const amt = parseFloat(value) || 0;
+        setItems(prev => prev.map(item => item.id === id ? { ...item, amount: -Math.abs(amt) } : item));
     };
 
     const applyBullet = (id: string, bulletChar: string) => {
@@ -565,38 +572,21 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     };
 
     const addItem = () => {
-        setItems(prev => {
-            const newItem = { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 };
-            const newItems = [...prev, newItem];
-
-            let currentNo = 1;
-            return newItems.map(item => {
-                if (item.itemCode || item.modelName || item.qty || item.unitPrice) {
-                    return { ...item, no: currentNo++ }
-                }
-                return { ...item, no: 0 };
-            });
-        });
+        setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0, commission: 0 }]));
     };
 
     const addDescriptionRow = () => {
-        setItems(prev => {
-            const newItem = { id: `desc-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, commission: 0 };
-            return [...prev, newItem];
-        });
+        setItems(prev => [...prev, { id: `desc-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, commission: 0 }]);
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, commission: 0, isPromotion: true }]);
     };
 
     const removeItem = (id: string) => {
         setItems(prev => {
-            if (prev.length <= 1) return prev; // Don't remove the last item
-            const newItems = prev.filter(item => item.id !== id);
-            let currentNo = 1;
-            return newItems.map(item => {
-                if (item.itemCode || item.modelName || item.qty || item.unitPrice) {
-                    return { ...item, no: currentNo++ }
-                }
-                return { ...item, no: 0 };
-            });
+            if (prev.length <= 1) return prev;
+            return renumberItems(prev.filter(item => item.id !== id));
         });
     };
 
@@ -754,7 +744,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 'Contact Email': quote['Contact Email'],
                 'Stock Status': quote['Stock Status'],
             },
-            items: items.filter(item => item.no > 0).map(item => ({
+            items: items.filter(item => item.no > 0 || item.isPromotion).map(item => ({
                 no: item.no,
                 itemCode: item.itemCode,
                 modelName: item.modelName,
@@ -762,7 +752,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 qty: item.qty,
                 unitPrice: item.unitPrice,
                 amount: item.amount,
-                commission: item.commission
+                commission: item.commission,
+                isPromotion: item.isPromotion,
             })),
             totals: {
                 subTotal: totals.subTotal,
@@ -793,7 +784,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     'Contact Email': quote['Contact Email'],
                     'Stock Status': quote['Stock Status'],
                 },
-                items: items.filter(item => item.no > 0).map(item => ({
+                items: items.filter(item => item.no > 0 || item.isPromotion).map(item => ({
                     no: item.no,
                     itemCode: item.itemCode,
                     modelName: item.modelName,
@@ -801,7 +792,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     qty: item.qty,
                     unitPrice: item.unitPrice,
                     amount: item.amount,
-                    commission: item.commission
+                    commission: item.commission,
+                    isPromotion: item.isPromotion,
                 })),
                 totals: {
                     subTotal: totals.subTotal,
@@ -1013,7 +1005,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             'Remark': quote.Remark,
                                             'Terms and Conditions': quote['Terms and Conditions'],
                                         },
-                                        items: items.filter(i => i.no > 0).map(i => ({
+                                        items: items.filter(i => i.no > 0 || i.isPromotion).map(i => ({
                                             no: i.no,
                                             itemCode: i.itemCode,
                                             modelName: i.modelName,
@@ -1022,6 +1014,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             unitPrice: i.unitPrice,
                                             amount: i.amount,
                                             commission: i.commission,
+                                            isPromotion: i.isPromotion,
                                         })),
                                         totals: { subTotal: totals.subTotal, vat: totals.vat, grandTotal: totals.grandTotal },
                                         currency: (quote.Currency as 'USD' | 'KHR') || 'USD',
@@ -1371,9 +1364,10 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         {itemsLoading ? <div className="text-center p-8"><Spinner /></div> : (
                                             <div className="space-y-4">
                                                 {items.map((item) => {
-                                                    const isDescriptionRow = item.no === 0;
+                                                    const isDescriptionRow = item.no === 0 && !item.isPromotion;
+                                                    const isPromoRow = !!item.isPromotion;
                                                     return (
-                                                        <div key={item.id} className="relative p-4 bg-muted/30 rounded-xl border border-border shadow-sm transition-all hover:border-brand-500/50 hover:shadow-md group">
+                                                        <div key={item.id} className={`relative p-4 rounded-xl border shadow-sm transition-all hover:shadow-md group ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-muted/30 border-border hover:border-brand-500/50'}`}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => removeItem(item.id)}
@@ -1383,7 +1377,41 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
 
-                                                            {isDescriptionRow ? (
+                                                            {isPromoRow ? (
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                        <span className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Cashback / Promotion</span>
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        <div>
+                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Promotion Terms</label>
+                                                                            <textarea
+                                                                                value={item.description}
+                                                                                onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                                                className="w-full text-sm p-3 rounded-lg border border-amber-500/30 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
+                                                                                rows={2}
+                                                                                placeholder={"e.g. Buy 10-29pcs get cash back $40\nPeriod: 01st - 30th June 2026"}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div>
+                                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cashback Amount</label>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.01"
+                                                                                    min="0"
+                                                                                    value={Math.abs(item.amount)}
+                                                                                    onChange={e => handlePromoAmountChange(item.id, e.target.value)}
+                                                                                    className="w-32 h-9 px-3 text-right text-sm border border-amber-500/30 rounded-lg bg-input text-foreground focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                                                                    placeholder="0.00"
+                                                                                />
+                                                                            </div>
+                                                                            <span className="text-xs font-semibold text-rose-500 pt-5">deducted from total</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : isDescriptionRow ? (
                                                                 <div>
                                                                     <div className="flex items-center justify-between mb-1">
                                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground/60 block">Note / Description</label>
@@ -1499,6 +1527,9 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                     </button>
                                                     <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground bg-muted hover:bg-muted/80 hover:border-muted-foreground/30 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                         <span>+ Add Note Block</span>
+                                                    </button>
+                                                    <button type="button" onClick={addPromoRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                        <span>+ Add Cashback</span>
                                                     </button>
                                                 </div>
 

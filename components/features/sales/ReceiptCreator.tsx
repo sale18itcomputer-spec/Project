@@ -40,6 +40,7 @@ interface LineItem {
     unitPrice: number | string;
     amount: number;
     serialNumber?: string;
+    isPromotion?: boolean;
 }
 
 interface Props {
@@ -249,23 +250,42 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         addToast(`Loaded info from ${invNo}`, 'success');
     };
 
+    const renumberItems = (list: LineItem[]): LineItem[] => {
+        let num = 0;
+        return list.map(item => {
+            if (item.isPromotion) return { ...item, no: 0 };
+            num++;
+            return { ...item, no: num };
+        });
+    };
+
     const handleItemChange = (id: string, field: keyof Omit<LineItem, 'id' | 'amount' | 'no'>, value: string | number) => {
         setItems(prev => prev.map(item => {
             if (item.id !== id) return item;
             const updated = { ...item, [field]: value };
-            updated.amount = (Number(updated.qty) || 0) * (Number(updated.unitPrice) || 0);
+            if (!updated.isPromotion) {
+                updated.amount = (Number(updated.qty) || 0) * (Number(updated.unitPrice) || 0);
+            }
             return updated;
         }));
     };
 
+    const handlePromoAmountChange = (id: string, value: string) => {
+        const abs = Math.abs(parseFloat(value) || 0);
+        setItems(prev => prev.map(item => item.id === id ? { ...item, amount: -abs } : item));
+    };
+
     const addItem = () => {
-        const nextNo = items.length > 0 ? Math.max(...items.map(i => i.no)) + 1 : 1;
-        setItems(prev => [...prev, { id: `item-${Date.now()}`, no: nextNo, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
+        setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]));
     };
 
     const removeItem = (id: string) => {
         if (items.length === 1) return;
-        setItems(prev => prev.filter(i => i.id !== id));
+        setItems(prev => renumberItems(prev.filter(i => i.id !== id)));
+    };
+
+    const addPromoRow = () => {
+        setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, isPromotion: true }]);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,7 +340,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         generatePDF({
             type: 'Receipt',
             headerData: { ...doc },
-            items: items.map(item => ({
+            items: items.filter(i => Number(i.no) > 0 || i.isPromotion).map(item => ({
                 no: item.no,
                 itemCode: item.itemCode,
                 modelName: item.modelName,
@@ -328,6 +348,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 qty: item.qty,
                 unitPrice: item.unitPrice,
                 amount: item.amount,
+                isPromotion: item.isPromotion,
             })),
             totals,
             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
@@ -407,10 +428,11 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                         pdfOptions={{
                             type: 'Receipt',
                             headerData: { ...doc },
-                            items: items.map(i => ({
+                            items: items.filter(i => Number(i.no) > 0 || i.isPromotion).map(i => ({
                                 no: i.no, itemCode: i.itemCode, modelName: i.modelName,
                                 description: i.description, qty: i.qty,
                                 unitPrice: i.unitPrice, amount: i.amount,
+                                isPromotion: i.isPromotion,
                             })),
                             totals,
                             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
@@ -480,68 +502,106 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
                                     <div className="space-y-3">
-                                        {items.map(item => (
-                                            <div key={item.id} className="relative p-4 bg-slate-50 rounded-xl border border-slate-200 group hover:border-brand-300 transition-all">
+                                        {items.map(item => {
+                                            const isPromoRow = !!item.isPromotion;
+                                            return (
+                                            <div key={item.id} className={`relative p-4 rounded-xl border group transition-all ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-slate-50 border-slate-200 hover:border-brand-300'}`}>
                                                 <button onClick={() => removeItem(item.id)}
                                                     className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
-                                                <div className="flex gap-3 pr-8 mb-3">
-                                                    <div className="w-10 flex flex-col items-center justify-center">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
-                                                        <div className="h-9 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600">{item.no}</div>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
-                                                        <input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
-                                                            className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
-                                                    </div>
-                                                    <div className="flex-[1.5]">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
-                                                        <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                            className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
-                                                    </div>
-                                                </div>
-                                                <div className="mb-3">
-                                                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Description</label>
-                                                    <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                        className="w-full text-sm p-3 rounded-lg border border-slate-200 bg-white" rows={2} />
-                                                </div>
-                                                <div className="flex flex-wrap gap-3">
-                                                    <div className="w-20">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
-                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
-                                                            className="w-full h-9 px-2 text-center text-sm bg-white border border-slate-200 rounded-lg" />
-                                                    </div>
-                                                    <div className="w-32">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
-                                                        <input type="number" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)}
-                                                            className="w-full h-9 px-3 text-right text-sm bg-white border border-slate-200 rounded-lg" />
-                                                    </div>
-                                                    <div className="w-full">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Serial Numbers <span className="normal-case font-normal text-slate-300">(one per line)</span></label>
-                                                        <textarea
-                                                            value={item.serialNumber || ''}
-                                                            onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                            className="w-full text-xs p-2 font-mono rounded-lg border border-slate-200 bg-white resize-y min-h-[60px]"
-                                                            rows={3}
-                                                            placeholder={`SN001\nSN002\nSN003...`}
-                                                        />
-                                                        <div className="text-[9px] text-slate-400 mt-0.5">{(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered</div>
-                                                    </div>
-                                                    <div className="flex-1 text-right pt-4">
-                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Total</div>
-                                                        <div className="text-lg font-bold text-slate-700">
-                                                            {getCurrencySymbol(doc['Currency'] as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                {isPromoRow ? (
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                            <span className="text-[11px] font-bold uppercase text-amber-600">Cashback / Promotion</span>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Promotion Terms</label>
+                                                                <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                                    className="w-full text-sm p-3 rounded-lg border border-amber-500/30 bg-white" rows={2}
+                                                                    placeholder="e.g. Buy 10-29pcs get cash back $40&#10;Period: 01st - 30th June 2026" />
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <div>
+                                                                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Cashback Amount</label>
+                                                                    <input type="number" min={0} step="0.01"
+                                                                        value={Math.abs(item.amount)}
+                                                                        onChange={e => handlePromoAmountChange(item.id, e.target.value)}
+                                                                        className="w-32 h-9 px-3 text-right text-sm bg-white border border-amber-500/30 rounded-lg" />
+                                                                </div>
+                                                                <span className="text-xs font-semibold text-rose-500 pt-5">deducted from total</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                ) : (
+                                                    <>
+                                                    <div className="flex gap-3 pr-8 mb-3">
+                                                        <div className="w-10 flex flex-col items-center justify-center">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
+                                                            <div className="h-9 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600">{item.no}</div>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
+                                                            <input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
+                                                                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                        </div>
+                                                        <div className="flex-[1.5]">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
+                                                            <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
+                                                                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="mb-3">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Description</label>
+                                                        <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                                                            className="w-full text-sm p-3 rounded-lg border border-slate-200 bg-white" rows={2} />
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <div className="w-20">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
+                                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
+                                                                className="w-full h-9 px-2 text-center text-sm bg-white border border-slate-200 rounded-lg" />
+                                                        </div>
+                                                        <div className="w-32">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
+                                                            <input type="number" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)}
+                                                                className="w-full h-9 px-3 text-right text-sm bg-white border border-slate-200 rounded-lg" />
+                                                        </div>
+                                                        <div className="w-full">
+                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Serial Numbers <span className="normal-case font-normal text-slate-300">(one per line)</span></label>
+                                                            <textarea
+                                                                value={item.serialNumber || ''}
+                                                                onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
+                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-slate-200 bg-white resize-y min-h-[60px]"
+                                                                rows={3}
+                                                                placeholder={`SN001\nSN002\nSN003...`}
+                                                            />
+                                                            <div className="text-[9px] text-slate-400 mt-0.5">{(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered</div>
+                                                        </div>
+                                                        <div className="flex-1 text-right pt-4">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase">Total</div>
+                                                            <div className="text-lg font-bold text-slate-700">
+                                                                {getCurrencySymbol(doc['Currency'] as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    </>
+                                                )}
                                             </div>
-                                        ))}
+                                            );
+                                        })}
+                                        <div className="flex gap-3">
                                         <button onClick={addItem}
-                                            className="w-full py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 font-bold text-sm flex items-center justify-center gap-2">
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 font-bold text-sm flex items-center justify-center gap-2">
                                             <Plus className="w-4 h-4" /> Add Item
                                         </button>
+                                        <button type="button" onClick={addPromoRow}
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all">
+                                            <span>+ Add Cashback</span>
+                                        </button>
+                                        </div>
 
                                         {/* Totals */}
                                         <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mt-4 space-y-3">

@@ -9,6 +9,7 @@ interface LineItem {
     qty: number | string;
     unitPrice: number | string;
     amount: number;
+    isPromotion?: boolean;
 }
 
 interface PrintableInvoiceProps {
@@ -47,8 +48,10 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
         return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    // Pad items to at least 3 rows
-    const displayItems = [...items.filter(i => i.no > 0)];
+    // Pad regular items to at least 3 rows, then append promo rows after
+    const regularItems = items.filter(i => i.no > 0);
+    const promoItems   = items.filter(i => i.isPromotion);
+    const displayItems = [...regularItems];
     while (displayItems.length < 3) {
         displayItems.push({
             id: `pad-${displayItems.length}`,
@@ -57,6 +60,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             qty: '', unitPrice: 0, amount: 0,
         });
     }
+    displayItems.push(...promoItems);
 
     const subTotal = totals.subTotal;
     const vatAmount = isTaxInvoice ? (totals.tax > 0 ? totals.tax : subTotal * 0.1) : 0;
@@ -118,7 +122,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 <ul style={{ paddingLeft: 16, margin: 0, listStyleType: 'disc' }}>
                     <li style={{ marginBottom: 2 }}><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
                     <li style={{ marginBottom: 2 }}><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-                    <li><strong>Warranty:</strong> All goods sold are covered under Limperial Technology's warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+                    <li><strong>Warranty:</strong> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
                 </ul>
             </div>
             <div>
@@ -259,6 +263,28 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             </thead>
             <tbody>
                 {displayItems.map((item, idx) => {
+                    if (item.isPromotion) {
+                        const promoAmt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+                        const promoAbs = Math.abs(promoAmt);
+                        return (
+                            <React.Fragment key={item.id || idx}>
+                                <tr className="break-inside-avoid" style={{ textAlign: 'center' }}>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                    <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, paddingBottom: 8, fontStyle: 'italic', color: '#666', fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                                        {item.description || 'Cashback / Promotion'}
+                                    </td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8, color: '#c00000' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                            <span>{sym}</span><span>({fmtNum(promoAbs)})</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </React.Fragment>
+                        );
+                    }
                     const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
                     const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
                     return (
