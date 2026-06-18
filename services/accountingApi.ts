@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ChartOfAccount, JournalEntry, JournalEntryLine, BalanceSheetLine } from '../types';
+import { formatToInputDate } from '../utils/time';
 
 // ── Chart of Accounts ─────────────────────────────────────────────────────────
 
@@ -565,6 +566,7 @@ export const autoPostInvoiceJournal = async (params: {
     brandAmounts?: { brand: string; subtotal: number }[];
     /** Negative number representing total cashback/promo deductions on the invoice */
     cashbackTotal?: number;
+    costItems?: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[];
 }): Promise<boolean> => {
     // Idempotent: skip if an auto-entry for this invoice already exists
     const { data: existing } = await supabase
@@ -628,6 +630,18 @@ export const autoPostInvoiceJournal = async (params: {
             debit: 0,
             credit: params.taxAmount,
         });
+    }
+
+    // COGS + Inventory reduction — one line pair per item, accounts from inventory row
+    if (params.costItems && params.costItems.length > 0) {
+        for (const { brand, qty, unit_price, cogs_account, inventory_account } of params.costItems) {
+            const cost = qty * unit_price;
+            if (cost <= 0.005) continue;
+            const cogsAcct = cogs_account      || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000';
+            const invAcct  = inventory_account || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000';
+            lines.push({ account_number: cogsAcct, description: `COGS ${brand} — ${params.invNo}`,          debit: cost, credit: 0 });
+            lines.push({ account_number: invAcct,  description: `Inventory out ${brand} — ${params.invNo}`, debit: 0,    credit: cost });
+        }
     }
 
     await createJournalEntry(
@@ -790,7 +804,7 @@ export const autoPostPurchaseOrderJournal = async (params: {
 export const autoPostDeliveryOrderJournal = async (params: {
     doNo: string;
     entryDate: string;
-    costItems: { brand?: string; qty: number; unit_price: number }[];
+    costItems: { brand?: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[];
     createdBy: string;
 }): Promise<void> => {
     // Idempotent guard
@@ -802,33 +816,28 @@ export const autoPostDeliveryOrderJournal = async (params: {
         .maybeSingle();
     if (existing) return;
 
-    // Group cost by brand
-    const brandTotals: Record<string, number> = {};
-    let grandTotal = 0;
-    for (const item of params.costItems) {
-        const cost = (item.qty || 0) * (item.unit_price || 0);
-        if (cost <= 0.005) continue;
-        const brand = item.brand?.trim() || 'Other Accessories';
-        brandTotals[brand] = (brandTotals[brand] ?? 0) + cost;
-        grandTotal += cost;
-    }
     // Nothing to post if no cost data
+    let grandTotal = 0;
+    for (const item of params.costItems) grandTotal += (item.qty || 0) * (item.unit_price || 0);
     if (grandTotal <= 0.005) return;
 
     const entryNumber = await getNextEntryNumber();
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
 
-    for (const [brand, cost] of Object.entries(brandTotals)) {
-        const cogsAccount      = BRAND_ACCOUNT_MAP[brand]?.cogs      ?? '50000';
-        const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12000';
+    for (const { brand: rawBrand, qty, unit_price, cogs_account, inventory_account } of params.costItems) {
+        const cost = (qty || 0) * (unit_price || 0);
+        if (cost <= 0.005) continue;
+        const brand    = rawBrand?.trim() || 'Other Accessories';
+        const cogsAcct = cogs_account      || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000';
+        const invAcct  = inventory_account || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000';
         lines.push({
-            account_number: cogsAccount,
+            account_number: cogsAcct,
             description: `COGS ${brand} — ${params.doNo}`,
             debit: cost,
             credit: 0,
         });
         lines.push({
-            account_number: inventoryAccount,
+            account_number: invAcct,
             description: `Inventory out ${brand} — ${params.doNo}`,
             debit: 0,
             credit: cost,
@@ -847,4 +856,144 @@ export const autoPostDeliveryOrderJournal = async (params: {
         },
         lines,
     );
+};
+
+/** Back-fill COGS for already-posted invoice journals that only have Revenue lines.
+ *  Creates a new draft journal entry per invoice (source='cogs_backfill').
+ *  Existing posted entries are never modified — the companion entry carries the COGS.
+ *  Idempotent: skips any invoice that already has a cogs_backfill entry.
+ */
+export const backfillAllMissingCOGS = async (
+    createdBy: string,
+): Promise<{ total: number; backfilled: number; skipped: number }> => {
+    const allJournals = await fetchJournalEntries();
+    const invoiceJournals = allJournals.filter(j => j.source === 'invoice');
+    if (invoiceJournals.length === 0) {
+        return { total: 0, backfilled: 0, skipped: 0 };
+    }
+
+    const needsCOGS = invoiceJournals.filter(j => {
+        const lines = j.lines ?? [];
+        return !lines.some((l: JournalEntryLine) => String(l.account_number).startsWith('5'));
+    });
+    if (needsCOGS.length === 0) {
+        return { total: invoiceJournals.length, backfilled: 0, skipped: invoiceJournals.length };
+    }
+
+    const candidates = needsCOGS.map((j: any) => j.reference).filter(Boolean) as string[];
+    const { data: existingBF } = await supabase
+        .from('journal_entries')
+        .select('reference')
+        .eq('source', 'cogs_backfill')
+        .in('reference', candidates);
+    const done = new Set((existingBF ?? []).map((b: any) => b.reference as string));
+
+    // Pricelist for brand mapping (Code → Brand)
+    const { data: plData } = await supabase.from('pricelist').select('"Code", "Brand"');
+    const brandMap = new Map<string, string>(
+        (plData ?? []).map((p: any) => [p['Code'] as string, p['Brand'] as string]),
+    );
+
+    let backfilled = 0;
+    let skipped    = 0;
+
+    for (const j of needsCOGS) {
+        const invNo: string = j.reference;
+        if (!invNo || done.has(invNo)) { skipped++; continue; }
+
+        let inv: any = null;
+        { const { data } = await supabase.from('b2b_invoices').select('"Inv No","Inv Date","ItemsJSON"').eq('"Inv No"', invNo).maybeSingle(); inv = data; }
+        if (!inv) { const { data } = await supabase.from('invoices').select('"Inv No","Inv Date","ItemsJSON"').eq('"Inv No"', invNo).maybeSingle(); inv = data; }
+        if (!inv) { skipped++; continue; }
+
+        let items: any[] = [];
+        try {
+            items = typeof inv['ItemsJSON'] === 'string'
+                ? JSON.parse(inv['ItemsJSON'])
+                : (inv['ItemsJSON'] ?? []);
+        } catch { items = []; }
+        if (items.length === 0) { skipped++; continue; }
+
+        const brandCost: Record<string, number> = {};
+        for (const item of items) {
+            const qty = Number(item.qty) || 0;
+            if (qty <= 0) continue;
+            const code  = (item.itemCode  as string | undefined)?.trim();
+            const model = (item.modelName as string | undefined)?.trim();
+
+            // Brand: pricelist first, then inventory row, then fallback
+            let unitPrice = 0;
+            let inventoryBrand: string | undefined;
+            let invCogsAcct: string | undefined;
+            let invInvAcct:  string | undefined;
+            if (code) {
+                const { data: rows } = await supabase
+                    .from('inventory')
+                    .select('unit_price, brand, cogs_account, inventory_account')
+                    .eq('code', code)
+                    .order('created_at', { ascending: true })
+                    .limit(1);
+                if (rows?.[0]) {
+                    unitPrice      = Number(rows[0].unit_price) || 0;
+                    inventoryBrand = (rows[0].brand as string | undefined)?.trim() || undefined;
+                    invCogsAcct    = (rows[0].cogs_account as string | undefined)?.trim() || undefined;
+                    invInvAcct     = (rows[0].inventory_account as string | undefined)?.trim() || undefined;
+                }
+            }
+            if (unitPrice <= 0 && model) {
+                const { data: rows } = await supabase
+                    .from('inventory')
+                    .select('unit_price, brand, cogs_account, inventory_account')
+                    .ilike('model_name', `%${model}%`)
+                    .order('created_at', { ascending: true })
+                    .limit(1);
+                if (rows?.[0]) {
+                    unitPrice = Number(rows[0].unit_price) || 0;
+                    if (!inventoryBrand) inventoryBrand = (rows[0].brand as string | undefined)?.trim() || undefined;
+                    if (!invCogsAcct)    invCogsAcct    = (rows[0].cogs_account as string | undefined)?.trim() || undefined;
+                    if (!invInvAcct)     invInvAcct     = (rows[0].inventory_account as string | undefined)?.trim() || undefined;
+                }
+            }
+            const brand = (code && brandMap.get(code)) || inventoryBrand || 'Other Accessories';
+            if (unitPrice > 0) {
+                const key = JSON.stringify({
+                    brand,
+                    cogsAcct: invCogsAcct || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000',
+                    invAcct:  invInvAcct  || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000',
+                });
+                brandCost[key] = (brandCost[key] ?? 0) + qty * unitPrice;
+            }
+        }
+
+        const totalCost = Object.values(brandCost).reduce((a, b) => a + b, 0);
+        if (totalCost <= 0.005) { skipped++; continue; }
+
+        // Build balanced COGS entry lines — accounts come directly from inventory record
+        const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
+        for (const [key, cost] of Object.entries(brandCost)) {
+            const { brand, cogsAcct, invAcct } = JSON.parse(key) as { brand: string; cogsAcct: string; invAcct: string };
+            lines.push({ account_number: cogsAcct, description: `COGS ${brand} — ${invNo}`,          debit: cost, credit: 0 });
+            lines.push({ account_number: invAcct,  description: `Inventory out ${brand} — ${invNo}`, debit: 0,    credit: cost });
+        }
+
+        const entryNumber = await getNextEntryNumber();
+        const rawDate  = inv['Inv Date'] as string | undefined;
+        const entryDate = (rawDate ? formatToInputDate(rawDate) : '') || (j.entry_date as string);
+
+        await createJournalEntry(
+            {
+                entry_number: entryNumber,
+                entry_date:   entryDate,
+                description:  `COGS back-fill — ${invNo}`,
+                reference:    invNo,
+                created_by:   createdBy,
+                is_posted:    false,
+                source:       'cogs_backfill',
+            },
+            lines,
+        );
+        backfilled++;
+    }
+
+    return { total: invoiceJournals.length, backfilled, skipped };
 };

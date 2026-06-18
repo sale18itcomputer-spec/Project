@@ -442,14 +442,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         }
                     }
 
-                    if (costItems.length > 0) {
-                        autoPostDeliveryOrderJournal({
-                            doNo:      doc['DO No']!,
-                            entryDate: doc['DO Date'] || new Date().toISOString().slice(0, 10),
-                            costItems,
-                            createdBy: currentUser?.Name || 'system',
-                        }).catch(err => console.warn('[DeliveryOrderCreator] COGS auto-post failed:', err));
-                    }
+                    // COGS is now booked at invoice time (autoPostInvoiceJournal).
+                    // Removed DO-level COGS posting to prevent double-counting.
                 } catch (invErr: any) {
                     console.warn('[DeliveryOrderCreator] inventory/serial sync failed:', invErr.message);
                 }

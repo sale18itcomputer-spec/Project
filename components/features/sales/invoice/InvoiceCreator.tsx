@@ -424,6 +424,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             let deductedInventory = false;
             let syncedSerials = false;
 
+            // Build per-brand revenue breakdown (used by auto-journal in both paths)
+            const buildBrandAmounts = () => {
+                const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+                const brandTotals: Record<string, number> = {};
+                for (const item of items) {
+                    const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
+                    brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+                }
+                return Object.entries(brandTotals)
+                    .map(([brand, subtotal]) => ({ brand, subtotal }))
+                    .filter(b => b.subtotal > 0.005);
+            };
+
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
                 setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as unknown as Invoice) : inv) : [payload as unknown as Invoice]);
@@ -476,6 +489,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const warrantyStart = invoice['Inv Date'] || getTodayDateString();
                 const warrantyEnd = addMonths(warrantyStart, 12);
 
+                const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+
                 try {
                     for (const item of items) {
                         const qty = Number(item.qty) || 0;
@@ -491,7 +506,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             if (code) {
                                 const { data } = await supabase
                                     .from('inventory')
-                                    .select('id, qty')
+                                    .select('id, qty, unit_price, brand, cogs_account, inventory_account')
                                     .eq('status', 'In Stock')
                                     .gt('qty', 0)
                                     .eq('code', code)
@@ -503,7 +518,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             if ((!invRows || invRows.length === 0) && model) {
                                 const { data } = await supabase
                                     .from('inventory')
-                                    .select('id, qty')
+                                    .select('id, qty, unit_price, brand, cogs_account, inventory_account')
                                     .eq('status', 'In Stock')
                                     .gt('qty', 0)
                                     .ilike('model_name', `%${model}%`)
@@ -524,6 +539,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                     .eq('id', inv.id);
                                 deductedInventory = true;
                                 matchedInvId = inv.id;
+
+                                // Collect cost for COGS journal line
+                                const unitCost = Number(inv.unit_price) || 0;
+                                if (unitCost > 0) {
+                                    const brand = (code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories';
+                                    costItems.push({
+                                        brand,
+                                        qty,
+                                        unit_price:        unitCost,
+                                        cogs_account:      inv.cogs_account      || undefined,
+                                        inventory_account: inv.inventory_account || undefined,
+                                    });
+                                }
                             }
                         }
 
@@ -598,6 +626,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 } catch (invErr: any) {
                     console.warn('[InvoiceCreator] inventory/serial sync failed:', invErr.message);
                 }
+
+                // Auto-post invoice journal with COGS after inventory loop
+                // (idempotent — safe for both new invoices and Draft → Issued updates)
+                autoPostInvoiceJournal({
+                    invNo:       invoice['Inv No']!,
+                    entryDate:   invoice['Inv Date'] || getTodayDateString(),
+                    grandTotal:  totals.grandTotal,
+                    taxAmount:   totals.tax,
+                    isVAT:       invoice['Taxable'] === 'VAT',
+                    createdBy:   currentUser?.Name || 'system',
+                    brandAmounts: buildBrandAmounts(),
+                    costItems:   costItems.length > 0 ? costItems : undefined,
+                }).catch(err => console.warn('[InvoiceCreator] auto-post journal failed:', err));
             }
 
             refetchModule('Invoices');

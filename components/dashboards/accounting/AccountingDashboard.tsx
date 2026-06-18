@@ -6,7 +6,7 @@ import {
     fetchChartOfAccounts, createAccount, updateAccount,
     fetchJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry,
     togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet, computeCashFlow,
-    computeProfitLoss,
+    computeProfitLoss, backfillAllMissingCOGS,
 } from '../../../services/accountingApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -15,7 +15,7 @@ import { Button } from '../../ui/button';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2,
+    FileText, Landmark, Activity, BarChart2, RefreshCw,
 } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -730,6 +730,7 @@ export default function AccountingDashboard() {
     const [deletingId, setDeletingId]         = useState<string | null>(null);
     const [journalFilter, setJournalFilter]   = useState<'all' | 'draft' | 'auto' | 'manual'>('all');
     const [postingAll, setPostingAll]         = useState(false);
+    const [backfillingCOGS, setBackfillingCOGS] = useState(false);
 
     // ── Balance Sheet state ───────────────────────────────────────────────────
     const [bsMode, setBsMode]           = useState<'single' | 'compare'>('single');
@@ -1202,6 +1203,24 @@ export default function AccountingDashboard() {
         if (activeTab === 'balance') setBsData(null);
     };
 
+    const handleBackfillCOGS = async () => {
+        if (!window.confirm('Create COGS back-fill entries for all invoices currently missing cost lines?\n\nThis creates new draft journal entries — review and post them when ready.')) return;
+        setBackfillingCOGS(true);
+        try {
+            const result = await backfillAllMissingCOGS(currentUser?.Name || 'admin');
+            if (result.backfilled === 0) {
+                addToast(`All ${result.total} invoice journals already have COGS lines. Nothing to back-fill.`, 'info');
+            } else {
+                addToast(`Back-fill complete: ${result.backfilled} COGS draft${result.backfilled !== 1 ? 's' : ''} created, ${result.skipped} skipped. Post them when ready.`, 'success');
+                await loadEntries();
+            }
+        } catch (e: any) {
+            addToast(`Back-fill failed: ${e.message}`, 'error');
+        } finally {
+            setBackfillingCOGS(false);
+        }
+    };
+
     // ── Render helpers ────────────────────────────────────────────────────────
 
     const TabBtn = ({ id, label, icon }: { id: Tab; label: string; icon: React.ReactNode }) => (
@@ -1647,6 +1666,18 @@ export default function AccountingDashboard() {
                                 >
                                     <Check size={13} />
                                     {postingAll ? 'Posting…' : `Post all drafts (${draftCount})`}
+                                </Button>
+                            )}
+                            {canCreate && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleBackfillCOGS}
+                                    disabled={backfillingCOGS}
+                                    className="gap-1.5 border-amber-500/40 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                                >
+                                    <RefreshCw size={13} className={backfillingCOGS ? 'animate-spin' : ''} />
+                                    {backfillingCOGS ? 'Back-filling…' : 'Back-fill COGS'}
                                 </Button>
                             )}
                             {canCreate && (
