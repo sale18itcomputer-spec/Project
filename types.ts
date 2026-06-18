@@ -770,6 +770,42 @@ export interface PosCartItem {
   serialNumber?: string;
 }
 
+// ── Bills ─────────────────────────────────────────────────────────────────────
+
+export interface BillLine {
+    id?: string;
+    bill_id?: string;
+    description?: string;
+    account_number: string;
+    qty: number;
+    unit_price: number;
+    amount: number;
+    created_at?: string;
+}
+
+export interface Bill {
+    id?: string;
+    bill_number: string;
+    bill_type: 'vendor' | 'inter';
+    vendor_name?: string;
+    po_reference?: string;
+    bill_date: string;
+    due_date?: string;
+    description: string;
+    status: 'draft' | 'posted' | 'paid';
+    total_amount: number;
+    journal_entry_id?: string;
+    payment_journal_id?: string;
+    payment_date?: string;
+    payment_method?: string;
+    payment_reference?: string;
+    notes?: string;
+    created_by?: string;
+    created_at?: string;
+    updated_at?: string;
+    lines?: BillLine[];
+}
+
 export type PosPaymentMethod = 'Cash' | 'ABA' | 'KHQR' | 'Bank Transfer' | 'Card';
 export type PosTaxType = 'NON-VAT' | 'VAT';
 

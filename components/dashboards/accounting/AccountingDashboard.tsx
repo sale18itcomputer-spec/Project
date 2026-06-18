@@ -16,8 +16,9 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2, RefreshCw,
+    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt,
 } from 'lucide-react';
+import BillsTab from './BillsTab';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
     receipt:        { label: 'Auto · Receipt',  cls: 'bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700' },
     delivery_order: { label: 'Auto · DO',       cls: 'bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700' },
     purchase_order: { label: 'Auto · PO',       cls: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
+    bill:           { label: 'Auto · Bill',     cls: 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -643,7 +645,7 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'ledger' | 'journal' | 'balance' | 'cashflow' | 'pl';
+type Tab = 'coa' | 'ledger' | 'journal' | 'balance' | 'cashflow' | 'pl' | 'bills';
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
@@ -730,6 +732,7 @@ export default function AccountingDashboard() {
     const [savingEntry, setSavingEntry]       = useState(false);
     const [deletingId, setDeletingId]         = useState<string | null>(null);
     const [journalFilter, setJournalFilter]   = useState<'all' | 'draft' | 'auto' | 'manual'>('all');
+    const [journalSearch, setJournalSearch]   = useState('');
     const [postingAll, setPostingAll]         = useState(false);
     const [backfillingCOGS, setBackfillingCOGS] = useState(false);
     const [confirmDialog, setConfirmDialog]   = useState<{
@@ -1155,7 +1158,11 @@ export default function AccountingDashboard() {
         const doToggle = async () => {
             try {
                 const updated = await togglePostJournalEntry(entry.id!, !entry.is_posted);
-                setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: updated.is_posted } : e));
+                // Bubble the toggled entry to top so it's immediately visible in "All" view
+                setEntries(prev => {
+                    const toggled = { ...prev.find(e => e.id === updated.id)!, is_posted: updated.is_posted };
+                    return [toggled, ...prev.filter(e => e.id !== updated.id)];
+                });
                 addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
                 setBsData(null);
                 setPlData(null);
@@ -1185,13 +1192,23 @@ export default function AccountingDashboard() {
 
     // ── Journal filter + counts ───────────────────────────────────────────────
     const filteredEntries = useMemo(() => {
+        let base: JournalEntry[];
         switch (journalFilter) {
-            case 'draft':  return entries.filter(e => !e.is_posted);
-            case 'auto':   return entries.filter(e => e.source && e.source !== 'manual');
-            case 'manual': return entries.filter(e => !e.source || e.source === 'manual');
-            default:       return entries;
+            case 'draft':  base = entries.filter(e => !e.is_posted); break;
+            case 'auto':   base = entries.filter(e => e.source && e.source !== 'manual'); break;
+            case 'manual': base = entries.filter(e => !e.source || e.source === 'manual'); break;
+            default:       base = entries;
         }
-    }, [entries, journalFilter]);
+        if (!journalSearch.trim()) return base;
+        const q = journalSearch.toLowerCase();
+        return base.filter(e =>
+            e.entry_number?.toLowerCase().includes(q) ||
+            e.description?.toLowerCase().includes(q) ||
+            e.reference?.toLowerCase().includes(q) ||
+            e.created_by?.toLowerCase().includes(q) ||
+            e.lines?.some(l => l.description?.toLowerCase().includes(q) || l.account_number?.includes(q))
+        );
+    }, [entries, journalFilter, journalSearch]);
 
     const draftCount = useMemo(() => entries.filter(e => !e.is_posted).length, [entries]);
     const autoCount  = useMemo(() => entries.filter(e => e.source && e.source !== 'manual').length, [entries]);
@@ -1330,6 +1347,7 @@ export default function AccountingDashboard() {
                 <TabBtn id="coa"      label="Chart of Accounts" icon={<Landmark size={15} />} />
                 <TabBtn id="ledger"   label="General Ledger"    icon={<BookOpen size={15} />} />
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
+                <TabBtn id="bills"    label="Bills"             icon={<Receipt size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
                 <TabBtn id="pl"       label="Profit & Loss"     icon={<BarChart2 size={15} />} />
@@ -1689,6 +1707,22 @@ export default function AccountingDashboard() {
                                     </button>
                                 );
                             })}
+                        </div>
+                        {/* Search */}
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={journalSearch}
+                                onChange={e => setJournalSearch(e.target.value)}
+                                placeholder="Search entries…"
+                                className="h-8 pl-8 pr-8 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 w-52"
+                            />
+                            <svg className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            {journalSearch && (
+                                <button onClick={() => setJournalSearch('')} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
+                                    <X size={14} />
+                                </button>
+                            )}
                         </div>
                         {/* Actions */}
                         <div className="flex items-center gap-2">
@@ -2325,6 +2359,11 @@ export default function AccountingDashboard() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* ── TAB: Bills ────────────────────────────────────────────────── */}
+            {activeTab === 'bills' && (
+                <BillsTab accounts={accounts} />
             )}
 
             {/* ── TAB: Balance Sheet ─────────────────────────────────────────── */}
