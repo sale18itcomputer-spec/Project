@@ -167,9 +167,14 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
 
         const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
+        let cashbackTotal = 0;
         for (const item of items) {
-            const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
-            brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+            if (item.isPromotion) {
+                cashbackTotal += Number(item.amount) || 0;
+            } else {
+                const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
+                brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+            }
         }
         const brandAmounts = Object.entries(brandTotals)
             .map(([brand, subtotal]) => ({ brand, subtotal }))
@@ -187,6 +192,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 isVAT,
                 createdBy: currentUser?.Name || 'system',
                 brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
+                cashbackTotal: cashbackTotal < 0 ? cashbackTotal : 0,
             });
             addToast(created ? 'Journal entry posted!' : 'Already posted — no duplicate created.', 'success');
         } catch (err: any) {
