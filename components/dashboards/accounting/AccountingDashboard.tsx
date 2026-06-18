@@ -1159,7 +1159,7 @@ export default function AccountingDashboard() {
                 addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
                 setBsData(null);
                 setPlData(null);
-                if (activeTab === 'pl') loadProfitLoss();
+                loadProfitLoss();
             } catch (e: any) {
                 addToast(`Failed to update entry: ${e.message}`, 'error');
             }
@@ -1226,7 +1226,7 @@ export default function AccountingDashboard() {
         else addToast(`${posted} posted, ${failed} failed (unbalanced?). Check failed entries.`, 'error');
         setBsData(null);
         setPlData(null);
-        if (activeTab === 'pl') loadProfitLoss();
+        loadProfitLoss();
     };
 
     const handleBackfillCOGS = () => {
@@ -1925,14 +1925,14 @@ export default function AccountingDashboard() {
                                             {canEdit && (
                                                 <button
                                                     onClick={() => handleTogglePost(entry)}
-                                                    title={entry.is_posted ? 'Unpost' : 'Post'}
-                                                    className={`p-1.5 rounded transition-colors ${
+                                                    title={entry.is_posted ? 'Unpost this entry' : 'Post this entry'}
+                                                    className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                                                         entry.is_posted
-                                                            ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                                                            : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                                            ? 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700'
+                                                            : 'text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700'
                                                     }`}
                                                 >
-                                                    {entry.is_posted ? <X size={14} /> : <Check size={14} />}
+                                                    {entry.is_posted ? 'Unpost' : 'Post'}
                                                 </button>
                                             )}
                                             {canDelete && (
