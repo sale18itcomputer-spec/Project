@@ -6,8 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building, Users, FileText, ShoppingCart,
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
-  ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
-  ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
+  ClipboardList, Calculator, BarChart2, Receipt, PanelLeft,
+  UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
   Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2, Pin, PinOff,
   GripVertical,
 } from 'lucide-react';
@@ -531,17 +531,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       style={{ width: `${width}px` }}
       className={`
-        fixed inset-y-0 left-0 flex h-full z-[100]
-        bg-background border-r border-border/50
+        fixed inset-y-0 left-0 flex h-full z-[100] overflow-hidden
+        bg-background
         transform transition-transform duration-300 ease-in-out lg:translate-x-0
+        ${isCollapsed ? 'border-r-0' : 'border-r border-border/50'}
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${isResizing ? 'lg:transition-none' : 'lg:transition-[width] lg:duration-300 lg:ease-in-out'}
       `}
     >
       <div className={`flex flex-col h-full w-full ${isCollapsed ? 'px-2 py-4' : 'px-3 py-4'}`}>
 
-        {/* Logo */}
-        <div className={`flex shrink-0 mb-5 ${isCollapsed ? 'justify-center' : 'px-1'}`}>
+        {/* Logo + collapse toggle */}
+        <div className={`flex shrink-0 mb-5 items-center ${isCollapsed ? 'justify-center' : 'justify-between px-1'}`}>
           <button
             onClick={go('/')}
             className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:opacity-75 transition-opacity"
@@ -552,6 +553,16 @@ const Sidebar: React.FC<SidebarProps> = ({
               : <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial" className="h-7 w-auto" />
             }
           </button>
+          {!isCollapsed && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 transition-colors"
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeft size={16} />
+            </button>
+          )}
         </div>
 
         {/* Nav */}
@@ -794,17 +805,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </nav>
 
-        {/* Bottom: user card + collapse toggle */}
-        <div className="shrink-0 pt-3 mt-2 border-t border-border/40 space-y-1">
+        {/* Bottom: user card */}
+        <div className="shrink-0 pt-3 mt-2 border-t border-border/40">
           <UserCard user={currentUser} isCollapsed={isCollapsed} />
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-full py-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 transition-all"
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-          </button>
         </div>
       </div>
 

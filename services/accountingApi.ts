@@ -563,6 +563,8 @@ export const autoPostInvoiceJournal = async (params: {
     isVAT: boolean;
     createdBy: string;
     brandAmounts?: { brand: string; subtotal: number }[];
+    /** Negative number representing total cashback/promo deductions on the invoice */
+    cashbackTotal?: number;
 }): Promise<boolean> => {
     // Idempotent: skip if an auto-entry for this invoice already exists
     const { data: existing } = await supabase
@@ -574,7 +576,9 @@ export const autoPostInvoiceJournal = async (params: {
     if (existing) return false;
 
     const entryNumber = await getNextEntryNumber();
-    const subtotal = params.grandTotal - params.taxAmount;
+    const cashback = params.cashbackTotal && params.cashbackTotal < 0 ? Math.abs(params.cashbackTotal) : 0;
+    // grossSubtotal = revenue before cashback deduction; grandTotal already has cashback applied
+    const grossSubtotal = params.grandTotal - params.taxAmount + cashback;
 
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [
         {
@@ -584,6 +588,16 @@ export const autoPostInvoiceJournal = async (params: {
             credit: 0,
         },
     ];
+
+    // DR Sale Discount 41100 when invoice has cashback/promo deductions
+    if (cashback > 0.005) {
+        lines.push({
+            account_number: '41100',
+            description: `Cashback / Promo — ${params.invNo}`,
+            debit: cashback,
+            credit: 0,
+        });
+    }
 
     if (params.brandAmounts && params.brandAmounts.length > 0) {
         // Per-brand revenue lines — route each brand to its specific income account
@@ -603,7 +617,7 @@ export const autoPostInvoiceJournal = async (params: {
             account_number: '40000',
             description: `Revenue — ${params.invNo}`,
             debit: 0,
-            credit: subtotal,
+            credit: grossSubtotal,
         });
     }
 
@@ -681,13 +695,15 @@ export const autoPostReceiptJournal = async (params: {
 };
 
 /** Auto-create a draft journal entry when a Purchase Order is received (Completed).
- *  DR Inventory 12xxx per brand / CR Accounts Payable 20000
+ *  DR Inventory 12xxx per brand / CR Accounts Payable 20000 / CR Purchase Discount 70200
  */
 export const autoPostPurchaseOrderJournal = async (params: {
     poNumber: string;
     entryDate: string;
     items: { brand?: string; qty: number; unit_price: number }[];
     createdBy: string;
+    /** Negative number representing total cashback/rebate deductions on the PO */
+    cashbackTotal?: number;
 }): Promise<void> => {
     // Idempotent: skip if an auto-entry for this PO already exists
     const { data: existing } = await supabase
@@ -714,7 +730,9 @@ export const autoPostPurchaseOrderJournal = async (params: {
 
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
 
-    // DR Inventory per brand
+    const cashback = params.cashbackTotal && params.cashbackTotal < 0 ? Math.abs(params.cashbackTotal) : 0;
+
+    // DR Inventory per brand (at gross cost, before vendor cashback)
     for (const [brand, cost] of Object.entries(brandTotals)) {
         const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12000';
         lines.push({
@@ -725,13 +743,23 @@ export const autoPostPurchaseOrderJournal = async (params: {
         });
     }
 
-    // CR Accounts Payable (single line — total)
+    // CR Accounts Payable (net — what we actually owe the vendor after cashback)
     lines.push({
         account_number: '20000',
         description: `AP — ${params.poNumber}`,
         debit: 0,
-        credit: grandTotal,
+        credit: grandTotal - cashback,
     });
+
+    // CR Purchase Discount 70200 (vendor rebate / program cashback)
+    if (cashback > 0.005) {
+        lines.push({
+            account_number: '70200',
+            description: `Purchase Discount — ${params.poNumber}`,
+            debit: 0,
+            credit: cashback,
+        });
+    }
 
     await createJournalEntry(
         {

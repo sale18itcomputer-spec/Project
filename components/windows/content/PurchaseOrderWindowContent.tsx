@@ -490,12 +490,16 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             if (itemsError) throw itemsError;
 
             if (formData.status === 'Completed') {
-                // Auto-post: DR Inventory (per brand) / CR Accounts Payable (non-fatal)
+                // Auto-post: DR Inventory (per brand) / CR Accounts Payable / CR Purchase Discount (non-fatal)
+                const poCashback = items
+                    .filter(i => i.is_promotion)
+                    .reduce((s, i) => s + (Number(i.unit_price) || 0), 0);
                 autoPostPurchaseOrderJournal({
                     poNumber: formData.po_number || savedPoId || '',
                     entryDate: formData.order_date || new Date().toISOString().slice(0, 10),
                     items: items.filter(i => !i.is_promotion).map(i => ({ brand: i.brand, qty: i.qty, unit_price: i.unit_price })),
                     createdBy: currentUser?.Name || 'system',
+                    cashbackTotal: poCashback < 0 ? poCashback : 0,
                 }).catch(err => console.warn('[PurchaseOrderWindowContent] auto-post failed:', err));
 
                 try {

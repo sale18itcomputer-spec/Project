@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { prepare, layout } from '@chenglou/pretext';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock } from 'lucide-react';
+import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock, PanelLeft } from 'lucide-react';
 
 import { useNotification } from "../../contexts/NotificationContext";
 import { Notification } from "../../types";
@@ -22,6 +22,8 @@ interface HeaderProps {
   onMenuClick: () => void;
   isSidebarOpen: boolean;
   isMobile: boolean;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 const OfflineIndicator = () => (
@@ -49,7 +51,7 @@ const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) =>
   }
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, isSidebarCollapsed, onToggleSidebar }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
@@ -164,6 +166,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
   return (
     <header className={headerClasses}>
       <div className="flex items-center gap-3">
+        {/* Mobile hamburger */}
         <Button
           onClick={onMenuClick}
           variant="ghost"
@@ -175,6 +178,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile })
         >
           <Menu />
         </Button>
+
+        {/* Desktop: show PanelLeft button when sidebar is fully collapsed */}
+        {isSidebarCollapsed && onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            title="Open sidebar"
+            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+          >
+            <PanelLeft size={17} />
+          </button>
+        )}
 
         <div className="flex flex-col justify-center">
           {/* Show title on mobile, breadcrumbs on desktop */}
