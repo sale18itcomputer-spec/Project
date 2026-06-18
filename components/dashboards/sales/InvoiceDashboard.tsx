@@ -165,7 +165,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const taxAmount = isVAT ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + taxAmount;
 
-        const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+        const brandMap = new Map((pricelist ?? []).map(p => [p['Item Code'] || p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
         let cashbackTotal = 0;
         for (const item of items) {

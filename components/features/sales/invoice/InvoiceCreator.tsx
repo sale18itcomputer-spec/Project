@@ -434,7 +434,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 if (invoice['Status'] !== 'Draft') {
                     // Build per-brand revenue breakdown using pricelist Code → Brand
                     const brandMap = new Map(
-                        (pricelist ?? []).map(p => [p['Code'], p['Brand']])
+                        (pricelist ?? []).map(p => [p['Item Code'] || p['Code'], p['Brand']])
                     );
                     const brandTotals: Record<string, number> = {};
                     let cashbackTotal = 0;
