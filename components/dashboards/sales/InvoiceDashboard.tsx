@@ -172,7 +172,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             if (item.isPromotion) {
                 cashbackTotal += Number(item.amount) || 0;
             } else {
-                const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
+                const brand = (item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories';
                 brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
             }
         }
