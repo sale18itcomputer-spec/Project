@@ -1157,7 +1157,9 @@ export default function AccountingDashboard() {
                 const updated = await togglePostJournalEntry(entry.id!, !entry.is_posted);
                 setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: updated.is_posted } : e));
                 addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
-                if (activeTab === 'balance') setBsData(null);
+                setBsData(null);
+                setPlData(null);
+                if (activeTab === 'pl') loadProfitLoss();
             } catch (e: any) {
                 addToast(`Failed to update entry: ${e.message}`, 'error');
             }
@@ -1222,7 +1224,9 @@ export default function AccountingDashboard() {
         setPostingAll(false);
         if (failed === 0) addToast(`${posted} ${posted === 1 ? 'entry' : 'entries'} posted successfully.`, 'success');
         else addToast(`${posted} posted, ${failed} failed (unbalanced?). Check failed entries.`, 'error');
-        if (activeTab === 'balance') setBsData(null);
+        setBsData(null);
+        setPlData(null);
+        if (activeTab === 'pl') loadProfitLoss();
     };
 
     const handleBackfillCOGS = () => {
