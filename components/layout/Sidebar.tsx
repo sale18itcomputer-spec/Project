@@ -9,6 +9,7 @@ import {
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
   ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
   Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2, Pin, PinOff,
+  GripVertical,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +21,6 @@ import { localStorageGet, localStorageSet } from '../../utils/storage';
 const PINS_KEY = 'limperial-sidebar-pins';
 const MAX_PINS = 6;
 
-// Mapping from route path → data modules each page needs.
 const PATH_TO_MODULES: Record<string, string[]> = {
   '/dashboard':        ['Quotations', 'Sale Orders'],
   '/':                 ['Quotations', 'Sale Orders'],
@@ -52,7 +52,7 @@ const PATH_TO_MODULES: Record<string, string[]> = {
   '/pos':              ['Raw', 'Invoices', 'Receipts'],
 };
 
-// Lazy-loaded dashboard panels — chunk only fetched when first window is opened
+// Lazy dashboard panels — only fetched on first window open
 const LazyOverviewDashboard        = React.lazy(() => import('../dashboards/shared/Dashboard'));
 const LazyCompanyDashboard         = React.lazy(() => import('../dashboards/crm/CompanyDashboard'));
 const LazyContactDashboard         = React.lazy(() => import('../dashboards/crm/ContactDashboard'));
@@ -81,38 +81,36 @@ const LazyPipelineDashboard        = React.lazy(() => import('../dashboards/oper
 const LazySiteSurveyDashboard      = React.lazy(() => import('../dashboards/operations/SiteSurveyDashboard'));
 const LazyAccountingDashboard      = React.lazy(() => import('../dashboards/accounting/AccountingDashboard'));
 
-// Registry: key → [LazyComponent, width?, height?]
 const LAZY_DASH_MAP: Record<string, [React.LazyExoticComponent<React.ComponentType<any>>, number?, number?]> = {
-  dashboard:        [LazyOverviewDashboard],
-  companies:        [LazyCompanyDashboard],
-  contacts:         [LazyContactDashboard],
-  contact_logs:     [LazyContactLogsDashboard],
-  meetings:         [LazyMeetingDashboard],
-  quotations:       [LazyQuotationDashboard],
-  sale_orders:      [LazySaleOrderDashboard],
-  invoices:         [LazyInvoiceDashboard, 1300, 800],
-  delivery_orders:  [LazyDeliveryOrderDashboard],
-  receipts:         [LazyReceiptDashboard],
-  collection:       [LazyCollectionDashboard],
-  weekly_report:    [LazyWeeklyReportDashboard, 1300, 820],
-  purchase_orders:  [LazyPurchaseOrderDashboard],
-  inventory:        [LazyInventoryDashboard],
-  pricelist:        [LazyPricelistDashboard],
-  b2b_pricelist:    [LazyB2BPricelistDashboard],
-  vendor_pricelist: [LazyVendorPricelistDashboard],
-  vendors:          [LazyVendorDashboard],
-  consignment:      [LazyConsignmentDashboard],
-  product_inquiries:[LazyInquiryDashboard],
-  service_tickets:  [LazyServiceTicketDashboard],
-  pdi_records:      [LazyPdiDashboard],
-  serial_numbers:   [LazySerialNumberDashboard],
-  spare_parts:      [LazySparePartDashboard],
-  pipelines:        [LazyPipelineDashboard],
-  site_surveys:     [LazySiteSurveyDashboard],
-  accounting:       [LazyAccountingDashboard, 1400, 860],
+  dashboard:         [LazyOverviewDashboard],
+  companies:         [LazyCompanyDashboard],
+  contacts:          [LazyContactDashboard],
+  contact_logs:      [LazyContactLogsDashboard],
+  meetings:          [LazyMeetingDashboard],
+  quotations:        [LazyQuotationDashboard],
+  sale_orders:       [LazySaleOrderDashboard],
+  invoices:          [LazyInvoiceDashboard, 1300, 800],
+  delivery_orders:   [LazyDeliveryOrderDashboard],
+  receipts:          [LazyReceiptDashboard],
+  collection:        [LazyCollectionDashboard],
+  weekly_report:     [LazyWeeklyReportDashboard, 1300, 820],
+  purchase_orders:   [LazyPurchaseOrderDashboard],
+  inventory:         [LazyInventoryDashboard],
+  pricelist:         [LazyPricelistDashboard],
+  b2b_pricelist:     [LazyB2BPricelistDashboard],
+  vendor_pricelist:  [LazyVendorPricelistDashboard],
+  vendors:           [LazyVendorDashboard],
+  consignment:       [LazyConsignmentDashboard],
+  product_inquiries: [LazyInquiryDashboard],
+  service_tickets:   [LazyServiceTicketDashboard],
+  pdi_records:       [LazyPdiDashboard],
+  serial_numbers:    [LazySerialNumberDashboard],
+  spare_parts:       [LazySparePartDashboard],
+  pipelines:         [LazyPipelineDashboard],
+  site_surveys:      [LazySiteSurveyDashboard],
+  accounting:        [LazyAccountingDashboard, 1400, 860],
 };
 
-// Static registry for rebuilding pinned item UI from a stored key
 interface NavItemDef {
   key: string;
   label: string;
@@ -122,35 +120,36 @@ interface NavItemDef {
 }
 
 const NAV_ITEM_REGISTRY: NavItemDef[] = [
-  { key: 'dashboard',        label: 'Dashboard',        icon: <LayoutDashboard size={16} />, path: '/dashboard' },
-  { key: 'companies',        label: 'Companies',        icon: <Building size={16} />,        path: '/companies' },
-  { key: 'contacts',         label: 'Contacts',         icon: <Users size={16} />,           path: '/contacts' },
-  { key: 'quotations',       label: 'Quotations',       icon: <FileText size={16} />,        path: '/quotations' },
-  { key: 'sale_orders',      label: 'Sale Orders',      icon: <ShoppingCart size={16} />,    path: '/sale-orders' },
-  { key: 'invoices',         label: 'Invoices',         icon: <FileText size={16} />,        path: '/invoices' },
-  { key: 'delivery_orders',  label: 'Delivery Orders',  icon: <Truck size={16} />,           path: '/delivery-orders' },
-  { key: 'receipts',         label: 'Receipts',         icon: <Receipt size={16} />,         path: '/receipts' },
-  { key: 'collection',       label: 'Collection',       icon: <Wallet size={16} />,          path: '/collection' },
-  { key: 'weekly_report',    label: 'Weekly Report',    icon: <BarChart2 size={16} />,       path: '/weekly-report' },
-  { key: 'pos',              label: 'POS',              icon: <ShoppingBag size={16} />,     path: '/pos', badge: 'NEW' },
-  { key: 'pricelist',        label: 'Pricelist',        icon: <Tags size={16} />,            path: '/pricelist' },
-  { key: 'b2b_pricelist',    label: 'B2B Pricelist',    icon: <Tags size={16} />,            path: '/b2b-pricelist' },
-  { key: 'vendor_pricelist', label: 'Vendor Pricelist', icon: <Package size={16} />,         path: '/vendor-pricelist' },
-  { key: 'vendors',          label: 'Vendor Master',    icon: <Truck size={16} />,           path: '/vendors' },
-  { key: 'purchase_orders',  label: 'Purchase Orders',  icon: <ClipboardList size={16} />,   path: '/purchase-orders' },
-  { key: 'inventory',        label: 'Inventory',        icon: <Warehouse size={16} />,       path: '/inventory' },
-  { key: 'product_inquiries',label: 'Inquiries',        icon: <Search size={16} />,          path: '/inquiries' },
-  { key: 'consignment',      label: 'Consignment',      icon: <PackageCheck size={16} />,    path: '/consignment' },
-  { key: 'service_tickets',  label: 'Service Tickets',  icon: <Wrench size={16} />,          path: '/service-tickets' },
-  { key: 'pdi_records',      label: 'PDI Records',      icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
-  { key: 'serial_numbers',   label: 'Serial Numbers',   icon: <Hash size={16} />,            path: '/serial-numbers' },
-  { key: 'spare_parts',      label: 'Spare Parts',      icon: <Boxes size={16} />,           path: '/spare-parts' },
-  { key: 'pipelines',        label: 'Pipelines',        icon: <Filter size={16} />,          path: '/projects' },
-  { key: 'contact_logs',     label: 'Contact Logs',     icon: <MessageSquare size={16} />,   path: '/contact-logs' },
-  { key: 'site_surveys',     label: 'Site Surveys',     icon: <Map size={16} />,             path: '/site-surveys' },
-  { key: 'meetings',         label: 'Meetings',         icon: <Calendar size={16} />,        path: '/meetings' },
-  { key: 'accounting',       label: 'Accounting',       icon: <BookOpen size={16} />,        path: '/accounting' },
-  { key: 'users',            label: 'Users',            icon: <UserCog size={16} />,         path: '/users' },
+  { key: 'dashboard',         label: 'Dashboard',        icon: <LayoutDashboard size={16} />, path: '/dashboard' },
+  { key: 'companies',         label: 'Companies',        icon: <Building size={16} />,        path: '/companies' },
+  { key: 'contacts',          label: 'Contacts',         icon: <Users size={16} />,           path: '/contacts' },
+  { key: 'users',             label: 'Users',            icon: <UserCog size={16} />,         path: '/users' },
+  { key: 'pos',               label: 'POS',              icon: <ShoppingBag size={16} />,     path: '/pos', badge: 'NEW' },
+  { key: 'quotations',        label: 'Quotations',       icon: <FileText size={16} />,        path: '/quotations' },
+  { key: 'sale_orders',       label: 'Sale Orders',      icon: <ShoppingCart size={16} />,    path: '/sale-orders' },
+  { key: 'invoices',          label: 'Invoices',         icon: <FileText size={16} />,        path: '/invoices' },
+  { key: 'delivery_orders',   label: 'Delivery Orders',  icon: <Truck size={16} />,           path: '/delivery-orders' },
+  { key: 'receipts',          label: 'Receipts',         icon: <Receipt size={16} />,         path: '/receipts' },
+  { key: 'collection',        label: 'Collection',       icon: <Wallet size={16} />,          path: '/collection' },
+  { key: 'weekly_report',     label: 'Weekly Report',    icon: <BarChart2 size={16} />,       path: '/weekly-report' },
+  { key: 'pricelist',         label: 'Pricelist',        icon: <Tags size={16} />,            path: '/pricelist' },
+  { key: 'b2b_pricelist',     label: 'B2B Pricelist',    icon: <Tags size={16} />,            path: '/b2b-pricelist' },
+  { key: 'vendor_pricelist',  label: 'Vendor Pricelist', icon: <Package size={16} />,         path: '/vendor-pricelist' },
+  { key: 'vendors',           label: 'Vendor Master',    icon: <Truck size={16} />,           path: '/vendors' },
+  { key: 'purchase_orders',   label: 'Purchase Orders',  icon: <ClipboardList size={16} />,   path: '/purchase-orders' },
+  { key: 'inventory',         label: 'Inventory',        icon: <Warehouse size={16} />,       path: '/inventory' },
+  { key: 'product_inquiries', label: 'Inquiries',        icon: <Search size={16} />,          path: '/inquiries' },
+  { key: 'consignment',       label: 'Consignment',      icon: <PackageCheck size={16} />,    path: '/consignment' },
+  { key: 'service_tickets',   label: 'Service Tickets',  icon: <Wrench size={16} />,          path: '/service-tickets' },
+  { key: 'pdi_records',       label: 'PDI Records',      icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
+  { key: 'serial_numbers',    label: 'Serial Numbers',   icon: <Hash size={16} />,            path: '/serial-numbers' },
+  { key: 'spare_parts',       label: 'Spare Parts',      icon: <Boxes size={16} />,           path: '/spare-parts' },
+  { key: 'pipelines',         label: 'Pipelines',        icon: <Filter size={16} />,          path: '/projects' },
+  { key: 'contact_logs',      label: 'Contact Logs',     icon: <MessageSquare size={16} />,   path: '/contact-logs' },
+  { key: 'site_surveys',      label: 'Site Surveys',     icon: <Map size={16} />,             path: '/site-surveys' },
+  { key: 'meetings',          label: 'Meetings',         icon: <Calendar size={16} />,        path: '/meetings' },
+  { key: 'accounting',        label: 'Accounting',       icon: <BookOpen size={16} />,        path: '/accounting' },
+  { key: 'pricing_calculator',label: 'Pricing Calculator',icon: <Calculator size={16} />,    path: '/pricing-calculator' },
 ];
 
 const NAV_ITEM_MAP = Object.fromEntries(NAV_ITEM_REGISTRY.map(d => [d.key, d]));
@@ -166,7 +165,7 @@ interface SidebarProps {
   onResizeDoubleClick: () => void;
 }
 
-// ── Nav Item Context Menu (portal) ────────────────────────────────────────────
+// ── Context Menu (portal) ─────────────────────────────────────────────────────
 const NavItemContextMenu: React.FC<{
   x: number;
   y: number;
@@ -177,16 +176,13 @@ const NavItemContextMenu: React.FC<{
   onClose: () => void;
 }> = ({ x, y, isPinned, canPin, onOpenWindow, onTogglePin, onClose }) => {
   React.useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
+    const down = (e: MouseEvent) => {
       if (!(e.target as Element).closest('[data-nav-ctx-menu]')) onClose();
     };
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleKey);
-    };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
   }, [onClose]);
 
   if (typeof document === 'undefined') return null;
@@ -194,22 +190,22 @@ const NavItemContextMenu: React.FC<{
   return ReactDOM.createPortal(
     <div
       data-nav-ctx-menu="true"
-      className="fixed z-[300] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[190px]"
+      className="fixed z-[300] bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[200px]"
       style={{ left: x, top: y }}
     >
       {onOpenWindow && (
         <button
           onClick={() => { onOpenWindow(); onClose(); }}
-          className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-foreground text-left"
+          className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-foreground text-left rounded-sm mx-1 w-[calc(100%-8px)]"
         >
           <Maximize2 size={13} className="text-muted-foreground" /> Open in Window
         </button>
       )}
-      {(onOpenWindow) && <div className="my-1 border-t border-border/40" />}
+      {onOpenWindow && <div className="my-1 border-t border-border/40" />}
       <button
         onClick={() => { onTogglePin(); onClose(); }}
         disabled={!isPinned && !canPin}
-        className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-left disabled:opacity-40 disabled:cursor-not-allowed text-foreground"
+        className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-left disabled:opacity-40 disabled:cursor-not-allowed text-foreground rounded-sm mx-1 w-[calc(100%-8px)]"
       >
         {isPinned
           ? <><PinOff size={13} className="text-muted-foreground" /> Unpin</>
@@ -234,7 +230,8 @@ const NavItem: React.FC<{
   isPinned?: boolean;
   canPin?: boolean;
   onTogglePin?: () => void;
-}> = ({ icon, label, isActive, onClick, onPrefetch, isCollapsed, badge, onOpenWindow, isPinned = false, canPin = true, onTogglePin }) => {
+  showGrip?: boolean;
+}> = ({ icon, label, isActive, onClick, onPrefetch, isCollapsed, badge, onOpenWindow, isPinned = false, canPin = true, onTogglePin, showGrip = false }) => {
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -244,7 +241,7 @@ const NavItem: React.FC<{
   };
 
   return (
-    <li>
+    <li className="relative">
       {ctxMenu && (onOpenWindow || onTogglePin) && (
         <NavItemContextMenu
           x={ctxMenu.x}
@@ -256,6 +253,14 @@ const NavItem: React.FC<{
           onClose={() => setCtxMenu(null)}
         />
       )}
+
+      {/* Grip handle — only in expanded, pinned mode */}
+      {showGrip && !isCollapsed && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover/pin:opacity-30 hover:!opacity-60 cursor-grab active:cursor-grabbing text-muted-foreground transition-opacity">
+          <GripVertical size={11} />
+        </span>
+      )}
+
       <button
         onClick={onClick}
         onMouseEnter={onPrefetch}
@@ -265,20 +270,20 @@ const NavItem: React.FC<{
           group relative flex items-center w-full text-left
           transition-all duration-150
           ${isCollapsed
-            ? 'justify-center w-9 h-9 mx-auto rounded-lg'
-            : 'px-2.5 py-1.5 rounded-md'
+            ? 'justify-center w-10 h-10 mx-auto rounded-xl'
+            : showGrip ? 'pl-5 pr-2.5 py-1.5 rounded-md' : 'px-2.5 py-1.5 rounded-md'
           }
           ${isActive
             ? isCollapsed
-              ? 'bg-brand-600/10 text-brand-600 dark:text-brand-400'
+              ? 'bg-brand-600/15 text-brand-600 dark:text-brand-400'
               : 'text-brand-600 dark:text-brand-400 bg-brand-600/8'
             : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
           }
         `}
       >
-        {/* Active indicator bar */}
+        {/* Active indicator bar (expanded only) */}
         {isActive && !isCollapsed && (
-          <span className="absolute left-0 inset-y-1 w-[3px] rounded-full bg-brand-600 dark:bg-brand-400" />
+          <span className="absolute left-0 inset-y-1.5 w-[3px] rounded-full bg-brand-600 dark:bg-brand-400" />
         )}
 
         {/* Icon */}
@@ -292,7 +297,7 @@ const NavItem: React.FC<{
           {icon}
         </span>
 
-        {/* Label */}
+        {/* Label (expanded) */}
         {!isCollapsed && (
           <div className="ml-2.5 flex items-center justify-between flex-1 min-w-0">
             <span className={`text-[13px] font-medium truncate ${isActive ? 'font-semibold' : ''}`}>
@@ -309,14 +314,15 @@ const NavItem: React.FC<{
         {/* Collapsed tooltip */}
         {isCollapsed && (
           <span className="
-            pointer-events-none absolute left-full ml-2.5 z-50
-            px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap
+            pointer-events-none absolute left-full ml-3 z-50
+            px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap
             bg-popover text-popover-foreground border border-border
-            shadow-md opacity-0 -translate-x-1
+            shadow-lg opacity-0 -translate-x-1
             group-hover:opacity-100 group-hover:translate-x-0
             transition-all duration-150
           ">
             {label}
+            {badge && <span className="ml-1.5 text-brand-500 font-bold">{badge}</span>}
           </span>
         )}
       </button>
@@ -330,15 +336,13 @@ const Section: React.FC<{
   isCollapsed: boolean;
   children: React.ReactNode;
 }> = ({ label, isCollapsed, children }) => (
-  <div>
-    {isCollapsed
-      ? <div className="my-2 border-t border-border/40" />
-      : (
-        <p className="px-2.5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none">
-          {label}
-        </p>
-      )
-    }
+  <div className={isCollapsed ? 'mt-1' : ''}>
+    {!isCollapsed && (
+      <p className="px-2.5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none">
+        {label}
+      </p>
+    )}
+    {isCollapsed && <div className="my-1.5 mx-2 border-t border-border/30" />}
     <ul className="space-y-px">
       {children}
     </ul>
@@ -354,7 +358,7 @@ const UserCard: React.FC<{ user: any; isCollapsed: boolean }> = ({ user, isColla
   if (isCollapsed) {
     return (
       <div className="flex justify-center" title={`${user?.Name} · ${user?.Role}`}>
-        <div className="w-7 h-7 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-brand-600/20">
           {initials}
         </div>
       </div>
@@ -396,6 +400,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     try { const raw = localStorageGet(PINS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
   });
 
+  // Drag-and-drop state for pinned reorder
+  const [draggingKey, setDraggingKey] = React.useState<string | null>(null);
+  const [dropTargetKey, setDropTargetKey] = React.useState<string | null>(null);
+
   const togglePin = useCallback((key: string) => {
     setPinnedKeys(prev => {
       const next = prev.includes(key)
@@ -406,30 +414,39 @@ const Sidebar: React.FC<SidebarProps> = ({
     });
   }, []);
 
-  // Optimistic active path — set on click, cleared when pathname catches up.
+  const handleDrop = useCallback((targetKey: string) => {
+    if (!draggingKey || draggingKey === targetKey) return;
+    setPinnedKeys(prev => {
+      const from = prev.indexOf(draggingKey);
+      const to   = prev.indexOf(targetKey);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, draggingKey);
+      localStorageSet(PINS_KEY, JSON.stringify(next));
+      return next;
+    });
+    setDraggingKey(null);
+    setDropTargetKey(null);
+  }, [draggingKey]);
+
+  // Optimistic active path
   const [pendingPath, setPendingPath] = React.useState<string | null>(null);
   React.useEffect(() => { setPendingPath(null); }, [pathname]);
 
   const isActive = (path: string) => (pendingPath ?? pathname) === path;
-  const go = (path: string) => () => {
-    setPendingPath(path);
-    onNavigate(path);
-  };
+  const go = (path: string) => () => { setPendingPath(path); onNavigate(path); };
 
   const prefetch = useCallback((path: string) => {
     router.prefetch(path);
     const modules = PATH_TO_MODULES[path];
-    if (modules?.length) {
-      void (fetchModule as (...args: string[]) => Promise<void>)(...modules);
-    }
+    if (modules?.length) void (fetchModule as (...args: string[]) => Promise<void>)(...modules);
   }, [router, fetchModule]);
 
-  // Open any dashboard as a floating window
   const openDashWindow = useCallback((
     title: string,
     LazyComponent: React.LazyExoticComponent<React.ComponentType<any>>,
-    w: number = 1280,
-    h: number = 780,
+    w = 1280, h = 780,
   ) => {
     openWindow({
       id: `dash-window-${title.toLowerCase().replace(/\s+/g, '-')}`,
@@ -455,7 +472,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => openDashWindow(label, LazyComp, w, h);
   }, [openDashWindow]);
 
-  // Permission visibility
+  // Permission map
   const show = {
     dashboard:          canView('dashboard'),
     companies:          canView('companies'),
@@ -499,15 +516,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const showActivity    = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
   const showTools       = show.pricing_calculator || show.accounting;
 
-  // Visible pinned items (filter out items the user can no longer access)
   const visiblePins = pinnedKeys
     .map(k => NAV_ITEM_MAP[k])
-    .filter((def): def is NavItemDef => !!def && show[def.key] !== false);
+    .filter((d): d is NavItemDef => !!d && show[d.key] !== false);
 
-  // Shared props builder for a nav item
   const navProps = (key: string) => ({
-    isPinned: pinnedKeys.includes(key),
-    canPin: pinnedKeys.length < MAX_PINS || pinnedKeys.includes(key),
+    isPinned:    pinnedKeys.includes(key),
+    canPin:      pinnedKeys.length < MAX_PINS || pinnedKeys.includes(key),
     onTogglePin: () => togglePin(key),
     onOpenWindow: getOpenWindowForKey(key),
   });
@@ -533,40 +548,54 @@ const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Dashboard"
           >
             {isCollapsed
-              ? (
-                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white text-xs font-black flex items-center justify-center tracking-tight">
-                  L
-                </div>
-              )
+              ? <div className="w-8 h-8 rounded-xl bg-brand-600 text-white text-xs font-black flex items-center justify-center tracking-tight">L</div>
               : <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial" className="h-7 w-auto" />
             }
           </button>
         </div>
 
         {/* Nav */}
-        <nav className={`
-          flex-1 overflow-y-auto overflow-x-hidden
-          space-y-0
-          [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-        `}>
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
           {/* Pinned Favorites */}
           {visiblePins.length > 0 && (
-            <Section label="Pinned" isCollapsed={isCollapsed}>
-              {visiblePins.map(def => (
-                <NavItem
-                  key={`pin-${def.key}`}
-                  icon={def.icon}
-                  label={def.label}
-                  badge={def.badge}
-                  isActive={isActive(def.path)}
-                  onClick={go(def.path)}
-                  onPrefetch={() => prefetch(def.path)}
-                  isCollapsed={isCollapsed}
-                  {...navProps(def.key)}
-                />
-              ))}
-            </Section>
+            <div className={isCollapsed ? 'mt-1' : ''}>
+              {!isCollapsed && (
+                <p className="px-2.5 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none flex items-center gap-1">
+                  <Pin size={9} className="inline" /> Pinned
+                </p>
+              )}
+              {isCollapsed && <div className="my-1.5 mx-2 border-t border-border/30" />}
+              <ul className="space-y-px">
+                {visiblePins.map((def) => (
+                  <div
+                    key={`pin-${def.key}`}
+                    draggable={!isCollapsed}
+                    onDragStart={() => setDraggingKey(def.key)}
+                    onDragOver={(e) => { e.preventDefault(); setDropTargetKey(def.key); }}
+                    onDrop={() => handleDrop(def.key)}
+                    onDragEnd={() => { setDraggingKey(null); setDropTargetKey(null); }}
+                    className={`group/pin relative transition-opacity ${draggingKey === def.key ? 'opacity-40' : 'opacity-100'}`}
+                  >
+                    {/* Drop indicator */}
+                    {dropTargetKey === def.key && draggingKey !== def.key && (
+                      <div className="absolute top-0 left-3 right-3 h-[2px] bg-brand-500 rounded-full -translate-y-px z-10 pointer-events-none" />
+                    )}
+                    <NavItem
+                      icon={def.icon}
+                      label={def.label}
+                      badge={def.badge}
+                      isActive={isActive(def.path)}
+                      onClick={go(def.path)}
+                      onPrefetch={() => prefetch(def.path)}
+                      isCollapsed={isCollapsed}
+                      showGrip={!isCollapsed}
+                      {...navProps(def.key)}
+                    />
+                  </div>
+                ))}
+              </ul>
+            </div>
           )}
 
           {/* Overview */}
@@ -765,15 +794,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </nav>
 
-        {/* Bottom user card + collapse toggle */}
+        {/* Bottom: user card + collapse toggle */}
         <div className="shrink-0 pt-3 mt-2 border-t border-border/40 space-y-1">
           <UserCard user={currentUser} isCollapsed={isCollapsed} />
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-full py-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/60 transition-all"
-            aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+            className="hidden lg:flex items-center justify-center w-full py-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 transition-all"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
         </div>
       </div>
