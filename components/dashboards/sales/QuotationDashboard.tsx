@@ -610,6 +610,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
+                onOpenWindow={() => openQuotationWindow(row['Quote No'])}
                 onView={() => handleViewQuotation(row)}
                 onEdit={() => handleEditQuotation(row)}
                 onDelete={() => handleDeleteRequest(row)}

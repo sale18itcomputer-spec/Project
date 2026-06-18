@@ -248,6 +248,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
+              onOpenWindow={() => openPdiWindow(row.id!, true)}
               onEdit={can('pdi_records', 'edit') ? () => handleEditPdi(row) : undefined}
               onDelete={can('pdi_records', 'delete') ? () => handleDeleteRequest(row) : undefined}
             />

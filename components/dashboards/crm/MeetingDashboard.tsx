@@ -374,6 +374,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
               )}
               renderRowContextMenu={(row) => (
                 <RowActionMenuItems
+                  onOpenWindow={() => openMeetingWindow(row['Meeting ID'] || null)}
                   onView={() => handleViewMeeting(row)}
                   onEdit={can('meetings', 'edit') ? () => handleEditMeeting(row) : undefined}
                   onDelete={can('meetings', 'delete') ? () => handleDeleteRequest(row) : undefined}

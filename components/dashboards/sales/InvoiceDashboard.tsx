@@ -168,7 +168,6 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
         for (const item of items) {
-            if (item.isPromotion || Number(item.no) === 0) continue;
             const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
             brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
         }
@@ -180,7 +179,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
         try {
-            await autoPostInvoiceJournal({
+            const created = await autoPostInvoiceJournal({
                 invNo: invoice['Inv No'],
                 entryDate: invoice['Inv Date'] || todayStr,
                 grandTotal,
@@ -189,7 +188,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 createdBy: currentUser?.Name || 'system',
                 brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
             });
-            addToast('Journal entry posted!', 'success');
+            addToast(created ? 'Journal entry posted!' : 'Already posted — no duplicate created.', 'success');
         } catch (err: any) {
             addToast(`Failed to post journal: ${err.message}`, 'error');
         }
@@ -458,6 +457,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                             const canCreateDO = row.Status === 'Processing' || row.Status === 'Completed';
                             return (
                                 <RowActionMenuItems
+                                    onOpenWindow={() => openInvoiceWindow(row['Inv No'])}
                                     onView={() => handleViewInvoice(row)}
                                     onEdit={() => handleEditInvoice(row)}
                                     onDelete={() => handleDeleteRequest(row)}

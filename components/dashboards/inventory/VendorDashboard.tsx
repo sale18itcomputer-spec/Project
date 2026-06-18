@@ -179,6 +179,7 @@ const VendorDashboard: React.FC = () => {
                     )}
                     renderRowContextMenu={(row) => (
                         <RowActionMenuItems
+                            onOpenWindow={() => openVendorWindow(row.id, false)}
                             onView={() => handleViewVendor(row)}
                             onEdit={() => handleEditVendor(row)}
                         />

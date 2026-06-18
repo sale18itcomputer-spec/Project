@@ -348,6 +348,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
                     )}
                     renderRowContextMenu={(row) => (
                         <RowActionMenuItems
+                            onOpenWindow={() => openPOWindow(row.id!)}
                             onEdit={() => handleEditPO(row)}
                             onDelete={() => handleDeleteRequest(row)}
                         >

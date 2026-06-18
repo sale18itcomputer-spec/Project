@@ -408,6 +408,7 @@ const PricelistDashboard: React.FC = () => {
                             )}
                             renderRowContextMenu={(row) => (
                                 <RowActionMenuItems
+                                    onOpenWindow={() => handleViewItem(row)}
                                     onView={() => handleViewItem(row)}
                                     onEdit={() => handleEditItem(row)}
                                 />

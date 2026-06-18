@@ -610,6 +610,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
+                onOpenWindow={() => openPipelineWindow(row['Pipeline No'], false)}
                 onView={() => handleViewProject(row)}
                 onEdit={() => handleEditProject(row)}
                 onDelete={() => handleDeleteRequest(row)}

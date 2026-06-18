@@ -441,6 +441,7 @@ const InventoryDashboard: React.FC = () => {
             const serials = serialsByInventoryId.get(row.id);
             return (
               <RowActionMenuItems
+                onOpenWindow={() => openInventoryEditWindow(row)}
                 onEdit={can('inventory', 'edit') ? () => openInventoryEditWindow(row) : undefined}
                 onDelete={can('inventory', 'delete') ? () => setItemToDelete(row) : undefined}
               >

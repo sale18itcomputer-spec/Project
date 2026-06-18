@@ -252,6 +252,7 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
+              onOpenWindow={() => openTicketWindow(row.id!, true)}
               onEdit={can('service_tickets', 'edit') ? () => handleEditTicket(row) : undefined}
               onDelete={can('service_tickets', 'delete') ? () => handleDeleteRequest(row) : undefined}
             />

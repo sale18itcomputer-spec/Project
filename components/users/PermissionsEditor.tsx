@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff, ShoppingCart, Package, BookOpen, CheckCircle2 } from 'lucide-react';
 import {
   PERMISSION_MODULES,
   SECTION_ORDER,
@@ -215,6 +215,65 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
     [permissions, onChange],
   );
 
+  // ── Department quick-apply ────────────────────────────────────────────────
+
+  const DEPARTMENTS: {
+    key: string;
+    label: string;
+    moduleKeys: string[];
+    colorOn: string;
+    colorOff: string;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      key: 'sales',
+      label: 'Sales',
+      moduleKeys: Object.entries(PERMISSION_MODULES)
+        .filter(([, d]) => ['Overview', 'Sales', 'Activity'].includes(d.section))
+        .map(([k]) => k),
+      colorOn: 'bg-blue-600 text-white border-blue-600 shadow-sm',
+      colorOff: 'bg-card text-muted-foreground border-border hover:border-blue-400 hover:text-blue-600',
+      icon: <ShoppingCart size={14} />,
+    },
+    {
+      key: 'procurement',
+      label: 'Procurement',
+      moduleKeys: Object.entries(PERMISSION_MODULES)
+        .filter(([, d]) => ['Products', 'Procurement'].includes(d.section))
+        .map(([k]) => k),
+      colorOn: 'bg-amber-500 text-white border-amber-500 shadow-sm',
+      colorOff: 'bg-card text-muted-foreground border-border hover:border-amber-400 hover:text-amber-600',
+      icon: <Package size={14} />,
+    },
+    {
+      key: 'accounting',
+      label: 'Accounting',
+      moduleKeys: ['accounting'],
+      colorOn: 'bg-emerald-600 text-white border-emerald-600 shadow-sm',
+      colorOff: 'bg-card text-muted-foreground border-border hover:border-emerald-400 hover:text-emerald-600',
+      icon: <BookOpen size={14} />,
+    },
+  ];
+
+  const isDeptActive = (moduleKeys: string[]) =>
+    moduleKeys.every(k => {
+      const mp = permissions.modules[k] ?? {};
+      const def = PERMISSION_MODULES[k];
+      return def?.actions.includes('view') ? mp.view === true : mp.use === true;
+    });
+
+  const toggleDept = (moduleKeys: string[], enable: boolean) => {
+    const updatedModules = { ...permissions.modules };
+    for (const k of moduleKeys) {
+      const def = PERMISSION_MODULES[k];
+      if (!def) continue;
+      const mp: ModulePermissions = {};
+      for (const a of def.actions) mp[a] = enable;
+      updatedModules[k] = mp;
+    }
+    onChange({ ...permissions, modules: updatedModules });
+  };
+
   // ── Reset to role preset ──────────────────────────────────────────────────
 
   const handleReset = () => onChange(getPresetForRole(role));
@@ -237,6 +296,33 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
 
   return (
     <div className="space-y-2">
+
+      {/* ── Department shortcuts ── */}
+      <div className="border border-border/70 rounded-xl overflow-hidden">
+        <div className="px-3 py-2.5 bg-muted/40 border-b border-border/40">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Department Access</p>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+            One-click to grant a full department. Combine freely, then fine-tune below.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 p-3">
+          {DEPARTMENTS.map(dept => {
+            const active = isDeptActive(dept.moduleKeys);
+            return (
+              <button
+                key={dept.key}
+                type="button"
+                onClick={() => toggleDept(dept.moduleKeys, !active)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-semibold text-sm transition-all ${active ? dept.colorOn : dept.colorOff}`}
+              >
+                {dept.icon}
+                {dept.label}
+                {active && <CheckCircle2 size={13} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between gap-2 pb-1">

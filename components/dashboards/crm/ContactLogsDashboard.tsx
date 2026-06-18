@@ -309,6 +309,7 @@ const ContactLogsDashboard: React.FC<ContactLogsDashboardProps> = ({ initialFilt
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
+                onOpenWindow={() => openLogWindow(row['Log ID'] || null)}
                 onView={() => handleViewLog(row)}
                 onEdit={() => handleEditLog(row)}
                 onDelete={can('contact_logs', 'delete') ? () => handleDeleteRequest(row) : undefined}

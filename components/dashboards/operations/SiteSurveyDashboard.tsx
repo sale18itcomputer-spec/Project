@@ -324,6 +324,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
               )}
               renderRowContextMenu={(row) => (
                 <RowActionMenuItems
+                  onOpenWindow={() => openSurveyWindow(row['Site ID'] || null)}
                   onView={() => handleViewSurvey(row)}
                   onEdit={can('site_surveys', 'edit') ? () => handleEditSurvey(row) : undefined}
                   onDelete={can('site_surveys', 'delete') ? () => handleDeleteRequest(row) : undefined}

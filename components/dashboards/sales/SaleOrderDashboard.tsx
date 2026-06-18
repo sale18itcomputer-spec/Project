@@ -605,6 +605,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         )}
                         renderRowContextMenu={(row) => (
                             <RowActionMenuItems
+                                onOpenWindow={() => openSOWindow(row['SO No'])}
                                 onView={() => handleViewSaleOrder(row)}
                                 onEdit={() => handleEditSaleOrder(row)}
                                 onDelete={() => handleDeleteRequest(row)}

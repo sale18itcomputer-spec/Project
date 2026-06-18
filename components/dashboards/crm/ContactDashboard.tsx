@@ -454,6 +454,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                   )}
                   renderRowContextMenu={(row) => (
                     <RowActionMenuItems
+                      onOpenWindow={() => openContactWindow(row['Customer ID'])}
                       onView={() => openContactWindow(row['Customer ID'])}
                       onEdit={() => openContactWindow(row['Customer ID'])}
                     />

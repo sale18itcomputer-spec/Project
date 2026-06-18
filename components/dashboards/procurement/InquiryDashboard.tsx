@@ -279,6 +279,7 @@ const InquiryDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter 
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
+              onOpenWindow={() => openInquiryWindow(row.id!, false)}
               onEdit={can('product_inquiries', 'edit') ? () => handleEdit(row) : undefined}
               onDelete={can('product_inquiries', 'delete') ? () => handleDeleteRequest(row) : undefined}
             />

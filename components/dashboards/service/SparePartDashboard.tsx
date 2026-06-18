@@ -240,6 +240,7 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
           )}
           renderRowContextMenu={(row) => (
             <RowActionMenuItems
+              onOpenWindow={() => openSparePartWindow(row.id!, false)}
               onEdit={can('spare_parts', 'edit') ? () => handleEdit(row) : undefined}
               onDelete={can('spare_parts', 'delete') ? () => setPartToDelete(row) : undefined}
             />

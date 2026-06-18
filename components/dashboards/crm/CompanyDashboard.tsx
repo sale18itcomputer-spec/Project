@@ -344,6 +344,7 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
+                onOpenWindow={() => openCompanyWindow(row['Company ID'])}
                 onView={() => openCompanyWindow(row['Company ID'])}
                 onEdit={() => openCompanyWindow(row['Company ID'])}
               />

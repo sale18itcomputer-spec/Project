@@ -563,7 +563,7 @@ export const autoPostInvoiceJournal = async (params: {
     isVAT: boolean;
     createdBy: string;
     brandAmounts?: { brand: string; subtotal: number }[];
-}): Promise<void> => {
+}): Promise<boolean> => {
     // Idempotent: skip if an auto-entry for this invoice already exists
     const { data: existing } = await supabase
         .from('journal_entries')
@@ -571,7 +571,7 @@ export const autoPostInvoiceJournal = async (params: {
         .eq('reference', params.invNo)
         .eq('source', 'invoice')
         .maybeSingle();
-    if (existing) return;
+    if (existing) return false;
 
     const entryNumber = await getNextEntryNumber();
     const subtotal = params.grandTotal - params.taxAmount;
@@ -628,6 +628,7 @@ export const autoPostInvoiceJournal = async (params: {
         },
         lines,
     );
+    return true;
 };
 
 /** Auto-create a draft journal entry for a recorded receipt (payment).

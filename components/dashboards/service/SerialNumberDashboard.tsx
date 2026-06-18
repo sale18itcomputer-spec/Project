@@ -372,6 +372,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
+                onOpenWindow={() => openSerialNumberWindow(row.id!, false)}
                 onEdit={can('serial_numbers', 'edit') ? () => handleEdit(row) : undefined}
                 onDelete={can('serial_numbers', 'delete') ? () => setSnToDelete(row) : undefined}
               />

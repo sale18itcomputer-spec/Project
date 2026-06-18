@@ -294,6 +294,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                         )}
                         renderRowContextMenu={row => (
                             <RowActionMenuItems
+                                onOpenWindow={() => openDOWindow(row['DO No'])}
                                 onView={() => handleView(row)}
                                 onEdit={() => handleEdit(row)}
                                 onDelete={() => setToDelete(row)}
