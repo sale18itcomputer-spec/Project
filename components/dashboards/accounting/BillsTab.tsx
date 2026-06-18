@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Bill, BillLine, ChartOfAccount } from '../../../types';
+import { Bill, BillLine, ChartOfAccount, PurchaseOrder } from '../../../types';
 import {
     fetchBills, createBill, updateBill, deleteBill,
     postBill, unpostBill, markBillPaid, getNextBillNumber,
 } from '../../../services/billsApi';
+import { readRecords } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -117,10 +118,11 @@ const PayModal: React.FC<{
 const BillFormModal: React.FC<{
     bill: Bill | null;
     accounts: ChartOfAccount[];
+    purchaseOrders: PurchaseOrder[];
     onSave: (header: Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>, lines: Omit<BillLine, 'id' | 'bill_id' | 'created_at'>[]) => void;
     onClose: () => void;
     nextNumber: string;
-}> = ({ bill, accounts, onSave, onClose, nextNumber }) => {
+}> = ({ bill, accounts, purchaseOrders, onSave, onClose, nextNumber }) => {
     const [header, setHeader] = useState<Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>>(
         bill ? {
             bill_number: bill.bill_number,
@@ -226,22 +228,41 @@ const BillFormModal: React.FC<{
 
                     {/* Vendor / PO ref */}
                     <div className="grid grid-cols-3 gap-3">
+                        {header.bill_type === 'vendor' ? (
+                            <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">PO Reference</label>
+                                <select
+                                    value={header.po_reference ?? ''}
+                                    onChange={e => {
+                                        const po = purchaseOrders.find(p => p.po_number === e.target.value);
+                                        setHeader(h => ({
+                                            ...h,
+                                            po_reference: e.target.value,
+                                            vendor_name: po?.vendor_name ?? h.vendor_name,
+                                        }));
+                                    }}
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                >
+                                    <option value="">— Select PO —</option>
+                                    {purchaseOrders
+                                        .filter(p => p.status !== 'Cancelled')
+                                        .sort((a, b) => b.po_number.localeCompare(a.po_number))
+                                        .map(po => (
+                                            <option key={po.po_number} value={po.po_number}>
+                                                {po.po_number}{po.vendor_name ? ` — ${po.vendor_name}` : ''}{po.status ? ` (${po.status})` : ''}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                        ) : null}
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Vendor / Issuer</label>
                             <input type="text" value={header.vendor_name ?? ''}
                                 onChange={e => setHeader(h => ({ ...h, vendor_name: e.target.value }))}
-                                placeholder={header.bill_type === 'vendor' ? 'Supplier name' : 'e.g. EdC, NSSF'}
+                                placeholder={header.bill_type === 'vendor' ? 'Auto-filled from PO' : 'e.g. EdC, NSSF'}
                                 className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
                         </div>
-                        {header.bill_type === 'vendor' && (
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">PO Reference</label>
-                                <input type="text" value={header.po_reference ?? ''}
-                                    onChange={e => setHeader(h => ({ ...h, po_reference: e.target.value }))}
-                                    placeholder="PO-2026-XXX"
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
-                            </div>
-                        )}
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Due Date</label>
                             <input type="date" value={header.due_date ?? ''}
@@ -366,6 +387,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const canEdit = can('accounting', 'edit');
 
     const [bills, setBills] = useState<Bill[]>([]);
+    const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<'all' | 'vendor' | 'inter'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'posted' | 'paid'>('all');
@@ -380,8 +402,12 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await fetchBills();
+            const [data, pos] = await Promise.all([
+                fetchBills(),
+                readRecords<PurchaseOrder>('Purchase Orders'),
+            ]);
             setBills(data);
+            setPurchaseOrders(pos);
         } catch (e: unknown) {
             addToast((e as Error).message, 'error');
         } finally {
@@ -707,6 +733,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                 <BillFormModal
                     bill={formBill as Bill | null}
                     accounts={accounts}
+                    purchaseOrders={purchaseOrders}
                     onSave={handleSave}
                     onClose={() => setShowForm(false)}
                     nextNumber={nextNumber}
