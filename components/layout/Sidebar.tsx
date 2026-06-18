@@ -8,17 +8,19 @@ import {
   Filter, MessageSquare, Map, Calendar, Tags, Truck, Package,
   ClipboardList, Calculator, BarChart2, Receipt, ChevronLeft,
   ChevronRight, UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
-  Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2,
+  Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2, Pin, PinOff,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useData } from '@/contexts/DataContext';
 import { useWindowManager } from '../../contexts/WindowManagerContext';
+import { localStorageGet, localStorageSet } from '../../utils/storage';
+
+const PINS_KEY = 'limperial-sidebar-pins';
+const MAX_PINS = 6;
 
 // Mapping from route path → data modules each page needs.
-// On hover, both the JS chunk (router.prefetch) and the data (fetchModule)
-// start loading before the user clicks — eliminating the serial waterfall.
 const PATH_TO_MODULES: Record<string, string[]> = {
   '/dashboard':        ['Quotations', 'Sale Orders'],
   '/':                 ['Quotations', 'Sale Orders'],
@@ -79,6 +81,80 @@ const LazyPipelineDashboard        = React.lazy(() => import('../dashboards/oper
 const LazySiteSurveyDashboard      = React.lazy(() => import('../dashboards/operations/SiteSurveyDashboard'));
 const LazyAccountingDashboard      = React.lazy(() => import('../dashboards/accounting/AccountingDashboard'));
 
+// Registry: key → [LazyComponent, width?, height?]
+const LAZY_DASH_MAP: Record<string, [React.LazyExoticComponent<React.ComponentType<any>>, number?, number?]> = {
+  dashboard:        [LazyOverviewDashboard],
+  companies:        [LazyCompanyDashboard],
+  contacts:         [LazyContactDashboard],
+  contact_logs:     [LazyContactLogsDashboard],
+  meetings:         [LazyMeetingDashboard],
+  quotations:       [LazyQuotationDashboard],
+  sale_orders:      [LazySaleOrderDashboard],
+  invoices:         [LazyInvoiceDashboard, 1300, 800],
+  delivery_orders:  [LazyDeliveryOrderDashboard],
+  receipts:         [LazyReceiptDashboard],
+  collection:       [LazyCollectionDashboard],
+  weekly_report:    [LazyWeeklyReportDashboard, 1300, 820],
+  purchase_orders:  [LazyPurchaseOrderDashboard],
+  inventory:        [LazyInventoryDashboard],
+  pricelist:        [LazyPricelistDashboard],
+  b2b_pricelist:    [LazyB2BPricelistDashboard],
+  vendor_pricelist: [LazyVendorPricelistDashboard],
+  vendors:          [LazyVendorDashboard],
+  consignment:      [LazyConsignmentDashboard],
+  product_inquiries:[LazyInquiryDashboard],
+  service_tickets:  [LazyServiceTicketDashboard],
+  pdi_records:      [LazyPdiDashboard],
+  serial_numbers:   [LazySerialNumberDashboard],
+  spare_parts:      [LazySparePartDashboard],
+  pipelines:        [LazyPipelineDashboard],
+  site_surveys:     [LazySiteSurveyDashboard],
+  accounting:       [LazyAccountingDashboard, 1400, 860],
+};
+
+// Static registry for rebuilding pinned item UI from a stored key
+interface NavItemDef {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  badge?: string;
+}
+
+const NAV_ITEM_REGISTRY: NavItemDef[] = [
+  { key: 'dashboard',        label: 'Dashboard',        icon: <LayoutDashboard size={16} />, path: '/dashboard' },
+  { key: 'companies',        label: 'Companies',        icon: <Building size={16} />,        path: '/companies' },
+  { key: 'contacts',         label: 'Contacts',         icon: <Users size={16} />,           path: '/contacts' },
+  { key: 'quotations',       label: 'Quotations',       icon: <FileText size={16} />,        path: '/quotations' },
+  { key: 'sale_orders',      label: 'Sale Orders',      icon: <ShoppingCart size={16} />,    path: '/sale-orders' },
+  { key: 'invoices',         label: 'Invoices',         icon: <FileText size={16} />,        path: '/invoices' },
+  { key: 'delivery_orders',  label: 'Delivery Orders',  icon: <Truck size={16} />,           path: '/delivery-orders' },
+  { key: 'receipts',         label: 'Receipts',         icon: <Receipt size={16} />,         path: '/receipts' },
+  { key: 'collection',       label: 'Collection',       icon: <Wallet size={16} />,          path: '/collection' },
+  { key: 'weekly_report',    label: 'Weekly Report',    icon: <BarChart2 size={16} />,       path: '/weekly-report' },
+  { key: 'pos',              label: 'POS',              icon: <ShoppingBag size={16} />,     path: '/pos', badge: 'NEW' },
+  { key: 'pricelist',        label: 'Pricelist',        icon: <Tags size={16} />,            path: '/pricelist' },
+  { key: 'b2b_pricelist',    label: 'B2B Pricelist',    icon: <Tags size={16} />,            path: '/b2b-pricelist' },
+  { key: 'vendor_pricelist', label: 'Vendor Pricelist', icon: <Package size={16} />,         path: '/vendor-pricelist' },
+  { key: 'vendors',          label: 'Vendor Master',    icon: <Truck size={16} />,           path: '/vendors' },
+  { key: 'purchase_orders',  label: 'Purchase Orders',  icon: <ClipboardList size={16} />,   path: '/purchase-orders' },
+  { key: 'inventory',        label: 'Inventory',        icon: <Warehouse size={16} />,       path: '/inventory' },
+  { key: 'product_inquiries',label: 'Inquiries',        icon: <Search size={16} />,          path: '/inquiries' },
+  { key: 'consignment',      label: 'Consignment',      icon: <PackageCheck size={16} />,    path: '/consignment' },
+  { key: 'service_tickets',  label: 'Service Tickets',  icon: <Wrench size={16} />,          path: '/service-tickets' },
+  { key: 'pdi_records',      label: 'PDI Records',      icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
+  { key: 'serial_numbers',   label: 'Serial Numbers',   icon: <Hash size={16} />,            path: '/serial-numbers' },
+  { key: 'spare_parts',      label: 'Spare Parts',      icon: <Boxes size={16} />,           path: '/spare-parts' },
+  { key: 'pipelines',        label: 'Pipelines',        icon: <Filter size={16} />,          path: '/projects' },
+  { key: 'contact_logs',     label: 'Contact Logs',     icon: <MessageSquare size={16} />,   path: '/contact-logs' },
+  { key: 'site_surveys',     label: 'Site Surveys',     icon: <Map size={16} />,             path: '/site-surveys' },
+  { key: 'meetings',         label: 'Meetings',         icon: <Calendar size={16} />,        path: '/meetings' },
+  { key: 'accounting',       label: 'Accounting',       icon: <BookOpen size={16} />,        path: '/accounting' },
+  { key: 'users',            label: 'Users',            icon: <UserCog size={16} />,         path: '/users' },
+];
+
+const NAV_ITEM_MAP = Object.fromEntries(NAV_ITEM_REGISTRY.map(d => [d.key, d]));
+
 interface SidebarProps {
   isSidebarOpen: boolean;
   width: number;
@@ -94,9 +170,12 @@ interface SidebarProps {
 const NavItemContextMenu: React.FC<{
   x: number;
   y: number;
-  onOpenWindow: () => void;
+  isPinned: boolean;
+  canPin: boolean;
+  onOpenWindow?: () => void;
+  onTogglePin: () => void;
   onClose: () => void;
-}> = ({ x, y, onOpenWindow, onClose }) => {
+}> = ({ x, y, isPinned, canPin, onOpenWindow, onTogglePin, onClose }) => {
   React.useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (!(e.target as Element).closest('[data-nav-ctx-menu]')) onClose();
@@ -115,14 +194,27 @@ const NavItemContextMenu: React.FC<{
   return ReactDOM.createPortal(
     <div
       data-nav-ctx-menu="true"
-      className="fixed z-[300] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px]"
+      className="fixed z-[300] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[190px]"
       style={{ left: x, top: y }}
     >
+      {onOpenWindow && (
+        <button
+          onClick={() => { onOpenWindow(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-foreground text-left"
+        >
+          <Maximize2 size={13} className="text-muted-foreground" /> Open in Window
+        </button>
+      )}
+      {(onOpenWindow) && <div className="my-1 border-t border-border/40" />}
       <button
-        onClick={() => { onOpenWindow(); onClose(); }}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-accent text-foreground text-left"
+        onClick={() => { onTogglePin(); onClose(); }}
+        disabled={!isPinned && !canPin}
+        className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-accent text-left disabled:opacity-40 disabled:cursor-not-allowed text-foreground"
       >
-        <Maximize2 size={13} className="text-muted-foreground" /> Open in Window
+        {isPinned
+          ? <><PinOff size={13} className="text-muted-foreground" /> Unpin</>
+          : <><Pin size={13} className="text-muted-foreground" /> {canPin ? 'Pin to Favorites' : `Max ${MAX_PINS} pins`}</>
+        }
       </button>
     </div>,
     document.body
@@ -139,22 +231,28 @@ const NavItem: React.FC<{
   isCollapsed: boolean;
   badge?: string;
   onOpenWindow?: () => void;
-}> = ({ icon, label, isActive, onClick, onPrefetch, isCollapsed, badge, onOpenWindow }) => {
+  isPinned?: boolean;
+  canPin?: boolean;
+  onTogglePin?: () => void;
+}> = ({ icon, label, isActive, onClick, onPrefetch, isCollapsed, badge, onOpenWindow, isPinned = false, canPin = true, onTogglePin }) => {
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    if (!onOpenWindow) return;
+    if (!onOpenWindow && !onTogglePin) return;
     e.preventDefault();
     setCtxMenu({ x: e.clientX, y: e.clientY });
   };
 
   return (
     <li>
-      {ctxMenu && onOpenWindow && (
+      {ctxMenu && (onOpenWindow || onTogglePin) && (
         <NavItemContextMenu
           x={ctxMenu.x}
           y={ctxMenu.y}
+          isPinned={isPinned}
+          canPin={canPin}
           onOpenWindow={onOpenWindow}
+          onTogglePin={onTogglePin ?? (() => {})}
           onClose={() => setCtxMenu(null)}
         />
       )}
@@ -293,26 +391,31 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { fetchModule } = useData();
   const { openWindow } = useWindowManager();
 
-  // Optimistic active path — set on click, cleared when pathname catches up.
-  // This makes the clicked item highlight immediately instead of waiting for
-  // the full Next.js navigation commit (which can take 200-400ms).
-  const [pendingPath, setPendingPath] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    // Once the router has committed to the new path, clear the pending state
-    setPendingPath(null);
-  }, [pathname]);
+  // Pinned favorites
+  const [pinnedKeys, setPinnedKeys] = React.useState<string[]>(() => {
+    try { const raw = localStorageGet(PINS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
 
-  // Helpers
+  const togglePin = useCallback((key: string) => {
+    setPinnedKeys(prev => {
+      const next = prev.includes(key)
+        ? prev.filter(k => k !== key)
+        : prev.length < MAX_PINS ? [...prev, key] : prev;
+      localStorageSet(PINS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // Optimistic active path — set on click, cleared when pathname catches up.
+  const [pendingPath, setPendingPath] = React.useState<string | null>(null);
+  React.useEffect(() => { setPendingPath(null); }, [pathname]);
+
   const isActive = (path: string) => (pendingPath ?? pathname) === path;
   const go = (path: string) => () => {
     setPendingPath(path);
     onNavigate(path);
   };
 
-  // On hover: prefetch the JS chunk (router.prefetch) AND start loading the
-  // page's data modules (fetchModule). By the time the user clicks, the chunk
-  // is cached and the data is already arriving from IDB / network — making
-  // navigation feel near-instant.
   const prefetch = useCallback((path: string) => {
     router.prefetch(path);
     const modules = PATH_TO_MODULES[path];
@@ -321,16 +424,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [router, fetchModule]);
 
-  // Open any dashboard as a floating window with a lazy-loaded component
+  // Open any dashboard as a floating window
   const openDashWindow = useCallback((
     title: string,
     LazyComponent: React.LazyExoticComponent<React.ComponentType<any>>,
-    width: number = 1280,
-    height: number = 780,
+    w: number = 1280,
+    h: number = 780,
   ) => {
-    const id = `dash-window-${title.toLowerCase().replace(/\s+/g, '-')}`;
     openWindow({
-      id,
+      id: `dash-window-${title.toLowerCase().replace(/\s+/g, '-')}`,
       title,
       content: (
         <React.Suspense fallback={
@@ -339,14 +441,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           <LazyComponent />
         </React.Suspense>
       ),
-      initialWidth: width,
-      initialHeight: height,
+      initialWidth: w,
+      initialHeight: h,
       noPadding: true,
     });
   }, [openWindow]);
 
-  // Pre-compute which nav items are visible — one call each, evaluated once per render.
-  // Using the module keys from PERMISSION_MODULES.
+  const getOpenWindowForKey = useCallback((key: string) => {
+    const entry = LAZY_DASH_MAP[key];
+    if (!entry) return undefined;
+    const [LazyComp, w, h] = entry;
+    const label = NAV_ITEM_MAP[key]?.label ?? key;
+    return () => openDashWindow(label, LazyComp, w, h);
+  }, [openDashWindow]);
+
+  // Permission visibility
   const show = {
     dashboard:          canView('dashboard'),
     companies:          canView('companies'),
@@ -378,18 +487,30 @@ const Sidebar: React.FC<SidebarProps> = ({
     pricing_calculator: canView('pricing_calculator'),
     accounting:         canView('accounting'),
     pos:                canView('pos'),
-  };
+  } as Record<string, boolean>;
 
-  // Derived section visibility — a section only shows if at least one of its items is visible
-  const showOverview     = show.dashboard || show.companies || show.contacts || show.users;
-  const showSales        = show.quotations || show.sale_orders || show.invoices ||
-                           show.delivery_orders || show.receipts || show.collection ||
-                           show.weekly_report || show.pos;
-  const showProducts     = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
-  const showProcurement  = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
-  const showService      = show.service_tickets || show.pdi_records || show.serial_numbers || show.spare_parts;
-  const showActivity     = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
-  const showTools        = show.pricing_calculator || show.accounting;
+  const showOverview    = show.dashboard || show.companies || show.contacts || show.users;
+  const showSales       = show.quotations || show.sale_orders || show.invoices ||
+                          show.delivery_orders || show.receipts || show.collection ||
+                          show.weekly_report || show.pos;
+  const showProducts    = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
+  const showProcurement = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
+  const showService     = show.service_tickets || show.pdi_records || show.serial_numbers || show.spare_parts;
+  const showActivity    = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
+  const showTools       = show.pricing_calculator || show.accounting;
+
+  // Visible pinned items (filter out items the user can no longer access)
+  const visiblePins = pinnedKeys
+    .map(k => NAV_ITEM_MAP[k])
+    .filter((def): def is NavItemDef => !!def && show[def.key] !== false);
+
+  // Shared props builder for a nav item
+  const navProps = (key: string) => ({
+    isPinned: pinnedKeys.includes(key),
+    canPin: pinnedKeys.length < MAX_PINS || pinnedKeys.includes(key),
+    onTogglePin: () => togglePin(key),
+    onOpenWindow: getOpenWindowForKey(key),
+  });
 
   return (
     <aside
@@ -429,6 +550,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
         `}>
 
+          {/* Pinned Favorites */}
+          {visiblePins.length > 0 && (
+            <Section label="Pinned" isCollapsed={isCollapsed}>
+              {visiblePins.map(def => (
+                <NavItem
+                  key={`pin-${def.key}`}
+                  icon={def.icon}
+                  label={def.label}
+                  badge={def.badge}
+                  isActive={isActive(def.path)}
+                  onClick={go(def.path)}
+                  onPrefetch={() => prefetch(def.path)}
+                  isCollapsed={isCollapsed}
+                  {...navProps(def.key)}
+                />
+              ))}
+            </Section>
+          )}
+
           {/* Overview */}
           {showOverview && (
             <Section label="Overview" isCollapsed={isCollapsed}>
@@ -436,21 +576,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard"
                   isActive={isActive('/dashboard') || isActive('/')}
                   onClick={go('/dashboard')} onPrefetch={() => prefetch('/dashboard')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Dashboard', LazyOverviewDashboard)} />
+                  {...navProps('dashboard')} />
               )}
               {show.companies && (
                 <NavItem icon={<Building size={16} />} label="Companies"
                   isActive={isActive('/companies')} onClick={go('/companies')} onPrefetch={() => prefetch('/companies')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Companies', LazyCompanyDashboard)} />
+                  {...navProps('companies')} />
               )}
               {show.contacts && (
                 <NavItem icon={<Users size={16} />} label="Contacts"
                   isActive={isActive('/contacts')} onClick={go('/contacts')} onPrefetch={() => prefetch('/contacts')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Contacts', LazyContactDashboard)} />
+                  {...navProps('contacts')} />
               )}
               {show.users && (
                 <NavItem icon={<UserCog size={16} />} label="Users"
-                  isActive={isActive('/users')} onClick={go('/users')} onPrefetch={() => prefetch('/users')} isCollapsed={isCollapsed} />
+                  isActive={isActive('/users')} onClick={go('/users')} onPrefetch={() => prefetch('/users')} isCollapsed={isCollapsed}
+                  {...navProps('users')} />
               )}
             </Section>
           )}
@@ -459,45 +600,45 @@ const Sidebar: React.FC<SidebarProps> = ({
           {showSales && (
             <Section label="Sales" isCollapsed={isCollapsed}>
               {show.pos && (
-                <NavItem icon={<ShoppingBag size={16} />} label="POS"
-                  isActive={isActive('/pos')} onClick={go('/pos')} onPrefetch={() => prefetch('/pos')} isCollapsed={isCollapsed} badge="NEW" />
+                <NavItem icon={<ShoppingBag size={16} />} label="POS" badge="NEW"
+                  isActive={isActive('/pos')} onClick={go('/pos')} onPrefetch={() => prefetch('/pos')} isCollapsed={isCollapsed}
+                  {...navProps('pos')} />
               )}
               {show.quotations && (
                 <NavItem icon={<FileText size={16} />} label="Quotations"
                   isActive={isActive('/quotations')} onClick={go('/quotations')} onPrefetch={() => prefetch('/quotations')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Quotations', LazyQuotationDashboard)} />
+                  {...navProps('quotations')} />
               )}
               {show.sale_orders && (
                 <NavItem icon={<ShoppingCart size={16} />} label="Sale Orders"
                   isActive={isActive('/sale-orders')} onClick={go('/sale-orders')} onPrefetch={() => prefetch('/sale-orders')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Sale Orders', LazySaleOrderDashboard)} />
+                  {...navProps('sale_orders')} />
               )}
               {show.invoices && (
                 <NavItem icon={<FileText size={16} />} label="Invoices"
                   isActive={isActive('/invoices')} onClick={go('/invoices')} onPrefetch={() => prefetch('/invoices')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Invoices', LazyInvoiceDashboard, 1300, 800)} />
+                  {...navProps('invoices')} />
               )}
               {show.delivery_orders && (
                 <NavItem icon={<Truck size={16} />} label="Delivery Orders"
                   isActive={isActive('/delivery-orders')} onClick={go('/delivery-orders')} onPrefetch={() => prefetch('/delivery-orders')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Delivery Orders', LazyDeliveryOrderDashboard)} />
+                  {...navProps('delivery_orders')} />
               )}
               {show.receipts && (
                 <NavItem icon={<Receipt size={16} />} label="Receipts"
                   isActive={isActive('/receipts')} onClick={go('/receipts')} onPrefetch={() => prefetch('/receipts')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Receipts', LazyReceiptDashboard)} />
+                  {...navProps('receipts')} />
               )}
               {show.collection && (
                 <NavItem icon={<Wallet size={16} />} label="Collection"
                   isActive={isActive('/collection')} onClick={go('/collection')} onPrefetch={() => prefetch('/collection')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Collection', LazyCollectionDashboard)} />
+                  {...navProps('collection')} />
               )}
               {show.weekly_report && (
                 <NavItem icon={<BarChart2 size={16} />} label="Weekly Report"
                   isActive={isActive('/weekly-report')} onClick={go('/weekly-report')} onPrefetch={() => prefetch('/weekly-report')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Weekly Report', LazyWeeklyReportDashboard, 1300, 820)} />
+                  {...navProps('weekly_report')} />
               )}
-
             </Section>
           )}
 
@@ -508,23 +649,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                 ? show.b2b_pricelist && (
                   <NavItem icon={<Tags size={16} />} label="B2B Pricelist"
                     isActive={isActive('/b2b-pricelist')} onClick={go('/b2b-pricelist')} onPrefetch={() => prefetch('/b2b-pricelist')} isCollapsed={isCollapsed}
-                    onOpenWindow={() => openDashWindow('B2B Pricelist', LazyB2BPricelistDashboard)} />
+                    {...navProps('b2b_pricelist')} />
                 )
                 : show.pricelist && (
                   <NavItem icon={<Tags size={16} />} label="Pricelist"
                     isActive={isActive('/pricelist')} onClick={go('/pricelist')} onPrefetch={() => prefetch('/pricelist')} isCollapsed={isCollapsed}
-                    onOpenWindow={() => openDashWindow('Pricelist', LazyPricelistDashboard)} />
+                    {...navProps('pricelist')} />
                 )
               }
               {show.vendor_pricelist && (
                 <NavItem icon={<Package size={16} />} label="Vendor Pricelist"
                   isActive={isActive('/vendor-pricelist')} onClick={go('/vendor-pricelist')} onPrefetch={() => prefetch('/vendor-pricelist')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Vendor Pricelist', LazyVendorPricelistDashboard)} />
+                  {...navProps('vendor_pricelist')} />
               )}
               {show.vendors && (
                 <NavItem icon={<Truck size={16} />} label="Vendor Master"
                   isActive={isActive('/vendors')} onClick={go('/vendors')} onPrefetch={() => prefetch('/vendors')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Vendor Master', LazyVendorDashboard)} />
+                  {...navProps('vendors')} />
               )}
             </Section>
           )}
@@ -535,22 +676,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.purchase_orders && (
                 <NavItem icon={<ClipboardList size={16} />} label="Purchase Orders"
                   isActive={isActive('/purchase-orders')} onClick={go('/purchase-orders')} onPrefetch={() => prefetch('/purchase-orders')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Purchase Orders', LazyPurchaseOrderDashboard)} />
+                  {...navProps('purchase_orders')} />
               )}
               {show.inventory && (
                 <NavItem icon={<Warehouse size={16} />} label="Inventory"
                   isActive={isActive('/inventory')} onClick={go('/inventory')} onPrefetch={() => prefetch('/inventory')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Inventory', LazyInventoryDashboard)} />
+                  {...navProps('inventory')} />
               )}
               {show.product_inquiries && (
                 <NavItem icon={<Search size={16} />} label="Inquiries"
                   isActive={isActive('/inquiries')} onClick={go('/inquiries')} onPrefetch={() => prefetch('/inquiries')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Inquiries', LazyInquiryDashboard)} />
+                  {...navProps('product_inquiries')} />
               )}
               {show.consignment && (
                 <NavItem icon={<PackageCheck size={16} />} label="Consignment"
                   isActive={isActive('/consignment')} onClick={go('/consignment')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Consignment', LazyConsignmentDashboard)} />
+                  {...navProps('consignment')} />
               )}
             </Section>
           )}
@@ -561,22 +702,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.service_tickets && (
                 <NavItem icon={<Wrench size={16} />} label="Service Tickets"
                   isActive={isActive('/service-tickets')} onClick={go('/service-tickets')} onPrefetch={() => prefetch('/service-tickets')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Service Tickets', LazyServiceTicketDashboard)} />
+                  {...navProps('service_tickets')} />
               )}
               {show.pdi_records && (
                 <NavItem icon={<ClipboardCheck size={16} />} label="PDI Records"
                   isActive={isActive('/pdi-records')} onClick={go('/pdi-records')} onPrefetch={() => prefetch('/pdi-records')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('PDI Records', LazyPdiDashboard)} />
+                  {...navProps('pdi_records')} />
               )}
               {show.serial_numbers && (
                 <NavItem icon={<Hash size={16} />} label="Serial Numbers"
                   isActive={isActive('/serial-numbers')} onClick={go('/serial-numbers')} onPrefetch={() => prefetch('/serial-numbers')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Serial Numbers', LazySerialNumberDashboard)} />
+                  {...navProps('serial_numbers')} />
               )}
               {show.spare_parts && (
                 <NavItem icon={<Boxes size={16} />} label="Spare Parts"
                   isActive={isActive('/spare-parts')} onClick={go('/spare-parts')} onPrefetch={() => prefetch('/spare-parts')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Spare Parts', LazySparePartDashboard)} />
+                  {...navProps('spare_parts')} />
               )}
             </Section>
           )}
@@ -587,22 +728,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               {show.pipelines && (
                 <NavItem icon={<Filter size={16} />} label="Pipelines"
                   isActive={isActive('/projects')} onClick={go('/projects')} onPrefetch={() => prefetch('/projects')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Pipelines', LazyPipelineDashboard)} />
+                  {...navProps('pipelines')} />
               )}
               {show.contact_logs && (
                 <NavItem icon={<MessageSquare size={16} />} label="Contact Logs"
                   isActive={isActive('/contact-logs')} onClick={go('/contact-logs')} onPrefetch={() => prefetch('/contact-logs')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Contact Logs', LazyContactLogsDashboard)} />
+                  {...navProps('contact_logs')} />
               )}
               {show.site_surveys && (
                 <NavItem icon={<Map size={16} />} label="Site Surveys"
                   isActive={isActive('/site-surveys')} onClick={go('/site-surveys')} onPrefetch={() => prefetch('/site-surveys')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Site Surveys', LazySiteSurveyDashboard)} />
+                  {...navProps('site_surveys')} />
               )}
               {show.meetings && (
                 <NavItem icon={<Calendar size={16} />} label="Meetings"
                   isActive={isActive('/meetings')} onClick={go('/meetings')} onPrefetch={() => prefetch('/meetings')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Meetings', LazyMeetingDashboard)} />
+                  {...navProps('meetings')} />
               )}
             </Section>
           )}
@@ -612,12 +753,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Section label="Accounting" isCollapsed={isCollapsed}>
               {show.pricing_calculator && (
                 <NavItem icon={<Calculator size={16} />} label="Pricing Calculator"
-                  isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed} />
+                  isActive={isActive('/pricing-calculator')} onClick={go('/pricing-calculator')} isCollapsed={isCollapsed}
+                  {...navProps('pricing_calculator')} />
               )}
               {show.accounting && (
                 <NavItem icon={<BookOpen size={16} />} label="Accounting"
                   isActive={isActive('/accounting')} onClick={go('/accounting')} isCollapsed={isCollapsed}
-                  onOpenWindow={() => openDashWindow('Accounting', LazyAccountingDashboard, 1400, 860)} />
+                  {...navProps('accounting')} />
               )}
             </Section>
           )}
