@@ -7,6 +7,7 @@ export interface LineItem {
     qty: number | string;
     unitPrice: number | string;
     amount: number;
+    brand?: string;
     serialNumber?: string;
     serialNumbers?: string[];
     isPromotion?: boolean;

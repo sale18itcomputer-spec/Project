@@ -165,14 +165,19 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const taxAmount = isVAT ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + taxAmount;
 
-        const brandMap = new Map((pricelist ?? []).map(p => [p['Item Code'] || p['Code'], p['Brand']]));
+        const pl = pricelist ?? [];
+        const codeMap  = new Map(pl.map(p => [p['Code'],  p['Brand']]));
+        const modelMap = new Map(pl.map(p => [p['Model'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
         let cashbackTotal = 0;
         for (const item of items) {
             if (item.isPromotion) {
                 cashbackTotal += Number(item.amount) || 0;
             } else {
-                const brand = (item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories';
+                const brand = (item.itemCode && codeMap.get(item.itemCode))
+                    || item.brand
+                    || (item.modelName && modelMap.get(item.modelName))
+                    || 'Other Accessories';
                 brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
             }
         }

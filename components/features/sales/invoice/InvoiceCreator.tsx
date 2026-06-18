@@ -316,11 +316,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const handlePricelistItemSelect = (item: LineItem, p: any) => {
         setItems(prev => prev.map(i => i.id === item.id ? {
             ...i,
-            itemCode: p['Item Code'] || '',
+            itemCode: p['Code'] || p['Item Code'] || '',
             modelName: p.Model || '',
-            description: p.Specification || '',
+            description: p['Description'] || p.Specification || '',
             unitPrice: p['Selling Price (Include VAT)'] || 0,
-            amount: (Number(p['Selling Price (Include VAT)']) || 0) * (Number(i.qty) || 0)
+            amount: (Number(p['Selling Price (Include VAT)']) || 0) * (Number(i.qty) || 0),
+            brand: p.Brand || '',
         } : i));
     };
 
