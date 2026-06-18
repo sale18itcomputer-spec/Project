@@ -10,7 +10,7 @@ import {
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { createRecord, updateRecord, deleteRecord } from '../../../services/api';
+import { createRecord, updateRecord, deleteRecord, readRecords } from '../../../services/api';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import { User as UserType, UserPermissions } from '../../../types';
 import { useNavigation } from '../../../contexts/NavigationContext';
@@ -63,7 +63,25 @@ const TABS: { id: ModalTab; label: string; icon: React.ReactNode }[] = [
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const UserManagementDashboard: React.FC = () => {
-  const { users: allUsers, isAuthLoading: loading } = useAuth();
+  const { users: authUsers, isAuthLoading } = useAuth();
+  const [localUsers, setLocalUsers] = useState<UserType[] | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
+
+  // AuthContext skips setUsers() when session is restored from localStorage cache.
+  // Fetch directly in that case so the table is never empty.
+  useEffect(() => {
+    if (!isAuthLoading && !authUsers) {
+      setLocalLoading(true);
+      readRecords<UserType>('Users')
+        .then(rows => setLocalUsers(rows))
+        .catch(() => setLocalUsers([]))
+        .finally(() => setLocalLoading(false));
+    }
+  }, [isAuthLoading, authUsers]);
+
+  const allUsers = authUsers ?? localUsers;
+  const loading = isAuthLoading || localLoading;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleting, setIsDeleting] = useState<UserType | null>(null);
   const [isSettingPassword, setIsSettingPassword] = useState<UserType | null>(null);
