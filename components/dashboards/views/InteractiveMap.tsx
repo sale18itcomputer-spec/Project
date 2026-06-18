@@ -45,6 +45,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, initi
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+    const [mapError, setMapError] = useState<string | null>(null);
     
     const geocoderRef = useRef<google.maps.Geocoder | null>(null);
     
@@ -138,8 +139,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, initi
                     onLocationChange({ lat, lng, name });
 
                 } else if (searchInputRef.current) {
-                    // User entered a place that was not suggested and pressed Enter.
-                    window.alert("Could not find details for: '" + searchInputRef.current.value + "'");
+                    setMapError(`Could not find details for: "${searchInputRef.current.value}"`);
                 }
             });
         }
@@ -166,17 +166,23 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, initi
                     updateLocationFromLatLng(pos);
                 },
                 () => {
-                    alert('Error: The Geolocation service failed. Please check browser permissions.');
+                    setMapError('Geolocation failed. Please check browser permissions.');
                 }
             );
         } else {
-            alert("Error: Your browser doesn't support geolocation.");
+            setMapError("Your browser doesn't support geolocation.");
         }
     };
 
 
     return (
         <div className="space-y-3">
+            {mapError && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+                    <span>{mapError}</span>
+                    <button onClick={() => setMapError(null)} className="shrink-0 text-rose-400 hover:text-rose-600 transition">✕</button>
+                </div>
+            )}
             <div className="flex gap-2">
                 <input
                     ref={searchInputRef}

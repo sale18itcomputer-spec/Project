@@ -12,6 +12,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { Button } from '../../ui/button';
+import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
@@ -731,6 +732,10 @@ export default function AccountingDashboard() {
     const [journalFilter, setJournalFilter]   = useState<'all' | 'draft' | 'auto' | 'manual'>('all');
     const [postingAll, setPostingAll]         = useState(false);
     const [backfillingCOGS, setBackfillingCOGS] = useState(false);
+    const [confirmDialog, setConfirmDialog]   = useState<{
+        title: string; message: string; confirmText: string;
+        variant: 'danger' | 'warning'; onConfirm: () => void;
+    } | null>(null);
 
     // ── Balance Sheet state ───────────────────────────────────────────────────
     const [bsMode, setBsMode]           = useState<'single' | 'compare'>('single');
@@ -1146,19 +1151,27 @@ export default function AccountingDashboard() {
         }
     };
 
-    const handleTogglePost = async (entry: JournalEntry) => {
-        // Require confirmation before removing a posted entry from the ledger
-        if (entry.is_posted && !window.confirm(`Unpost ${entry.entry_number}? This will remove it from all financial reports until reposted.`)) {
-            return;
-        }
-        try {
-            const updated = await togglePostJournalEntry(entry.id!, !entry.is_posted);
-            setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: updated.is_posted } : e));
-            addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
-            // Refresh balance sheet if open
-            if (activeTab === 'balance') setBsData(null);
-        } catch (e: any) {
-            addToast(`Failed to update entry: ${e.message}`, 'error');
+    const handleTogglePost = (entry: JournalEntry) => {
+        const doToggle = async () => {
+            try {
+                const updated = await togglePostJournalEntry(entry.id!, !entry.is_posted);
+                setEntries(prev => prev.map(e => e.id === updated.id ? { ...e, is_posted: updated.is_posted } : e));
+                addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
+                if (activeTab === 'balance') setBsData(null);
+            } catch (e: any) {
+                addToast(`Failed to update entry: ${e.message}`, 'error');
+            }
+        };
+        if (entry.is_posted) {
+            setConfirmDialog({
+                title: `Unpost ${entry.entry_number}?`,
+                message: 'This will remove it from all financial reports until it is reposted.',
+                confirmText: 'Unpost',
+                variant: 'warning',
+                onConfirm: () => { setConfirmDialog(null); doToggle(); },
+            });
+        } else {
+            doToggle();
         }
     };
 
@@ -1181,10 +1194,19 @@ export default function AccountingDashboard() {
     const draftCount = useMemo(() => entries.filter(e => !e.is_posted).length, [entries]);
     const autoCount  = useMemo(() => entries.filter(e => e.source && e.source !== 'manual').length, [entries]);
 
-    const handlePostAllDrafts = async () => {
+    const handlePostAllDrafts = () => {
         const drafts = filteredEntries.filter(e => !e.is_posted);
         if (drafts.length === 0) { addToast('No draft entries to post.', 'info'); return; }
-        if (!window.confirm(`Post all ${drafts.length} draft ${drafts.length === 1 ? 'entry' : 'entries'} in the current view? This will add them to all financial reports.`)) return;
+        setConfirmDialog({
+            title: `Post ${drafts.length} draft ${drafts.length === 1 ? 'entry' : 'entries'}?`,
+            message: 'This will add all drafts in the current view to all financial reports.',
+            confirmText: 'Post All',
+            variant: 'warning',
+            onConfirm: () => { setConfirmDialog(null); doPostAllDrafts(drafts); },
+        });
+    };
+
+    const doPostAllDrafts = async (drafts: JournalEntry[]) => {
         setPostingAll(true);
         let posted = 0;
         let failed = 0;
@@ -1203,8 +1225,17 @@ export default function AccountingDashboard() {
         if (activeTab === 'balance') setBsData(null);
     };
 
-    const handleBackfillCOGS = async () => {
-        if (!window.confirm('Create COGS back-fill entries for all invoices currently missing cost lines?\n\nThis creates new draft journal entries — review and post them when ready.')) return;
+    const handleBackfillCOGS = () => {
+        setConfirmDialog({
+            title: 'Back-fill COGS?',
+            message: 'Creates draft COGS journal entries for all invoices currently missing cost lines. Review and post them when ready.',
+            confirmText: 'Back-fill',
+            variant: 'warning',
+            onConfirm: () => { setConfirmDialog(null); doBackfillCOGS(); },
+        });
+    };
+
+    const doBackfillCOGS = async () => {
         setBackfillingCOGS(true);
         try {
             const result = await backfillAllMissingCOGS(currentUser?.Name || 'admin');
@@ -1275,6 +1306,7 @@ export default function AccountingDashboard() {
     // ── Render ────────────────────────────────────────────────────────────────
 
     return (
+        <>
         <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -2506,5 +2538,19 @@ export default function AccountingDashboard() {
                 </div>
             )}
         </div>
+
+        {confirmDialog && (
+            <ConfirmationModal
+                isOpen
+                title={confirmDialog.title}
+                confirmText={confirmDialog.confirmText}
+                variant={confirmDialog.variant}
+                onConfirm={confirmDialog.onConfirm}
+                onClose={() => setConfirmDialog(null)}
+            >
+                {confirmDialog.message}
+            </ConfirmationModal>
+        )}
+        </>
     );
 }

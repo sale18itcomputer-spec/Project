@@ -3,6 +3,7 @@
 import React from 'react';
 import { PosCartItem, PosSessionForm } from '../../types';
 import { formatDisplayDate } from '../../utils/time';
+import { useToast } from '../../contexts/ToastContext';
 import { Printer, ArrowRight, X } from 'lucide-react';
 
 export interface CompletedSale {
@@ -30,6 +31,7 @@ const Divider = () => (
 const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
   isOpen, onClose, sale, session, taxAmount, subTotal, isReprint = false,
 }) => {
+  const { addToast } = useToast();
   if (!isOpen || !sale) return null;
 
   const today = new Date().toISOString().split('T')[0];
@@ -39,7 +41,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
   const handlePrint = () => {
     const win = window.open('', '_blank', 'width=420,height=760,scrollbars=yes');
     if (!win) {
-      alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
+      addToast('Pop-up blocked. Please allow pop-ups for this site and try again.', 'error');
       return;
     }
 
