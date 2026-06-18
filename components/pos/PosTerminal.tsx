@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { generatePosInvNo, generatePosRvNo, createRecord, getSetting } from '../../services/api';
 import { autoPostInvoiceJournal } from '../../services/accountingApi';
+import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
 import PosSalesModal from './PosSalesModal';
@@ -221,26 +222,76 @@ const PosTerminal: React.FC = () => {
       await createRecord('Receipts', receiptPayload);
       setReceipts(prev => prev ? [receiptPayload as any, ...prev] : [receiptPayload as any]);
 
-      // Auto-post accounting journal (non-fatal)
-      const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
-      const brandTotals: Record<string, number> = {};
-      for (const item of cart) {
-        const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
-        brandTotals[brand] = (brandTotals[brand] ?? 0) + item.amount;
-      }
-      const brandAmounts = Object.entries(brandTotals)
-        .map(([brand, st]) => ({ brand, subtotal: st }))
-        .filter(b => b.subtotal > 0.005);
+      // Non-fatal: inventory deduction + COGS + revenue journal
+      const cartSnapshot = [...cart];
+      ;(async () => {
+        const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+        const brandTotals: Record<string, number> = {};
+        const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
 
-      autoPostInvoiceJournal({
-        invNo,
-        entryDate: today,
-        grandTotal,
-        taxAmount,
-        isVAT: session.taxType === 'VAT',
-        createdBy: session.createdBy,
-        brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
-      }).catch(err => console.warn('[POS] auto-post failed:', err));
+        for (const item of cartSnapshot) {
+          const brand = (item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories';
+          brandTotals[brand] = (brandTotals[brand] ?? 0) + item.amount;
+
+          // Inventory lookup + deduction
+          let invRows: any[] | null = null;
+          if (item.itemCode) {
+            const { data } = await supabase
+              .from('inventory')
+              .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+              .eq('status', 'In Stock')
+              .gt('qty', 0)
+              .eq('code', item.itemCode)
+              .order('created_at', { ascending: true })
+              .limit(1);
+            invRows = data;
+          }
+          if ((!invRows || invRows.length === 0) && item.modelName) {
+            const { data } = await supabase
+              .from('inventory')
+              .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+              .eq('status', 'In Stock')
+              .gt('qty', 0)
+              .ilike('model_name', `%${item.modelName}%`)
+              .order('created_at', { ascending: true })
+              .limit(1);
+            invRows = data;
+          }
+          if (invRows && invRows.length > 0) {
+            const inv = invRows[0];
+            const newQty = Math.max(0, Number(inv.qty) - item.qty);
+            await supabase
+              .from('inventory')
+              .update({ qty: newQty, status: newQty <= 0 ? 'Out of Stock' : 'In Stock' })
+              .eq('id', inv.id);
+            const unitCost = Number(inv.unit_price) || 0;
+            if (unitCost > 0) {
+              costItems.push({
+                brand,
+                qty:               item.qty,
+                unit_price:        unitCost,
+                cogs_account:      inv.cogs_account      || undefined,
+                inventory_account: inv.inventory_account || undefined,
+              });
+            }
+          }
+        }
+
+        const brandAmounts = Object.entries(brandTotals)
+          .map(([b, subtotal]) => ({ brand: b, subtotal }))
+          .filter(b => b.subtotal > 0.005);
+
+        await autoPostInvoiceJournal({
+          invNo,
+          entryDate:   today,
+          grandTotal,
+          taxAmount,
+          isVAT:       session.taxType === 'VAT',
+          createdBy:   session.createdBy,
+          brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
+          costItems:   costItems.length > 0 ? costItems : undefined,
+        });
+      })().catch(err => console.warn('[POS] inventory/journal post failed:', err));
 
       setCompletedSale({ invNo, rvNo, grandTotal, changeAmount, items: [...cart] });
       setShowReceiptModal(true);

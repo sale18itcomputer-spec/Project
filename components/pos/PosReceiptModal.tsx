@@ -168,19 +168,17 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden border border-border">
-        {/* Close button (reprint mode) */}
-        {isReprint && (
-          <div className="flex justify-end px-4 pt-4 pb-0">
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden border border-border" onClick={e => e.stopPropagation()}>
+        {/* Close button (always visible) */}
+        <div className="flex justify-end px-4 pt-4 pb-0">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Receipt preview */}
         <div className="p-6 font-mono text-sm text-gray-900 dark:text-gray-100 overflow-y-auto max-h-[72vh]">
