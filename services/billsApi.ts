@@ -118,39 +118,61 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     const total = lines.reduce((s: number, l: BillLine) => s + Number(l.amount), 0);
     if (total <= 0) throw new Error('Bill total must be greater than zero.');
 
-    // DR each expense/asset account, CR Accounts Payable 20000
-    const jeLines = [
-        ...lines.map((l: BillLine) => ({
-            account_number: l.account_number,
-            description: `${l.description || bill.description} — ${bill.bill_number}`,
-            debit: Number(l.amount),
-            credit: 0,
-        })),
-        {
-            account_number: '20000',
-            description: `AP — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
-            debit: 0,
-            credit: total,
-        },
-    ];
+    // If this bill references a PO that already has a posted purchase_order JE,
+    // skip creating a duplicate JE (inventory + AP were already booked by that PO JE).
+    let jeId: string | null = null;
+    let skipJe = false;
+    if (bill.po_reference) {
+        const { data: existingPOJe } = await supabase
+            .from('journal_entries')
+            .select('id')
+            .eq('source', 'purchase_order')
+            .eq('reference', bill.po_reference)
+            .eq('is_posted', true)
+            .maybeSingle();
+        if (existingPOJe?.id) {
+            // Reuse the existing PO JE — do not double-book AP/Inventory
+            jeId = existingPOJe.id;
+            skipJe = true;
+        }
+    }
 
-    const entryNumber = await getNextEntryNumber();
-    const je = await createJournalEntry(
-        {
-            entry_number: entryNumber,
-            entry_date: bill.bill_date,
-            description: `Bill — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
-            reference: bill.bill_number,
-            created_by: createdBy,
-            is_posted: true,
-            source: 'bill',
-        },
-        jeLines,
-    );
+    if (!skipJe) {
+        // DR each expense/asset account, CR Accounts Payable 20000
+        const jeLines = [
+            ...lines.map((l: BillLine) => ({
+                account_number: l.account_number,
+                description: `${l.description || bill.description} — ${bill.bill_number}`,
+                debit: Number(l.amount),
+                credit: 0,
+            })),
+            {
+                account_number: '20000',
+                description: `AP — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
+                debit: 0,
+                credit: total,
+            },
+        ];
+
+        const entryNumber = await getNextEntryNumber();
+        const je = await createJournalEntry(
+            {
+                entry_number: entryNumber,
+                entry_date: bill.bill_date,
+                description: `Bill — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
+                reference: bill.bill_number,
+                created_by: createdBy,
+                is_posted: true,
+                source: 'bill',
+            },
+            jeLines,
+        );
+        jeId = je.id;
+    }
 
     const { data: updated, error: updateErr } = await supabase
         .from('bills')
-        .update({ status: 'posted', journal_entry_id: je.id, total_amount: total })
+        .update({ status: 'posted', journal_entry_id: jeId, total_amount: total })
         .eq('id', id)
         .select()
         .single();

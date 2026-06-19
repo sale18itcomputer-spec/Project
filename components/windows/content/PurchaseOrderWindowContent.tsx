@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { supabase } from '@/lib/supabase';
-import { autoPostPurchaseOrderJournal } from '@/services/accountingApi';
 import { convertPurchaseOrderToInventory } from '@/services/inventoryApi';
 import { Plus, Trash2, Save, ShoppingCart, Download, Loader2, Eye } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from '@/components/common/FormControls';
@@ -490,17 +489,8 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             if (itemsError) throw itemsError;
 
             if (formData.status === 'Completed') {
-                // Auto-post: DR Inventory (per brand) / CR Accounts Payable / CR Purchase Discount (non-fatal)
-                const poCashback = items
-                    .filter(i => i.is_promotion)
-                    .reduce((s, i) => s + (Number(i.unit_price) || 0), 0);
-                autoPostPurchaseOrderJournal({
-                    poNumber: formData.po_number || savedPoId || '',
-                    entryDate: formData.order_date || new Date().toISOString().slice(0, 10),
-                    items: items.filter(i => !i.is_promotion).map(i => ({ brand: i.brand, qty: i.qty, unit_price: i.unit_price })),
-                    createdBy: currentUser?.Name || 'system',
-                    cashbackTotal: poCashback < 0 ? poCashback : 0,
-                }).catch(err => console.warn('[PurchaseOrderWindowContent] auto-post failed:', err));
+                // No JE here — accounting flows PO → Bill → JE.
+                // The Bill tab creates the DR Inventory / CR AP entry when posted.
 
                 try {
                     const pricelistPayload = items

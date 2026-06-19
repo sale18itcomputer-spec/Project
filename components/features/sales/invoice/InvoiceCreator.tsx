@@ -444,37 +444,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 await createRecord('Invoices', payload);
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
 
-                // Auto-post a draft journal entry for non-Draft invoices (non-fatal)
-                if (invoice['Status'] !== 'Draft') {
-                    // Build per-brand revenue breakdown using pricelist Code → Brand
-                    const brandMap = new Map(
-                        (pricelist ?? []).map(p => [p['Item Code'] || p['Code'], p['Brand']])
-                    );
-                    const brandTotals: Record<string, number> = {};
-                    let cashbackTotal = 0;
-                    for (const item of items) {
-                        if (item.isPromotion) {
-                            cashbackTotal += Number(item.amount) || 0;
-                        } else {
-                            const brand = (item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories';
-                            brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
-                        }
-                    }
-                    const brandAmounts = Object.entries(brandTotals)
-                        .map(([brand, subtotal]) => ({ brand, subtotal }))
-                        .filter(b => b.subtotal > 0.005);
-
-                    autoPostInvoiceJournal({
-                        invNo: invoice['Inv No']!,
-                        entryDate: invoice['Inv Date'] || getTodayDateString(),
-                        grandTotal: totals.grandTotal,
-                        taxAmount: totals.tax,
-                        isVAT: invoice['Taxable'] === 'VAT',
-                        createdBy: currentUser?.Name || 'system',
-                        brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
-                        cashbackTotal: cashbackTotal < 0 ? cashbackTotal : 0,
-                    }).catch(err => console.warn('[InvoiceCreator] auto-post failed:', err));
-                }
+                // JE is posted below (line 632) with full COGS — do not post here.
             }
 
             if (wasDraft && isNowIssued) {

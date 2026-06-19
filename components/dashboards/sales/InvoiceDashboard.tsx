@@ -16,6 +16,7 @@ import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
 import { autoPostInvoiceJournal } from "../../../services/accountingApi";
+import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { generatePDF } from "../../../lib/pdfClient";
 import ConfirmationModal from "../../modals/ConfirmationModal";
@@ -160,14 +161,14 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             items = invoice.ItemsJSON || [];
         }
 
-        const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+        const subTotal = items.filter((i: any) => !i.isPromotion).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
         const isVAT = invoice['Taxable'] === 'VAT' || invoice['Taxable'] === 'Yes';
         const taxAmount = isVAT ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + taxAmount;
 
         const pl = pricelist ?? [];
-        const codeMap  = new Map(pl.map(p => [p['Code'],  p['Brand']]));
-        const modelMap = new Map(pl.map(p => [p['Model'], p['Brand']]));
+        const codeMap  = new Map(pl.map((p: any) => [p['Code'],  p['Brand']]));
+        const modelMap = new Map(pl.map((p: any) => [p['Model'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
         let cashbackTotal = 0;
         for (const item of items) {
@@ -185,6 +186,35 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             .map(([brand, subtotal]) => ({ brand, subtotal }))
             .filter(b => b.subtotal > 0.005);
 
+        // Look up inventory unit costs for COGS entries
+        const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+        for (const item of items) {
+            if (item.isPromotion) continue;
+            const qty = Number(item.qty) || 0;
+            if (qty <= 0) continue;
+            const code  = item.itemCode?.trim();
+            const model = item.modelName?.trim();
+            if (!code && !model) continue;
+
+            let invRows: any[] | null = null;
+            if (code) {
+                const { data } = await supabase.from('inventory').select('unit_price, brand, cogs_account, inventory_account').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                invRows = data;
+            }
+            if ((!invRows || !invRows.length) && model) {
+                const { data } = await supabase.from('inventory').select('unit_price, brand, cogs_account, inventory_account').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                invRows = data;
+            }
+            if (invRows?.length) {
+                const inv = invRows[0];
+                const unitCost = Number(inv.unit_price) || 0;
+                if (unitCost > 0) {
+                    const brand = (code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories';
+                    costItems.push({ brand, qty, unit_price: unitCost, cogs_account: inv.cogs_account || undefined, inventory_account: inv.inventory_account || undefined });
+                }
+            }
+        }
+
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -198,8 +228,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 createdBy: currentUser?.Name || 'system',
                 brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
                 cashbackTotal: cashbackTotal < 0 ? cashbackTotal : 0,
+                costItems: costItems.length > 0 ? costItems : undefined,
             });
-            addToast(created ? 'Journal entry posted!' : 'Already posted — no duplicate created.', 'success');
+            addToast(created ? 'Journal entry posted with COGS!' : 'Already posted — no duplicate created.', 'success');
         } catch (err: any) {
             addToast(`Failed to post journal: ${err.message}`, 'error');
         }
