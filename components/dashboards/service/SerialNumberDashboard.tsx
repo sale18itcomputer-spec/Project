@@ -33,6 +33,17 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
   </span>
 );
 
+const STOCK_STATUS_STYLES: Record<string, string> = {
+  'In Stock': 'bg-emerald-500/10 text-emerald-500',
+  'Sold':     'bg-slate-500/10 text-slate-500',
+};
+
+const StockStatusBadge: React.FC<{ value: string }> = ({ value }) => (
+  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${STOCK_STATUS_STYLES[value] ?? 'bg-muted text-muted-foreground'}`}>
+    {value || 'In Stock'}
+  </span>
+);
+
 interface SoldItem {
   _key: string;
   invNo: string;
@@ -58,6 +69,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
   const [activeTab, setActiveTab] = useState<ActiveTab>('registered');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
+  const [stockStatusFilter, setStockStatusFilter] = useState('All');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
   const [snToDelete, setSnToDelete] = useState<SerialNumber | null>(null);
 
@@ -177,6 +189,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
   const filteredData = useMemo(() => {
     let data = serialNumbers ?? [];
     if (statusFilter !== 'All') data = data.filter(s => s.status === statusFilter);
+    if (stockStatusFilter !== 'All') data = data.filter(s => (s.stock_status || 'In Stock') === stockStatusFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       data = data.filter(s =>
@@ -188,7 +201,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       );
     }
     return data;
-  }, [serialNumbers, statusFilter, searchQuery]);
+  }, [serialNumbers, statusFilter, stockStatusFilter, searchQuery]);
 
   const allColumns = useMemo<ColumnDef<SerialNumber>[]>(() => [
     {
@@ -205,6 +218,12 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
     { accessorKey: 'warranty_end_date', header: 'Warranty End', isSortable: true, cell: (v: string) => formatDisplayDate(v) },
     { accessorKey: 'warranty_period_months', header: 'Warranty (mo)', isSortable: true },
     {
+      accessorKey: 'stock_status',
+      header: 'Stock',
+      isSortable: true,
+      cell: (v: string) => <StockStatusBadge value={v} />,
+    },
+    {
       accessorKey: 'status',
       header: 'Status',
       isSortable: true,
@@ -217,7 +236,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       const saved = localStorageGet(COLUMNS_VISIBILITY_KEY);
       if (saved) return new Set(JSON.parse(saved));
     } catch { }
-    return new Set(['serial_number', 'brand', 'model_name', 'company_name', 'so_no', 'warranty_end_date', 'status']);
+    return new Set(['serial_number', 'brand', 'model_name', 'company_name', 'so_no', 'warranty_end_date', 'stock_status', 'status']);
   });
 
   const handleColumnToggle = (key: string) => {
@@ -236,6 +255,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
   );
 
   const STATUS_FILTERS = ['All', 'Active', 'In Service', 'Returned', 'Written Off', 'Retired'];
+  const STOCK_STATUS_FILTERS = ['All', 'In Stock', 'Sold'];
 
   return (
     <div className="h-full flex flex-col">
@@ -319,20 +339,37 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
 
         {/* Status filters — only for registered tab */}
         {activeTab === 'registered' && (
-          <div className="flex gap-1 flex-wrap pt-3">
-            {STATUS_FILTERS.map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                  statusFilter === s
-                    ? 'bg-brand-600 text-white border-brand-600'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3 pt-3">
+            <div className="flex gap-1 flex-wrap">
+              {STATUS_FILTERS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
+                    statusFilter === s
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 flex-wrap border-l border-border pl-3">
+              {STOCK_STATUS_FILTERS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStockStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
+                    stockStatusFilter === s
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </header>

@@ -171,6 +171,7 @@ export const convertPurchaseOrderToInventory = async (
             description: invRow.description ?? '',
             inventory_id: invRow.id,
             status: 'Active',
+            stock_status: 'In Stock',
             created_by: createdBy ?? 'System',
         }));
     });

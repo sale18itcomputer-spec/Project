@@ -659,6 +659,7 @@ export interface SerialNumber {
   warranty_end_date?: string | null;
   warranty_period_months?: number;
   status: 'Active' | 'In Service' | 'Returned' | 'Written Off' | 'Retired';
+  stock_status: 'In Stock' | 'Sold';
   notes: string;
   created_by?: string;
   created_at?: string;

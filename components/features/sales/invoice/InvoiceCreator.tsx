@@ -460,6 +460,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const warrantyEnd = addMonths(warrantyStart, 12);
 
                 const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+                const conflictSerials: { serial: string; soNo: string }[] = [];
 
                 try {
                     for (const item of items) {
@@ -533,11 +534,21 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         for (const sn of serials) {
                             const { data: existingSN } = await supabase
                                 .from('serial_numbers')
-                                .select('id')
+                                .select('id, stock_status, so_no')
                                 .eq('serial_number', sn)
                                 .limit(1);
 
                             if (existingSN && existingSN.length > 0) {
+                                const existingRow = existingSN[0];
+                                const soNo = invoice['SO No'] || '';
+
+                                // Already sold to a different SO — don't silently reassign
+                                // the unit to this sale; flag it for the user instead.
+                                if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
+                                    conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
+                                    continue;
+                                }
+
                                 // Row already exists (e.g. seeded at PO intake) — update it
                                 // with this sale's customer/warranty info instead of skipping,
                                 // so the lifecycle transitions from "in stock" to "sold".
@@ -548,15 +559,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                         model_name: item.modelName || '',
                                         description: item.description || '',
                                         inventory_id: matchedInvId,
-                                        so_no: invoice['SO No'] || '',
+                                        so_no: soNo,
                                         company_name: invoice['Company Name'] || '',
                                         contact_name: invoice['Contact Name'] || '',
                                         warranty_start_date: warrantyStart,
                                         warranty_period_months: 12,
                                         warranty_end_date: warrantyEnd,
                                         status: 'Active',
+                                        stock_status: 'Sold',
                                     })
-                                    .eq('id', existingSN[0].id)
+                                    .eq('id', existingRow.id)
                                     .select()
                                     .single();
 
@@ -582,6 +594,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                     warranty_period_months: 12,
                                     warranty_end_date: warrantyEnd,
                                     status: 'Active',
+                                    stock_status: 'Sold',
                                     created_by: currentUser?.Name || '',
                                 })
                                 .select()
@@ -595,6 +608,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     }
                 } catch (invErr: any) {
                     console.warn('[InvoiceCreator] inventory/serial sync failed:', invErr.message);
+                }
+
+                if (conflictSerials.length > 0) {
+                    const list = conflictSerials.map(c => `${c.serial} (sold on ${c.soNo})`).join(', ');
+                    addToast(`Skipped already-sold serial number(s): ${list}`, 'error');
                 }
 
                 // Auto-post invoice journal with COGS after inventory loop

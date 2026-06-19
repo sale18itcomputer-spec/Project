@@ -30,7 +30,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
     ticketId,
     initialReadOnly = false,
 }) => {
-    const { fetchModule, serviceTickets, setServiceTickets, companies, contacts } = useData();
+    const { fetchModule, serviceTickets, setServiceTickets, companies, contacts, serialNumbers } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { closeWindow, updateWindow } = useWindowManager();
@@ -75,8 +75,17 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
         return [...new Set(filtered.map(c => c.Name).filter(Boolean))].sort() as string[];
     }, [contacts, formData.company_name]);
 
+    const soldSerials = useMemo(
+        () => serialNumbers?.filter(s => s.stock_status === 'Sold') ?? [],
+        [serialNumbers]
+    );
+    const serialOptions = useMemo(
+        () => [...new Set(soldSerials.map(s => s.serial_number).filter(Boolean))].sort(),
+        [soldSerials]
+    );
+
     useEffect(() => {
-        fetchModule('Company List', 'Contact_List');
+        fetchModule('Company List', 'Contact_List', 'Serial Numbers');
     }, [fetchModule]);
 
     useEffect(() => {
@@ -112,6 +121,32 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
             closeWindow(windowId);
         }
     }, [isEditMode, existingTicket, windowId, closeWindow]);
+
+    const computeWarrantyStatus = useCallback((end?: string | null): ServiceTicket['warranty_status'] => {
+        if (!end) return 'Unknown';
+        return new Date(end) >= new Date() ? 'Under Warranty' : 'Out of Warranty';
+    }, []);
+
+    const handleSerialSelect = useCallback((sn: string) => {
+        const match = soldSerials.find(s => s.serial_number === sn);
+        if (!match) {
+            setFormData(prev => ({ ...prev, serial_number: sn }));
+            return;
+        }
+        const contactPhone = contacts?.find(
+            c => c.Name === match.contact_name && c['Company Name'] === match.company_name
+        )?.['Tel (1)'] ?? '';
+        setFormData(prev => ({
+            ...prev,
+            serial_number: sn,
+            brand: match.brand,
+            model_name: match.model_name,
+            company_name: match.company_name || prev.company_name,
+            contact_name: match.contact_name || prev.contact_name,
+            contact_phone: contactPhone || prev.contact_phone,
+            warranty_status: computeWarrantyStatus(match.warranty_end_date),
+        }));
+    }, [soldSerials, contacts, computeWarrantyStatus]);
 
     const handleSave = useCallback(async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -220,7 +255,17 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
 
             <FormSection title="Device Information">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormInput name="serial_number" label="Serial Number" value={formData.serial_number} onChange={handleChange} readOnly={isReadOnly} />
+                    <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium text-muted-foreground/60">Serial Number</label>
+                        <SearchableSelect
+                            value={formData.serial_number ?? ''}
+                            onChange={handleSerialSelect}
+                            options={serialOptions}
+                            placeholder="Search sold serials or type..."
+                            allowCustomValue
+                            disabled={isReadOnly}
+                        />
+                    </div>
                     <FormInput name="brand" label="Brand" value={formData.brand} onChange={handleChange} readOnly={isReadOnly} />
                     <FormInput name="model_name" label="Model" value={formData.model_name} onChange={handleChange} readOnly={isReadOnly} />
                 </div>

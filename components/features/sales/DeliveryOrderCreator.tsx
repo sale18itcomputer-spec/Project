@@ -10,6 +10,7 @@ import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
+import { SerialNumberPicker } from '../../common/SerialNumberPicker';
 import { ScrollArea } from '../../ui/scroll-area';
 import SuccessModal from '../../modals/SuccessModal';
 import Spinner from '../../common/Spinner';
@@ -311,6 +312,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 // sync, skip silently.
                 try {
                     const costItems: { brand?: string; qty: number; unit_price: number }[] = [];
+                    const conflictSerials: { serial: string; soNo: string }[] = [];
                     const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
                     const warrantyStart = doc['DO Date'] || getTodayDateString();
                     const addMonths = (dateStr: string, months: number): string => {
@@ -381,11 +383,21 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         for (const sn of serials) {
                             const { data: existingSN } = await supabase
                                 .from('serial_numbers')
-                                .select('id')
+                                .select('id, stock_status, so_no')
                                 .eq('serial_number', sn)
                                 .limit(1);
 
                             if (existingSN && existingSN.length > 0) {
+                                const existingRow = existingSN[0];
+                                const soNo = doc['SO No'] || '';
+
+                                // Already sold to a different SO — don't silently reassign
+                                // the unit to this delivery; flag it for the user instead.
+                                if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
+                                    conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
+                                    continue;
+                                }
+
                                 // Row already exists (e.g. seeded at PO intake) — update it
                                 // with this sale's customer/warranty info instead of skipping,
                                 // so the lifecycle transitions from "in stock" to "sold".
@@ -396,15 +408,16 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                         model_name: item.modelName || '',
                                         description: item.description || '',
                                         inventory_id: matchedInvId,
-                                        so_no: doc['SO No'] || '',
+                                        so_no: soNo,
                                         company_name: doc['Company Name'] || '',
                                         contact_name: doc['Contact Name'] || '',
                                         warranty_start_date: warrantyStart,
                                         warranty_period_months: 12,
                                         warranty_end_date: warrantyEnd,
                                         status: 'Active',
+                                        stock_status: 'Sold',
                                     })
-                                    .eq('id', existingSN[0].id)
+                                    .eq('id', existingRow.id)
                                     .select()
                                     .single();
 
@@ -430,6 +443,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                     warranty_period_months: 12,
                                     warranty_end_date: warrantyEnd,
                                     status: 'Active',
+                                    stock_status: 'Sold',
                                     created_by: currentUser?.Name || '',
                                 })
                                 .select()
@@ -444,6 +458,11 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
 
                     // COGS is now booked at invoice time (autoPostInvoiceJournal).
                     // Removed DO-level COGS posting to prevent double-counting.
+
+                    if (conflictSerials.length > 0) {
+                        const list = conflictSerials.map(c => `${c.serial} (sold on ${c.soNo})`).join(', ');
+                        addToast(`Skipped already-sold serial number(s): ${list}`, 'error');
+                    }
                 } catch (invErr: any) {
                     console.warn('[DeliveryOrderCreator] inventory/serial sync failed:', invErr.message);
                 }
@@ -770,19 +789,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                             />
                                                         </div>
                                                         <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">
-                                                                Serial Numbers <span className="normal-case font-normal opacity-50">(one per line)</span>
-                                                            </label>
-                                                            <textarea
+                                                            <SerialNumberPicker
+                                                                itemCode={item.itemCode}
+                                                                modelName={item.modelName}
+                                                                qty={Number(item.qty) || 0}
                                                                 value={item.serialNumber || ''}
-                                                                onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-y min-h-[60px]"
-                                                                rows={3}
-                                                                placeholder={`SN001\nSN002\nSN003...`}
+                                                                onChange={v => handleItemChange(item.id, 'serialNumber', v)}
                                                             />
-                                                            <div className="text-[9px] text-muted-foreground mt-0.5">
-                                                                {(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered
-                                                            </div>
                                                         </div>
                                                     </div>
                                                     </>

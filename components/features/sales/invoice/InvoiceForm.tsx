@@ -7,6 +7,7 @@ import { ScrollArea } from "../../../ui/scroll-area";
 import Spinner from "../../../common/Spinner";
 import { Trash2, X, Upload, Plus } from 'lucide-react';
 import { PricelistCombobox } from "./PricelistCombobox";
+import { SerialNumberPicker } from "../../../common/SerialNumberPicker";
 
 interface InvoiceFormProps {
     invoice: Partial<Invoice>;
@@ -191,15 +192,13 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                             <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-input border border-border rounded-lg text-foreground" />
                                                         </div>
                                                         <div className="w-full">
-                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Serial Numbers <span className="normal-case font-normal text-muted-foreground/40">(one per line)</span></label>
-                                                            <textarea
+                                                            <SerialNumberPicker
+                                                                itemCode={item.itemCode}
+                                                                modelName={item.modelName}
+                                                                qty={Number(item.qty) || 0}
                                                                 value={item.serialNumber || ''}
-                                                                onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-input text-foreground resize-y min-h-[60px]"
-                                                                rows={3}
-                                                                placeholder={`SN001\nSN002\nSN003...`}
+                                                                onChange={v => handleItemChange(item.id, 'serialNumber', v)}
                                                             />
-                                                            <div className="text-[9px] text-muted-foreground mt-0.5">{(item.serialNumber || '').split('\n').filter(s => s.trim()).length} S/N entered</div>
                                                         </div>
                                                         <div className="flex-1 text-right pt-4">
                                                             <div className="text-[10px] font-bold text-muted-foreground uppercase">Total</div>
