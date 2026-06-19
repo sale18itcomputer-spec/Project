@@ -7,6 +7,7 @@ import {
     fetchJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry,
     togglePostJournalEntry, getNextEntryNumber, computeBalanceSheet, computeCashFlow,
     computeProfitLoss, backfillAllMissingCOGS,
+    fetchAccountPLDetail, PLDetailLine,
 } from '../../../services/accountingApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -111,28 +112,122 @@ const PLSection: React.FC<{
     totalColor: string;
     negate?: boolean;
     fmt: (n: number) => string;
-}> = ({ title, lines, totalLabel, total, negate }) => {
+    dateFrom: string;
+    dateTo: string;
+}> = ({ title, lines, totalLabel, total, negate, dateFrom, dateTo }) => {
+    const [expandedAcct, setExpandedAcct] = React.useState<string | null>(null);
+    const [detailCache, setDetailCache] = React.useState<Record<string, PLDetailLine[]>>({});
+    const [loadingAcct, setLoadingAcct] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        setExpandedAcct(null);
+        setDetailCache({});
+    }, [dateFrom, dateTo]);
+
     const relevant = lines.filter(l => l.balance !== 0);
     if (relevant.length === 0 && total === 0) return null;
+
+    const toggle = async (acctNum: string) => {
+        if (expandedAcct === acctNum) { setExpandedAcct(null); return; }
+        setExpandedAcct(acctNum);
+        if (detailCache[acctNum]) return;
+        setLoadingAcct(acctNum);
+        try {
+            const rows = await fetchAccountPLDetail(acctNum, dateFrom, dateTo);
+            setDetailCache(c => ({ ...c, [acctNum]: rows }));
+        } catch {
+            setDetailCache(c => ({ ...c, [acctNum]: [] }));
+        } finally {
+            setLoadingAcct(null);
+        }
+    };
+
     const t = fmtAmt(total, negate);
     return (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-6 py-3.5 border-b border-border bg-muted/30">
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{title}</h4>
             </div>
-            <div className="px-6 py-2">
+            <div>
                 {relevant.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic py-3">No activity for this period</p>
+                    <p className="px-6 text-sm text-muted-foreground italic py-3">No activity for this period</p>
                 ) : relevant.map(l => {
                     const a = fmtAmt(l.balance, negate);
+                    const isExpanded = expandedAcct === l.account_number;
+                    const detail = detailCache[l.account_number];
+                    const isLoading = loadingAcct === l.account_number;
+                    const isDebitNormal = DEBIT_NORMAL_GL.has(l.account_type);
                     return (
-                        <div key={l.account_number} className={`flex justify-between items-baseline py-2.5 border-b border-border/30 last:border-0 ${l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                            <span className={`text-sm ${l.is_parent ? '' : 'pl-4'}`}>{l.account_number} · {l.account_name}</span>
-                            <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>{a.display}</span>
-                        </div>
+                        <React.Fragment key={l.account_number}>
+                            <button
+                                onClick={() => toggle(l.account_number)}
+                                className={`w-full flex justify-between items-center px-6 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-colors text-left ${l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+                            >
+                                <span className={`text-sm flex items-center gap-1.5 ${l.is_parent ? '' : 'pl-3'}`}>
+                                    {isExpanded
+                                        ? <ChevronDown size={12} className="shrink-0 text-brand-600" />
+                                        : <ChevronRight size={12} className="shrink-0 opacity-40" />
+                                    }
+                                    {l.account_number} · {l.account_name}
+                                </span>
+                                <span className={`text-sm tabular-nums ml-8 shrink-0 ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                    {a.display}
+                                </span>
+                            </button>
+
+                            {isExpanded && (
+                                <div className="bg-muted/10 border-b border-border/30">
+                                    {isLoading ? (
+                                        <p className="px-14 py-3 text-xs text-muted-foreground">Loading transactions…</p>
+                                    ) : !detail || detail.length === 0 ? (
+                                        <p className="px-14 py-3 text-xs text-muted-foreground italic">No transactions found for this account in this period.</p>
+                                    ) : (
+                                        <table className="w-full text-xs">
+                                            <thead className="border-b border-border/30 bg-muted/20">
+                                                <tr className="text-muted-foreground">
+                                                    <th className="text-left px-14 py-1.5 font-medium whitespace-nowrap">Date</th>
+                                                    <th className="text-left px-3 py-1.5 font-medium whitespace-nowrap">JE #</th>
+                                                    <th className="text-left px-3 py-1.5 font-medium">Description</th>
+                                                    <th className="text-right px-6 py-1.5 font-medium whitespace-nowrap">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {detail.map((d, i) => {
+                                                    const contribution = isDebitNormal
+                                                        ? d.debit - d.credit
+                                                        : d.credit - d.debit;
+                                                    const desc = d.line_description || d.je_description;
+                                                    const isNeg = contribution < 0;
+                                                    return (
+                                                        <tr key={i} className="border-b border-border/10 hover:bg-muted/20">
+                                                            <td className="px-14 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">{d.entry_date}</td>
+                                                            <td className="px-3 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">{d.entry_number}</td>
+                                                            <td className="px-3 py-1.5 text-muted-foreground truncate max-w-xs">{desc}</td>
+                                                            <td className={`px-6 py-1.5 text-right tabular-nums font-medium whitespace-nowrap ${isNeg ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                                                {isNeg ? `(${fmt(Math.abs(contribution))})` : fmt(contribution)}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot className="border-t border-border/30 bg-muted/20">
+                                                <tr>
+                                                    <td colSpan={3} className="px-14 py-1.5 text-muted-foreground/60 text-xs">
+                                                        {detail.length} transaction{detail.length !== 1 ? 's' : ''}
+                                                    </td>
+                                                    <td className={`px-6 py-1.5 text-right font-bold tabular-nums text-xs ${a.negative ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                                        {a.display}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+                        </React.Fragment>
                     );
                 })}
-                <div className="flex justify-between items-baseline py-3 mt-1 border-t-2 border-border/60 font-bold">
+                <div className="flex justify-between items-baseline px-6 py-3 border-t-2 border-border/60 font-bold">
                     <span className="text-sm text-foreground">{totalLabel}</span>
                     <span className={`text-sm tabular-nums ml-8 shrink-0 ${t.negative ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{t.display}</span>
                 </div>
@@ -2284,6 +2379,8 @@ export default function AccountingDashboard() {
                                 total={plData.totalRevenue}
                                 totalColor="text-green-600 dark:text-green-400"
                                 fmt={fmt}
+                                dateFrom={plDateFrom}
+                                dateTo={plDateTo}
                             />
 
                             {/* Cost of Goods Sold */}
@@ -2295,6 +2392,8 @@ export default function AccountingDashboard() {
                                 totalColor="text-rose-600 dark:text-rose-400"
                                 negate
                                 fmt={fmt}
+                                dateFrom={plDateFrom}
+                                dateTo={plDateTo}
                             />
 
                             {/* Gross Profit */}
@@ -2314,6 +2413,8 @@ export default function AccountingDashboard() {
                                 totalColor="text-rose-600 dark:text-rose-400"
                                 negate
                                 fmt={fmt}
+                                dateFrom={plDateFrom}
+                                dateTo={plDateTo}
                             />
 
                             {/* Operating Income */}
@@ -2334,6 +2435,8 @@ export default function AccountingDashboard() {
                                         total={plData.totalOtherIncome}
                                         totalColor="text-teal-600 dark:text-teal-400"
                                         fmt={fmt}
+                                        dateFrom={plDateFrom}
+                                        dateTo={plDateTo}
                                     />
                                     {plData.otherExpenses.some(l => l.balance !== 0) && (
                                         <PLSection
@@ -2344,6 +2447,8 @@ export default function AccountingDashboard() {
                                             totalColor="text-rose-600 dark:text-rose-400"
                                             negate
                                             fmt={fmt}
+                                            dateFrom={plDateFrom}
+                                            dateTo={plDateTo}
                                         />
                                     )}
                                 </>

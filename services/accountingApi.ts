@@ -407,6 +407,48 @@ export const computeProfitLoss = async (
     };
 };
 
+// ── P&L Drill-Down ───────────────────────────────────────────────────────────
+
+export interface PLDetailLine {
+    entry_number: string;
+    entry_date: string;
+    je_description: string;
+    reference: string | null;
+    line_description: string | null;
+    debit: number;
+    credit: number;
+}
+
+export const fetchAccountPLDetail = async (
+    accountNumber: string,
+    dateFrom: string,
+    dateTo: string,
+): Promise<PLDetailLine[]> => {
+    const { data, error } = await supabase
+        .from('journal_entry_lines')
+        .select('debit, credit, description, journal_entries!inner(entry_number, entry_date, description, reference, is_posted)')
+        .eq('account_number', accountNumber)
+        .eq('journal_entries.is_posted', true)
+        .gte('journal_entries.entry_date', dateFrom)
+        .lte('journal_entries.entry_date', dateTo);
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as any[])
+        .map(row => ({
+            entry_number:    row.journal_entries.entry_number,
+            entry_date:      row.journal_entries.entry_date,
+            je_description:  row.journal_entries.description,
+            reference:       row.journal_entries.reference ?? null,
+            line_description: row.description ?? null,
+            debit:  Number(row.debit),
+            credit: Number(row.credit),
+        }))
+        .sort((a, b) =>
+            b.entry_date.localeCompare(a.entry_date) ||
+            b.entry_number.localeCompare(a.entry_number),
+        );
+};
+
 // ── Balance Sheet Computation ─────────────────────────────────────────────────
 
 // Account types that carry a DEBIT normal balance (positive = debit > credit)
@@ -651,7 +693,7 @@ export const autoPostInvoiceJournal = async (params: {
             description: `Auto: Invoice ${params.invNo}`,
             reference: params.invNo,
             created_by: params.createdBy,
-            is_posted: false,
+            is_posted: true,
             source: 'invoice',
         },
         lines,
@@ -688,7 +730,7 @@ export const autoPostReceiptJournal = async (params: {
             description: `Auto: Receipt ${params.rvNo}`,
             reference: params.rvNo,
             created_by: params.createdBy,
-            is_posted: false,
+            is_posted: true,
             source: 'receipt',
         },
         [
