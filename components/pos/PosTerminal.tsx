@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { PosCartItem, PosSessionForm, PosPaymentMethod, PricelistItem } from '../../types';
+import { PosCartItem, PosSessionForm, PosPaymentMethod, PosPaymentEntry, PricelistItem } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -41,16 +41,18 @@ const PosTerminal: React.FC = () => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editingPriceVal, setEditingPriceVal] = useState('');
   const [showSalesHistory, setShowSalesHistory] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<{ account_number: string; account_name: string }[]>([]);
+  const [paymentEntries, setPaymentEntries] = useState<PosPaymentEntry[]>([{ method: 'Cash', amount: 0 }]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [session, setSession] = useState<PosSessionForm>({
     invNo: '', rvNo: '', invDate: new Date().toISOString().split('T')[0],
     taxType: 'NON-VAT', currency: 'USD', exchangeRate: 4100,
     companyName: 'Walk-In Customer', contactName: '', phoneNumber: '',
-    paymentMethod: 'Cash', amountTendered: 0, notes: '', createdBy: currentUser?.Name ?? '',
+    paymentMethod: 'Cash', amountTendered: 0, paymentEntries: [], notes: '', createdBy: currentUser?.Name ?? '',
   });
 
-  // Load POS settings on mount
+  // Load POS settings + bank accounts on mount
   useEffect(() => {
     Promise.all([
       getSetting('pos_default_tax_type'),
@@ -65,15 +67,45 @@ const PosTerminal: React.FC = () => {
         createdBy: currentUser?.Name ?? '',
       }));
     }).catch(() => { /* silently ignore, defaults are fine */ });
+
+    supabase
+      .from('chart_of_accounts')
+      .select('account_number, account_name')
+      .eq('account_type', 'Bank')
+      .gte('account_number', '11100')
+      .order('account_number')
+      .then(({ data }) => setBankAccounts(data ?? []));
   }, [currentUser]);
 
   // Derived totals
   const subTotal = cart.reduce((sum, i) => sum + i.amount, 0);
   const taxAmount = session.taxType === 'VAT' ? subTotal * 0.1 : 0;
   const grandTotal = subTotal + taxAmount;
-  const changeAmount = session.paymentMethod === 'Cash'
-    ? Math.max(0, (session.amountTendered || 0) - grandTotal)
-    : 0;
+  const totalTendered = paymentEntries.reduce((s, e) => s + (e.amount || 0), 0);
+  const hasCash = paymentEntries.some(e => e.method === 'Cash');
+  const changeAmount = hasCash ? Math.max(0, totalTendered - grandTotal) : 0;
+
+  // Payment entry helpers
+  const toggleMethod = (method: PosPaymentMethod) => {
+    setPaymentEntries(prev => {
+      if (prev.find(e => e.method === method)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(e => e.method !== method);
+      }
+      const entered = prev.reduce((s, e) => s + (e.amount || 0), 0);
+      return [...prev, { method, amount: Math.max(0, grandTotal - entered) }];
+    });
+  };
+
+  const updateEntryAmount = (method: PosPaymentMethod, amount: number) =>
+    setPaymentEntries(prev => prev.map(e => e.method === method ? { ...e, amount } : e));
+
+  const updateEntryBank = (method: PosPaymentMethod, accountNumber: string) => {
+    const acct = bankAccounts.find(b => b.account_number === accountNumber);
+    setPaymentEntries(prev => prev.map(e =>
+      e.method === method ? { ...e, bankAccount: accountNumber, bankAccountName: acct?.account_name } : e
+    ));
+  };
 
   const today = new Date().toISOString().split('T')[0];
   const todaySaleCount = (invoices ?? []).filter(
@@ -153,6 +185,7 @@ const PosTerminal: React.FC = () => {
   const handleResetSale = () => {
     setCart([]);
     setSession(prev => ({ ...prev, amountTendered: 0, contactName: '', phoneNumber: '' }));
+    setPaymentEntries([{ method: 'Cash', amount: 0 }]);
     setShowCustomer(false);
     searchRef.current?.focus();
   };
@@ -166,7 +199,7 @@ const PosTerminal: React.FC = () => {
   // ── Charge / sale completion ─────────────────────────────────────────────────
   const handleCharge = async () => {
     if (cart.length === 0) return;
-    if (session.paymentMethod === 'Cash' && session.amountTendered < grandTotal) {
+    if (grandTotal > 0 && totalTendered < grandTotal) {
       addToast('Amount tendered is less than the total.', 'error');
       return;
     }
@@ -212,7 +245,7 @@ const PosTerminal: React.FC = () => {
         'Phone Number':   session.phoneNumber || '',
         'Amount':         grandTotal,
         'Currency':       session.currency,
-        'Payment Method': session.paymentMethod,
+        'Payment Method': paymentEntries.map(e => e.method).join(' + '),
         'Tax Type':       session.taxType,
         'Status':         'Issued',
         'Created By':     session.createdBy,
@@ -293,7 +326,7 @@ const PosTerminal: React.FC = () => {
         });
       })().catch(err => console.warn('[POS] inventory/journal post failed:', err));
 
-      setCompletedSale({ invNo, rvNo, grandTotal, changeAmount, items: [...cart] });
+      setCompletedSale({ invNo, rvNo, grandTotal, changeAmount, items: [...cart], paymentEntries: [...paymentEntries] });
       setShowReceiptModal(true);
 
     } catch (err: any) {
@@ -304,7 +337,7 @@ const PosTerminal: React.FC = () => {
   };
 
   const isChargeDisabled = cart.length === 0 || isProcessing ||
-    (session.paymentMethod === 'Cash' && (session.amountTendered || 0) < grandTotal && grandTotal > 0);
+    (grandTotal > 0 && totalTendered < grandTotal);
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -602,54 +635,95 @@ const PosTerminal: React.FC = () => {
               </div>
             )}
 
-            {/* Payment method tabs */}
+            {/* Payment method multi-select */}
             <div className="flex gap-1 flex-wrap">
-              {PAYMENT_METHODS.map(method => (
-                <button
-                  key={method}
-                  onClick={() => setSession(p => ({ ...p, paymentMethod: method }))}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
-                    session.paymentMethod === method
-                      ? 'bg-brand-600 text-white border-brand-600'
-                      : 'border-border text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {PAYMENT_ICONS[method]} {method}
-                </button>
+              {PAYMENT_METHODS.map(method => {
+                const isSelected = paymentEntries.some(e => e.method === method);
+                return (
+                  <button
+                    key={method}
+                    onClick={() => toggleMethod(method)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
+                      isSelected
+                        ? 'bg-brand-600 text-white border-brand-600'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {PAYMENT_ICONS[method]} {method}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Per-method amount inputs */}
+            <div className="space-y-2">
+              {paymentEntries.map(entry => (
+                <div key={entry.method} className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 w-28 shrink-0 text-xs font-semibold text-foreground">
+                      <span className="text-muted-foreground">{PAYMENT_ICONS[entry.method]}</span>
+                      {entry.method}
+                    </div>
+                    <input
+                      type="number"
+                      value={entry.amount || ''}
+                      onChange={e => updateEntryAmount(entry.method, parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="flex-1 text-right text-sm font-bold bg-muted border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30"
+                    />
+                  </div>
+                  {entry.method === 'Bank Transfer' && (
+                    <select
+                      value={entry.bankAccount ?? ''}
+                      onChange={e => updateEntryBank('Bank Transfer', e.target.value)}
+                      className="w-full text-xs bg-muted border border-border rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 text-foreground"
+                    >
+                      <option value="">— Select bank account —</option>
+                      {bankAccounts.map(b => (
+                        <option key={b.account_number} value={b.account_number}>
+                          {b.account_number} · {b.account_name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               ))}
             </div>
 
-            {/* Cash tender section */}
-            {session.paymentMethod === 'Cash' && (
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">Amount Tendered</label>
-                <input
-                  type="number"
-                  value={session.amountTendered || ''}
-                  onChange={e => setSession(p => ({ ...p, amountTendered: parseFloat(e.target.value) || 0 }))}
-                  className="w-full text-xl font-bold text-center bg-muted border border-border rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-                  placeholder="0.00"
-                />
-                {(session.amountTendered || 0) > 0 && (
-                  <div className={`text-center py-2 rounded-lg font-bold text-lg ${changeAmount >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                    Change: ${changeAmount.toFixed(2)}
+            {/* Tendered total + change */}
+            {grandTotal > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Tendered</span>
+                  <span className={`font-bold ${totalTendered >= grandTotal ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    ${totalTendered.toFixed(2)}
+                  </span>
+                </div>
+                {hasCash && totalTendered > 0 && (
+                  <div className={`flex justify-between text-sm font-bold py-2 px-3 rounded-lg ${changeAmount >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500'}`}>
+                    <span>Change Due</span>
+                    <span>${changeAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[1, 5, 10, 20, 50, 100, 'Exact', 'Clear'].map(v => (
-                    <button
-                      key={String(v)}
-                      onClick={() => {
-                        if (v === 'Exact') setSession(p => ({ ...p, amountTendered: grandTotal }));
-                        else if (v === 'Clear') setSession(p => ({ ...p, amountTendered: 0 }));
-                        else setSession(p => ({ ...p, amountTendered: (p.amountTendered || 0) + Number(v) }));
-                      }}
-                      className="py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-xs font-semibold transition border border-border"
-                    >
-                      {v === 'Exact' ? 'Exact' : v === 'Clear' ? 'Clear' : `+$${v}`}
-                    </button>
-                  ))}
-                </div>
+                {/* Quick-fill for single-Cash payment */}
+                {hasCash && paymentEntries.length === 1 && (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[1, 5, 10, 20, 50, 100, 'Exact', 'Clear'].map(v => (
+                      <button
+                        key={String(v)}
+                        onClick={() => {
+                          const cur = paymentEntries.find(e => e.method === 'Cash')?.amount || 0;
+                          if (v === 'Exact') updateEntryAmount('Cash', grandTotal);
+                          else if (v === 'Clear') updateEntryAmount('Cash', 0);
+                          else updateEntryAmount('Cash', cur + Number(v));
+                        }}
+                        className="py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-xs font-semibold transition border border-border"
+                      >
+                        {v === 'Exact' ? 'Exact' : v === 'Clear' ? 'Clear' : `+$${v}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

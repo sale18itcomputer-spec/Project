@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PosCartItem, PosSessionForm } from '../../types';
+import { PosCartItem, PosSessionForm, PosPaymentEntry } from '../../types';
 import { formatDisplayDate } from '../../utils/time';
 import { useToast } from '../../contexts/ToastContext';
 import { Printer, ArrowRight, X } from 'lucide-react';
@@ -12,6 +12,7 @@ export interface CompletedSale {
   grandTotal: number;
   changeAmount: number;
   items: PosCartItem[];
+  paymentEntries?: PosPaymentEntry[];
 }
 
 interface PosReceiptModalProps {
@@ -65,13 +66,21 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
       ? `<tr><td style="padding:3px 0;color:#6b7280;">≈ KHR</td><td style="padding:3px 0;text-align:right;color:#6b7280;">៛${(sale.grandTotal * session.exchangeRate).toLocaleString()}</td></tr>`
       : '';
 
-    const cashRows = session.paymentMethod === 'Cash' ? `
+    const entries = sale.paymentEntries ?? [{ method: session.paymentMethod, amount: session.amountTendered }];
+    const totalTendered = entries.reduce((s, e) => s + (e.amount || 0), 0);
+    const hasCash = entries.some(e => e.method === 'Cash');
+    const paymentRows = `
       <div style="border-top:1px dashed #d1d5db;margin:10px 0;"></div>
       <table style="width:100%;font-size:12px;border-collapse:collapse;">
-        <tr><td style="padding:3px 0;color:#6b7280;">Cash Tendered</td><td style="text-align:right;color:#6b7280;">$${session.amountTendered.toFixed(2)}</td></tr>
-        <tr><td style="padding:3px 0;font-weight:600;">Change Due</td><td style="text-align:right;font-weight:600;">$${sale.changeAmount.toFixed(2)}</td></tr>
+        ${entries.map(e => `
+          <tr>
+            <td style="padding:3px 0;color:#6b7280;">${e.method}${e.bankAccountName ? ` (${e.bankAccountName})` : ''}</td>
+            <td style="text-align:right;color:#6b7280;">$${(e.amount || 0).toFixed(2)}</td>
+          </tr>
+        `).join('')}
+        ${hasCash ? `<tr><td style="padding:3px 0;font-weight:600;">Change Due</td><td style="text-align:right;font-weight:600;">$${sale.changeAmount.toFixed(2)}</td></tr>` : ''}
       </table>
-    ` : '';
+    `;
 
     win.document.write(`<!DOCTYPE html>
 <html>
@@ -145,7 +154,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
     ${khrRow}
   </table>
 
-  ${cashRows}
+  ${paymentRows}
 
   <div style="border-top:1px dashed #d1d5db;margin:10px 0;"></div>
 
@@ -258,26 +267,31 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             )}
           </div>
 
-          {session.paymentMethod === 'Cash' && (
-            <>
-              <Divider />
-              <div className="space-y-1 text-xs mb-2">
-                <div className="flex justify-between text-gray-500">
-                  <span>Cash Tendered</span><span>${session.amountTendered.toFixed(2)}</span>
+          <>
+            <Divider />
+            <div className="space-y-1 text-xs mb-2">
+              {(sale.paymentEntries ?? [{ method: session.paymentMethod, amount: session.amountTendered }]).map(e => (
+                <div key={e.method} className="flex justify-between text-gray-500">
+                  <span>{e.method}{e.bankAccountName ? ` (${e.bankAccountName})` : ''}</span>
+                  <span>${(e.amount || 0).toFixed(2)}</span>
                 </div>
+              ))}
+              {(sale.paymentEntries ?? [{ method: session.paymentMethod, amount: session.amountTendered }]).some(e => e.method === 'Cash') && (
                 <div className="flex justify-between font-semibold">
                   <span>Change Due</span><span>${sale.changeAmount.toFixed(2)}</span>
                 </div>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          </>
 
           <Divider />
 
           {/* Footer */}
           <div className="text-center text-xs space-y-1">
             <div className="text-gray-500">
-              Payment: <span className="font-semibold text-gray-700 dark:text-gray-300">{session.paymentMethod}</span>
+              Payment: <span className="font-semibold text-gray-700 dark:text-gray-300">
+                {(sale.paymentEntries ?? [{ method: session.paymentMethod }]).map(e => e.method).join(' + ')}
+              </span>
             </div>
             <div className="font-bold text-sm text-gray-800 dark:text-gray-200 tracking-wide pt-1">
               Thank you for your purchase!

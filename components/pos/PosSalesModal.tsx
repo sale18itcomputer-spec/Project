@@ -147,6 +147,7 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
       phoneNumber:    inv['Phone Number'] ?? '',
       paymentMethod:  payment,
       amountTendered: grandTotal,
+      paymentEntries: [{ method: payment, amount: grandTotal }],
       notes:          '',
       createdBy:      receipt?.['Contact Name'] ?? 'Admin',
     };

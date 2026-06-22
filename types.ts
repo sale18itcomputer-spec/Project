@@ -810,6 +810,13 @@ export interface Bill {
 export type PosPaymentMethod = 'Cash' | 'ABA' | 'KHQR' | 'Bank Transfer' | 'Card';
 export type PosTaxType = 'NON-VAT' | 'VAT';
 
+export interface PosPaymentEntry {
+  method: PosPaymentMethod;
+  amount: number;
+  bankAccount?: string;
+  bankAccountName?: string;
+}
+
 export interface PosSessionForm {
   invNo: string;
   rvNo: string;
@@ -822,6 +829,7 @@ export interface PosSessionForm {
   phoneNumber: string;
   paymentMethod: PosPaymentMethod;
   amountTendered: number;
+  paymentEntries: PosPaymentEntry[];
   notes: string;
   createdBy: string;
 }
