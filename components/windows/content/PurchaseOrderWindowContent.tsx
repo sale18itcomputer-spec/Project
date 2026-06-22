@@ -483,6 +483,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 brand: item.brand ?? '',
                 category: item.category ?? '',
                 serial_number: item.serial_number ?? '',
+                is_promotion: item.is_promotion ?? false,
             }));
 
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
@@ -667,33 +668,46 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                         <tbody>
                             {items.map((item, index) => item.is_promotion ? (
                                 <tr key={index} className="border-b border-amber-500/20 bg-amber-500/5">
-                                    <td colSpan={9} className="px-4 py-3">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                                <span className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400 whitespace-nowrap">Cashback / Promotion</span>
-                                            </div>
+                                    {/* No. col — PROMO badge */}
+                                    <td className="px-4 py-3 text-center">
+                                        <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400 block leading-tight">PROMO</span>
+                                    </td>
+                                    {/* Item# / Model / Brand / Category / Description / Serial Numbers — colSpan 6 */}
+                                    <td colSpan={6} className="px-2 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                             <input
                                                 className="flex-1 bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm italic text-muted-foreground"
                                                 value={item.description}
                                                 onChange={e => handleItemChange(index, 'description', e.target.value)}
                                                 placeholder="e.g. Buy 10-29pcs get cash back $40 · Period: 01st - 30th June 2026"
                                             />
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                <span className="text-xs text-muted-foreground">Amount:</span>
-                                                <input
-                                                    type="number" min={0} step="0.01"
-                                                    className="w-28 bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm text-right text-rose-600"
-                                                    value={Math.abs(item.unit_price)}
-                                                    onChange={e => handlePromoAmountChange(index, e.target.value)}
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-sm font-semibold text-right text-rose-600">
-                                        ({formatCurrencySmartly(Math.abs(item.unit_price), formData.currency)})
+                                    {/* Qty */}
+                                    <td className="px-2 py-3">
+                                        <input
+                                            type="number" min={1} step={1}
+                                            className="w-full bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm text-center text-amber-600 dark:text-amber-400"
+                                            value={item.qty}
+                                            onChange={e => handleItemChange(index, 'qty', parseFloat(e.target.value) || 1)}
+                                        />
                                     </td>
+                                    {/* Unit Price (per-unit cashback, stored as negative) */}
+                                    <td className="px-2 py-3">
+                                        <input
+                                            type="number" min={0} step="0.01"
+                                            className="w-full bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm text-right text-rose-500"
+                                            value={Math.abs(item.unit_price)}
+                                            onChange={e => handlePromoAmountChange(index, e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </td>
+                                    {/* Total = qty × unit_price (displayed as negative) */}
+                                    <td className="px-4 py-3 text-sm font-semibold text-right text-rose-600">
+                                        ({formatCurrencySmartly(Math.abs(item.qty * item.unit_price), formData.currency)})
+                                    </td>
+                                    {/* Delete */}
                                     <td className="px-4 py-3 text-center">
                                         <button type="button" onClick={() => removeItem(index)} className="text-muted-foreground hover:text-rose-500 transition">
                                             <Trash2 className="w-4 h-4" />

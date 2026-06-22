@@ -71,6 +71,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const hasDraft = useRef(!!draft);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
+    const autoSavedFromSORef = useRef(false);
 
     const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
 
@@ -142,7 +143,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Email': so.Email,
                 'Amount': so['Total Amount'],
                 'Taxable': so['Bill Invoice'] || 'NON-VAT',
-                'Status': 'Draft',
+                'Status': 'Processing',
                 'Currency': so.Currency || 'USD',
                 'Payment Term': so['Payment Term'],
                 'Due Date': dueDate,
@@ -424,11 +425,13 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             let deductedInventory = false;
             let syncedSerials = false;
 
-            // Build per-brand revenue breakdown (used by auto-journal in both paths)
+            // Build per-brand revenue breakdown (used by auto-journal in both paths).
+            // Promo/cashback rows are excluded — they are tracked via cashbackTotal/14400.
             const buildBrandAmounts = () => {
                 const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
                 const brandTotals: Record<string, number> = {};
                 for (const item of items) {
+                    if (item.isPromotion) continue;
                     const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
                     brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
                 }
@@ -436,6 +439,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     .map(([brand, subtotal]) => ({ brand, subtotal }))
                     .filter(b => b.subtotal > 0.005);
             };
+
+            // Sum cashback/promo deductions (negative amounts) for 14400 DR line
+            const cashbackTotal = items
+                .filter(item => item.isPromotion)
+                .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
@@ -464,6 +472,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
                 try {
                     for (const item of items) {
+                        if (item.isPromotion) continue;
                         const qty = Number(item.qty) || 0;
                         if (qty <= 0) continue;
                         const code  = item.itemCode?.trim();
@@ -618,14 +627,15 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // Auto-post invoice journal with COGS after inventory loop
                 // (idempotent — safe for both new invoices and Draft → Issued updates)
                 autoPostInvoiceJournal({
-                    invNo:       invoice['Inv No']!,
-                    entryDate:   invoice['Inv Date'] || getTodayDateString(),
-                    grandTotal:  totals.grandTotal,
-                    taxAmount:   totals.tax,
-                    isVAT:       invoice['Taxable'] === 'VAT',
-                    createdBy:   currentUser?.Name || 'system',
-                    brandAmounts: buildBrandAmounts(),
-                    costItems:   costItems.length > 0 ? costItems : undefined,
+                    invNo:         invoice['Inv No']!,
+                    entryDate:     invoice['Inv Date'] || getTodayDateString(),
+                    grandTotal:    totals.grandTotal,
+                    taxAmount:     totals.tax,
+                    isVAT:         invoice['Taxable'] === 'VAT',
+                    createdBy:     currentUser?.Name || 'system',
+                    brandAmounts:  buildBrandAmounts(),
+                    cashbackTotal: cashbackTotal !== 0 ? cashbackTotal : undefined,
+                    costItems:     costItems.length > 0 ? costItems : undefined,
                 }).catch(err => console.warn('[InvoiceCreator] auto-post journal failed:', err));
             }
 
@@ -643,7 +653,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         }
     };
 
-
+    // Auto-save when navigated here via "Convert to Invoice" from a Sale Order.
+    // Fires once after nextInvNo resolves and the form is fully populated.
+    useEffect(() => {
+        if (!initialData?.soData) return;
+        if (!invoice['Inv No'] || !invoice['Company Name']) return;
+        if (autoSavedFromSORef.current) return;
+        autoSavedFromSORef.current = true;
+        handleSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [invoice['Inv No'], invoice['Company Name']]);
 
     const handleDownloadPDF = () => {
         const taxable = invoice['Taxable'] || 'NON-VAT';

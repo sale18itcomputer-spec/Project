@@ -115,8 +115,12 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     if (linesErr) throw new Error(linesErr.message);
     if (!lines?.length) throw new Error('Add at least one line before posting.');
 
-    const total = lines.reduce((s: number, l: BillLine) => s + Number(l.amount), 0);
-    if (total <= 0) throw new Error('Bill total must be greater than zero.');
+    const discountLines = lines.filter((l: BillLine) => l.account_number === '70200');
+    const itemLines     = lines.filter((l: BillLine) => l.account_number !== '70200');
+    const grossTotal    = itemLines.reduce((s: number, l: BillLine) => s + Number(l.amount), 0);
+    const discountTotal = discountLines.reduce((s: number, l: BillLine) => s + Number(l.amount), 0);
+    const netTotal      = grossTotal - discountTotal;
+    if (netTotal <= 0) throw new Error('Net bill amount must be greater than zero.');
 
     // If this bill references a PO that already has a posted purchase_order JE,
     // skip creating a duplicate JE (inventory + AP were already booked by that PO JE).
@@ -138,19 +142,25 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     }
 
     if (!skipJe) {
-        // DR each expense/asset account, CR Accounts Payable 20000
+        // DR inventory/expense accounts (gross), CR 70200 Purchase Discount (if any), CR AP 20000 (net)
         const jeLines = [
-            ...lines.map((l: BillLine) => ({
+            ...itemLines.map((l: BillLine) => ({
                 account_number: l.account_number,
                 description: `${l.description || bill.description} — ${bill.bill_number}`,
                 debit: Number(l.amount),
                 credit: 0,
             })),
+            ...discountLines.map((l: BillLine) => ({
+                account_number: '70200',
+                description: `Purchase Discount — ${bill.bill_number}`,
+                debit: 0,
+                credit: Number(l.amount),
+            })),
             {
                 account_number: '20000',
                 description: `AP — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
                 debit: 0,
-                credit: total,
+                credit: netTotal,
             },
         ];
 
@@ -172,7 +182,7 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
 
     const { data: updated, error: updateErr } = await supabase
         .from('bills')
-        .update({ status: 'posted', journal_entry_id: jeId, total_amount: total })
+        .update({ status: 'posted', journal_entry_id: jeId, total_amount: netTotal })
         .eq('id', id)
         .select()
         .single();

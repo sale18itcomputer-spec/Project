@@ -236,6 +236,131 @@ const PLSection: React.FC<{
     );
 };
 
+const BSSection: React.FC<{
+    title: string;
+    lines: BalanceSheetLine[];
+    totalLabel: string;
+    total: number;
+    asOfDate: string;
+}> = ({ title, lines, totalLabel, total, asOfDate }) => {
+    const [expandedAcct, setExpandedAcct] = React.useState<string | null>(null);
+    const [detailCache, setDetailCache]   = React.useState<Record<string, PLDetailLine[]>>({});
+    const [loadingAcct, setLoadingAcct]   = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        setExpandedAcct(null);
+        setDetailCache({});
+    }, [asOfDate]);
+
+    const toggle = async (acctNum: string) => {
+        if (expandedAcct === acctNum) { setExpandedAcct(null); return; }
+        setExpandedAcct(acctNum);
+        if (detailCache[acctNum]) return;
+        setLoadingAcct(acctNum);
+        try {
+            const rows = await fetchAccountPLDetail(acctNum, '2000-01-01', asOfDate);
+            setDetailCache(c => ({ ...c, [acctNum]: rows }));
+        } catch {
+            setDetailCache(c => ({ ...c, [acctNum]: [] }));
+        } finally {
+            setLoadingAcct(null);
+        }
+    };
+
+    const relevant = lines.filter(l => l.balance !== 0 || l.is_parent);
+    if (relevant.length === 0 && total === 0) return null;
+
+    return (
+        <div className="mb-3">
+            <div className="py-2 border-b border-border/50 mb-0.5">
+                <h4 className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{title}</h4>
+            </div>
+            {relevant.length === 0
+                ? <p className="text-xs text-muted-foreground italic px-1 py-1.5">No balances</p>
+                : relevant.map(l => {
+                    const isExpanded = expandedAcct === l.account_number;
+                    const detail     = detailCache[l.account_number];
+                    const isLoading  = loadingAcct === l.account_number;
+                    const isDebitNormal = DEBIT_NORMAL_GL.has(l.account_type);
+                    return (
+                        <React.Fragment key={l.account_number}>
+                            <button
+                                onClick={() => toggle(l.account_number)}
+                                className={`w-full flex justify-between items-center py-2 border-b border-border/20 hover:bg-muted/20 transition-colors text-left ${
+                                    l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                                }`}
+                            >
+                                <span className={`text-sm flex items-center gap-1.5 ${l.is_parent ? '' : 'pl-2'}`}>
+                                    {isExpanded
+                                        ? <ChevronDown size={12} className="shrink-0 text-brand-600" />
+                                        : <ChevronRight size={12} className="shrink-0 opacity-40" />
+                                    }
+                                    {l.account_number} · {l.account_name}
+                                </span>
+                                <span className={`text-sm tabular-nums ml-4 shrink-0 ${l.balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                    {l.balance < 0 ? `(${fmt(Math.abs(l.balance))})` : fmt(l.balance)}
+                                </span>
+                            </button>
+                            {isExpanded && (
+                                <div className="bg-muted/10 border-b border-border/20">
+                                    {isLoading ? (
+                                        <p className="px-8 py-2 text-xs text-muted-foreground italic">Loading transactions…</p>
+                                    ) : !detail?.length ? (
+                                        <p className="px-8 py-2 text-xs text-muted-foreground italic">No posted transactions found.</p>
+                                    ) : (
+                                        <table className="w-full text-xs">
+                                            <thead className="border-b border-border/30 bg-muted/20">
+                                                <tr className="text-muted-foreground">
+                                                    <th className="text-left px-6 py-1.5 font-medium whitespace-nowrap w-24">Date</th>
+                                                    <th className="text-left px-3 py-1.5 font-medium whitespace-nowrap w-24">JE #</th>
+                                                    <th className="text-left px-3 py-1.5 font-medium">Description</th>
+                                                    <th className="text-right px-4 py-1.5 font-medium whitespace-nowrap w-28">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {detail.map((d, i) => {
+                                                    const contribution = isDebitNormal
+                                                        ? d.debit - d.credit
+                                                        : d.credit - d.debit;
+                                                    const isNeg = contribution < 0;
+                                                    return (
+                                                        <tr key={i} className="border-b border-border/10 hover:bg-muted/20">
+                                                            <td className="px-6 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">{d.entry_date}</td>
+                                                            <td className="px-3 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">{d.entry_number}</td>
+                                                            <td className="px-3 py-1.5 text-muted-foreground break-words">{d.line_description || d.je_description}</td>
+                                                            <td className={`px-4 py-1.5 text-right tabular-nums font-medium whitespace-nowrap ${isNeg ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                                                {isNeg ? `(${fmt(Math.abs(contribution))})` : fmt(contribution)}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot className="border-t border-border/30 bg-muted/20 font-bold">
+                                                <tr>
+                                                    <td colSpan={3} className="px-6 py-1.5 text-muted-foreground/60">{detail.length} transaction{detail.length !== 1 ? 's' : ''}</td>
+                                                    <td className={`px-4 py-1.5 text-right tabular-nums ${l.balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600'}`}>
+                                                        {l.balance < 0 ? `(${fmt(Math.abs(l.balance))})` : fmt(l.balance)}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+                        </React.Fragment>
+                    );
+                })
+            }
+            <div className="flex justify-between items-baseline py-2.5 mt-0.5 border-t-2 border-border/60 font-bold">
+                <span className="text-sm text-foreground">{totalLabel}</span>
+                <span className={`text-sm tabular-nums ml-4 shrink-0 ${total < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>
+                    {total < 0 ? `($${fmt(Math.abs(total))})` : `$${fmt(total)}`}
+                </span>
+            </div>
+        </div>
+    );
+};
+
 const PLSubtotal: React.FC<{
     label: string;
     value: number;
@@ -1384,40 +1509,6 @@ export default function AccountingDashboard() {
         </button>
     );
 
-    const BSSection = ({
-        title, lines, totalLabel, total,
-    }: { title: string; lines: BalanceSheetLine[]; totalLabel: string; total: number; indent?: boolean }) => {
-        const relevant = lines.filter(l => l.balance !== 0 || l.is_parent);
-        return (
-            <div className="mb-3">
-                <div className="py-2 border-b border-border/50 mb-0.5">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{title}</h4>
-                </div>
-                {relevant.length === 0
-                    ? <p className="text-xs text-muted-foreground italic px-1 py-1.5">No balances</p>
-                    : relevant.map(l => (
-                        <div
-                            key={l.account_number}
-                            className={`flex justify-between items-baseline py-2 border-b border-border/20 last:border-0 ${
-                                l.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground'
-                            }`}
-                        >
-                            <span className={`text-sm ${l.is_parent ? '' : 'pl-4'}`}>{l.account_number} · {l.account_name}</span>
-                            <span className={`text-sm tabular-nums ml-4 shrink-0 ${l.balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
-                                {l.balance < 0 ? `(${fmt(Math.abs(l.balance))})` : fmt(l.balance)}
-                            </span>
-                        </div>
-                    ))
-                }
-                <div className="flex justify-between items-baseline py-2.5 mt-0.5 border-t-2 border-border/60 font-bold">
-                    <span className="text-sm text-foreground">{totalLabel}</span>
-                    <span className={`text-sm tabular-nums ml-4 shrink-0 ${total < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>
-                        {total < 0 ? `($${fmt(Math.abs(total))})` : `$${fmt(total)}`}
-                    </span>
-                </div>
-            </div>
-        );
-    };
 
     // ── Render ────────────────────────────────────────────────────────────────
 
@@ -2565,24 +2656,28 @@ export default function AccountingDashboard() {
                                         lines={bsData.assets.filter(l => l.account_type === 'Bank')}
                                         totalLabel="Total Cash & Bank"
                                         total={bsData.assets.filter(l => l.account_type === 'Bank').reduce((s, l) => s + l.balance, 0)}
+                                        asOfDate={bsAsOfDate}
                                     />
                                     <BSSection
                                         title="Accounts Receivable"
                                         lines={bsData.assets.filter(l => l.account_type === 'Accounts Receivable')}
                                         totalLabel="Total Receivables"
                                         total={bsData.assets.filter(l => l.account_type === 'Accounts Receivable').reduce((s, l) => s + l.balance, 0)}
+                                        asOfDate={bsAsOfDate}
                                     />
                                     <BSSection
                                         title="Other Current Assets"
                                         lines={bsData.assets.filter(l => l.account_type === 'Other Current Asset')}
                                         totalLabel="Total Current Assets"
                                         total={bsData.assets.filter(l => l.account_type === 'Other Current Asset').reduce((s, l) => s + l.balance, 0)}
+                                        asOfDate={bsAsOfDate}
                                     />
                                     <BSSection
                                         title="Fixed Assets"
                                         lines={bsData.assets.filter(l => l.account_type === 'Fixed Asset')}
                                         totalLabel="Total Fixed Assets"
                                         total={bsData.assets.filter(l => l.account_type === 'Fixed Asset').reduce((s, l) => s + l.balance, 0)}
+                                        asOfDate={bsAsOfDate}
                                     />
                                     <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
                                         <span>TOTAL ASSETS</span>
@@ -2602,12 +2697,14 @@ export default function AccountingDashboard() {
                                             lines={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable')}
                                             totalLabel="Total Payables"
                                             total={bsData.liabilities.filter(l => l.account_type === 'Accounts Payable').reduce((s, l) => s + l.balance, 0)}
+                                            asOfDate={bsAsOfDate}
                                         />
                                         <BSSection
                                             title="Other Current Liabilities"
                                             lines={bsData.liabilities.filter(l => l.account_type === 'Other Current Liability')}
                                             totalLabel="Total Liabilities"
                                             total={bsData.totalLiabilities}
+                                            asOfDate={bsAsOfDate}
                                         />
                                         <div className="flex justify-between pt-3 border-t-2 border-foreground font-bold text-base">
                                             <span>TOTAL LIABILITIES</span>
@@ -2625,6 +2722,7 @@ export default function AccountingDashboard() {
                                             lines={bsData.equity}
                                             totalLabel="Total Share Capital"
                                             total={bsData.equity.reduce((s, l) => s + l.balance, 0)}
+                                            asOfDate={bsAsOfDate}
                                         />
                                         <div className="flex justify-between py-1 text-sm border-b border-border/30 font-medium text-foreground">
                                             <span>Net Income (Current Period)</span>

@@ -370,6 +370,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     useEffect(() => {
         if (hasDraft.current) return;
+        // If editing an existing SO, wait until companies/contacts have loaded before
+        // initialising state. Without this guard the else-branch below fires while they
+        // are still null, overwrites items with a default empty row, the auto-save
+        // captures that bad state, and the draft then blocks the real items from loading.
+        if (existingSaleOrder && (!companies || !contacts)) return;
         if (existingSaleOrder && companies && contacts) {
             const companyName = existingSaleOrder['Company Name'];
             const contactName = existingSaleOrder['Contact Name'];
@@ -563,7 +568,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             const newItems = currentItems.map(item => {
                 if (item.id === id) {
                     const updatedItem = { ...item, [field]: value } as any;
-                    if (!updatedItem.isPromotion) {
+                    if (updatedItem.isPromotion) {
+                        const q = parseFloat(String(updatedItem.qty)) || 0;
+                        const p = parseFloat(String(updatedItem.unitPrice)) || 0;
+                        updatedItem.amount = -(q * p);
+                    } else {
                         const q = parseFloat(String(updatedItem.qty)) || 0;
                         const p = parseFloat(String(updatedItem.unitPrice)) || 0;
                         const c = parseFloat(String(updatedItem.commission)) || 0;
@@ -577,10 +586,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         });
     };
 
-    const handlePromoAmountChange = (id: string, value: string) => {
-        const amt = parseFloat(value) || 0;
-        setItems(prev => prev.map(item => item.id === id ? { ...item, amount: -Math.abs(amt) } : item));
-    };
 
     const addItem = () => {
         setItems(prev => renumberItems([...prev, { id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, commission: 0, amount: 0 }]));
@@ -692,7 +697,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': saleOrder['SO Date'] || null,
                 'File': '',
-                'Quote No': saleOrder['Quote No'] || '',
+                'Quote No': saleOrder['Quote No'] || null,
                 'Company Name': saleOrder['Company Name'] || '',
                 'Contact Name': saleOrder['Contact Name'] || '',
                 'Phone Number': saleOrder['Phone Number'] || '',
@@ -753,7 +758,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
                 'SO Date': saleOrder['SO Date'] || null,
                 'File': '',
-                'Quote No': saleOrder['Quote No'] || '',
+                'Quote No': saleOrder['Quote No'] || null,
                 'Company Name': saleOrder['Company Name'] || '',
                 'Contact Name': saleOrder['Contact Name'] || '',
                 'Phone Number': saleOrder['Phone Number'] || '',
@@ -919,6 +924,16 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Unsaved draft
+                        <button
+                            type="button"
+                            title="Discard draft and reload"
+                            className="ml-0.5 text-amber-500/70 hover:text-rose-500 transition-colors leading-none"
+                            onClick={() => {
+                                clearDraft();
+                                setHasDraftState(false);
+                                hasDraft.current = false;
+                            }}
+                        >✕</button>
                     </span>
                 ) : undefined}
             >
@@ -1123,18 +1138,38 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                             placeholder={"e.g. Buy 10-29pcs get cash back $40\nPeriod: 01st - 30th June 2026"}
                                                                         />
                                                                     </div>
-                                                                    <div className="flex items-center gap-3">
+                                                                    <div className="flex items-center gap-3 flex-wrap">
                                                                         <div>
-                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cashback Amount</label>
+                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                step="1"
+                                                                                min="1"
+                                                                                value={item.qty || ''}
+                                                                                onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
+                                                                                className="w-24 h-9 px-3 text-center text-sm border border-amber-500/30 rounded-lg bg-input text-amber-600 dark:text-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                                                                placeholder="0"
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-muted-foreground/40 text-lg pt-5">×</span>
+                                                                        <div>
+                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Per Unit ($)</label>
                                                                             <input
                                                                                 type="number"
                                                                                 step="0.01"
                                                                                 min="0"
-                                                                                value={Math.abs(item.amount)}
-                                                                                onChange={e => handlePromoAmountChange(item.id, e.target.value)}
+                                                                                value={item.unitPrice || ''}
+                                                                                onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)}
                                                                                 className="w-32 h-9 px-3 text-right text-sm border border-amber-500/30 rounded-lg bg-input text-foreground focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                                                                                 placeholder="0.00"
                                                                             />
+                                                                        </div>
+                                                                        <span className="text-muted-foreground/40 text-lg pt-5">=</span>
+                                                                        <div>
+                                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Total Cashback</label>
+                                                                            <div className="h-9 flex items-center px-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 font-semibold text-sm min-w-[100px] justify-end">
+                                                                                ({Math.abs(item.amount).toFixed(2)})
+                                                                            </div>
                                                                         </div>
                                                                         <span className="text-xs font-semibold text-rose-500 pt-5">deducted from total</span>
                                                                     </div>

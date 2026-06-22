@@ -7,12 +7,24 @@ import {
     postBill, unpostBill, markBillPaid, getNextBillNumber,
 } from '../../../services/billsApi';
 import { readRecords } from '../../../services/api';
+import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+const BILL_BRAND_INVENTORY: Record<string, string> = {
+    'ASUS':              '12100',
+    'MSI':               '12300',
+    'Lenovo':            '12700',
+    'ASUS Accessories':  '12100',
+    'MSI Accessories':   '12300',
+    'Lenovo Accessories':'12700',
+};
+const getBillInventoryAccount = (brand?: string) =>
+    BILL_BRAND_INVENTORY[brand?.trim() ?? ''] ?? '12600';
 
 const fmt = (n: number) =>
     n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -154,11 +166,14 @@ const BillFormModal: React.FC<{
         return [emptyLine()];
     });
 
-    const expenseAccounts = useMemo(() =>
-        accounts
+    const billLineAccounts = useMemo(() => {
+        const base = accounts
             .filter(a => ['Expense', 'Other Expense', 'Cost of Goods Sold', 'Other Current Asset', 'Fixed Asset'].includes(a.account_type))
-            .sort((a, b) => a.account_number.localeCompare(b.account_number)),
-        [accounts]);
+            .sort((a, b) => a.account_number.localeCompare(b.account_number));
+        // Always expose 70200 Purchase Discount for vendor bills (it's income, not expense)
+        const disc = accounts.find(a => a.account_number === '70200');
+        return disc && !base.some(a => a.account_number === '70200') ? [...base, disc] : base;
+    }, [accounts]);
 
     const updateLine = (key: string, field: keyof DraftLine, value: string) => {
         setLines(prev => prev.map(l => {
@@ -173,7 +188,9 @@ const BillFormModal: React.FC<{
         }));
     };
 
-    const totalAmount = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    const discountAmt = lines.filter(l => l.account_number === '70200').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    const grossAmt    = lines.filter(l => l.account_number !== '70200').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    const netAmt      = grossAmt - discountAmt;
 
     const handleSave = () => {
         if (!header.bill_date) return;
@@ -188,7 +205,7 @@ const BillFormModal: React.FC<{
             unit_price: parseFloat(l.unit_price) || parseFloat(l.amount) || 0,
             amount: parseFloat(l.amount),
         }));
-        onSave({ ...header, total_amount: totalAmount }, mappedLines);
+        onSave({ ...header, due_date: header.due_date || null, total_amount: netAmt }, mappedLines);
     };
 
     return (
@@ -234,12 +251,40 @@ const BillFormModal: React.FC<{
                                 <select
                                     value={header.po_reference ?? ''}
                                     onChange={e => {
-                                        const po = purchaseOrders.find(p => p.po_number === e.target.value);
+                                        const val = e.target.value;
+                                        const po  = purchaseOrders.find(p => p.po_number === val);
                                         setHeader(h => ({
                                             ...h,
-                                            po_reference: e.target.value,
+                                            po_reference: val,
                                             vendor_name: po?.vendor_name ?? h.vendor_name,
                                         }));
+                                        if (po?.id && val) {
+                                            (async () => {
+                                                const { data: poItems } = await supabase
+                                                    .from('purchase_order_items')
+                                                    .select('*')
+                                                    .eq('po_id', po.id)
+                                                    .order('line_number');
+                                                if (poItems?.length) {
+                                                    setLines(poItems.map((item: any) => ({
+                                                        key: Math.random().toString(36).slice(2),
+                                                        description: item.description || item.model_name || item.item_number || '',
+                                                        account_number: item.is_promotion
+                                                            ? '70200'
+                                                            : getBillInventoryAccount(item.brand),
+                                                        qty:        String(item.qty ?? 1),
+                                                        unit_price: item.is_promotion
+                                                            ? String(Math.abs(Number(item.unit_price ?? 0)))
+                                                            : String(item.unit_price ?? 0),
+                                                        amount: item.is_promotion
+                                                            ? String(Math.abs(Number(item.total ?? 0)))
+                                                            : String(Math.max(0, Number(item.total ?? ((item.qty ?? 1) * (item.unit_price ?? 0))))),
+                                                    })));
+                                                }
+                                            })();
+                                        } else if (!val) {
+                                            setLines([emptyLine()]);
+                                        }
                                     }}
                                     className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
                                 >
@@ -314,7 +359,7 @@ const BillFormModal: React.FC<{
                                                     onChange={e => updateLine(l.key, 'account_number', e.target.value)}
                                                     className="w-full h-8 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600">
                                                     <option value="">— Select account —</option>
-                                                    {expenseAccounts.map(a => (
+                                                    {billLineAccounts.map(a => (
                                                         <option key={a.account_number} value={a.account_number}>
                                                             {a.account_number} · {a.account_name}
                                                         </option>
@@ -348,9 +393,23 @@ const BillFormModal: React.FC<{
                                     ))}
                                 </tbody>
                                 <tfoot className="border-t-2 border-border bg-muted/20">
+                                    {discountAmt > 0.005 && (
+                                        <>
+                                            <tr>
+                                                <td colSpan={4} className="px-3 py-1.5 text-xs text-right text-muted-foreground">Gross Cost</td>
+                                                <td className="px-3 py-1.5 text-sm text-foreground text-right tabular-nums">${fmt(grossAmt)}</td>
+                                                <td />
+                                            </tr>
+                                            <tr>
+                                                <td colSpan={4} className="px-3 py-1.5 text-xs text-right text-green-600 dark:text-green-400">Purchase Discount (70200)</td>
+                                                <td className="px-3 py-1.5 text-sm text-green-600 dark:text-green-400 text-right tabular-nums">−${fmt(discountAmt)}</td>
+                                                <td />
+                                            </tr>
+                                        </>
+                                    )}
                                     <tr>
-                                        <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-right text-muted-foreground uppercase tracking-wide">Total</td>
-                                        <td className="px-3 py-2.5 text-sm font-bold text-foreground text-right tabular-nums">${fmt(totalAmount)}</td>
+                                        <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-right text-muted-foreground uppercase tracking-wide">Net Payable</td>
+                                        <td className="px-3 py-2.5 text-sm font-bold text-foreground text-right tabular-nums">${fmt(netAmt)}</td>
                                         <td />
                                     </tr>
                                 </tfoot>

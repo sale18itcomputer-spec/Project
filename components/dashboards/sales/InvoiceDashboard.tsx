@@ -161,27 +161,30 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             items = invoice.ItemsJSON || [];
         }
 
-        const subTotal = items.filter((i: any) => !i.isPromotion).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
         const isVAT = invoice['Taxable'] === 'VAT' || invoice['Taxable'] === 'Yes';
-        const taxAmount = isVAT ? subTotal * 0.1 : 0;
-        const grandTotal = subTotal + taxAmount;
-
         const pl = pricelist ?? [];
         const codeMap  = new Map(pl.map((p: any) => [p['Code'],  p['Brand']]));
         const modelMap = new Map(pl.map((p: any) => [p['Model'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
+        let grossSubTotal = 0;
         let cashbackTotal = 0;
         for (const item of items) {
             if (item.isPromotion) {
+                // cashbackTotal is negative — promo deducts from the invoice total
                 cashbackTotal += Number(item.amount) || 0;
             } else {
                 const brand = (item.itemCode && codeMap.get(item.itemCode))
                     || item.brand
                     || (item.modelName && modelMap.get(item.modelName))
                     || 'Other Accessories';
-                brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
+                const amt = Number(item.amount) || 0;
+                brandTotals[brand] = (brandTotals[brand] ?? 0) + amt;
+                grossSubTotal += amt;
             }
         }
+        const taxAmount = isVAT ? grossSubTotal * 0.1 : 0;
+        // grandTotal = net amount owed by the customer (AR debit); gross + VAT - promo
+        const grandTotal = grossSubTotal + cashbackTotal + taxAmount;
         const brandAmounts = Object.entries(brandTotals)
             .map(([brand, subtotal]) => ({ brand, subtotal }))
             .filter(b => b.subtotal > 0.005);

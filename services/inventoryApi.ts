@@ -75,7 +75,7 @@ export const convertPurchaseOrderToInventory = async (
         pricelist = (data ?? []) as PricelistItem[];
     }
 
-    const filteredItems = items.filter(item => item.qty > 0);
+    const filteredItems = items.filter(item => item.qty > 0 && !item.is_promotion);
 
     const inventoryPayload = filteredItems
         .map(item => {
