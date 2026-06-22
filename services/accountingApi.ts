@@ -633,11 +633,11 @@ export const autoPostInvoiceJournal = async (params: {
         },
     ];
 
-    // DR Sale Promotion 14400 when invoice has cashback/promo deductions
+    // DR Sale Discount 41000 when invoice has cashback/promo deductions (contra-revenue, visible in P&L)
     if (cashback > 0.005) {
         lines.push({
-            account_number: '14400',
-            description: `Sale Promotion — ${params.invNo}`,
+            account_number: '41000',
+            description: `Sale Discount — ${params.invNo}`,
             debit: cashback,
             credit: 0,
         });
