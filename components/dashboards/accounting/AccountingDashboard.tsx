@@ -236,6 +236,106 @@ const PLSection: React.FC<{
     );
 };
 
+// ── SearchableSelect ─────────────────────────────────────────────────────────
+
+interface SearchableSelectOption { value: string; label: string; }
+
+const SearchableSelect: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    options: SearchableSelectOption[];
+    placeholder?: string;
+    className?: string;
+}> = ({ value, onChange, options, placeholder = '— None —', className = '' }) => {
+    const [open, setOpen]   = React.useState(false);
+    const [query, setQuery] = React.useState('');
+    const ref               = React.useRef<HTMLDivElement>(null);
+    const inputRef          = React.useRef<HTMLInputElement>(null);
+
+    const selected = options.find(o => o.value === value);
+    const filtered = query.trim()
+        ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+        : options;
+
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false);
+                setQuery('');
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleOpen = () => {
+        setOpen(true);
+        setQuery('');
+        setTimeout(() => inputRef.current?.focus(), 0);
+    };
+
+    const handleSelect = (val: string) => {
+        onChange(val);
+        setOpen(false);
+        setQuery('');
+    };
+
+    return (
+        <div ref={ref} className={`relative ${className}`}>
+            <button
+                type="button"
+                onClick={handleOpen}
+                className="w-full mt-1 h-8 px-2 text-sm rounded border border-border bg-background text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-brand-600 hover:border-brand-500 transition-colors"
+            >
+                <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
+                    {selected ? selected.label : placeholder}
+                </span>
+                <ChevronDown size={12} className="text-muted-foreground shrink-0 ml-1" />
+            </button>
+
+            {open && (
+                <div className="absolute z-50 mt-1 w-full min-w-[220px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
+                    <div className="p-2 border-b border-border/50">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            placeholder="Type account # or name…"
+                            className="w-full h-7 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 placeholder:text-muted-foreground/50"
+                        />
+                    </div>
+                    <div className="max-h-52 overflow-y-auto">
+                        {!query.trim() && (
+                            <button
+                                type="button"
+                                onClick={() => handleSelect('')}
+                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors ${!value ? 'bg-brand-500/10 text-brand-600 font-medium' : 'text-muted-foreground'}`}
+                            >
+                                {placeholder}
+                            </button>
+                        )}
+                        {filtered.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground italic">No matches</p>
+                        ) : filtered.map(o => (
+                            <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => handleSelect(o.value)}
+                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors ${o.value === value ? 'bg-brand-500/10 text-brand-600 font-medium' : 'text-foreground'}`}
+                            >
+                                {o.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── BSSection ────────────────────────────────────────────────────────────────
+
 const BSSection: React.FC<{
     title: string;
     lines: BalanceSheetLine[];
@@ -657,6 +757,32 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
     type D = BSMultiItem['data'];
     const n = cols.length;
 
+    // Drill-down state: key = `${acctNum}:${month}`
+    const [expandedKey, setExpandedKey]     = React.useState<string | null>(null);
+    const [detailCache, setDetailCache]     = React.useState<Record<string, PLDetailLine[]>>({});
+    const [loadingKey, setLoadingKey]       = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        setExpandedKey(null);
+        setDetailCache({});
+    }, [cols]);
+
+    const toggleCell = async (acctNum: string, month: string, acctType: string) => {
+        const key = `${acctNum}:${month}`;
+        if (expandedKey === key) { setExpandedKey(null); return; }
+        setExpandedKey(key);
+        if (detailCache[key]) return;
+        setLoadingKey(key);
+        try {
+            const rows = await fetchAccountPLDetail(acctNum, '2000-01-01', getMonthEnd(month));
+            setDetailCache(c => ({ ...c, [key]: rows }));
+        } catch {
+            setDetailCache(c => ({ ...c, [key]: [] }));
+        } finally {
+            setLoadingKey(null);
+        }
+    };
+
     const mergeAccounts = (types: string[]): BalanceSheetLine[] => {
         const seen = new Map<string, BalanceSheetLine>();
         for (const { data } of cols) {
@@ -716,23 +842,116 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
                 {cols.map(({ month }) => <td key={month} className="px-4 py-1.5 text-right text-xs text-muted-foreground/30">—</td>)}
             </tr>
         );
-        return accounts.map(acct => (
-            <tr key={`${rowKey}-${acct.account_number}`} className="border-b border-border/10 hover:bg-muted/20">
-                <td className={`sticky left-0 z-10 bg-background px-4 py-1.5 text-sm leading-snug ${acct.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground pl-10'}`}>
-                    {acct.account_number} · {acct.account_name}
-                </td>
-                {cols.map(({ month, data }, ci) => {
-                    const val = getBal(data, acct.account_number);
-                    const prev = ci > 0 ? getBal(cols[ci - 1].data, acct.account_number) : undefined;
-                    return (
-                        <td key={month} className={`px-4 py-1.5 text-right text-sm tabular-nums leading-snug ${val < 0 ? 'text-red-500 dark:text-red-400' : val === 0 ? 'text-muted-foreground/30' : 'text-foreground'}`}>
-                            <div>{fmtCell(val)}</div>
-                            <DeltaChip curr={val} prev={prev} />
+        return accounts.flatMap(acct => {
+            const isDebitNormal = DEBIT_NORMAL_GL.has(acct.account_type);
+            // Find which month (if any) is currently expanded for this account
+            const activeMonth = cols.find(({ month }) => expandedKey === `${acct.account_number}:${month}`)?.month ?? null;
+            const detail    = activeMonth ? detailCache[`${acct.account_number}:${activeMonth}`] : undefined;
+            const isLoading = activeMonth ? loadingKey === `${acct.account_number}:${activeMonth}` : false;
+            const activeLabel = activeMonth ? cols.find(c => c.month === activeMonth)?.label ?? '' : '';
+
+            const rows: React.ReactNode[] = [
+                <tr key={`${rowKey}-${acct.account_number}`} className="border-b border-border/10 hover:bg-muted/10">
+                    <td className={`sticky left-0 z-10 bg-background px-4 py-1.5 text-sm leading-snug ${acct.is_parent ? 'font-semibold text-foreground' : 'text-muted-foreground pl-10'}`}>
+                        {acct.account_number} · {acct.account_name}
+                    </td>
+                    {cols.map(({ month, data }, ci) => {
+                        const val = getBal(data, acct.account_number);
+                        const prev = ci > 0 ? getBal(cols[ci - 1].data, acct.account_number) : undefined;
+                        const key = `${acct.account_number}:${month}`;
+                        const isExpanded = expandedKey === key;
+                        return (
+                            <td key={month} className="px-2 py-1.5 text-right">
+                                <button
+                                    onClick={() => toggleCell(acct.account_number, month, acct.account_type)}
+                                    className={`inline-flex flex-col items-end w-full px-2 py-0.5 rounded transition-colors text-sm tabular-nums leading-snug
+                                        ${isExpanded ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 ring-1 ring-brand-500/30' :
+                                          val < 0 ? 'text-red-500 dark:text-red-400 hover:bg-muted/30' :
+                                          val === 0 ? 'text-muted-foreground/30 hover:bg-muted/20' :
+                                          'text-foreground hover:bg-muted/30'
+                                        }`}
+                                    title={`View transactions for ${acct.account_name} — as of ${getMonthEnd(month)}`}
+                                >
+                                    <span>{fmtCell(val)}</span>
+                                    <DeltaChip curr={val} prev={prev} />
+                                </button>
+                            </td>
+                        );
+                    })}
+                </tr>
+            ];
+
+            // Detail row appears directly below when a month is expanded
+            if (activeMonth) {
+                rows.push(
+                    <tr key={`${rowKey}-${acct.account_number}-detail`}>
+                        <td colSpan={n + 1} className="p-0 border-b border-border/30">
+                            <div className="bg-muted/10">
+                                {/* Header strip */}
+                                <div className="flex items-center gap-2 px-6 py-1.5 bg-brand-500/5 border-b border-brand-500/10">
+                                    <ChevronDown size={11} className="text-brand-500 shrink-0" />
+                                    <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wide">
+                                        {acct.account_number} · {acct.account_name}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground ml-1">— as of {activeLabel} ({getMonthEnd(activeMonth)})</span>
+                                    <button
+                                        onClick={() => setExpandedKey(null)}
+                                        className="ml-auto text-muted-foreground/50 hover:text-rose-500 transition text-xs px-1"
+                                        title="Close"
+                                    >✕</button>
+                                </div>
+                                {isLoading ? (
+                                    <p className="px-8 py-2 text-xs text-muted-foreground italic">Loading transactions…</p>
+                                ) : !detail?.length ? (
+                                    <p className="px-8 py-2 text-xs text-muted-foreground italic">No posted transactions found.</p>
+                                ) : (
+                                    <table className="w-full text-xs">
+                                        <thead className="border-b border-border/30 bg-muted/20">
+                                            <tr className="text-muted-foreground">
+                                                <th className="text-left px-6 py-1.5 font-medium whitespace-nowrap w-24">Date</th>
+                                                <th className="text-left px-3 py-1.5 font-medium whitespace-nowrap w-24">JE #</th>
+                                                <th className="text-left px-3 py-1.5 font-medium">Description</th>
+                                                <th className="text-right px-4 py-1.5 font-medium whitespace-nowrap w-28">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {detail.map((d, i) => {
+                                                const contribution = isDebitNormal
+                                                    ? d.debit - d.credit
+                                                    : d.credit - d.debit;
+                                                const isNeg = contribution < 0;
+                                                return (
+                                                    <tr key={i} className="border-b border-border/10 hover:bg-muted/20">
+                                                        <td className="px-6 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">{d.entry_date}</td>
+                                                        <td className="px-3 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">{d.entry_number}</td>
+                                                        <td className="px-3 py-1.5 text-muted-foreground break-words">{d.line_description || d.je_description}</td>
+                                                        <td className={`px-4 py-1.5 text-right tabular-nums font-medium whitespace-nowrap ${isNeg ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                                            {isNeg ? `(${fmt(Math.abs(contribution))})` : fmt(contribution)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot className="border-t border-border/30 bg-muted/20 font-bold">
+                                            <tr>
+                                                <td colSpan={3} className="px-6 py-1.5 text-muted-foreground/60">
+                                                    {detail.length} transaction{detail.length !== 1 ? 's' : ''}
+                                                </td>
+                                                <td className={`px-4 py-1.5 text-right tabular-nums ${getBal(cols.find(c => c.month === activeMonth)!.data, acct.account_number) < 0 ? 'text-red-500 dark:text-red-400' : 'text-brand-600'}`}>
+                                                    {fmtCell(getBal(cols.find(c => c.month === activeMonth)!.data, acct.account_number))}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                )}
+                            </div>
                         </td>
-                    );
-                })}
-            </tr>
-        ));
+                    </tr>
+                );
+            }
+
+            return rows;
+        });
     };
 
     const subtotalRow = (label: string, extractor: (d: D) => number, color: string, key: string) => (
@@ -953,6 +1172,8 @@ export default function AccountingDashboard() {
     const [deletingId, setDeletingId]         = useState<string | null>(null);
     const [journalFilter, setJournalFilter]   = useState<'all' | 'draft' | 'auto' | 'manual'>('all');
     const [journalSearch, setJournalSearch]   = useState('');
+    const [jeDateFrom, setJeDateFrom]         = useState('');
+    const [jeDateTo, setJeDateTo]             = useState('');
     const [postingAll, setPostingAll]         = useState(false);
     const [backfillingCOGS, setBackfillingCOGS] = useState(false);
     const [confirmDialog, setConfirmDialog]   = useState<{
@@ -1374,6 +1595,16 @@ export default function AccountingDashboard() {
         }
     };
 
+    // Wipe every cached report so the next tab visit re-queries with the correct is_posted state.
+    const invalidateReports = useCallback(() => {
+        setBsData(null);
+        setBsMultiData([]);
+        setPlData(null);
+        setPlMultiData([]);
+        setCfData(null);
+        setCfMultiData([]);
+    }, []);
+
     const handleTogglePost = (entry: JournalEntry) => {
         const doToggle = async () => {
             try {
@@ -1384,9 +1615,7 @@ export default function AccountingDashboard() {
                     return [toggled, ...prev.filter(e => e.id !== updated.id)];
                 });
                 addToast(updated.is_posted ? 'Entry posted.' : 'Entry unposted.', 'success');
-                setBsData(null);
-                setPlData(null);
-                loadProfitLoss();
+                invalidateReports();
             } catch (e: any) {
                 addToast(`Failed to update entry: ${e.message}`, 'error');
             }
@@ -1419,6 +1648,8 @@ export default function AccountingDashboard() {
             case 'manual': base = entries.filter(e => !e.source || e.source === 'manual'); break;
             default:       base = entries;
         }
+        if (jeDateFrom) base = base.filter(e => e.entry_date >= jeDateFrom);
+        if (jeDateTo)   base = base.filter(e => e.entry_date <= jeDateTo);
         if (!journalSearch.trim()) return base;
         const q = journalSearch.toLowerCase();
         return base.filter(e =>
@@ -1428,7 +1659,7 @@ export default function AccountingDashboard() {
             e.created_by?.toLowerCase().includes(q) ||
             e.lines?.some(l => l.description?.toLowerCase().includes(q) || l.account_number?.includes(q))
         );
-    }, [entries, journalFilter, journalSearch]);
+    }, [entries, journalFilter, journalSearch, jeDateFrom, jeDateTo]);
 
     const draftCount = useMemo(() => entries.filter(e => !e.is_posted).length, [entries]);
     const autoCount  = useMemo(() => entries.filter(e => e.source && e.source !== 'manual').length, [entries]);
@@ -1461,9 +1692,7 @@ export default function AccountingDashboard() {
         setPostingAll(false);
         if (failed === 0) addToast(`${posted} ${posted === 1 ? 'entry' : 'entries'} posted successfully.`, 'success');
         else addToast(`${posted} posted, ${failed} failed (unbalanced?). Check failed entries.`, 'error');
-        setBsData(null);
-        setPlData(null);
-        loadProfitLoss();
+        invalidateReports();
     };
 
     const handleBackfillCOGS = () => {
@@ -1607,18 +1836,11 @@ export default function AccountingDashboard() {
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground">Parent Account</label>
-                                <select
+                                <SearchableSelect
                                     value={newAccountForm.parent_account_number || ''}
-                                    onChange={e => setNewAccountForm(p => ({ ...p, parent_account_number: e.target.value || null }))}
-                                    className="w-full mt-1 h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
-                                >
-                                    <option value="">— None —</option>
-                                    {parentOptions.map(a => (
-                                        <option key={a.account_number} value={a.account_number}>
-                                            {a.account_number} · {a.account_name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={v => setNewAccountForm(p => ({ ...p, parent_account_number: v || null }))}
+                                    options={parentOptions.map(a => ({ value: a.account_number, label: `${a.account_number} · ${a.account_name}` }))}
+                                />
                             </div>
                             <div className="col-span-2 md:col-span-2">
                                 <label className="text-xs font-medium text-muted-foreground">Description</label>
@@ -1894,21 +2116,51 @@ export default function AccountingDashboard() {
                                 );
                             })}
                         </div>
-                        {/* Search */}
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={journalSearch}
-                                onChange={e => setJournalSearch(e.target.value)}
-                                placeholder="Search entries…"
-                                className="h-8 pl-8 pr-8 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 w-52"
-                            />
-                            <svg className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                            {journalSearch && (
-                                <button onClick={() => setJournalSearch('')} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
-                                    <X size={14} />
-                                </button>
-                            )}
+                        {/* Date range + Search row */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Date range */}
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    type="date"
+                                    value={jeDateFrom}
+                                    onChange={e => setJeDateFrom(e.target.value)}
+                                    className="h-8 px-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 text-foreground w-34"
+                                    title="From date"
+                                />
+                                <span className="text-xs text-muted-foreground">–</span>
+                                <input
+                                    type="date"
+                                    value={jeDateTo}
+                                    onChange={e => setJeDateTo(e.target.value)}
+                                    className="h-8 px-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 text-foreground w-34"
+                                    title="To date"
+                                />
+                                {(jeDateFrom || jeDateTo) && (
+                                    <button
+                                        onClick={() => { setJeDateFrom(''); setJeDateTo(''); }}
+                                        className="h-8 px-2 text-xs text-muted-foreground hover:text-rose-500 border border-border rounded-lg transition-colors"
+                                        title="Clear date filter"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </div>
+                            {/* Search */}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={journalSearch}
+                                    onChange={e => setJournalSearch(e.target.value)}
+                                    placeholder="Search entries…"
+                                    className="h-8 pl-8 pr-8 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 w-48"
+                                />
+                                <svg className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                {journalSearch && (
+                                    <button onClick={() => setJournalSearch('')} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         {/* Actions */}
                         <div className="flex items-center gap-2">

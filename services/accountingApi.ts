@@ -214,31 +214,39 @@ export const computeCashFlow = async (
     endingCash: number;
     netCashChange: number;
 }> => {
-    const [endResult, beginResult, periodResult] = await Promise.all([
-        supabase
+    // Step 1: fetch all posted JEs up to dateTo with their dates (single query).
+    const { data: postedJEs, error: jeErr } = await supabase
+        .from('journal_entries')
+        .select('id, entry_date')
+        .eq('is_posted', true)
+        .lte('entry_date', dateTo);
+    if (jeErr) throw new Error(jeErr.message);
+
+    // Partition IDs by the three date windows needed for cash-flow calculation.
+    const allUpToEnd  = (postedJEs ?? []).map(je => je.id as string);
+    const beforeStart = (postedJEs ?? []).filter(je => je.entry_date < dateFrom).map(je => je.id as string);
+    const inPeriod    = (postedJEs ?? []).filter(je => je.entry_date >= dateFrom).map(je => je.id as string);
+
+    const fetchLines = async (ids: string[]): Promise<any[]> => {
+        if (!ids.length) return [];
+        const { data, error } = await supabase
             .from('journal_entry_lines')
-            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
-            .eq('journal_entries.is_posted', true)
-            .lte('journal_entries.entry_date', dateTo),
-        supabase
-            .from('journal_entry_lines')
-            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
-            .eq('journal_entries.is_posted', true)
-            .lt('journal_entries.entry_date', dateFrom),
-        supabase
-            .from('journal_entry_lines')
-            .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
-            .eq('journal_entries.is_posted', true)
-            .gte('journal_entries.entry_date', dateFrom)
-            .lte('journal_entries.entry_date', dateTo),
+            .select('account_number, debit, credit')
+            .in('journal_entry_id', ids);
+        if (error) throw new Error(error.message);
+        return data ?? [];
+    };
+
+    // Step 2: fetch line sets in parallel.
+    const [endLinesRaw, beginLinesRaw, periodLinesRaw] = await Promise.all([
+        fetchLines(allUpToEnd),
+        fetchLines(beforeStart),
+        fetchLines(inPeriod),
     ]);
-    if (endResult.error)    throw new Error(endResult.error.message);
-    if (beginResult.error)  throw new Error(beginResult.error.message);
-    if (periodResult.error) throw new Error(periodResult.error.message);
 
     const agg = (lines: any[]) => {
         const result: Record<string, { debit: number; credit: number }> = {};
-        (lines ?? []).forEach((l: any) => {
+        lines.forEach((l: any) => {
             if (!result[l.account_number]) result[l.account_number] = { debit: 0, credit: 0 };
             result[l.account_number].debit  += Number(l.debit);
             result[l.account_number].credit += Number(l.credit);
@@ -246,9 +254,9 @@ export const computeCashFlow = async (
         return result;
     };
 
-    const endAgg    = agg(endResult.data ?? []);
-    const beginAgg  = agg(beginResult.data ?? []);
-    const periodAgg = agg(periodResult.data ?? []);
+    const endAgg    = agg(endLinesRaw);
+    const beginAgg  = agg(beginLinesRaw);
+    const periodAgg = agg(periodLinesRaw);
 
     const getBal = (num: string, type: string, a: Record<string, { debit: number; credit: number }>) => {
         const r = a[num] ?? { debit: 0, credit: 0 };
@@ -347,16 +355,28 @@ export const computeProfitLoss = async (
     netOther: number;
     netIncome: number;
 }> => {
-    const { data: lines, error } = await supabase
-        .from('journal_entry_lines')
-        .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)')
-        .eq('journal_entries.is_posted', true)
-        .gte('journal_entries.entry_date', dateFrom)
-        .lte('journal_entries.entry_date', dateTo);
-    if (error) throw new Error(error.message);
+    const { data: jeRows, error: jeErr } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('is_posted', true)
+        .gte('entry_date', dateFrom)
+        .lte('entry_date', dateTo);
+    if (jeErr) throw new Error(jeErr.message);
+
+    const jeIds = (jeRows ?? []).map((r: any) => r.id as string);
+
+    let rawLines: any[] = [];
+    if (jeIds.length > 0) {
+        const { data: lineRows, error: lineErr } = await supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit')
+            .in('journal_entry_id', jeIds);
+        if (lineErr) throw new Error(lineErr.message);
+        rawLines = lineRows ?? [];
+    }
 
     const aggregated: Record<string, { debit: number; credit: number }> = {};
-    (lines ?? []).forEach((line: any) => {
+    rawLines.forEach((line: any) => {
         if (!aggregated[line.account_number]) aggregated[line.account_number] = { debit: 0, credit: 0 };
         aggregated[line.account_number].debit  += Number(line.debit);
         aggregated[line.account_number].credit += Number(line.credit);
@@ -424,25 +444,41 @@ export const fetchAccountPLDetail = async (
     dateFrom: string,
     dateTo: string,
 ): Promise<PLDetailLine[]> => {
-    const { data, error } = await supabase
-        .from('journal_entry_lines')
-        .select('debit, credit, description, journal_entries!inner(entry_number, entry_date, description, reference, is_posted)')
-        .eq('account_number', accountNumber)
-        .eq('journal_entries.is_posted', true)
-        .gte('journal_entries.entry_date', dateFrom)
-        .lte('journal_entries.entry_date', dateTo);
-    if (error) throw new Error(error.message);
+    // Step 1: posted JEs in date range.
+    const { data: jeRows, error: jeErr } = await supabase
+        .from('journal_entries')
+        .select('id, entry_number, entry_date, description, reference')
+        .eq('is_posted', true)
+        .gte('entry_date', dateFrom)
+        .lte('entry_date', dateTo);
+    if (jeErr) throw new Error(jeErr.message);
 
-    return ((data ?? []) as any[])
-        .map(row => ({
-            entry_number:    row.journal_entries.entry_number,
-            entry_date:      row.journal_entries.entry_date,
-            je_description:  row.journal_entries.description,
-            reference:       row.journal_entries.reference ?? null,
-            line_description: row.description ?? null,
-            debit:  Number(row.debit),
-            credit: Number(row.credit),
-        }))
+    const jeIds = (jeRows ?? []).map((r: any) => r.id as string);
+    if (!jeIds.length) return [];
+
+    const jeMap = new Map((jeRows ?? []).map((r: any) => [r.id as string, r]));
+
+    // Step 2: lines for this account within those JEs.
+    const { data: lineRows, error: lineErr } = await supabase
+        .from('journal_entry_lines')
+        .select('journal_entry_id, debit, credit, description')
+        .eq('account_number', accountNumber)
+        .in('journal_entry_id', jeIds);
+    if (lineErr) throw new Error(lineErr.message);
+
+    return ((lineRows ?? []) as any[])
+        .map(row => {
+            const je = jeMap.get(row.journal_entry_id)!;
+            return {
+                entry_number:     je.entry_number,
+                entry_date:       je.entry_date,
+                je_description:   je.description,
+                reference:        je.reference ?? null,
+                line_description: row.description ?? null,
+                debit:  Number(row.debit),
+                credit: Number(row.credit),
+            };
+        })
         .sort((a, b) =>
             b.entry_date.localeCompare(a.entry_date) ||
             b.entry_number.localeCompare(a.entry_number),
@@ -480,19 +516,29 @@ export const computeBalanceSheet = async (
     netIncome: number;
     isBalanced: boolean;
 }> => {
-    let query = supabase
-        .from('journal_entry_lines')
-        .select('account_number, debit, credit, journal_entries!inner(is_posted, entry_date)');
+    // Step 1: fetch IDs of posted JEs (optionally up to asOfDate).
+    // Two-step avoids relying on PostgREST embedded-resource filter semantics,
+    // which can behave as a JSON filter rather than a true WHERE clause.
+    let jeQuery = supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('is_posted', true);
+    if (asOfDate) jeQuery = jeQuery.lte('entry_date', asOfDate);
+    const { data: jeRows, error: jeErr } = await jeQuery;
+    if (jeErr) throw new Error(jeErr.message);
 
-    if (asOfDate) {
-        query = query.lte('journal_entries.entry_date', asOfDate);
+    const jeIds = (jeRows ?? []).map((r: any) => r.id as string);
+
+    // Step 2: fetch lines for those JEs only.
+    let lines: any[] = [];
+    if (jeIds.length > 0) {
+        const { data: lineRows, error: lineErr } = await supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit')
+            .in('journal_entry_id', jeIds);
+        if (lineErr) throw new Error(lineErr.message);
+        lines = lineRows ?? [];
     }
-
-    // Only include posted entries in the balance sheet
-    query = query.eq('journal_entries.is_posted', true);
-
-    const { data: lines, error } = await query;
-    if (error) throw new Error(error.message);
 
     // Aggregate debit/credit per account
     const aggregated: Record<string, { debit: number; credit: number }> = {};
