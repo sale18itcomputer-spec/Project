@@ -12,6 +12,7 @@ type BSData = {
     totalAssets: number;
     totalLiabilities: number;
     totalEquity: number;
+    netIncome: number;
     isBalanced?: boolean;
 };
 
@@ -209,15 +210,24 @@ export const exportBalanceSheet = (bsData: BSData, asOfDate: string) => {
     const section = (title: string, lines: BalanceSheetLine[], total: number) => {
         rows.push([title, null, null, null]);
         lines.forEach(l => rows.push([null, l.account_number, l.account_name, f2(l.balance)]));
-        rows.push([`Total ${title}`, null, null, f2(total)]);
-        rows.push([null, null, null, null]);
     };
 
     section('Assets',      bsData.assets,      bsData.totalAssets);
-    section('Liabilities', bsData.liabilities, bsData.totalLiabilities);
-    section('Equity',      bsData.equity,       bsData.totalEquity);
+    rows.push(['Total Assets', null, null, f2(bsData.totalAssets)]);
+    rows.push([null, null, null, null]);
 
-    const ws = makeSheet('Balance Sheet', `As of ${asOfDate}`, headers, rows, [20, 12, 36, 16]);
+    section('Liabilities', bsData.liabilities, bsData.totalLiabilities);
+    rows.push(['Total Liabilities', null, null, f2(bsData.totalLiabilities)]);
+    rows.push([null, null, null, null]);
+
+    section('Equity', bsData.equity, 0);
+    rows.push([null, null, 'Net Income (Current Period)', f2(bsData.netIncome)]);
+    rows.push(['Total Equity', null, null, f2(bsData.totalEquity)]);
+    rows.push([null, null, null, null]);
+
+    rows.push(['Liabilities + Equity', null, null, f2(bsData.totalLiabilities + bsData.totalEquity)]);
+
+    const ws = makeSheet('Balance Sheet', `As of ${asOfDate}`, headers, rows, [22, 12, 36, 16]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `BS ${asOfDate}`);
     saveWb(wb, `LPT_BalanceSheet_${asOfDate}.xlsx`);
@@ -229,34 +239,44 @@ export const exportBSCompare = (items: BSMultiItem[], monthFrom: string, monthTo
     const labels = items.map(i => i.label);
     const headers = ['Section', 'Account #', 'Account Name', ...labels];
 
-    // Collect unique accounts per section across all months
-    const allAccts = (section: (d: BSData) => BalanceSheetLine[]) =>
-        [...new Map(items.flatMap(i => section(i.data).map(l => [l.account_number, l]))).values()];
+    const allAccts = (getter: (d: BSData) => BalanceSheetLine[]) =>
+        [...new Map(items.flatMap(i => getter(i.data).map(l => [l.account_number, l]))).values()];
 
     const rows: (string | number | null)[][] = [];
+    const blank = () => rows.push([null, null, null, ...items.map(() => null)]);
 
-    const section = (title: string, getLines: (d: BSData) => BalanceSheetLine[], getTotal: (d: BSData) => number) => {
-        rows.push([title, null, null, ...items.map(() => null)]);
-        allAccts(getLines).forEach(acct => {
-            rows.push([
-                null,
-                acct.account_number,
-                acct.account_name,
-                ...items.map(i => {
-                    const line = getLines(i.data).find(l => l.account_number === acct.account_number);
-                    return line ? f2(line.balance) : 0;
-                }),
-            ]);
-        });
-        rows.push([`Total ${title}`, null, null, ...items.map(i => f2(getTotal(i.data)))]);
-        rows.push([null, null, null, ...items.map(() => null)]);
-    };
+    // Assets
+    rows.push(['Assets', null, null, ...items.map(() => null)]);
+    allAccts(d => d.assets).forEach(acct => rows.push([
+        null, acct.account_number, acct.account_name,
+        ...items.map(i => { const l = i.data.assets.find(x => x.account_number === acct.account_number); return l ? f2(l.balance) : 0; }),
+    ]));
+    rows.push(['Total Assets', null, null, ...items.map(i => f2(i.data.totalAssets))]);
+    blank();
 
-    section('Assets',      d => d.assets,      d => d.totalAssets);
-    section('Liabilities', d => d.liabilities, d => d.totalLiabilities);
-    section('Equity',      d => d.equity,       d => d.totalEquity);
+    // Liabilities
+    rows.push(['Liabilities', null, null, ...items.map(() => null)]);
+    allAccts(d => d.liabilities).forEach(acct => rows.push([
+        null, acct.account_number, acct.account_name,
+        ...items.map(i => { const l = i.data.liabilities.find(x => x.account_number === acct.account_number); return l ? f2(l.balance) : 0; }),
+    ]));
+    rows.push(['Total Liabilities', null, null, ...items.map(i => f2(i.data.totalLiabilities))]);
+    blank();
 
-    const colWidths = [20, 12, 36, ...items.map(() => 16)];
+    // Equity (accounts + Net Income line)
+    rows.push(['Equity', null, null, ...items.map(() => null)]);
+    allAccts(d => d.equity).forEach(acct => rows.push([
+        null, acct.account_number, acct.account_name,
+        ...items.map(i => { const l = i.data.equity.find(x => x.account_number === acct.account_number); return l ? f2(l.balance) : 0; }),
+    ]));
+    rows.push([null, null, 'Net Income (Current Period)', ...items.map(i => f2(i.data.netIncome))]);
+    rows.push(['Total Equity', null, null, ...items.map(i => f2(i.data.totalEquity))]);
+    blank();
+
+    // Liabilities + Equity check
+    rows.push(['Liabilities + Equity', null, null, ...items.map(i => f2(i.data.totalLiabilities + i.data.totalEquity))]);
+
+    const colWidths = [22, 12, 36, ...items.map(() => 16)];
     const ws = makeSheet('Balance Sheet', `${monthFrom} through ${monthTo}`, headers, rows, colWidths);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'BS Compare');
