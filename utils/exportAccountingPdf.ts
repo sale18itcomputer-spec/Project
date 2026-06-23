@@ -163,23 +163,61 @@ const blankRow = (nc: number): PDFRow => [
     { content: '', colSpan: nc, styles: { fillColor: WHITE, minCellHeight: 2 } },
 ];
 
+// ── Zero-filter helpers ───────────────────────────────────────────────────────
+
+/** Filter a BalanceSheetLine list, excluding zero balances when hideZeros=true */
+const filt = (ls: BalanceSheetLine[], hideZeros: boolean) =>
+    hideZeros ? ls.filter(l => Math.abs(l.balance) > 0.005) : ls;
+
+/** For compare data: keep account only if at least one month is non-zero */
+const filtCompare = (
+    accts: BalanceSheetLine[],
+    getter: (d: any) => BalanceSheetLine[],
+    items: { data: any }[],
+    hideZeros: boolean,
+): BalanceSheetLine[] => {
+    if (!hideZeros) return accts;
+    return accts.filter(acct =>
+        items.some(i => {
+            const l = getter(i.data).find((x: BalanceSheetLine) => x.account_number === acct.account_number);
+            return l && Math.abs(l.balance) > 0.005;
+        }),
+    );
+};
+
+/** For CF compare: keep item if at least one month is non-zero */
+const filtCFCompare = (
+    items2: { account_number: string; account_name: string; amount: number }[],
+    months: { data: CFData }[],
+    list: 'operatingAdjustments' | 'investingItems' | 'financingItems',
+    hideZeros: boolean,
+) => {
+    if (!hideZeros) return items2;
+    return items2.filter(a =>
+        months.some(m => {
+            const x = m.data[list].find(i => i.account_number === a.account_number);
+            return x && Math.abs(x.amount) > 0.005;
+        }),
+    );
+};
+
 // ── Balance Sheet body ────────────────────────────────────────────────────────
 
-const bsBody = (bs: BSData): PDFRow[] => {
+const bsBody = (bs: BSData, hideZeros: boolean): PDFRow[] => {
     const r: PDFRow[] = [];
 
     r.push(secRow('ASSETS', 3));
-    bs.assets.forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
+    filt(bs.assets, hideZeros).forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
     r.push(subtRow3('Assets', bs.totalAssets));
     r.push(blankRow(3));
 
     r.push(secRow('LIABILITIES', 3));
-    bs.liabilities.forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
+    filt(bs.liabilities, hideZeros).forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
     r.push(subtRow3('Liabilities', bs.totalLiabilities));
     r.push(blankRow(3));
 
     r.push(secRow('EQUITY', 3));
-    bs.equity.forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
+    filt(bs.equity, hideZeros).forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, i % 2 === 1)));
     r.push([
         { content: '',                            styles: { fillColor: ALT } },
         { content: 'Net Income (Current Period)', styles: { fillColor: ALT, fontSize: 9, fontStyle: 'italic' } },
@@ -194,7 +232,7 @@ const bsBody = (bs: BSData): PDFRow[] => {
 
 // ── Cash Flow body ────────────────────────────────────────────────────────────
 
-const cfBody = (cf: CFData): PDFRow[] => {
+const cfBody = (cf: CFData, hideZeros: boolean): PDFRow[] => {
     const r: PDFRow[] = [];
 
     const cfAcc = (code: string, name: string, amount: number, alt: boolean): PDFRow => [
@@ -208,21 +246,26 @@ const cfBody = (cf: CFData): PDFRow[] => {
         { content: cur(amount), styles: { fillColor: SUBT, fontStyle: 'bold', halign: 'right', fontSize: 9 } },
     ];
 
+    const filtCF = (ls: typeof cf.operatingAdjustments) =>
+        hideZeros ? ls.filter(i => Math.abs(i.amount) > 0.005) : ls;
+
     r.push(secRow('OPERATING ACTIVITIES', 3));
     r.push(cfAcc('', 'Net Income', cf.netIncome, false));
-    cf.operatingAdjustments.forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
+    filtCF(cf.operatingAdjustments).forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
     r.push(cfSub('Net Cash from Operating Activities', cf.netOperating));
     r.push(blankRow(3));
 
     r.push(secRow('INVESTING ACTIVITIES', 3));
-    if (cf.investingItems.length === 0) r.push([{ content: '—  No investing activity', colSpan: 3, styles: { fillColor: WHITE, textColor: MUTED, fontSize: 8.5, cellPadding: { left: 12 } } }]);
-    cf.investingItems.forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
+    const visibleInvest = filtCF(cf.investingItems);
+    if (visibleInvest.length === 0) r.push([{ content: '—  No investing activity', colSpan: 3, styles: { fillColor: WHITE, textColor: MUTED, fontSize: 8.5, cellPadding: { left: 12 } } }]);
+    visibleInvest.forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
     r.push(cfSub('Net Cash from Investing Activities', cf.netInvesting));
     r.push(blankRow(3));
 
     r.push(secRow('FINANCING ACTIVITIES', 3));
-    if (cf.financingItems.length === 0) r.push([{ content: '—  No financing activity', colSpan: 3, styles: { fillColor: WHITE, textColor: MUTED, fontSize: 8.5, cellPadding: { left: 12 } } }]);
-    cf.financingItems.forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
+    const visibleFin = filtCF(cf.financingItems);
+    if (visibleFin.length === 0) r.push([{ content: '—  No financing activity', colSpan: 3, styles: { fillColor: WHITE, textColor: MUTED, fontSize: 8.5, cellPadding: { left: 12 } } }]);
+    visibleFin.forEach((i, idx) => r.push(cfAcc(i.account_number, i.account_name, i.amount, idx % 2 === 1)));
     r.push(cfSub('Net Cash from Financing Activities', cf.netFinancing));
     r.push(blankRow(3));
 
@@ -236,11 +279,11 @@ const cfBody = (cf: CFData): PDFRow[] => {
 
 // ── Profit & Loss body ────────────────────────────────────────────────────────
 
-const plBody = (pl: PLData): PDFRow[] => {
+const plBody = (pl: PLData, hideZeros: boolean): PDFRow[] => {
     const r: PDFRow[] = [];
 
     const plAlt = (ls: BalanceSheetLine[], startIdx = 0) =>
-        ls.forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, (i + startIdx) % 2 === 1)));
+        filt(ls, hideZeros).forEach((l, i) => r.push(accRow3(l.account_number, l.account_name, l.balance, (i + startIdx) % 2 === 1)));
 
     const midRow = (label: string, amount: number): PDFRow => [
         { content: label,       colSpan: 2, styles: { fillColor: SUBT, fontStyle: 'bold', fontSize: 9.5 } },
@@ -386,25 +429,27 @@ const orient = (n: number): 'portrait' | 'landscape' => n > 3 ? 'landscape' : 'p
 
 // ── BS compare body ───────────────────────────────────────────────────────────
 
-const bsCompareBody = (items: BSMultiItem[]): PDFRow[] => {
+const bsCompareBody = (items: BSMultiItem[], hideZeros: boolean): PDFRow[] => {
     const NC = 1 + items.length;
     const r: PDFRow[] = [];
     const vals = (getter: (d: BSData) => number) => items.map(i => getter(i.data));
     const acctVals = (acct: BalanceSheetLine, getter: (d: BSData) => BalanceSheetLine[]) =>
         items.map(i => { const l = getter(i.data).find(x => x.account_number === acct.account_number); return l?.balance ?? 0; });
+    const fc = (accts: BalanceSheetLine[], getter: (d: BSData) => BalanceSheetLine[]) =>
+        filtCompare(accts, getter as (d: any) => BalanceSheetLine[], items, hideZeros);
 
     r.push(compSec('ASSETS', NC));
-    uniqAccts(items, d => d.assets).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.assets), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.assets), d => d.assets).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.assets), i % 2 === 1)));
     r.push(compSubt('Assets', vals(d => d.totalAssets)));
     r.push(compBlank(NC));
 
     r.push(compSec('LIABILITIES', NC));
-    uniqAccts(items, d => d.liabilities).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.liabilities), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.liabilities), d => d.liabilities).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.liabilities), i % 2 === 1)));
     r.push(compSubt('Liabilities', vals(d => d.totalLiabilities)));
     r.push(compBlank(NC));
 
     r.push(compSec('EQUITY', NC));
-    uniqAccts(items, d => d.equity).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.equity), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.equity), d => d.equity).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.equity), i % 2 === 1)));
     r.push([
         { content: 'Net Income (Current Period)', styles: { fillColor: ALT, fontStyle: 'italic', fontSize: 8.5 } },
         ...items.map(i => ({ content: cur(i.data.netIncome), styles: { fillColor: ALT, halign: 'right', fontSize: 8.5 } as any })),
@@ -418,14 +463,14 @@ const bsCompareBody = (items: BSMultiItem[]): PDFRow[] => {
 
 // ── CF compare body ───────────────────────────────────────────────────────────
 
-const cfCompareBody = (items: CFMultiItem[]): PDFRow[] => {
+const cfCompareBody = (items: CFMultiItem[], hideZeros: boolean): PDFRow[] => {
     const NC = 1 + items.length;
     const r: PDFRow[] = [];
     const vals = (getter: (d: CFData) => number) => items.map(i => getter(i.data));
 
-    const allOper  = [...new Map(items.flatMap(i => i.data.operatingAdjustments.map(x => [x.account_number, x]))).values()];
-    const allInvest = [...new Map(items.flatMap(i => i.data.investingItems.map(x => [x.account_number, x]))).values()];
-    const allFin   = [...new Map(items.flatMap(i => i.data.financingItems.map(x => [x.account_number, x]))).values()];
+    const allOper   = filtCFCompare([...new Map(items.flatMap(i => i.data.operatingAdjustments.map(x => [x.account_number, x]))).values()], items, 'operatingAdjustments', hideZeros);
+    const allInvest = filtCFCompare([...new Map(items.flatMap(i => i.data.investingItems.map(x => [x.account_number, x]))).values()], items, 'investingItems', hideZeros);
+    const allFin    = filtCFCompare([...new Map(items.flatMap(i => i.data.financingItems.map(x => [x.account_number, x]))).values()], items, 'financingItems', hideZeros);
 
     const getAmt = (list: 'operatingAdjustments' | 'investingItems' | 'financingItems', accNo: string) =>
         items.map(i => { const x = i.data[list].find(a => a.account_number === accNo); return x?.amount ?? 0; });
@@ -458,12 +503,14 @@ const cfCompareBody = (items: CFMultiItem[]): PDFRow[] => {
 
 // ── PL compare body ───────────────────────────────────────────────────────────
 
-const plCompareBody = (items: PLMultiItem[]): PDFRow[] => {
+const plCompareBody = (items: PLMultiItem[], hideZeros: boolean): PDFRow[] => {
     const NC = 1 + items.length;
     const r: PDFRow[] = [];
     const vals = (getter: (d: PLData) => number) => items.map(i => getter(i.data));
     const acctVals = (acct: BalanceSheetLine, getter: (d: PLData) => BalanceSheetLine[]) =>
         items.map(i => { const l = getter(i.data).find(x => x.account_number === acct.account_number); return l?.balance ?? 0; });
+    const fc = (accts: BalanceSheetLine[], getter: (d: PLData) => BalanceSheetLine[]) =>
+        filtCompare(accts, getter as (d: any) => BalanceSheetLine[], items, hideZeros);
 
     const plMid = (label: string, totals: number[]): PDFRow => [
         { content: label, styles: { fillColor: SUBT, fontStyle: 'bold', fontSize: 9.5 } },
@@ -471,12 +518,12 @@ const plCompareBody = (items: PLMultiItem[]): PDFRow[] => {
     ];
 
     r.push(compSec('REVENUE', NC));
-    uniqAccts(items, d => d.income).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.income), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.income), d => d.income).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.income), i % 2 === 1)));
     r.push(compSubt('Revenue', vals(d => d.totalRevenue)));
     r.push(compBlank(NC));
 
     r.push(compSec('COST OF GOODS SOLD', NC));
-    uniqAccts(items, d => d.cogs).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.cogs), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.cogs), d => d.cogs).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.cogs), i % 2 === 1)));
     r.push(compSubt('Cost of Goods Sold', vals(d => d.totalCogs)));
     r.push(compBlank(NC));
 
@@ -484,7 +531,7 @@ const plCompareBody = (items: PLMultiItem[]): PDFRow[] => {
     r.push(compBlank(NC));
 
     r.push(compSec('OPERATING EXPENSES', NC));
-    uniqAccts(items, d => d.expenses).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.expenses), i % 2 === 1)));
+    fc(uniqAccts(items, d => d.expenses), d => d.expenses).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.expenses), i % 2 === 1)));
     r.push(compSubt('Operating Expenses', vals(d => d.totalExpenses)));
     r.push(compBlank(NC));
 
@@ -495,13 +542,13 @@ const plCompareBody = (items: PLMultiItem[]): PDFRow[] => {
     const anyOtherExp  = items.some(i => i.data.otherExpenses.length > 0);
     if (anyOtherInc) {
         r.push(compSec('OTHER INCOME', NC));
-        uniqAccts(items, d => d.otherIncome).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherIncome), i % 2 === 1)));
+        fc(uniqAccts(items, d => d.otherIncome), d => d.otherIncome).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherIncome), i % 2 === 1)));
         r.push(compSubt('Other Income', vals(d => d.totalOtherIncome)));
         r.push(compBlank(NC));
     }
     if (anyOtherExp) {
         r.push(compSec('OTHER EXPENSES', NC));
-        uniqAccts(items, d => d.otherExpenses).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherExpenses), i % 2 === 1)));
+        fc(uniqAccts(items, d => d.otherExpenses), d => d.otherExpenses).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherExpenses), i % 2 === 1)));
         r.push(compSubt('Other Expenses', vals(d => d.totalOtherExpenses)));
         r.push(compBlank(NC));
     }
@@ -523,19 +570,19 @@ const compareColStyles = (n: number, contentW: number): Record<number, any> => {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 // Balance Sheet — single date
-export const printBSPdf = (bsData: BSData, asOfDate: string) =>
+export const printBSPdf = (bsData: BSData, asOfDate: string, hideZeros = false) =>
     buildPDF({
         orientation: 'portrait',
         reportName:  'Balance Sheet',
         dateStr:     `As of ${fmtDate(asOfDate)}`,
         headers:     ['Account #', 'Account Name', 'Balance ($)'],
-        body:        bsBody(bsData),
+        body:        bsBody(bsData, hideZeros),
         colStyles:   { 0: { cellWidth: 20 }, 2: { cellWidth: 35, halign: 'right' } },
         filename:    `LPT_BalanceSheet_${asOfDate}.pdf`,
     });
 
 // Balance Sheet — compare months
-export const printBSComparePdf = (items: BSMultiItem[], monthFrom: string, monthTo: string) => {
+export const printBSComparePdf = (items: BSMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
     const n   = items.length;
     const o   = orient(n);
     const cw  = (o === 'landscape' ? 267 : 180) - MARGIN;
@@ -544,26 +591,26 @@ export const printBSComparePdf = (items: BSMultiItem[], monthFrom: string, month
         reportName:  'Balance Sheet',
         dateStr:     `${fmtMonth(monthFrom)} through ${fmtMonth(monthTo)}`,
         headers:     ['Account', ...items.map(i => i.label)],
-        body:        bsCompareBody(items),
+        body:        bsCompareBody(items, hideZeros),
         colStyles:   compareColStyles(n, cw),
         filename:    `LPT_BalanceSheet_${monthFrom}_${monthTo}.pdf`,
     });
 };
 
 // Cash Flow — single period
-export const printCFPdf = (cfData: CFData, dateFrom: string, dateTo: string) =>
+export const printCFPdf = (cfData: CFData, dateFrom: string, dateTo: string, hideZeros = false) =>
     buildPDF({
         orientation: 'portrait',
         reportName:  'Statement of Cash Flows',
         dateStr:     `${fmtDate(dateFrom)} through ${fmtDate(dateTo)}`,
         headers:     ['Code', 'Description', 'Amount ($)'],
-        body:        cfBody(cfData),
+        body:        cfBody(cfData, hideZeros),
         colStyles:   { 0: { cellWidth: 18 }, 2: { cellWidth: 38, halign: 'right' } },
         filename:    `LPT_CashFlow_${dateFrom}_${dateTo}.pdf`,
     });
 
 // Cash Flow — compare months
-export const printCFComparePdf = (items: CFMultiItem[], monthFrom: string, monthTo: string) => {
+export const printCFComparePdf = (items: CFMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
     const n  = items.length;
     const o  = orient(n);
     const cw = (o === 'landscape' ? 267 : 180) - MARGIN;
@@ -572,26 +619,26 @@ export const printCFComparePdf = (items: CFMultiItem[], monthFrom: string, month
         reportName:  'Statement of Cash Flows',
         dateStr:     `${fmtMonth(monthFrom)} through ${fmtMonth(monthTo)}`,
         headers:     ['Description', ...items.map(i => i.label)],
-        body:        cfCompareBody(items),
+        body:        cfCompareBody(items, hideZeros),
         colStyles:   compareColStyles(n, cw),
         filename:    `LPT_CashFlow_${monthFrom}_${monthTo}.pdf`,
     });
 };
 
 // Profit & Loss — single period
-export const printPLPdf = (plData: PLData, dateFrom: string, dateTo: string) =>
+export const printPLPdf = (plData: PLData, dateFrom: string, dateTo: string, hideZeros = false) =>
     buildPDF({
         orientation: 'portrait',
         reportName:  'Profit & Loss',
         dateStr:     `${fmtDate(dateFrom)} through ${fmtDate(dateTo)}`,
         headers:     ['Account #', 'Account Name', 'Amount ($)'],
-        body:        plBody(plData),
+        body:        plBody(plData, hideZeros),
         colStyles:   { 0: { cellWidth: 20 }, 2: { cellWidth: 35, halign: 'right' } },
         filename:    `LPT_ProfitLoss_${dateFrom}_${dateTo}.pdf`,
     });
 
 // Profit & Loss — compare months
-export const printPLComparePdf = (items: PLMultiItem[], monthFrom: string, monthTo: string) => {
+export const printPLComparePdf = (items: PLMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
     const n  = items.length;
     const o  = orient(n);
     const cw = (o === 'landscape' ? 267 : 180) - MARGIN;
@@ -600,7 +647,7 @@ export const printPLComparePdf = (items: PLMultiItem[], monthFrom: string, month
         reportName:  'Profit & Loss',
         dateStr:     `${fmtMonth(monthFrom)} through ${fmtMonth(monthTo)}`,
         headers:     ['Account', ...items.map(i => i.label)],
-        body:        plCompareBody(items),
+        body:        plCompareBody(items, hideZeros),
         colStyles:   compareColStyles(n, cw),
         filename:    `LPT_ProfitLoss_${monthFrom}_${monthTo}.pdf`,
     });

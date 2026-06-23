@@ -17,7 +17,7 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download, Printer,
+    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download, Printer, Power,
 } from 'lucide-react';
 import BillsTab from './BillsTab';
 import AccountingVendorsTab from './AccountingVendorsTab';
@@ -1195,6 +1195,7 @@ export default function AccountingDashboard() {
     } | null>(null);
 
     // ── Balance Sheet state ───────────────────────────────────────────────────
+    const [pdfHideZeros, setPdfHideZeros] = useState(true);
     const [bsMode, setBsMode]           = useState<'single' | 'compare'>('single');
     const [bsAsOfDate, setBsAsOfDate]   = useState(getTodayISO());
     const [bsData, setBsData]           = useState<Awaited<ReturnType<typeof computeBalanceSheet>> | null>(null);
@@ -1450,9 +1451,11 @@ export default function AccountingDashboard() {
         try {
             if (editingAccount) {
                 const updated = await updateAccount(editingAccount.id, {
-                    account_name: editingAccount.account_name,
-                    description:  editingAccount.description,
-                    is_hidden:    editingAccount.is_hidden,
+                    account_name:          editingAccount.account_name,
+                    account_type:          editingAccount.account_type,
+                    parent_account_number: editingAccount.parent_account_number,
+                    description:           editingAccount.description,
+                    is_hidden:             editingAccount.is_hidden,
                 });
                 setAccounts(prev => prev.map(a => a.id === updated.id ? updated : a));
                 addToast('Account updated.', 'success');
@@ -1476,6 +1479,16 @@ export default function AccountingDashboard() {
             addToast(`Failed to save account: ${e.message}`, 'error');
         } finally {
             setSavingAccount(false);
+        }
+    };
+
+    const handleToggleHidden = async (account: ChartOfAccount) => {
+        try {
+            const updated = await updateAccount(account.id, { is_hidden: !account.is_hidden });
+            setAccounts(prev => prev.map(a => a.id === updated.id ? updated : a));
+            addToast(`Account ${updated.is_hidden ? 'deactivated' : 'activated'}.`, 'success');
+        } catch (e: any) {
+            addToast(`Failed to update account: ${e.message}`, 'error');
         }
     };
 
@@ -1894,7 +1907,7 @@ export default function AccountingDashboard() {
                                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account Name</th>
                                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-52 hidden md:table-cell">Type</th>
                                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden lg:table-cell">Description</th>
-                                        {canEdit && <th className="px-5 py-3 w-20" />}
+                                        {canEdit && <th className="px-5 py-3 w-24 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground pr-5">Actions</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/40">
@@ -1902,13 +1915,8 @@ export default function AccountingDashboard() {
                                         const isParent = !account.parent_account_number;
                                         const hasChildren = accounts.some(a => a.parent_account_number === account.account_number);
                                         const isCollapsed = collapsed.has(account.account_number);
-                                        const isEditing = editingAccount?.id === account.id;
 
-                                        // Hide children of collapsed parents
-                                        if (
-                                            account.parent_account_number &&
-                                            collapsed.has(account.parent_account_number)
-                                        ) return null;
+                                        if (account.parent_account_number && collapsed.has(account.parent_account_number)) return null;
 
                                         return (
                                             <tr
@@ -1925,19 +1933,10 @@ export default function AccountingDashboard() {
                                                                 {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                                             </button>
                                                         )}
-                                                        {isEditing ? (
-                                                            <input
-                                                                autoFocus
-                                                                value={editingAccount.account_name}
-                                                                onChange={e => setEditingAccount(p => p ? { ...p, account_name: e.target.value } : null)}
-                                                                className="h-8 px-2 text-sm rounded border border-brand-600 bg-background focus:outline-none w-56"
-                                                            />
-                                                        ) : (
-                                                            <span className={`text-sm ${isParent ? 'font-semibold text-foreground' : 'text-foreground/80'}`}>
-                                                                {account.account_name}
-                                                                {account.is_hidden && <span className="ml-1.5 text-xs text-muted-foreground/60">(hidden)</span>}
-                                                            </span>
-                                                        )}
+                                                        <span className={`text-sm ${isParent ? 'font-semibold text-foreground' : 'text-foreground/80'}`}>
+                                                            {account.account_name}
+                                                            {account.is_hidden && <span className="ml-1.5 text-xs text-muted-foreground/60">(inactive)</span>}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-3.5 hidden md:table-cell">
@@ -1946,30 +1945,30 @@ export default function AccountingDashboard() {
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-3.5 text-sm text-muted-foreground hidden lg:table-cell max-w-xs truncate">
-                                                    {isEditing ? (
-                                                        <input
-                                                            value={editingAccount.description}
-                                                            onChange={e => setEditingAccount(p => p ? { ...p, description: e.target.value } : null)}
-                                                            className="h-8 px-2 text-sm rounded border border-border bg-background focus:outline-none w-full"
-                                                        />
-                                                    ) : account.description}
+                                                    {account.description}
                                                 </td>
                                                 {canEdit && (
-                                                    <td className="px-5 py-3.5">
-                                                        {isEditing ? (
-                                                            <div className="flex gap-1">
-                                                                <button onClick={handleSaveAccount} disabled={savingAccount} className="p-1.5 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
-                                                                    <Check size={14} />
-                                                                </button>
-                                                                <button onClick={() => setEditingAccount(null)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
-                                                                    <X size={14} />
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <button onClick={() => setEditingAccount(account)} className="p-1.5 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors">
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex items-center justify-end gap-0.5">
+                                                            <button
+                                                                onClick={() => setEditingAccount({ ...account })}
+                                                                title="Edit account"
+                                                                className="p-1.5 rounded text-muted-foreground/50 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+                                                            >
                                                                 <Edit2 size={14} />
                                                             </button>
-                                                        )}
+                                                            <button
+                                                                onClick={() => handleToggleHidden(account)}
+                                                                title={account.is_hidden ? 'Activate account' : 'Deactivate account'}
+                                                                className={`p-1.5 rounded transition-colors ${
+                                                                    account.is_hidden
+                                                                        ? 'text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                                                        : 'text-muted-foreground/50 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                                                }`}
+                                                            >
+                                                                <Power size={14} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 )}
                                             </tr>
@@ -1983,6 +1982,92 @@ export default function AccountingDashboard() {
                         </div>
                     )}
                     <p className="text-xs text-muted-foreground">{accounts.filter(a => !a.is_hidden).length} active accounts · {accounts.length} total</p>
+
+                    {/* ── Edit Account Modal ───────────────────────────────────── */}
+                    {editingAccount && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg">
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                                    <div>
+                                        <h3 className="text-base font-semibold text-foreground">Edit Account</h3>
+                                        <p className="text-xs text-muted-foreground mt-0.5">#{editingAccount.account_number}</p>
+                                    </div>
+                                    <button onClick={() => setEditingAccount(null)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="px-6 py-5 grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-medium text-muted-foreground">Account Name <span className="text-red-500">*</span></label>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={editingAccount.account_name}
+                                            onChange={e => setEditingAccount(p => p ? { ...p, account_name: e.target.value } : null)}
+                                            className="w-full mt-1 h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-600/40"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground">Account Type <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editingAccount.account_type}
+                                            onChange={e => setEditingAccount(p => p ? { ...p, account_type: e.target.value } : null)}
+                                            className="w-full mt-1 h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-600/40"
+                                        >
+                                            {ACCOUNT_TYPES.map(t => <option key={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground">Parent Account</label>
+                                        <div className="mt-1">
+                                            <SearchableSelect
+                                                value={editingAccount.parent_account_number || ''}
+                                                onChange={v => setEditingAccount(p => p ? { ...p, parent_account_number: v || null } : null)}
+                                                options={[
+                                                    { value: '', label: '— None (top-level) —' },
+                                                    ...parentOptions
+                                                        .filter(a => a.account_number !== editingAccount.account_number)
+                                                        .map(a => ({ value: a.account_number, label: `${a.account_number} · ${a.account_name}` })),
+                                                ]}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-medium text-muted-foreground">Description</label>
+                                        <input
+                                            type="text"
+                                            value={editingAccount.description || ''}
+                                            onChange={e => setEditingAccount(p => p ? { ...p, description: e.target.value } : null)}
+                                            className="w-full mt-1 h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-600/40"
+                                            placeholder="Optional description…"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="flex items-center gap-2.5 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={!editingAccount.is_hidden}
+                                                onChange={e => setEditingAccount(p => p ? { ...p, is_hidden: !e.target.checked } : null)}
+                                                className="rounded"
+                                            />
+                                            <span className="text-sm text-foreground">Active <span className="text-xs text-muted-foreground">(uncheck to deactivate)</span></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-muted/20 rounded-b-2xl">
+                                    <Button size="sm" variant="outline" onClick={() => setEditingAccount(null)}>Cancel</Button>
+                                    <Button size="sm" onClick={handleSaveAccount} disabled={savingAccount} className="bg-brand-600 hover:bg-brand-700 min-w-[80px]">
+                                        {savingAccount ? 'Saving…' : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -2528,9 +2613,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportCashFlow(cfData, cfDateFrom, cfDateTo)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printCFPdf(cfData as any, cfDateFrom, cfDateTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printCFPdf(cfData as any, cfDateFrom, cfDateTo, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </div>
                                 )}
                             </>
@@ -2553,9 +2642,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportCFCompare(cfMultiData as any, cfMonthFrom, cfMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printCFComparePdf(cfMultiData as any, cfMonthFrom, cfMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printCFComparePdf(cfMultiData as any, cfMonthFrom, cfMonthTo, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </>
                                 )}
                             </>
@@ -2742,9 +2835,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportProfitLoss(plData, plDateFrom, plDateTo)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printPLPdf(plData as any, plDateFrom, plDateTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printPLPdf(plData as any, plDateFrom, plDateTo, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </div>
                                 )}
                             </>
@@ -2767,9 +2864,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportPLCompare(plMultiData as any, plMonthFrom, plMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printPLComparePdf(plMultiData as any, plMonthFrom, plMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printPLComparePdf(plMultiData as any, plMonthFrom, plMonthTo, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </>
                                 )}
                             </>
@@ -2946,9 +3047,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportBalanceSheet(bsData, bsAsOfDate)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printBSPdf(bsData as any, bsAsOfDate)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printBSPdf(bsData as any, bsAsOfDate, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </div>
                                 )}
                             </>
@@ -2981,9 +3086,13 @@ export default function AccountingDashboard() {
                                         <Button size="sm" variant="outline" onClick={() => exportBSCompare(bsMultiData as any, bsMonthFrom, bsMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => printBSComparePdf(bsMultiData as any, bsMonthFrom, bsMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                        <Button size="sm" variant="outline" onClick={() => printBSComparePdf(bsMultiData as any, bsMonthFrom, bsMonthTo, pdfHideZeros)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
                                             <Printer size={13} /> Print PDF
                                         </Button>
+                                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                                            <input type="checkbox" checked={pdfHideZeros} onChange={e => setPdfHideZeros(e.target.checked)} className="rounded" />
+                                            Hide $0
+                                        </label>
                                     </>
                                 )}
                             </>
