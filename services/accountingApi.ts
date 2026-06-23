@@ -649,6 +649,8 @@ export const autoPostDepositReceiptJournal = async (params: {
     isVAT: boolean;
     entryDate: string;
     createdBy: string;
+    /** Payment method used for the deposit — defaults to Bank Transfer (11100) */
+    paymentMethod?: string;
 }): Promise<boolean> => {
     if (params.depositAmount <= 0.005) return false;
 
@@ -660,12 +662,14 @@ export const autoPostDepositReceiptJournal = async (params: {
         .maybeSingle();
     if (existing) return false;
 
-    // Park the full VAT-inclusive deposit in COA 25000. VAT is declared in full on
-    // the final invoice JE — no separate split here.
+    // Deposit was already received in cash — debit the bank account, not AR.
+    // COA 25000 carries the full VAT-inclusive deposit as a liability until
+    // it is applied at final payment time.
+    const bankAccount = PAYMENT_METHOD_TO_ACCOUNT[params.paymentMethod ?? 'Bank Transfer'] ?? '11100';
     const entryNumber = await getNextEntryNumber();
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [
-        { account_number: '11900', description: `Deposit AR — ${params.invNo}`,       debit: params.depositAmount, credit: 0 },
-        { account_number: '25000', description: `Customer Deposit — ${params.invNo}`, debit: 0, credit: params.depositAmount },
+        { account_number: bankAccount, description: `Deposit received — ${params.invNo}`, debit: params.depositAmount, credit: 0 },
+        { account_number: '25000',     description: `Customer Deposit — ${params.invNo}`, debit: 0, credit: params.depositAmount },
     ];
 
     await createJournalEntry(
