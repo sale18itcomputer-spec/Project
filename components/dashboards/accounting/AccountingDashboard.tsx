@@ -72,7 +72,8 @@ const getTodayISO = () => new Date().toISOString().split('T')[0];
 
 const getMonthEnd = (ym: string): string => {
     const [y, m] = ym.split('-').map(Number);
-    return new Date(y, m, 0).toISOString().split('T')[0];
+    const d = new Date(y, m, 0); // last day of month in local time
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 const monthsBetween = (from: string, to: string): string[] => {
