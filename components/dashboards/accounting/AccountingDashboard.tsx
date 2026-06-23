@@ -17,10 +17,14 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2,
+    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download,
 } from 'lucide-react';
 import BillsTab from './BillsTab';
 import AccountingVendorsTab from './AccountingVendorsTab';
+import {
+    exportCoA, exportJournalEntries, exportGeneralLedger,
+    exportBalanceSheet, exportCashFlow, exportProfitLoss,
+} from '../../../utils/exportAccountingXlsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1803,6 +1807,14 @@ export default function AccountingDashboard() {
                                 <PlusCircle size={14} /> New Account
                             </Button>
                         )}
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => exportCoA(accounts, new Date().toISOString().slice(0, 10))}
+                            className="gap-1.5 ml-auto"
+                        >
+                            <Download size={13} /> Export
+                        </Button>
                     </div>
 
                     {/* New Account Form */}
@@ -1998,6 +2010,14 @@ export default function AccountingDashboard() {
                         <span className="text-xs text-muted-foreground ml-auto">
                             {glData.length} account{glData.length !== 1 ? 's' : ''} · {glData.reduce((s, a) => s + a.lines.length, 0)} lines
                         </span>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => exportGeneralLedger(entries, new Date().toISOString().slice(0, 10), glAccountFilter || undefined)}
+                            className="gap-1.5"
+                        >
+                            <Download size={13} /> Export
+                        </Button>
                     </div>
 
                     {loadingEntries ? (
@@ -2191,6 +2211,14 @@ export default function AccountingDashboard() {
                                     {backfillingCOGS ? 'Back-filling…' : 'Back-fill COGS'}
                                 </Button>
                             )}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => exportJournalEntries(filteredEntries, new Date().toISOString().slice(0, 10))}
+                                className="gap-1.5"
+                            >
+                                <Download size={13} /> Export
+                            </Button>
                             {canCreate && (
                                 <Button size="sm" onClick={resetEntryForm} className="bg-brand-600 hover:bg-brand-700 gap-1.5">
                                     <PlusCircle size={14} /> New Journal Entry
@@ -2488,6 +2516,16 @@ export default function AccountingDashboard() {
                         <Button size="sm" onClick={loadCashFlow} disabled={loadingCF} className="bg-brand-600 hover:bg-brand-700">
                             {loadingCF ? 'Computing…' : 'Refresh'}
                         </Button>
+                                {cfData && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => exportCashFlow(cfData, cfDateFrom, cfDateTo)}
+                                        className="gap-1.5"
+                                    >
+                                        <Download size={13} /> Export
+                                    </Button>
+                                )}
                             </>
                         ) : (
                             <>
@@ -2682,6 +2720,16 @@ export default function AccountingDashboard() {
                                 <Button size="sm" onClick={loadProfitLoss} disabled={loadingPL} className="bg-brand-600 hover:bg-brand-700">
                                     {loadingPL ? 'Computing…' : 'Refresh'}
                                 </Button>
+                                {plData && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => exportProfitLoss(plData, plDateFrom, plDateTo)}
+                                        className="gap-1.5"
+                                    >
+                                        <Download size={13} /> Export
+                                    </Button>
+                                )}
                             </>
                         ) : (
                             <>
@@ -2865,6 +2913,16 @@ export default function AccountingDashboard() {
                                             : <><AlertTriangle size={14} /> Out of balance — check entries</>
                                         }
                                     </span>
+                                )}
+                                {bsData && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => exportBalanceSheet(bsData, bsAsOfDate)}
+                                        className="gap-1.5 ml-auto"
+                                    >
+                                        <Download size={13} /> Export
+                                    </Button>
                                 )}
                             </>
                         ) : (

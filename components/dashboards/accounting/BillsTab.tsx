@@ -12,7 +12,8 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt } from 'lucide-react';
+import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt, Download } from 'lucide-react';
+import { exportBills } from '../../../utils/exportAccountingXlsx';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -657,6 +658,12 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                         </button>
                     )}
                 </div>
+                <button
+                    onClick={() => exportBills(filtered, new Date().toISOString().slice(0, 10))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 shrink-0"
+                >
+                    <Download size={13} /> Export
+                </button>
                 {canEdit && (
                     <button onClick={openNew}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shrink-0">

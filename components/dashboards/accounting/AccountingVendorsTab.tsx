@@ -11,8 +11,9 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import {
     PlusCircle, Search, Building2, X, Edit2, Trash2,
     Phone, Mail, MapPin, CreditCard, Tag, Landmark, FileText,
-    CheckCircle2, AlertCircle, ChevronDown,
+    CheckCircle2, AlertCircle, ChevronDown, Download,
 } from 'lucide-react';
+import { exportBillVendors } from '../../../utils/exportAccountingXlsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -489,6 +490,12 @@ const AccountingVendorsTab: React.FC = () => {
                         <option>Active</option>
                         <option>Inactive</option>
                     </select>
+                    <button
+                        onClick={() => exportBillVendors(filtered, new Date().toISOString().slice(0, 10))}
+                        className="flex items-center gap-1.5 px-3 h-9 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
+                    >
+                        <Download size={13} /> Export
+                    </button>
                     {canCreate && (
                         <button
                             onClick={openCreate}
