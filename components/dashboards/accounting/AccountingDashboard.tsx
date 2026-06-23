@@ -17,7 +17,7 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download,
+    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download, Printer,
 } from 'lucide-react';
 import BillsTab from './BillsTab';
 import AccountingVendorsTab from './AccountingVendorsTab';
@@ -27,6 +27,11 @@ import {
     exportCashFlow, exportCFCompare,
     exportProfitLoss, exportPLCompare,
 } from '../../../utils/exportAccountingXlsx';
+import {
+    printBSPdf, printBSComparePdf,
+    printCFPdf, printCFComparePdf,
+    printPLPdf, printPLComparePdf,
+} from '../../../utils/exportAccountingPdf';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -2519,14 +2524,14 @@ export default function AccountingDashboard() {
                             {loadingCF ? 'Computing…' : 'Refresh'}
                         </Button>
                                 {cfData && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => exportCashFlow(cfData, cfDateFrom, cfDateTo)}
-                                        className="gap-1.5"
-                                    >
-                                        <Download size={13} /> Export
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button size="sm" variant="outline" onClick={() => exportCashFlow(cfData, cfDateFrom, cfDateTo)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printCFPdf(cfData as any, cfDateFrom, cfDateTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
+                                        </Button>
+                                    </div>
                                 )}
                             </>
                         ) : (
@@ -2547,6 +2552,9 @@ export default function AccountingDashboard() {
                                         <span className="text-xs text-muted-foreground">{cfMultiData.length} month{cfMultiData.length > 1 ? 's' : ''}</span>
                                         <Button size="sm" variant="outline" onClick={() => exportCFCompare(cfMultiData as any, cfMonthFrom, cfMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printCFComparePdf(cfMultiData as any, cfMonthFrom, cfMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
                                         </Button>
                                     </>
                                 )}
@@ -2730,14 +2738,14 @@ export default function AccountingDashboard() {
                                     {loadingPL ? 'Computing…' : 'Refresh'}
                                 </Button>
                                 {plData && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => exportProfitLoss(plData, plDateFrom, plDateTo)}
-                                        className="gap-1.5"
-                                    >
-                                        <Download size={13} /> Export
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button size="sm" variant="outline" onClick={() => exportProfitLoss(plData, plDateFrom, plDateTo)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printPLPdf(plData as any, plDateFrom, plDateTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
+                                        </Button>
+                                    </div>
                                 )}
                             </>
                         ) : (
@@ -2758,6 +2766,9 @@ export default function AccountingDashboard() {
                                         <span className="text-xs text-muted-foreground">{plMultiData.length} month{plMultiData.length > 1 ? 's' : ''}</span>
                                         <Button size="sm" variant="outline" onClick={() => exportPLCompare(plMultiData as any, plMonthFrom, plMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printPLComparePdf(plMultiData as any, plMonthFrom, plMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
                                         </Button>
                                     </>
                                 )}
@@ -2931,14 +2942,14 @@ export default function AccountingDashboard() {
                                     </span>
                                 )}
                                 {bsData && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => exportBalanceSheet(bsData, bsAsOfDate)}
-                                        className="gap-1.5 ml-auto"
-                                    >
-                                        <Download size={13} /> Export
-                                    </Button>
+                                    <div className="flex items-center gap-2 ml-auto">
+                                        <Button size="sm" variant="outline" onClick={() => exportBalanceSheet(bsData, bsAsOfDate)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printBSPdf(bsData as any, bsAsOfDate)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
+                                        </Button>
+                                    </div>
                                 )}
                             </>
                         ) : (
@@ -2969,6 +2980,9 @@ export default function AccountingDashboard() {
                                         <span className="text-xs text-muted-foreground">{bsMultiData.length} month{bsMultiData.length > 1 ? 's' : ''} · end-of-month balances</span>
                                         <Button size="sm" variant="outline" onClick={() => exportBSCompare(bsMultiData as any, bsMonthFrom, bsMonthTo)} className="gap-1.5">
                                             <Download size={13} /> Export
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => printBSComparePdf(bsMultiData as any, bsMonthFrom, bsMonthTo)} className="gap-1.5 border-brand-600/40 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20">
+                                            <Printer size={13} /> Print PDF
                                         </Button>
                                     </>
                                 )}
