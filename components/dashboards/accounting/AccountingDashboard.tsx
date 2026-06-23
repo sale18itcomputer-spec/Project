@@ -23,7 +23,9 @@ import BillsTab from './BillsTab';
 import AccountingVendorsTab from './AccountingVendorsTab';
 import {
     exportCoA, exportJournalEntries, exportGeneralLedger,
-    exportBalanceSheet, exportCashFlow, exportProfitLoss,
+    exportBalanceSheet, exportBSCompare,
+    exportCashFlow, exportCFCompare,
+    exportProfitLoss, exportPLCompare,
 } from '../../../utils/exportAccountingXlsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -2540,7 +2542,14 @@ export default function AccountingDashboard() {
                                 <Button size="sm" onClick={loadCFMulti} disabled={loadingCFMulti} className="bg-brand-600 hover:bg-brand-700">
                                     {loadingCFMulti ? 'Computing…' : 'Compare'}
                                 </Button>
-                                {cfMultiData.length > 0 && <span className="text-xs text-muted-foreground">{cfMultiData.length} month{cfMultiData.length > 1 ? 's' : ''}</span>}
+                                {cfMultiData.length > 0 && (
+                                    <>
+                                        <span className="text-xs text-muted-foreground">{cfMultiData.length} month{cfMultiData.length > 1 ? 's' : ''}</span>
+                                        <Button size="sm" variant="outline" onClick={() => exportCFCompare(cfMultiData as any, cfMonthFrom, cfMonthTo)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
@@ -2744,7 +2753,14 @@ export default function AccountingDashboard() {
                                 <Button size="sm" onClick={loadPLMulti} disabled={loadingPLMulti} className="bg-brand-600 hover:bg-brand-700">
                                     {loadingPLMulti ? 'Computing…' : 'Compare'}
                                 </Button>
-                                {plMultiData.length > 0 && <span className="text-xs text-muted-foreground">{plMultiData.length} month{plMultiData.length > 1 ? 's' : ''}</span>}
+                                {plMultiData.length > 0 && (
+                                    <>
+                                        <span className="text-xs text-muted-foreground">{plMultiData.length} month{plMultiData.length > 1 ? 's' : ''}</span>
+                                        <Button size="sm" variant="outline" onClick={() => exportPLCompare(plMultiData as any, plMonthFrom, plMonthTo)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
@@ -2949,7 +2965,12 @@ export default function AccountingDashboard() {
                                     {loadingBSMulti ? 'Computing…' : 'Compare'}
                                 </Button>
                                 {bsMultiData.length > 0 && (
-                                    <span className="text-xs text-muted-foreground">{bsMultiData.length} month{bsMultiData.length > 1 ? 's' : ''} · end-of-month balances</span>
+                                    <>
+                                        <span className="text-xs text-muted-foreground">{bsMultiData.length} month{bsMultiData.length > 1 ? 's' : ''} · end-of-month balances</span>
+                                        <Button size="sm" variant="outline" onClick={() => exportBSCompare(bsMultiData as any, bsMonthFrom, bsMonthTo)} className="gap-1.5">
+                                            <Download size={13} /> Export
+                                        </Button>
+                                    </>
                                 )}
                             </>
                         )}

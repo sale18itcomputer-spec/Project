@@ -1,6 +1,10 @@
 import * as XLSX from 'xlsx';
 import type { ChartOfAccount, JournalEntry, Bill, BillVendor, BalanceSheetLine } from '../types';
 
+const COMPANY = 'Limperial Technology Co., Ltd.';
+
+// ── Internal types matching AccountingDashboard's local type aliases ──────────
+
 type BSData = {
     assets: BalanceSheetLine[];
     liabilities: BalanceSheetLine[];
@@ -8,6 +12,7 @@ type BSData = {
     totalAssets: number;
     totalLiabilities: number;
     totalEquity: number;
+    isBalanced?: boolean;
 };
 
 type CFData = {
@@ -40,248 +45,398 @@ type PLData = {
     netIncome: number;
 };
 
-const saveWorkbook = (wb: XLSX.WorkBook, filename: string) => {
-    XLSX.writeFile(wb, filename);
-};
+export type BSMultiItem = { month: string; label: string; data: BSData };
+export type CFMultiItem = { month: string; label: string; data: CFData };
+export type PLMultiItem = { month: string; label: string; data: PLData };
 
-const fmt2 = (n: number) => Number(n.toFixed(2));
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const f2 = (n: number) => Number(n.toFixed(2));
+
+const saveWb = (wb: XLSX.WorkBook, filename: string) => XLSX.writeFile(wb, filename);
+
+/**
+ * Build a worksheet with a QB-style title block (company, report name, date),
+ * followed by headers then data rows.
+ *
+ * Layout:
+ *   Row 0 — Company name (merged across all cols)
+ *   Row 1 — Report name  (merged)
+ *   Row 2 — Date range   (merged)
+ *   Row 3 — blank
+ *   Row 4 — Column headers
+ *   Row 5+ — Data
+ */
+const makeSheet = (
+    reportName: string,
+    dateStr: string,
+    headers: string[],
+    dataRows: (string | number | null)[][],
+    colWidths: number[],
+): XLSX.WorkSheet => {
+    const nc = Math.max(headers.length, colWidths.length, 1);
+    const fill = (n: number) => Array(n).fill(null);
+
+    const allRows: (string | number | null)[][] = [
+        [COMPANY,     ...fill(nc - 1)],
+        [reportName,  ...fill(nc - 1)],
+        [dateStr,     ...fill(nc - 1)],
+        fill(nc),               // blank separator
+        headers as (string | number | null)[],
+        ...dataRows,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(allRows);
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: nc - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: nc - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: nc - 1 } },
+    ];
+    ws['!cols'] = colWidths.map(wch => ({ wch }));
+    return ws;
+};
 
 // ── Chart of Accounts ─────────────────────────────────────────────────────────
 
 export const exportCoA = (accounts: ChartOfAccount[], exportDate: string) => {
-    const rows = accounts.map(a => ({
-        'Account #':     a.account_number,
-        'Account Name':  a.account_name,
-        'Type':          a.account_type,
-        'Parent #':      a.parent_account_number ?? '',
-        'Description':   a.description,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 36 }, { wch: 24 }, { wch: 12 }, { wch: 40 }];
+    const headers = ['Account #', 'Account Name', 'Type', 'Parent #', 'Description'];
+    const rows = accounts.map(a => [
+        a.account_number,
+        a.account_name,
+        a.account_type,
+        a.parent_account_number ?? '',
+        a.description,
+    ]);
+    const ws = makeSheet(
+        'Chart of Accounts',
+        `As of ${exportDate}`,
+        headers,
+        rows,
+        [12, 36, 24, 12, 40],
+    );
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Chart of Accounts');
-    saveWorkbook(wb, `LPT_ChartOfAccounts_${exportDate}.xlsx`);
+    saveWb(wb, `LPT_ChartOfAccounts_${exportDate}.xlsx`);
 };
 
 // ── Journal Entries ───────────────────────────────────────────────────────────
 
 export const exportJournalEntries = (entries: JournalEntry[], exportDate: string) => {
-    const headers: object[] = [];
-    const lines: object[] = [];
+    const headersH = ['JE #', 'Date', 'Description', 'Reference', 'Status', 'Source', 'Created By', 'Total Debit', 'Total Credit'];
+    const rowsH = entries.map(e => [
+        e.entry_number,
+        e.entry_date,
+        e.description,
+        e.reference,
+        e.is_posted ? 'Posted' : 'Draft',
+        e.source ?? '',
+        e.created_by,
+        f2(e.total_debit ?? 0),
+        f2(e.total_credit ?? 0),
+    ]);
 
+    const headersL = ['JE #', 'Date', 'Account #', 'Account Name', 'Description', 'Debit', 'Credit'];
+    const rowsL: (string | number | null)[][] = [];
     entries.forEach(e => {
-        headers.push({
-            'JE #':        e.entry_number,
-            'Date':        e.entry_date,
-            'Description': e.description,
-            'Reference':   e.reference,
-            'Status':      e.is_posted ? 'Posted' : 'Draft',
-            'Source':      e.source ?? '',
-            'Created By':  e.created_by,
-            'Total Debit': fmt2(e.total_debit ?? 0),
-            'Total Credit':fmt2(e.total_credit ?? 0),
-        });
         (e.lines ?? []).forEach(l => {
-            lines.push({
-                'JE #':         e.entry_number,
-                'Date':         e.entry_date,
-                'Account #':    l.account_number,
-                'Account Name': l.account_name ?? '',
-                'Description':  l.description,
-                'Debit':        fmt2(l.debit),
-                'Credit':       fmt2(l.credit),
-            });
+            rowsL.push([
+                e.entry_number,
+                e.entry_date,
+                l.account_number,
+                l.account_name ?? '',
+                l.description,
+                f2(l.debit),
+                f2(l.credit),
+            ]);
         });
     });
 
-    const wsH = XLSX.utils.json_to_sheet(headers);
-    const wsL = XLSX.utils.json_to_sheet(lines.length ? lines : [{ Note: 'No line data loaded' }]);
-    wsH['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 40 }, { wch: 20 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-    wsL['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 40 }, { wch: 14 }, { wch: 14 }];
+    const wsH = makeSheet('Journal Entries', `As of ${exportDate}`, headersH, rowsH, [12, 12, 40, 20, 8, 16, 14, 14, 14]);
+    const wsL = makeSheet(
+        'Journal Entry Lines', `As of ${exportDate}`, headersL,
+        rowsL.length ? rowsL : [['No line data — expand entries first to load lines']],
+        [12, 12, 12, 28, 40, 14, 14],
+    );
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsH, 'JE Headers');
     XLSX.utils.book_append_sheet(wb, wsL, 'JE Lines');
-    saveWorkbook(wb, `LPT_JournalEntries_${exportDate}.xlsx`);
+    saveWb(wb, `LPT_JournalEntries_${exportDate}.xlsx`);
 };
 
 // ── General Ledger ────────────────────────────────────────────────────────────
 
 export const exportGeneralLedger = (entries: JournalEntry[], exportDate: string, accountFilter?: string) => {
-    const rows: object[] = [];
+    const headers = ['Date', 'JE #', 'Reference', 'JE Description', 'Account #', 'Account Name', 'Line Description', 'Debit', 'Credit', 'Status'];
+    const rows: (string | number | null)[][] = [];
     entries.forEach(e => {
         (e.lines ?? []).forEach(l => {
             if (accountFilter && l.account_number !== accountFilter) return;
-            rows.push({
-                'Date':         e.entry_date,
-                'JE #':         e.entry_number,
-                'Reference':    e.reference,
-                'JE Description': e.description,
-                'Account #':    l.account_number,
-                'Account Name': l.account_name ?? '',
-                'Line Description': l.description,
-                'Debit':        fmt2(l.debit),
-                'Credit':       fmt2(l.credit),
-                'Status':       e.is_posted ? 'Posted' : 'Draft',
-            });
+            rows.push([
+                e.entry_date,
+                e.entry_number,
+                e.reference,
+                e.description,
+                l.account_number,
+                l.account_name ?? '',
+                l.description,
+                f2(l.debit),
+                f2(l.credit),
+                e.is_posted ? 'Posted' : 'Draft',
+            ]);
         });
     });
-    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Note: 'No line data loaded — open entries first to load lines' }]);
-    ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 36 }, { wch: 12 }, { wch: 28 }, { wch: 36 }, { wch: 14 }, { wch: 14 }, { wch: 8 }];
+
+    const dateStr = accountFilter
+        ? `Account ${accountFilter} · As of ${exportDate}`
+        : `As of ${exportDate}`;
+
+    const ws = makeSheet('General Ledger', dateStr, headers,
+        rows.length ? rows : [['No line data — open entries first to load lines']],
+        [12, 12, 18, 36, 12, 28, 36, 14, 14, 8]);
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'General Ledger');
-    saveWorkbook(wb, `LPT_GeneralLedger_${exportDate}.xlsx`);
+    saveWb(wb, `LPT_GeneralLedger_${exportDate}.xlsx`);
 };
 
-// ── Balance Sheet ─────────────────────────────────────────────────────────────
+// ── Balance Sheet — Single Date ───────────────────────────────────────────────
 
 export const exportBalanceSheet = (bsData: BSData, asOfDate: string) => {
-    const rows: object[] = [];
+    const headers = ['Section', 'Account #', 'Account Name', 'Balance'];
+    const rows: (string | number | null)[][] = [];
 
     const section = (title: string, lines: BalanceSheetLine[], total: number) => {
-        rows.push({ Section: title, 'Account #': '', 'Account Name': '', Balance: '' });
-        lines.forEach(l => rows.push({
-            Section:        '',
-            'Account #':    l.account_number,
-            'Account Name': l.account_name,
-            Balance:        fmt2(l.balance),
-        }));
-        rows.push({ Section: `Total ${title}`, 'Account #': '', 'Account Name': '', Balance: fmt2(total) });
-        rows.push({ Section: '', 'Account #': '', 'Account Name': '', Balance: '' });
+        rows.push([title, null, null, null]);
+        lines.forEach(l => rows.push([null, l.account_number, l.account_name, f2(l.balance)]));
+        rows.push([`Total ${title}`, null, null, f2(total)]);
+        rows.push([null, null, null, null]);
     };
 
     section('Assets',      bsData.assets,      bsData.totalAssets);
     section('Liabilities', bsData.liabilities, bsData.totalLiabilities);
     section('Equity',      bsData.equity,       bsData.totalEquity);
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 36 }, { wch: 16 }];
+    const ws = makeSheet('Balance Sheet', `As of ${asOfDate}`, headers, rows, [20, 12, 36, 16]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `BS As Of ${asOfDate}`);
-    saveWorkbook(wb, `LPT_BalanceSheet_${asOfDate}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, `BS ${asOfDate}`);
+    saveWb(wb, `LPT_BalanceSheet_${asOfDate}.xlsx`);
 };
 
-// ── Cash Flow ─────────────────────────────────────────────────────────────────
+// ── Balance Sheet — Compare Months ────────────────────────────────────────────
 
-export const exportCashFlow = (cfData: CFData, dateFrom: string, dateTo: string) => {
-    const rows: object[] = [
-        { Category: 'OPERATING ACTIVITIES',   Item: '', Amount: '' },
-        { Category: 'Net Income',             Item: '', Amount: fmt2(cfData.netIncome) },
-    ];
+export const exportBSCompare = (items: BSMultiItem[], monthFrom: string, monthTo: string) => {
+    const labels = items.map(i => i.label);
+    const headers = ['Section', 'Account #', 'Account Name', ...labels];
 
-    cfData.operatingAdjustments.forEach(i => rows.push({
-        Category: 'Operating Adjustment',
-        Item: `${i.account_number} — ${i.account_name}`,
-        Amount: fmt2(i.amount),
-    }));
-    rows.push({ Category: 'Net Operating Cash',  Item: '', Amount: fmt2(cfData.netOperating) });
-    rows.push({ Category: '', Item: '', Amount: '' });
+    // Collect unique accounts per section across all months
+    const allAccts = (section: (d: BSData) => BalanceSheetLine[]) =>
+        [...new Map(items.flatMap(i => section(i.data).map(l => [l.account_number, l]))).values()];
 
-    rows.push({ Category: 'INVESTING ACTIVITIES', Item: '', Amount: '' });
-    cfData.investingItems.forEach(i => rows.push({
-        Category: 'Investing Item',
-        Item: `${i.account_number} — ${i.account_name}`,
-        Amount: fmt2(i.amount),
-    }));
-    rows.push({ Category: 'Net Investing Cash', Item: '', Amount: fmt2(cfData.netInvesting) });
-    rows.push({ Category: '', Item: '', Amount: '' });
+    const rows: (string | number | null)[][] = [];
 
-    rows.push({ Category: 'FINANCING ACTIVITIES', Item: '', Amount: '' });
-    cfData.financingItems.forEach(i => rows.push({
-        Category: 'Financing Item',
-        Item: `${i.account_number} — ${i.account_name}`,
-        Amount: fmt2(i.amount),
-    }));
-    rows.push({ Category: 'Net Financing Cash',  Item: '', Amount: fmt2(cfData.netFinancing) });
-    rows.push({ Category: '', Item: '', Amount: '' });
-
-    rows.push({ Category: 'Beginning Cash',  Item: '', Amount: fmt2(cfData.beginningCash) });
-    rows.push({ Category: 'Net Cash Change', Item: '', Amount: fmt2(cfData.netCashChange) });
-    rows.push({ Category: 'Ending Cash',     Item: '', Amount: fmt2(cfData.endingCash) });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 24 }, { wch: 36 }, { wch: 16 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `CF ${dateFrom} to ${dateTo}`);
-    saveWorkbook(wb, `LPT_CashFlow_${dateFrom}_${dateTo}.xlsx`);
-};
-
-// ── Profit & Loss ─────────────────────────────────────────────────────────────
-
-export const exportProfitLoss = (plData: PLData, dateFrom: string, dateTo: string) => {
-    const rows: object[] = [];
-
-    const section = (title: string, lines: BalanceSheetLine[], total: number) => {
-        rows.push({ Section: title, 'Account #': '', 'Account Name': '', Amount: '' });
-        lines.forEach(l => rows.push({
-            Section:        '',
-            'Account #':    l.account_number,
-            'Account Name': l.account_name,
-            Amount:         fmt2(l.balance),
-        }));
-        rows.push({ Section: `Total ${title}`, 'Account #': '', 'Account Name': '', Amount: fmt2(total) });
-        rows.push({ Section: '', 'Account #': '', 'Account Name': '', Amount: '' });
+    const section = (title: string, getLines: (d: BSData) => BalanceSheetLine[], getTotal: (d: BSData) => number) => {
+        rows.push([title, null, null, ...items.map(() => null)]);
+        allAccts(getLines).forEach(acct => {
+            rows.push([
+                null,
+                acct.account_number,
+                acct.account_name,
+                ...items.map(i => {
+                    const line = getLines(i.data).find(l => l.account_number === acct.account_number);
+                    return line ? f2(line.balance) : 0;
+                }),
+            ]);
+        });
+        rows.push([`Total ${title}`, null, null, ...items.map(i => f2(getTotal(i.data)))]);
+        rows.push([null, null, null, ...items.map(() => null)]);
     };
 
-    section('Revenue',        plData.income,       plData.totalRevenue);
-    section('Cost of Goods',  plData.cogs,         plData.totalCogs);
-    rows.push({ Section: 'Gross Profit',      'Account #': '', 'Account Name': '', Amount: fmt2(plData.grossProfit) });
-    rows.push({ Section: '', 'Account #': '', 'Account Name': '', Amount: '' });
-    section('Operating Expenses', plData.expenses, plData.totalExpenses);
-    rows.push({ Section: 'Operating Income',  'Account #': '', 'Account Name': '', Amount: fmt2(plData.operatingIncome) });
-    rows.push({ Section: '', 'Account #': '', 'Account Name': '', Amount: '' });
-    section('Other Income',   plData.otherIncome,  plData.totalOtherIncome);
-    section('Other Expenses', plData.otherExpenses, plData.totalOtherExpenses);
-    rows.push({ Section: 'Net Income',        'Account #': '', 'Account Name': '', Amount: fmt2(plData.netIncome) });
+    section('Assets',      d => d.assets,      d => d.totalAssets);
+    section('Liabilities', d => d.liabilities, d => d.totalLiabilities);
+    section('Equity',      d => d.equity,       d => d.totalEquity);
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 36 }, { wch: 16 }];
+    const colWidths = [20, 12, 36, ...items.map(() => 16)];
+    const ws = makeSheet('Balance Sheet', `${monthFrom} through ${monthTo}`, headers, rows, colWidths);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `PL ${dateFrom} to ${dateTo}`);
-    saveWorkbook(wb, `LPT_ProfitLoss_${dateFrom}_${dateTo}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'BS Compare');
+    saveWb(wb, `LPT_BalanceSheet_${monthFrom}_${monthTo}.xlsx`);
+};
+
+// ── Cash Flow — Single Period ─────────────────────────────────────────────────
+
+export const exportCashFlow = (cfData: CFData, dateFrom: string, dateTo: string) => {
+    const headers = ['Category', 'Item', 'Amount'];
+    const rows: (string | number | null)[][] = [
+        ['OPERATING ACTIVITIES', null, null],
+        ['Net Income', null, f2(cfData.netIncome)],
+        ...cfData.operatingAdjustments.map(i => ['Operating Adjustment', `${i.account_number} — ${i.account_name}`, f2(i.amount)]),
+        ['Net Operating Cash', null, f2(cfData.netOperating)],
+        [null, null, null],
+        ['INVESTING ACTIVITIES', null, null],
+        ...cfData.investingItems.map(i => ['Investing Item', `${i.account_number} — ${i.account_name}`, f2(i.amount)]),
+        ['Net Investing Cash', null, f2(cfData.netInvesting)],
+        [null, null, null],
+        ['FINANCING ACTIVITIES', null, null],
+        ...cfData.financingItems.map(i => ['Financing Item', `${i.account_number} — ${i.account_name}`, f2(i.amount)]),
+        ['Net Financing Cash', null, f2(cfData.netFinancing)],
+        [null, null, null],
+        ['Beginning Cash',  null, f2(cfData.beginningCash)],
+        ['Net Cash Change', null, f2(cfData.netCashChange)],
+        ['Ending Cash',     null, f2(cfData.endingCash)],
+    ];
+
+    const ws = makeSheet('Statement of Cash Flows', `${dateFrom} through ${dateTo}`, headers, rows, [24, 36, 16]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `CF ${dateFrom}`);
+    saveWb(wb, `LPT_CashFlow_${dateFrom}_${dateTo}.xlsx`);
+};
+
+// ── Cash Flow — Compare Months ────────────────────────────────────────────────
+
+export const exportCFCompare = (items: CFMultiItem[], monthFrom: string, monthTo: string) => {
+    const labels = items.map(i => i.label);
+    const headers = ['Category', 'Item', ...labels];
+
+    const allOper = [...new Map(items.flatMap(i => i.data.operatingAdjustments.map(x => [x.account_number, x]))).values()];
+    const allInvest = [...new Map(items.flatMap(i => i.data.investingItems.map(x => [x.account_number, x]))).values()];
+    const allFin = [...new Map(items.flatMap(i => i.data.financingItems.map(x => [x.account_number, x]))).values()];
+
+    const vals = (key: 'netIncome' | 'netOperating' | 'netInvesting' | 'netFinancing' | 'beginningCash' | 'netCashChange' | 'endingCash') =>
+        items.map(i => f2(i.data[key]));
+
+    const operRow = (acct: { account_number: string; account_name: string }, list: 'operatingAdjustments' | 'investingItems' | 'financingItems') =>
+        items.map(i => { const x = i.data[list].find(a => a.account_number === acct.account_number); return x ? f2(x.amount) : 0; });
+
+    const rows: (string | number | null)[][] = [
+        ['OPERATING ACTIVITIES', null, ...items.map(() => null)],
+        ['Net Income', null, ...vals('netIncome')],
+        ...allOper.map(a => ['Operating Adjustment', `${a.account_number} — ${a.account_name}`, ...operRow(a, 'operatingAdjustments')]),
+        ['Net Operating Cash', null, ...vals('netOperating')],
+        [null, null, ...items.map(() => null)],
+        ['INVESTING ACTIVITIES', null, ...items.map(() => null)],
+        ...allInvest.map(a => ['Investing Item', `${a.account_number} — ${a.account_name}`, ...operRow(a, 'investingItems')]),
+        ['Net Investing Cash', null, ...vals('netInvesting')],
+        [null, null, ...items.map(() => null)],
+        ['FINANCING ACTIVITIES', null, ...items.map(() => null)],
+        ...allFin.map(a => ['Financing Item', `${a.account_number} — ${a.account_name}`, ...operRow(a, 'financingItems')]),
+        ['Net Financing Cash', null, ...vals('netFinancing')],
+        [null, null, ...items.map(() => null)],
+        ['Beginning Cash',  null, ...vals('beginningCash')],
+        ['Net Cash Change', null, ...vals('netCashChange')],
+        ['Ending Cash',     null, ...vals('endingCash')],
+    ];
+
+    const colWidths = [24, 36, ...items.map(() => 16)];
+    const ws = makeSheet('Statement of Cash Flows', `${monthFrom} through ${monthTo}`, headers, rows, colWidths);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'CF Compare');
+    saveWb(wb, `LPT_CashFlow_${monthFrom}_${monthTo}.xlsx`);
+};
+
+// ── Profit & Loss — Single Period ─────────────────────────────────────────────
+
+export const exportProfitLoss = (plData: PLData, dateFrom: string, dateTo: string) => {
+    const headers = ['Section', 'Account #', 'Account Name', 'Amount'];
+    const rows: (string | number | null)[][] = [];
+
+    const section = (title: string, lines: BalanceSheetLine[], total: number) => {
+        rows.push([title, null, null, null]);
+        lines.forEach(l => rows.push([null, l.account_number, l.account_name, f2(l.balance)]));
+        rows.push([`Total ${title}`, null, null, f2(total)]);
+        rows.push([null, null, null, null]);
+    };
+
+    section('Revenue',           plData.income,       plData.totalRevenue);
+    section('Cost of Goods Sold', plData.cogs,        plData.totalCogs);
+    rows.push(['Gross Profit', null, null, f2(plData.grossProfit)]);
+    rows.push([null, null, null, null]);
+    section('Operating Expenses', plData.expenses,    plData.totalExpenses);
+    rows.push(['Operating Income', null, null, f2(plData.operatingIncome)]);
+    rows.push([null, null, null, null]);
+    section('Other Income',      plData.otherIncome,  plData.totalOtherIncome);
+    section('Other Expenses',    plData.otherExpenses, plData.totalOtherExpenses);
+    rows.push(['Net Income', null, null, f2(plData.netIncome)]);
+
+    const ws = makeSheet('Profit & Loss', `${dateFrom} through ${dateTo}`, headers, rows, [24, 12, 36, 16]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `PL ${dateFrom}`);
+    saveWb(wb, `LPT_ProfitLoss_${dateFrom}_${dateTo}.xlsx`);
+};
+
+// ── Profit & Loss — Compare Months ────────────────────────────────────────────
+
+export const exportPLCompare = (items: PLMultiItem[], monthFrom: string, monthTo: string) => {
+    const labels = items.map(i => i.label);
+    const headers = ['Section', 'Account #', 'Account Name', ...labels];
+
+    const allAccts = (getter: (d: PLData) => BalanceSheetLine[]) =>
+        [...new Map(items.flatMap(i => getter(i.data).map(l => [l.account_number, l]))).values()];
+
+    const rows: (string | number | null)[][] = [];
+
+    const section = (title: string, getter: (d: PLData) => BalanceSheetLine[], totalKey: keyof PLData) => {
+        rows.push([title, null, null, ...items.map(() => null)]);
+        allAccts(getter).forEach(acct => {
+            rows.push([
+                null,
+                acct.account_number,
+                acct.account_name,
+                ...items.map(i => {
+                    const line = getter(i.data).find(l => l.account_number === acct.account_number);
+                    return line ? f2(line.balance) : 0;
+                }),
+            ]);
+        });
+        rows.push([`Total ${title}`, null, null, ...items.map(i => f2(i.data[totalKey] as number))]);
+        rows.push([null, null, null, ...items.map(() => null)]);
+    };
+
+    const summary = (label: string, key: keyof PLData) =>
+        rows.push([label, null, null, ...items.map(i => f2(i.data[key] as number))]);
+
+    section('Revenue',            d => d.income,       'totalRevenue');
+    section('Cost of Goods Sold', d => d.cogs,         'totalCogs');
+    summary('Gross Profit',                             'grossProfit');
+    rows.push([null, null, null, ...items.map(() => null)]);
+    section('Operating Expenses', d => d.expenses,     'totalExpenses');
+    summary('Operating Income',                         'operatingIncome');
+    rows.push([null, null, null, ...items.map(() => null)]);
+    section('Other Income',       d => d.otherIncome,  'totalOtherIncome');
+    section('Other Expenses',     d => d.otherExpenses,'totalOtherExpenses');
+    summary('Net Income',                               'netIncome');
+
+    const colWidths = [24, 12, 36, ...items.map(() => 16)];
+    const ws = makeSheet('Profit & Loss', `${monthFrom} through ${monthTo}`, headers, rows, colWidths);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'PL Compare');
+    saveWb(wb, `LPT_ProfitLoss_${monthFrom}_${monthTo}.xlsx`);
 };
 
 // ── Bills ─────────────────────────────────────────────────────────────────────
 
 export const exportBills = (bills: Bill[], exportDate: string) => {
-    const rows = bills.map(b => ({
-        'Bill #':       b.bill_number,
-        'Type':         b.bill_type,
-        'Vendor':       b.vendor_name ?? '',
-        'PO Ref':       b.po_reference ?? '',
-        'Date':         b.bill_date,
-        'Due Date':     b.due_date ?? '',
-        'Description':  b.description,
-        'Status':       b.status,
-        'Total ($)':    fmt2(b.total_amount),
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 14 }, { wch: 8 }, { wch: 28 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 36 }, { wch: 8 }, { wch: 14 }];
+    const headers = ['Bill #', 'Type', 'Vendor', 'PO Ref', 'Date', 'Due Date', 'Description', 'Status', 'Total ($)'];
+    const rows = bills.map(b => [
+        b.bill_number, b.bill_type, b.vendor_name ?? '', b.po_reference ?? '',
+        b.bill_date, b.due_date ?? '', b.description, b.status, f2(b.total_amount),
+    ]);
+    const ws = makeSheet('Bills', `As of ${exportDate}`, headers, rows, [14, 8, 28, 16, 12, 12, 36, 8, 14]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Bills');
-    saveWorkbook(wb, `LPT_Bills_${exportDate}.xlsx`);
+    saveWb(wb, `LPT_Bills_${exportDate}.xlsx`);
 };
 
 // ── Bill Vendors ──────────────────────────────────────────────────────────────
 
 export const exportBillVendors = (vendors: BillVendor[], exportDate: string) => {
-    const rows = vendors.map(v => ({
-        'Vendor Name':       v.vendor_name,
-        'Type':              v.vendor_type,
-        'Status':            v.status,
-        'Contact':           v.contact_person,
-        'Phone':             v.phone,
-        'Email':             v.email,
-        'Tax ID':            v.tax_id,
-        'Default Account':   v.default_expense_account,
-        'Payment Terms':     v.payment_terms,
-        'Bank Name':         v.bank_name,
-        'Bank Account':      v.bank_account,
-        'Address':           v.address,
-        'Notes':             v.notes,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 30 }, { wch: 30 }];
+    const headers = ['Vendor Name', 'Type', 'Status', 'Contact', 'Phone', 'Email', 'Tax ID', 'Default Account', 'Payment Terms', 'Bank Name', 'Bank Account', 'Address', 'Notes'];
+    const rows = vendors.map(v => [
+        v.vendor_name, v.vendor_type, v.status, v.contact_person, v.phone, v.email,
+        v.tax_id, v.default_expense_account, v.payment_terms, v.bank_name, v.bank_account, v.address, v.notes,
+    ]);
+    const ws = makeSheet('Bill Vendors', `As of ${exportDate}`, headers, rows, [30, 14, 8, 20, 14, 24, 14, 16, 16, 20, 18, 30, 30]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Bill Vendors');
-    saveWorkbook(wb, `LPT_BillVendors_${exportDate}.xlsx`);
+    saveWb(wb, `LPT_BillVendors_${exportDate}.xlsx`);
 };
