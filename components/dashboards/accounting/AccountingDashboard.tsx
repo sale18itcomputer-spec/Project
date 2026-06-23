@@ -17,9 +17,10 @@ import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
-    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt,
+    FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2,
 } from 'lucide-react';
 import BillsTab from './BillsTab';
+import AccountingVendorsTab from './AccountingVendorsTab';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1085,7 +1086,7 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'ledger' | 'journal' | 'balance' | 'cashflow' | 'pl' | 'bills';
+type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'balance' | 'cashflow' | 'pl';
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
@@ -1764,6 +1765,7 @@ export default function AccountingDashboard() {
                 <TabBtn id="ledger"   label="General Ledger"    icon={<BookOpen size={15} />} />
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
                 <TabBtn id="bills"    label="Bills"             icon={<Receipt size={15} />} />
+                <TabBtn id="vendors"  label="Vendors"           icon={<Building2 size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
                 <TabBtn id="pl"       label="Profit & Loss"     icon={<BarChart2 size={15} />} />
@@ -2813,6 +2815,11 @@ export default function AccountingDashboard() {
             {/* ── TAB: Bills ────────────────────────────────────────────────── */}
             {activeTab === 'bills' && (
                 <BillsTab accounts={accounts} />
+            )}
+
+            {/* ── TAB: Vendors ───────────────────────────────────────────── */}
+            {activeTab === 'vendors' && (
+                <AccountingVendorsTab />
             )}
 
             {/* ── TAB: Balance Sheet ─────────────────────────────────────────── */}

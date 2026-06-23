@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Bill, BillLine, ChartOfAccount, PurchaseOrder } from '../../../types';
+import { Bill, BillLine, BillVendor, ChartOfAccount, PurchaseOrder } from '../../../types';
 import {
     fetchBills, createBill, updateBill, deleteBill,
     postBill, unpostBill, markBillPaid, getNextBillNumber,
 } from '../../../services/billsApi';
+import { fetchBillVendors } from '../../../services/billVendorsApi';
 import { readRecords } from '../../../services/api';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -131,10 +132,11 @@ const BillFormModal: React.FC<{
     bill: Bill | null;
     accounts: ChartOfAccount[];
     purchaseOrders: PurchaseOrder[];
+    billVendors: BillVendor[];
     onSave: (header: Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>, lines: Omit<BillLine, 'id' | 'bill_id' | 'created_at'>[]) => void;
     onClose: () => void;
     nextNumber: string;
-}> = ({ bill, accounts, purchaseOrders, onSave, onClose, nextNumber }) => {
+}> = ({ bill, accounts, purchaseOrders, billVendors, onSave, onClose, nextNumber }) => {
     const [header, setHeader] = useState<Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>>(
         bill ? {
             bill_number: bill.bill_number,
@@ -303,10 +305,21 @@ const BillFormModal: React.FC<{
                         ) : null}
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Vendor / Issuer</label>
-                            <input type="text" value={header.vendor_name ?? ''}
+                            <input
+                                type="text"
+                                list={header.bill_type === 'inter' && billVendors.length > 0 ? 'inter-bill-vendors' : undefined}
+                                value={header.vendor_name ?? ''}
                                 onChange={e => setHeader(h => ({ ...h, vendor_name: e.target.value }))}
-                                placeholder={header.bill_type === 'vendor' ? 'Auto-filled from PO' : 'e.g. EdC, NSSF'}
-                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                placeholder={header.bill_type === 'vendor' ? 'Auto-filled from PO' : 'Search vendor list or type manually…'}
+                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            />
+                            {header.bill_type === 'inter' && billVendors.length > 0 && (
+                                <datalist id="inter-bill-vendors">
+                                    {billVendors.filter(v => v.status === 'Active').map(v => (
+                                        <option key={v.id} value={v.vendor_name} />
+                                    ))}
+                                </datalist>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Due Date</label>
@@ -447,6 +460,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
 
     const [bills, setBills] = useState<Bill[]>([]);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+    const [billVendors, setBillVendors] = useState<BillVendor[]>([]);
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<'all' | 'vendor' | 'inter'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'posted' | 'paid'>('all');
@@ -461,12 +475,14 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [data, pos] = await Promise.all([
+            const [data, pos, bvs] = await Promise.all([
                 fetchBills(),
                 readRecords<PurchaseOrder>('Purchase Orders'),
+                fetchBillVendors(),
             ]);
             setBills(data);
             setPurchaseOrders(pos);
+            setBillVendors(bvs);
         } catch (e: unknown) {
             addToast((e as Error).message, 'error');
         } finally {
@@ -793,6 +809,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                     bill={formBill as Bill | null}
                     accounts={accounts}
                     purchaseOrders={purchaseOrders}
+                    billVendors={billVendors}
                     onSave={handleSave}
                     onClose={() => setShowForm(false)}
                     nextNumber={nextNumber}

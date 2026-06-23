@@ -636,10 +636,58 @@ export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; 
     'Lenovo Accessories':    { revenue: '40800', cogs: '50800', inventory: '12800' },
 };
 
+/** Auto-create a journal entry for a received customer deposit.
+ *  DR Accounts Receivable 11900  (deposit AR — cleared when deposit cash is receipted)
+ *  CR Customer Deposit   25000  (net pre-VAT deposit — liability until goods/services delivered)
+ *  CR VAT Output         23000  (VAT on deposit, if VAT invoice)
+ *
+ *  Idempotent: no-op if a deposit_receipt JE already exists for this invNo.
+ */
+export const autoPostDepositReceiptJournal = async (params: {
+    invNo: string;
+    depositAmount: number;
+    isVAT: boolean;
+    entryDate: string;
+    createdBy: string;
+}): Promise<boolean> => {
+    if (params.depositAmount <= 0.005) return false;
+
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('reference', params.invNo)
+        .eq('source', 'deposit_receipt')
+        .maybeSingle();
+    if (existing) return false;
+
+    // Park the full VAT-inclusive deposit in COA 25000. VAT is declared in full on
+    // the final invoice JE — no separate split here.
+    const entryNumber = await getNextEntryNumber();
+    const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [
+        { account_number: '11900', description: `Deposit AR — ${params.invNo}`,       debit: params.depositAmount, credit: 0 },
+        { account_number: '25000', description: `Customer Deposit — ${params.invNo}`, debit: 0, credit: params.depositAmount },
+    ];
+
+    await createJournalEntry(
+        {
+            entry_number: entryNumber,
+            entry_date:   params.entryDate,
+            description:  `Deposit Receipt — ${params.invNo}`,
+            reference:    params.invNo,
+            created_by:   params.createdBy,
+            is_posted:    true,
+            source:       'deposit_receipt',
+        },
+        lines,
+    );
+    return true;
+};
+
 /** Auto-create a draft journal entry for a saved invoice.
  *  DR Accounts Receivable 11900
  *  CR Income 40xxx per brand (falls back to 40000 if brand unknown)
- *  CR VAT Output 23000 (if VAT invoice)
+ *  CR VAT Output 23000 (if VAT invoice — reduced by deposit VAT already declared)
+ *  DR Customer Deposit 25000 / CR AR 11900  (deposit application, when depositAmount > 0)
  *
  *  Pass brandAmounts for a per-brand revenue breakdown; omit for a single
  *  line against the general Income parent account 40000.
@@ -655,6 +703,8 @@ export const autoPostInvoiceJournal = async (params: {
     /** Negative number representing total cashback/promo deductions on the invoice */
     cashbackTotal?: number;
     costItems?: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[];
+    /** VAT-inclusive deposit amount already received — reduces remaining VAT credit and offsets AR */
+    depositAmount?: number;
 }): Promise<boolean> => {
     // Idempotent: skip if an auto-entry for this invoice already exists
     const { data: existing } = await supabase
@@ -669,6 +719,8 @@ export const autoPostInvoiceJournal = async (params: {
     const cashback = params.cashbackTotal && params.cashbackTotal < 0 ? Math.abs(params.cashbackTotal) : 0;
     // grossSubtotal = revenue before cashback deduction; grandTotal already has cashback applied
     const grossSubtotal = params.grandTotal - params.taxAmount + cashback;
+
+    const invoiceVAT = params.taxAmount;
 
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [
         {
@@ -711,12 +763,12 @@ export const autoPostInvoiceJournal = async (params: {
         });
     }
 
-    if (params.isVAT && params.taxAmount > 0.005) {
+    if (params.isVAT && invoiceVAT > 0.005) {
         lines.push({
             account_number: '23000',
             description: `VAT Output — ${params.invNo}`,
             debit: 0,
-            credit: params.taxAmount,
+            credit: invoiceVAT,
         });
     }
 

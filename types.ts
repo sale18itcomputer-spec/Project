@@ -807,6 +807,27 @@ export interface Bill {
     lines?: BillLine[];
 }
 
+export interface BillVendor {
+    id?: string;
+    vendor_name: string;
+    vendor_type: string;
+    contact_person: string;
+    phone: string;
+    email: string;
+    address: string;
+    tax_id: string;
+    account_number: string;
+    payment_terms: string;
+    default_expense_account: string;
+    bank_name: string;
+    bank_account: string;
+    notes: string;
+    status: 'Active' | 'Inactive';
+    created_by?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export type PosPaymentMethod = 'Cash' | 'ABA' | 'KHQR' | 'Bank Transfer' | 'Card';
 export type PosTaxType = 'NON-VAT' | 'VAT';
 

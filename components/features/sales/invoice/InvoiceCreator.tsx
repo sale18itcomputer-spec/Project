@@ -6,7 +6,7 @@ import { Invoice, SaleOrder } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
-import { autoPostInvoiceJournal } from "../../../../services/accountingApi";
+import { autoPostInvoiceJournal, autoPostDepositReceiptJournal } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
@@ -624,6 +624,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     addToast(`Skipped already-sold serial number(s): ${list}`, 'error');
                 }
 
+                // Auto-post deposit receipt JE first so COA 25000 gets its credit
+                // before the invoice application line debits it.
+                const depositAmt = toNum(invoice['Deposit']);
+                if (depositAmt > 0.005) {
+                    autoPostDepositReceiptJournal({
+                        invNo:         invoice['Inv No']!,
+                        depositAmount: depositAmt,
+                        isVAT:         invoice['Taxable'] === 'VAT',
+                        entryDate:     invoice['Inv Date'] || getTodayDateString(),
+                        createdBy:     currentUser?.Name || 'system',
+                    }).catch(err => console.warn('[InvoiceCreator] deposit receipt journal failed:', err));
+                }
+
                 // Auto-post invoice journal with COGS after inventory loop
                 // (idempotent — safe for both new invoices and Draft → Issued updates)
                 autoPostInvoiceJournal({
@@ -636,6 +649,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     brandAmounts:  buildBrandAmounts(),
                     cashbackTotal: cashbackTotal !== 0 ? cashbackTotal : undefined,
                     costItems:     costItems.length > 0 ? costItems : undefined,
+                    depositAmount: depositAmt > 0.005 ? depositAmt : undefined,
                 }).catch(err => console.warn('[InvoiceCreator] auto-post journal failed:', err));
             }
 
