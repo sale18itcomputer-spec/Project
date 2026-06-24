@@ -425,20 +425,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             let deductedInventory = false;
             let syncedSerials = false;
 
-            // Build per-brand revenue breakdown (used by auto-journal in both paths).
-            // Promo/cashback rows are excluded — they are tracked via cashbackTotal/14400.
-            const buildBrandAmounts = () => {
-                const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
-                const brandTotals: Record<string, number> = {};
-                for (const item of items) {
-                    if (item.isPromotion) continue;
-                    const brand = (item.itemCode && brandMap.get(item.itemCode)) || 'Other Accessories';
-                    brandTotals[brand] = (brandTotals[brand] ?? 0) + (Number(item.amount) || 0);
-                }
-                return Object.entries(brandTotals)
-                    .map(([brand, subtotal]) => ({ brand, subtotal }))
-                    .filter(b => b.subtotal > 0.005);
-            };
+            // Sum cashback/promo deductions (negative amounts) for 14400 DR line
 
             // Sum cashback/promo deductions (negative amounts) for 14400 DR line
             const cashbackTotal = items
@@ -468,6 +455,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const warrantyEnd = addMonths(warrantyStart, 12);
 
                 const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+                const brandTotals: Record<string, number> = {};
                 const conflictSerials: { serial: string; soNo: string }[] = [];
 
                 try {
@@ -520,13 +508,22 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 deductedInventory = true;
                                 matchedInvId = inv.id;
 
-                                // Collect cost for COGS journal line
+                                // Brand resolved with inventory fallback — used for BOTH COGS and revenue
+                                const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
                                 const unitCost = Number(inv.unit_price) || 0;
                                 if (unitCost > 0) {
-                                    const brand = normalizeBrand((code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
-                                    costItems.push({ brand, qty, unit_price: unitCost });
+                                    costItems.push({ brand: resolvedBrand, qty, unit_price: unitCost });
                                 }
+                                // Accumulate revenue total under same brand as COGS
+                                brandTotals[resolvedBrand] = (brandTotals[resolvedBrand] ?? 0) + (Number(item.amount) || 0);
+                            } else {
+                                // No inventory match — use pricelist brand only (no inventory fallback available)
+                                const plBrand = normalizeBrand((code && brandMap.get(code)) || 'Other Accessories');
+                                brandTotals[plBrand] = (brandTotals[plBrand] ?? 0) + (Number(item.amount) || 0);
                             }
+                        } else {
+                            // No code/model — fall through as Other Accessories revenue
+                            brandTotals['Other Accessories'] = (brandTotals['Other Accessories'] ?? 0) + (Number(item.amount) || 0);
                         }
 
                         const serials = (item.serialNumber || '')
@@ -640,7 +637,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     taxAmount:     totals.tax,
                     isVAT:         invoice['Taxable'] === 'VAT',
                     createdBy:     currentUser?.Name || 'system',
-                    brandAmounts:  buildBrandAmounts(),
+                    brandAmounts:  Object.entries(brandTotals).map(([brand, subtotal]) => ({ brand, subtotal })).filter(b => b.subtotal > 0.005),
                     cashbackTotal: cashbackTotal !== 0 ? cashbackTotal : undefined,
                     costItems:     costItems.length > 0 ? costItems : undefined,
                     depositAmount: depositAmt > 0.005 ? depositAmt : undefined,

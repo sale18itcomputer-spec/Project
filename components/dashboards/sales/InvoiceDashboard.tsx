@@ -166,57 +166,54 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const codeMap  = new Map(pl.map((p: any) => [p['Code'],  p['Brand']]));
         const modelMap = new Map(pl.map((p: any) => [p['Model'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
+        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
         let grossSubTotal = 0;
         let cashbackTotal = 0;
+
         for (const item of items) {
             if (item.isPromotion) {
-                // cashbackTotal is negative — promo deducts from the invoice total
                 cashbackTotal += Number(item.amount) || 0;
-            } else {
-                const brand = (item.itemCode && codeMap.get(item.itemCode))
-                    || item.brand
-                    || (item.modelName && modelMap.get(item.modelName))
-                    || 'Other Accessories';
-                const amt = Number(item.amount) || 0;
-                brandTotals[brand] = (brandTotals[brand] ?? 0) + amt;
-                grossSubTotal += amt;
+                continue;
             }
+            const amt = Number(item.amount) || 0;
+            grossSubTotal += amt;
+            const qty = Number(item.qty) || 0;
+            const code  = item.itemCode?.trim();
+            const model = item.modelName?.trim();
+
+            // Try to resolve brand from inventory (same source as COGS) so revenue + COGS always agree
+            let resolvedBrand: string | null = null;
+            if (code || model) {
+                let invRows: any[] | null = null;
+                if (code) {
+                    const { data } = await supabase.from('inventory').select('unit_price, brand').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                    invRows = data;
+                }
+                if ((!invRows || !invRows.length) && model) {
+                    const { data } = await supabase.from('inventory').select('unit_price, brand').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                    invRows = data;
+                }
+                if (invRows?.length) {
+                    const inv = invRows[0];
+                    resolvedBrand = normalizeBrand((code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
+                    const unitCost = Number(inv.unit_price) || 0;
+                    if (unitCost > 0 && qty > 0) {
+                        costItems.push({ brand: resolvedBrand, qty, unit_price: unitCost });
+                    }
+                }
+            }
+            // Fall back to pricelist brand if no inventory match
+            const brand = resolvedBrand ?? normalizeBrand(
+                (code && codeMap.get(code)) || item.brand || (model && modelMap.get(model)) || 'Other Accessories'
+            );
+            brandTotals[brand] = (brandTotals[brand] ?? 0) + amt;
         }
+
         const taxAmount = isVAT ? grossSubTotal * 0.1 : 0;
-        // grandTotal = net amount owed by the customer (AR debit); gross + VAT - promo
         const grandTotal = grossSubTotal + cashbackTotal + taxAmount;
         const brandAmounts = Object.entries(brandTotals)
             .map(([brand, subtotal]) => ({ brand, subtotal }))
             .filter(b => b.subtotal > 0.005);
-
-        // Look up inventory unit costs for COGS entries
-        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
-        for (const item of items) {
-            if (item.isPromotion) continue;
-            const qty = Number(item.qty) || 0;
-            if (qty <= 0) continue;
-            const code  = item.itemCode?.trim();
-            const model = item.modelName?.trim();
-            if (!code && !model) continue;
-
-            let invRows: any[] | null = null;
-            if (code) {
-                const { data } = await supabase.from('inventory').select('unit_price, brand').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
-                invRows = data;
-            }
-            if ((!invRows || !invRows.length) && model) {
-                const { data } = await supabase.from('inventory').select('unit_price, brand').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
-                invRows = data;
-            }
-            if (invRows?.length) {
-                const inv = invRows[0];
-                const unitCost = Number(inv.unit_price) || 0;
-                if (unitCost > 0) {
-                    const brand = normalizeBrand((code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
-                    costItems.push({ brand, qty, unit_price: unitCost });
-                }
-            }
-        }
 
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
