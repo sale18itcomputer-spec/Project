@@ -311,13 +311,13 @@ const plBody = (pl: PLData, hideZeros: boolean): PDFRow[] => {
     r.push(midRow('OPERATING INCOME', pl.operatingIncome));
     r.push(blankRow(3));
 
-    if (pl.otherIncome.length > 0) {
+    if (filt(pl.otherIncome, hideZeros).length > 0) {
         r.push(secRow('OTHER INCOME', 3));
         plAlt(pl.otherIncome);
         r.push(subtRow3('Other Income', pl.totalOtherIncome));
         r.push(blankRow(3));
     }
-    if (pl.otherExpenses.length > 0) {
+    if (filt(pl.otherExpenses, hideZeros).length > 0) {
         r.push(secRow('OTHER EXPENSES', 3));
         plAlt(pl.otherExpenses);
         r.push(subtRow3('Other Expenses', pl.totalOtherExpenses));
@@ -538,17 +538,17 @@ const plCompareBody = (items: PLMultiItem[], hideZeros: boolean): PDFRow[] => {
     r.push(plMid('OPERATING INCOME', vals(d => d.operatingIncome)));
     r.push(compBlank(NC));
 
-    const anyOtherInc  = items.some(i => i.data.otherIncome.length > 0);
-    const anyOtherExp  = items.some(i => i.data.otherExpenses.length > 0);
-    if (anyOtherInc) {
+    const filteredOtherInc = fc(uniqAccts(items, d => d.otherIncome), d => d.otherIncome);
+    const filteredOtherExp = fc(uniqAccts(items, d => d.otherExpenses), d => d.otherExpenses);
+    if (filteredOtherInc.length > 0) {
         r.push(compSec('OTHER INCOME', NC));
-        fc(uniqAccts(items, d => d.otherIncome), d => d.otherIncome).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherIncome), i % 2 === 1)));
+        filteredOtherInc.forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherIncome), i % 2 === 1)));
         r.push(compSubt('Other Income', vals(d => d.totalOtherIncome)));
         r.push(compBlank(NC));
     }
-    if (anyOtherExp) {
+    if (filteredOtherExp.length > 0) {
         r.push(compSec('OTHER EXPENSES', NC));
-        fc(uniqAccts(items, d => d.otherExpenses), d => d.otherExpenses).forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherExpenses), i % 2 === 1)));
+        filteredOtherExp.forEach((a, i) => r.push(compAcc(`${a.account_number} · ${a.account_name}`, acctVals(a, d => d.otherExpenses), i % 2 === 1)));
         r.push(compSubt('Other Expenses', vals(d => d.totalOtherExpenses)));
         r.push(compBlank(NC));
     }
