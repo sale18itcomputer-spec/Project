@@ -13,8 +13,8 @@ SET
     cogs_account      = NULL,
     inventory_account = NULL
 WHERE
-    -- Any brand value that normalises to ASUS (covers encoding variants like ÀSUS)
-    unaccent(brand) ILIKE 'ASUS'
+    -- Strip common accented-A variants so ÀSUS, ÁSUS etc. all match ASUS
+    translate(lower(brand), 'àáâãäå', 'aaaaaa') = 'asus'
     AND (cogs_account = '50600' OR inventory_account = '12600');
 
 -- Also correct the already-posted JE-2040 lines directly.
