@@ -186,11 +186,11 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             if (code || model) {
                 let invRows: any[] | null = null;
                 if (code) {
-                    const { data } = await supabase.from('inventory').select('unit_price, brand').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                    const { data } = await supabase.from('inventory').select('unit_price, brand').eq('code', code).order('created_at', { ascending: true }).limit(1);
                     invRows = data;
                 }
                 if ((!invRows || !invRows.length) && model) {
-                    const { data } = await supabase.from('inventory').select('unit_price, brand').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                    const { data } = await supabase.from('inventory').select('unit_price, brand').ilike('model_name', `%${model}%`).order('created_at', { ascending: true }).limit(1);
                     invRows = data;
                 }
                 if (invRows?.length) {
