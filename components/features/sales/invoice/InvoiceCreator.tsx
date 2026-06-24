@@ -6,7 +6,7 @@ import { Invoice, SaleOrder } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
-import { autoPostInvoiceJournal, autoPostDepositReceiptJournal } from "../../../../services/accountingApi";
+import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
@@ -467,7 +467,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const warrantyStart = invoice['Inv Date'] || getTodayDateString();
                 const warrantyEnd = addMonths(warrantyStart, 12);
 
-                const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+                const costItems: { brand: string; qty: number; unit_price: number }[] = [];
                 const conflictSerials: { serial: string; soNo: string }[] = [];
 
                 try {
@@ -486,7 +486,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             if (code) {
                                 const { data } = await supabase
                                     .from('inventory')
-                                    .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+                                    .select('id, qty, unit_price, brand')
                                     .eq('status', 'In Stock')
                                     .gt('qty', 0)
                                     .eq('code', code)
@@ -498,7 +498,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             if ((!invRows || invRows.length === 0) && model) {
                                 const { data } = await supabase
                                     .from('inventory')
-                                    .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+                                    .select('id, qty, unit_price, brand')
                                     .eq('status', 'In Stock')
                                     .gt('qty', 0)
                                     .ilike('model_name', `%${model}%`)
@@ -523,14 +523,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 // Collect cost for COGS journal line
                                 const unitCost = Number(inv.unit_price) || 0;
                                 if (unitCost > 0) {
-                                    const brand = (code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories';
-                                    costItems.push({
-                                        brand,
-                                        qty,
-                                        unit_price:        unitCost,
-                                        cogs_account:      inv.cogs_account      || undefined,
-                                        inventory_account: inv.inventory_account || undefined,
-                                    });
+                                    const brand = normalizeBrand((code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
+                                    costItems.push({ brand, qty, unit_price: unitCost });
                                 }
                             }
                         }

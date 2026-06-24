@@ -15,7 +15,7 @@ import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord } from "../../../services/api";
-import { autoPostInvoiceJournal } from "../../../services/accountingApi";
+import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { generatePDF } from "../../../lib/pdfClient";
@@ -190,7 +190,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             .filter(b => b.subtotal > 0.005);
 
         // Look up inventory unit costs for COGS entries
-        const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
         for (const item of items) {
             if (item.isPromotion) continue;
             const qty = Number(item.qty) || 0;
@@ -201,19 +201,19 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
 
             let invRows: any[] | null = null;
             if (code) {
-                const { data } = await supabase.from('inventory').select('unit_price, brand, cogs_account, inventory_account').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                const { data } = await supabase.from('inventory').select('unit_price, brand').eq('code', code).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
                 invRows = data;
             }
             if ((!invRows || !invRows.length) && model) {
-                const { data } = await supabase.from('inventory').select('unit_price, brand, cogs_account, inventory_account').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
+                const { data } = await supabase.from('inventory').select('unit_price, brand').ilike('model_name', `%${model}%`).gt('qty', 0).order('created_at', { ascending: true }).limit(1);
                 invRows = data;
             }
             if (invRows?.length) {
                 const inv = invRows[0];
                 const unitCost = Number(inv.unit_price) || 0;
                 if (unitCost > 0) {
-                    const brand = (code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories';
-                    costItems.push({ brand, qty, unit_price: unitCost, cogs_account: inv.cogs_account || undefined, inventory_account: inv.inventory_account || undefined });
+                    const brand = normalizeBrand((code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
+                    costItems.push({ brand, qty, unit_price: unitCost });
                 }
             }
         }

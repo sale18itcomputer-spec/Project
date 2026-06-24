@@ -6,7 +6,7 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { generatePosInvNo, generatePosRvNo, createRecord, getSetting } from '../../services/api';
-import { autoPostInvoiceJournal } from '../../services/accountingApi';
+import { autoPostInvoiceJournal, normalizeBrand } from '../../services/accountingApi';
 import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
@@ -260,10 +260,10 @@ const PosTerminal: React.FC = () => {
       ;(async () => {
         const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
-        const costItems: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[] = [];
+        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
 
         for (const item of cartSnapshot) {
-          const brand = (item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories';
+          const brand = normalizeBrand((item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories');
           brandTotals[brand] = (brandTotals[brand] ?? 0) + item.amount;
 
           // Inventory lookup + deduction
@@ -271,7 +271,7 @@ const PosTerminal: React.FC = () => {
           if (item.itemCode) {
             const { data } = await supabase
               .from('inventory')
-              .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+              .select('id, qty, unit_price, brand')
               .eq('status', 'In Stock')
               .gt('qty', 0)
               .eq('code', item.itemCode)
@@ -282,7 +282,7 @@ const PosTerminal: React.FC = () => {
           if ((!invRows || invRows.length === 0) && item.modelName) {
             const { data } = await supabase
               .from('inventory')
-              .select('id, qty, unit_price, brand, cogs_account, inventory_account')
+              .select('id, qty, unit_price, brand')
               .eq('status', 'In Stock')
               .gt('qty', 0)
               .ilike('model_name', `%${item.modelName}%`)
@@ -299,13 +299,7 @@ const PosTerminal: React.FC = () => {
               .eq('id', inv.id);
             const unitCost = Number(inv.unit_price) || 0;
             if (unitCost > 0) {
-              costItems.push({
-                brand,
-                qty:               item.qty,
-                unit_price:        unitCost,
-                cogs_account:      inv.cogs_account      || undefined,
-                inventory_account: inv.inventory_account || undefined,
-              });
+              costItems.push({ brand, qty: item.qty, unit_price: unitCost });
             }
           }
         }

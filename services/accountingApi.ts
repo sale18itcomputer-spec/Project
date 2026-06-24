@@ -636,6 +636,19 @@ export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; 
     'Lenovo Accessories':    { revenue: '40800', cogs: '50800', inventory: '12800' },
 };
 
+/**
+ * Normalize a brand string to match a BRAND_ACCOUNT_MAP key.
+ * Strips Unicode diacritics and does case-insensitive matching so
+ * values like "ÀSUS" (accented A from encoding issues) resolve to "ASUS".
+ */
+export const normalizeBrand = (raw: string): string => {
+    const stripped = raw.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+    const match = Object.keys(BRAND_ACCOUNT_MAP).find(k =>
+        k.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase() === stripped.toLowerCase()
+    );
+    return match ?? raw.trim();
+};
+
 /** Auto-create a journal entry for a received customer deposit.
  *  DR Accounts Receivable 11900  (deposit AR — cleared when deposit cash is receipted)
  *  CR Customer Deposit   25000  (net pre-VAT deposit — liability until goods/services delivered)
@@ -706,7 +719,7 @@ export const autoPostInvoiceJournal = async (params: {
     brandAmounts?: { brand: string; subtotal: number }[];
     /** Negative number representing total cashback/promo deductions on the invoice */
     cashbackTotal?: number;
-    costItems?: { brand: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[];
+    costItems?: { brand: string; qty: number; unit_price: number }[];
     /** VAT-inclusive deposit amount already received — reduces remaining VAT credit and offsets AR */
     depositAmount?: number;
 }): Promise<boolean> => {
@@ -776,13 +789,17 @@ export const autoPostInvoiceJournal = async (params: {
         });
     }
 
-    // COGS + Inventory reduction — one line pair per item, accounts from inventory row
+    // COGS + Inventory reduction — one line pair per item
+    // Account routing is ALWAYS via BRAND_ACCOUNT_MAP (after normalization).
+    // No per-row overrides — stale DB fields caused repeat misrouting bugs.
     if (params.costItems && params.costItems.length > 0) {
-        for (const { brand, qty, unit_price, cogs_account, inventory_account } of params.costItems) {
+        for (const { brand: rawBrand, qty, unit_price } of params.costItems) {
             const cost = qty * unit_price;
             if (cost <= 0.005) continue;
-            const cogsAcct = cogs_account      || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000';
-            const invAcct  = inventory_account || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000';
+            const brand      = normalizeBrand(rawBrand);
+            const brandEntry = BRAND_ACCOUNT_MAP[brand];
+            const cogsAcct   = brandEntry?.cogs      ?? '50000';
+            const invAcct    = brandEntry?.inventory  ?? '12000';
             lines.push({ account_number: cogsAcct, description: `COGS ${brand} — ${params.invNo}`,          debit: cost, credit: 0 });
             lines.push({ account_number: invAcct,  description: `Inventory out ${brand} — ${params.invNo}`, debit: 0,    credit: cost });
         }
@@ -948,7 +965,7 @@ export const autoPostPurchaseOrderJournal = async (params: {
 export const autoPostDeliveryOrderJournal = async (params: {
     doNo: string;
     entryDate: string;
-    costItems: { brand?: string; qty: number; unit_price: number; cogs_account?: string; inventory_account?: string }[];
+    costItems: { brand?: string; qty: number; unit_price: number }[];
     createdBy: string;
 }): Promise<void> => {
     // Idempotent guard
@@ -968,12 +985,13 @@ export const autoPostDeliveryOrderJournal = async (params: {
     const entryNumber = await getNextEntryNumber();
     const lines: Omit<JournalEntryLine, 'id' | 'journal_entry_id' | 'created_at'>[] = [];
 
-    for (const { brand: rawBrand, qty, unit_price, cogs_account, inventory_account } of params.costItems) {
+    for (const { brand: rawBrand, qty, unit_price } of params.costItems) {
         const cost = (qty || 0) * (unit_price || 0);
         if (cost <= 0.005) continue;
-        const brand    = rawBrand?.trim() || 'Other Accessories';
-        const cogsAcct = cogs_account      || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000';
-        const invAcct  = inventory_account || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000';
+        const brand      = normalizeBrand(rawBrand?.trim() || 'Other Accessories');
+        const brandEntry = BRAND_ACCOUNT_MAP[brand];
+        const cogsAcct   = brandEntry?.cogs      ?? '50000';
+        const invAcct    = brandEntry?.inventory  ?? '12000';
         lines.push({
             account_number: cogsAcct,
             description: `COGS ${brand} — ${params.doNo}`,
