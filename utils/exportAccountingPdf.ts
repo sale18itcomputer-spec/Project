@@ -560,8 +560,10 @@ const plCompareBody = (items: PLMultiItem[], hideZeros: boolean): PDFRow[] => {
 // ── Column styles for compare ─────────────────────────────────────────────────
 
 const compareColStyles = (n: number, contentW: number): Record<number, any> => {
-    const nameW  = Math.min(80, contentW * 0.35);
-    const monthW = (contentW - nameW) / n;
+    // Shrink name column as month count grows to keep value columns readable
+    const maxName = n <= 4 ? 80 : n <= 6 ? 68 : n <= 9 ? 58 : 50;
+    const nameW   = Math.min(maxName, contentW * 0.30);
+    const monthW  = (contentW - nameW) / n;
     const styles: Record<number, any> = { 0: { cellWidth: nameW } };
     for (let i = 1; i <= n; i++) styles[i] = { cellWidth: monthW, halign: 'right' };
     return styles;
@@ -583,9 +585,9 @@ export const printBSPdf = (bsData: BSData, asOfDate: string, hideZeros = false) 
 
 // Balance Sheet — compare months
 export const printBSComparePdf = (items: BSMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
-    const n   = items.length;
-    const o   = orient(n);
-    const cw  = (o === 'landscape' ? 267 : 180) - MARGIN;
+    const n  = items.length;
+    const o  = orient(n);
+    const cw = (o === 'landscape' ? 297 : 210) - MARGIN * 2;
     return buildPDF({
         orientation: o,
         reportName:  'Balance Sheet',
@@ -613,7 +615,7 @@ export const printCFPdf = (cfData: CFData, dateFrom: string, dateTo: string, hid
 export const printCFComparePdf = (items: CFMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
     const n  = items.length;
     const o  = orient(n);
-    const cw = (o === 'landscape' ? 267 : 180) - MARGIN;
+    const cw = (o === 'landscape' ? 297 : 210) - MARGIN * 2;
     return buildPDF({
         orientation: o,
         reportName:  'Statement of Cash Flows',
@@ -641,7 +643,7 @@ export const printPLPdf = (plData: PLData, dateFrom: string, dateTo: string, hid
 export const printPLComparePdf = (items: PLMultiItem[], monthFrom: string, monthTo: string, hideZeros = false) => {
     const n  = items.length;
     const o  = orient(n);
-    const cw = (o === 'landscape' ? 267 : 180) - MARGIN;
+    const cw = (o === 'landscape' ? 297 : 210) - MARGIN * 2;
     return buildPDF({
         orientation: o,
         reportName:  'Profit & Loss',
