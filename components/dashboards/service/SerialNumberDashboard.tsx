@@ -79,21 +79,21 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
     }
   }, [activeTab, fetchModule]);
 
-  const openSerialNumberWindow = (id: string | null, initialReadOnly: boolean, prefillData?: Partial<SerialNumber>) => {
+  const openSerialNumberWindow = (id: string | null, prefillData?: Partial<SerialNumber>) => {
     const windowId = `serial-number-${id ?? 'new'}`;
     openWindow({
       id: windowId,
       title: id ? 'Serial Number' : 'Add Serial Number',
-      content: <SerialNumberWindowContent windowId={windowId} snId={id} initialReadOnly={initialReadOnly} prefillData={prefillData} />,
+      content: <SerialNumberWindowContent windowId={windowId} snId={id} prefillData={prefillData} />,
       draggable: true,
     });
   };
 
-  const handleOpenNew = () => openSerialNumberWindow(null, false);
-  const handleEdit = (row: SerialNumber) => openSerialNumberWindow(row.id!, false);
+  const handleOpenNew = () => openSerialNumberWindow(null);
+  const handleEdit = (row: SerialNumber) => openSerialNumberWindow(row.id!);
 
   const handleRegisterFromInvoice = (item: SoldItem) => {
-    openSerialNumberWindow(null, false, {
+    openSerialNumberWindow(null, {
       company_name: item.companyName,
       contact_name: item.contactName,
       so_no: item.soNo,
@@ -409,7 +409,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems
-                onOpenWindow={() => openSerialNumberWindow(row.id!, false)}
+                onOpenWindow={() => openSerialNumberWindow(row.id!)}
                 onEdit={can('serial_numbers', 'edit') ? () => handleEdit(row) : undefined}
                 onDelete={can('serial_numbers', 'delete') ? () => setSnToDelete(row) : undefined}
               />
