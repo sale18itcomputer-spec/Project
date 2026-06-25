@@ -470,7 +470,7 @@ export const SERIAL_NUMBER_HEADERS = [
   'id', 'serial_number', 'brand', 'model_name', 'description',
   'inventory_id', 'so_no', 'company_name', 'contact_name',
   'warranty_start_date', 'warranty_end_date', 'warranty_period_months',
-  'status', 'notes', 'created_by', 'created_at', 'updated_at',
+  'status', 'stock_status', 'notes', 'created_by', 'created_at', 'updated_at',
 ] as const;
 
 export const SERVICE_TICKET_HEADERS = [
