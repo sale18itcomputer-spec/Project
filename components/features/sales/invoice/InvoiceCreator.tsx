@@ -467,6 +467,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         const model = item.modelName?.trim();
 
                         let matchedInvId: string | null = null;
+                        let matchedInvBrand: string | null = null;
 
                         if (code || model) {
                             let invRows: any[] | null = null;
@@ -507,6 +508,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                     .eq('id', inv.id);
                                 deductedInventory = true;
                                 matchedInvId = inv.id;
+                                matchedInvBrand = inv.brand?.trim() || null;
 
                                 // Brand resolved with inventory fallback — used for BOTH COGS and revenue
                                 const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
@@ -555,7 +557,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 const { data: updatedSN, error: updErr } = await supabase
                                     .from('serial_numbers')
                                     .update({
-                                        brand: (code && brandMap.get(code)) || '',
+                                        brand: (code && brandMap.get(code)) || matchedInvBrand || '',
                                         model_name: item.modelName || '',
                                         description: item.description || '',
                                         inventory_id: matchedInvId,
@@ -583,7 +585,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 .from('serial_numbers')
                                 .insert({
                                     serial_number: sn,
-                                    brand: (code && brandMap.get(code)) || '',
+                                    brand: (code && brandMap.get(code)) || matchedInvBrand || '',
                                     model_name: item.modelName || '',
                                     description: item.description || '',
                                     inventory_id: matchedInvId,

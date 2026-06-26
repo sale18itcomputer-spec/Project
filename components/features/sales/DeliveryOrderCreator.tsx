@@ -329,6 +329,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         const model = item.modelName?.trim();
 
                         let matchedInvId: string | null = null;
+                        let matchedInvBrand: string | null = null;
 
                         if (code || model) {
                             let invRows: any[] | null = null;
@@ -369,6 +370,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                     .eq('id', inv.id);
 
                                 matchedInvId = inv.id;
+                                matchedInvBrand = inv.brand?.trim() || null;
                                 if (Number(inv.unit_price) > 0) {
                                     costItems.push({ brand: inv.brand ?? undefined, qty, unit_price: Number(inv.unit_price) });
                                 }
@@ -404,7 +406,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 const { data: updatedSN, error: updErr } = await supabase
                                     .from('serial_numbers')
                                     .update({
-                                        brand: (code && brandMap.get(code)) || '',
+                                        brand: (code && brandMap.get(code)) || matchedInvBrand || '',
                                         model_name: item.modelName || '',
                                         description: item.description || '',
                                         inventory_id: matchedInvId,
@@ -432,7 +434,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 .from('serial_numbers')
                                 .insert({
                                     serial_number: sn,
-                                    brand: (code && brandMap.get(code)) || '',
+                                    brand: (code && brandMap.get(code)) || matchedInvBrand || '',
                                     model_name: item.modelName || '',
                                     description: item.description || '',
                                     inventory_id: matchedInvId,
