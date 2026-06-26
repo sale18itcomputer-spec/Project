@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SerialNumber } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, runBatched, BatchResult, BulkActionConfig } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { Hash, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors, Plus, Package } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
@@ -43,6 +43,9 @@ const StockStatusBadge: React.FC<{ value: string }> = ({ value }) => (
     {value || 'In Stock'}
   </span>
 );
+
+const STATUS_FILTERS = ['All', 'Active', 'In Service', 'Returned', 'Written Off', 'Retired'];
+const STOCK_STATUS_FILTERS = ['All', 'In Stock', 'Sold'];
 
 interface SoldItem {
   _key: string;
@@ -119,6 +122,64 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       if (data) setSerialNumbers(prev => prev ? [data, ...prev] : [data]);
     }
   };
+
+  const handleCellEdit = async (row: SerialNumber, columnKey: keyof SerialNumber, newValue: any) => {
+    if (!row.id) return;
+    const { error } = await supabase.from('serial_numbers').update({ [columnKey]: newValue }).eq('id', row.id);
+    if (error) throw error;
+    setSerialNumbers(prev => prev ? prev.map(s => s.id === row.id ? { ...s, [columnKey]: newValue } : s) : prev);
+  };
+
+  const canEditSerials = can('serial_numbers', 'edit');
+  const canDeleteSerials = can('serial_numbers', 'delete');
+
+  const bulkActions = useMemo<BulkActionConfig<SerialNumber>[]>(() => {
+    const actions: BulkActionConfig<SerialNumber>[] = [];
+    if (canEditSerials) {
+      actions.push({
+        label: 'Mark In Stock',
+        confirmText: 'Mark In Stock',
+        onClick: (rows) => runBatched(rows, async (row): Promise<BatchResult> => {
+          try {
+            await handleCellEdit(row, 'stock_status', 'In Stock');
+            return { id: row.id!, success: true };
+          } catch (err: any) {
+            return { id: row.id!, success: false, error: err?.message || 'Failed' };
+          }
+        }),
+      });
+      actions.push({
+        label: 'Mark Sold',
+        confirmText: 'Mark Sold',
+        onClick: (rows) => runBatched(rows, async (row): Promise<BatchResult> => {
+          try {
+            await handleCellEdit(row, 'stock_status', 'Sold');
+            return { id: row.id!, success: true };
+          } catch (err: any) {
+            return { id: row.id!, success: false, error: err?.message || 'Failed' };
+          }
+        }),
+      });
+    }
+    if (canDeleteSerials) {
+      actions.push({
+        label: 'Delete Selected',
+        variant: 'danger',
+        confirmText: 'Delete',
+        onClick: (rows) => runBatched(rows, async (row): Promise<BatchResult> => {
+          try {
+            const { error } = await supabase.from('serial_numbers').delete().eq('id', row.id!);
+            if (error) throw error;
+            setSerialNumbers(prev => prev ? prev.filter(s => s.id !== row.id) : prev);
+            return { id: row.id!, success: true };
+          } catch (err: any) {
+            return { id: row.id!, success: false, error: err?.message || 'Failed' };
+          }
+        }),
+      });
+    }
+    return actions;
+  }, [canEditSerials, canDeleteSerials, setSerialNumbers]);
 
   // Build a brand lookup map from pricelist
   const brandByCode = useMemo(() => {
@@ -222,12 +283,18 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       header: 'Stock',
       isSortable: true,
       cell: (v: string) => <StockStatusBadge value={v} />,
+      editable: true,
+      editType: 'select',
+      editOptions: STOCK_STATUS_FILTERS.slice(1),
     },
     {
       accessorKey: 'status',
       header: 'Status',
       isSortable: true,
       cell: (v: string) => <StatusBadge value={v} />,
+      editable: true,
+      editType: 'select',
+      editOptions: STATUS_FILTERS.slice(1),
     },
   ], []);
 
@@ -253,9 +320,6 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
     () => allColumns.filter(c => c.accessorKey && visibleColumns.has(c.accessorKey as string)),
     [allColumns, visibleColumns]
   );
-
-  const STATUS_FILTERS = ['All', 'Active', 'In Service', 'Returned', 'Written Off', 'Retired'];
-  const STOCK_STATUS_FILTERS = ['All', 'In Stock', 'Sold'];
 
   return (
     <div className="h-full flex flex-col">
@@ -385,6 +449,12 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
             initialSort={{ key: 'created_at', direction: 'descending' }}
             cellWrapStyle={cellWrapStyle}
             mobilePrimaryColumns={['serial_number', 'brand', 'model_name', 'status']}
+            getRowId={(row) => row.id!}
+            onCellEdit={handleCellEdit}
+            onError={(msg) => addToast(msg, 'error')}
+            enableRowSelection
+            bulkActions={bulkActions}
+            enableFindReplace
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
                 <PermissionGate module="serial_numbers" action="edit">
