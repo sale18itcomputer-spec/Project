@@ -151,7 +151,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                     'Email': source?.['Email'] || (source as any)?.Email || '',
                     'Amount': inv ? Number(inv['Amount']) : 0,
                     'Currency': source?.['Currency'] || 'USD',
-                    'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                    'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.Taxable === 'VAT' ? 'VAT' : 'NON-VAT',
                     'Status': 'Draft',
                     'Payment Term': source?.['Payment Term'] || '',
                     'Tin No': company?.['Patent'] || '',
@@ -229,7 +229,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             'Email': (inv as any)?.Email || prev['Email'],
             'Amount': Number(inv['Amount']) || prev['Amount'],
             'Currency': inv['Currency'] || prev['Currency'],
-            'Tax Type': inv['Taxable'] === 'Yes' || inv['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+            'Tax Type': inv['Taxable'] === 'Yes' || inv['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
             'Payment Term': inv['Payment Term'] || prev['Payment Term'],
             'Tin No': inv['Tin No'] || company?.['Patent'] || prev['Tin No'],
         }));
