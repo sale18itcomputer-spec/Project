@@ -142,7 +142,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
       header: 'Remark',
       isSortable: false,
       cell: (value: string) => (
-        <p className="line-clamp-2 max-w-md text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {value}
         </p>
       )

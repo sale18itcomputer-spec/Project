@@ -333,7 +333,7 @@ const B2BPricelistDashboard: React.FC = () => {
             { accessorKey: 'Code', header: 'Code', isSortable: true, cell: (value: string) => <span className="font-semibold text-foreground">{value}</span> },
             { accessorKey: 'Brand', header: 'Brand', isSortable: true },
             { accessorKey: 'Model', header: 'Model', isSortable: true },
-            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-muted-foreground line-clamp-2 max-w-sm">{value}</p> },
+            { accessorKey: 'Description', header: 'Description', isSortable: false, cell: (value: string) => <p className="text-sm text-muted-foreground">{value}</p> },
             {
                 accessorKey: 'fullDescription',
                 header: 'Full Description',

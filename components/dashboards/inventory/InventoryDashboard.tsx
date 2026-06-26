@@ -209,7 +209,7 @@ const InventoryDashboard: React.FC = () => {
         header: 'Description',
         isSortable: false,
         cell: (value: string) => (
-          <p className="text-sm text-muted-foreground line-clamp-2 max-w-sm">{value || '—'}</p>
+          <p className="text-sm text-muted-foreground">{value || '—'}</p>
         ),
       },
       {
