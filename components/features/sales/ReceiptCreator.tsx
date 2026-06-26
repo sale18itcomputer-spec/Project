@@ -120,6 +120,19 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         return { subTotal, tax, grandTotal };
     }, [items, doc['Tax Type'], doc['Inv No'], invoices]);
 
+    // Correct stored Tax Type when linked invoice says otherwise (e.g. old
+    // receipts saved with Tax Type='VAT' on a NON-VAT invoice).
+    useEffect(() => {
+        if (!existingReceipt || !invoices || !doc['Inv No']) return;
+        const linkedInv = invoices.find(i => i['Inv No'] === doc['Inv No']);
+        if (!linkedInv) return;
+        const invoiceIsVAT = linkedInv['Taxable'] === 'VAT' || linkedInv['Taxable'] === 'Yes';
+        const storedIsVAT = doc['Tax Type'] === 'VAT';
+        if (storedIsVAT !== invoiceIsVAT) {
+            setDoc(prev => ({ ...prev, 'Tax Type': invoiceIsVAT ? 'VAT' : 'NON-VAT' }));
+        }
+    }, [existingReceipt, invoices, doc['Inv No']]);
+
     // Initialise
     useEffect(() => {
         if (!existingReceipt && hasDraft.current) return;
