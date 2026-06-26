@@ -390,7 +390,7 @@ const CollectionDashboard: React.FC = () => {
                         data={filteredRows}
                         columns={columns}
                         loading={false}
-                        initialSort={{ key: 'daysPastDue', direction: 'descending' }}
+                        initialSort={{ key: 'created_at', direction: 'descending' }}
                         mobilePrimaryColumns={['invoice', 'outstanding', 'collectionStatus']}
                         cellWrapStyle="nowrap"
                         renderRowActions={renderRowActions}

@@ -26,6 +26,7 @@ export interface InvoiceAR {
     collectionStatus: CollectionStatus;
     agingBucket: AgingBucket;
     receipts: Receipt[]; // matching receipts (Status != Cancelled), oldest first
+    created_at: string | undefined;
 }
 
 /** Parse payment-term strings like "Net 30", "30 days", "COD", "60" → number of days */
@@ -133,6 +134,7 @@ export function computeInvoiceAR(
         collectionStatus,
         agingBucket: getAgingBucket(daysPastDue),
         receipts: matching,
+        created_at: invoice.created_at,
     };
 }
 

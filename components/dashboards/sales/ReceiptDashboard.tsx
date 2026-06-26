@@ -234,7 +234,7 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                     <DataTable
                         tableId="rv-table" data={filteredData} columns={displayedColumns}
                         loading={loading} onRowClick={handleView}
-                        initialSort={{ key: 'RV Date', direction: 'descending' }}
+                        initialSort={{ key: 'created_at', direction: 'descending' }}
                         mobilePrimaryColumns={['RV No', 'Company Name', 'Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
                         renderRowActions={row => (
