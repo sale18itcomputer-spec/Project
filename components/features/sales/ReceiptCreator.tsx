@@ -106,14 +106,19 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
     }, [receipts]);
 
-    // Totals
+    // Totals — when a specific invoice is linked, derive VAT from the invoice's
+    // Taxable field (authoritative) rather than the stored receipt Tax Type,
+    // which can be wrong on existing records.
     const totals = useMemo(() => {
         const subTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-        const isTaxable = doc['Tax Type'] === 'VAT';
+        const linkedInv = invoices?.find(i => i['Inv No'] === doc['Inv No']);
+        const isTaxable = linkedInv
+            ? (linkedInv['Taxable'] === 'VAT' || linkedInv['Taxable'] === 'Yes')
+            : doc['Tax Type'] === 'VAT';
         const tax = isTaxable ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + tax;
         return { subTotal, tax, grandTotal };
-    }, [items, doc['Tax Type']]);
+    }, [items, doc['Tax Type'], doc['Inv No'], invoices]);
 
     // Initialise
     useEffect(() => {

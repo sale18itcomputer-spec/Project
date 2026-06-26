@@ -33,7 +33,8 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
     headerData, items, totals, currency, signaturePadding = 0
 }) => {
     const sym = getCurrencySymbol(currency);
-    const isVAT = headerData['Tax Type'] === 'VAT' || headerData['Taxable'] === 'Yes';
+    // isVAT is resolved after vatAmount is computed below — using totals.tax as
+    // source of truth so existing receipts with wrong Tax Type render correctly.
 
     const fmtNum = (v: number | string) => {
         const n = typeof v === 'number' ? v : parseFloat(String(v)) || 0;
@@ -62,8 +63,11 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
     displayItems.push(...promoItems);
 
     const subTotal = totals.subTotal;
-    const vatAmount = isVAT ? (totals.tax > 0 ? totals.tax : subTotal * 0.1) : 0;
-    const grandTotal = isVAT ? subTotal + vatAmount : subTotal;
+    // totals.tax is the source of truth — computed from the linked invoice's
+    // Taxable field in ReceiptCreator, so isVAT follows it, not Tax Type.
+    const vatAmount = totals.tax > 0 ? totals.tax : 0;
+    const isVAT = vatAmount > 0;
+    const grandTotal = subTotal + vatAmount;
 
     const tdBorder: React.CSSProperties = { border: '1px solid #000', padding: '4px 8px' };
 
