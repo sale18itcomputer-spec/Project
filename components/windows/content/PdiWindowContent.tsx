@@ -180,20 +180,20 @@ const PdiWindowContent: React.FC<PdiWindowContentProps> = ({ windowId, pdiId, in
     return (
         <form id={`pdi-window-form-${windowId}`} onSubmit={handleSave} className="space-y-6 max-h-full overflow-y-auto p-1 pr-2 custom-scrollbar">
             <FormSection title="PDI Information">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 @md:grid-cols-4 gap-4">
                     <FormInput name="pdi_no" label="PDI No" value={formData.pdi_no} onChange={handleChange} readOnly />
                     <FormInput name="pdi_date" label="Date" type="date" value={formData.pdi_date} onChange={handleChange} readOnly={isReadOnly} required />
                     <FormInput name="so_no" label="SO No" value={formData.so_no} onChange={handleChange} readOnly={isReadOnly} />
                     <FormSelect name="status" label="Status" value={formData.status} onChange={handleChange} options={STATUS_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 @md:grid-cols-2 gap-4">
                     <FormSelect name="overall_condition" label="Overall Condition" value={formData.overall_condition} onChange={handleChange} options={CONDITION_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                     <FormInput name="assigned_engineer" label="Assigned Engineer" value={formData.assigned_engineer} onChange={handleChange} readOnly={isReadOnly} />
                 </div>
             </FormSection>
 
             <FormSection title="Customer">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 @md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
                         <label className="text-sm font-medium text-muted-foreground/60">Company Name</label>
                         <SearchableSelect
@@ -222,7 +222,7 @@ const PdiWindowContent: React.FC<PdiWindowContentProps> = ({ windowId, pdiId, in
             <FormSection title="Inspection Details">
                 <FormTextarea name="inspection_notes" label="Inspection Notes" value={formData.inspection_notes} onChange={handleChange} rows={2} readOnly={isReadOnly} />
                 <FormTextarea name="software_installed" label="Software Installed" value={formData.software_installed} onChange={handleChange} rows={2} readOnly={isReadOnly} />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 @md:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2 mt-4">
                         <input type="checkbox" id={`warranty_seal_applied-${windowId}`} name="warranty_seal_applied" checked={!!formData.warranty_seal_applied} onChange={handleChange} disabled={isReadOnly} className="w-4 h-4 rounded border-border" />
                         <label htmlFor={`warranty_seal_applied-${windowId}`} className="text-sm font-medium">Warranty Seal Applied</label>
@@ -245,12 +245,12 @@ const PdiWindowContent: React.FC<PdiWindowContentProps> = ({ windowId, pdiId, in
                                     </button>
                                 )}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 @md:grid-cols-3 gap-3">
                                 <FormInput label="Serial Number" value={item.serial_number} onChange={e => handleItemChange(index, 'serial_number', e.target.value)} name={`sn-${windowId}-${index}`} readOnly={isReadOnly} />
                                 <FormInput label="Brand" value={item.brand} onChange={e => handleItemChange(index, 'brand', e.target.value)} name={`brand-${windowId}-${index}`} readOnly={isReadOnly} />
                                 <FormInput label="Model" value={item.model_name} onChange={e => handleItemChange(index, 'model_name', e.target.value)} name={`model-${windowId}-${index}`} readOnly={isReadOnly} />
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-2 @md:grid-cols-5 gap-3">
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs text-muted-foreground/60">Physical</label>
                                     <select value={item.physical_condition} onChange={e => handleItemChange(index, 'physical_condition', e.target.value)} disabled={isReadOnly} className="bg-muted border border-border rounded-lg p-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">

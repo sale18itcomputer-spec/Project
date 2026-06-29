@@ -61,7 +61,12 @@ const ServiceTicketDashboard: React.FC<{ initialFilter?: string }> = ({ initialF
       draggable: true,
       initialWidth: 900,
       initialHeight: 760,
-      minWidth: 640,
+      // Content area needs >=768px (minus 48px padding = ~816px window) to
+      // stay above the @md container-query breakpoint that keeps the header
+      // grid at 4 columns — below that it intentionally drops to 2 columns
+      // rather than truncating. Floor is set above that line so the window
+      // can never be resized small enough to trigger the narrower layout.
+      minWidth: 880,
       minHeight: 480,
     });
   };

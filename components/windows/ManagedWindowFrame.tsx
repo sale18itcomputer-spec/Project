@@ -228,7 +228,7 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                     </div>
                 </div>
 
-                <div className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border ${win.noPadding ? 'p-0' : 'p-6'}`}>
+                <div className={`@container flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border ${win.noPadding ? 'p-0' : 'p-6'}`}>
                     {win.content}
                 </div>
 

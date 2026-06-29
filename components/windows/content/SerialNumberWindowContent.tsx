@@ -307,7 +307,7 @@ const SerialNumberWindowContent: React.FC<SerialNumberWindowContentProps> = ({
                 </FormSection>
 
                 <FormSection title="Warranty">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 @md:grid-cols-3 gap-4">
                         <FormInput name="warranty_start_date" label="Start Date" type="date" value={formData.warranty_start_date ?? ''} onChange={handleChange} />
                         <FormInput name="warranty_end_date" label="End Date" type="date" value={formData.warranty_end_date ?? ''} onChange={handleChange} />
                         <FormInput name="warranty_period_months" label="Period (months)" type="number" value={formData.warranty_period_months ?? 12} onChange={handleChange} />

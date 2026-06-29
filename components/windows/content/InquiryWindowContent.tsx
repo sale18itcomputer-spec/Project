@@ -221,7 +221,7 @@ const InquiryWindowContent: React.FC<InquiryWindowContentProps> = ({ windowId, i
     <form id={`inquiry-form-${windowId}`} onSubmit={e => { e.preventDefault(); handleSave(); }} className="space-y-6">
 
       {/* Header fields */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 @lg:grid-cols-2 gap-6">
 
         {/* Left column */}
         <FormSection title="Inquiry Details">

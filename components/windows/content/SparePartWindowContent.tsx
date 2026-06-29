@@ -165,7 +165,7 @@ const SparePartWindowContent: React.FC<SparePartWindowContentProps> = ({ windowI
                 </FormSection>
 
                 <FormSection title="Stock">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 @md:grid-cols-4 gap-4">
                         <FormInput name="qty" label="Quantity" type="number" value={formData.qty ?? 0} onChange={handleChange} readOnly={isReadOnly} />
                         {isReadOnly ? (
                             <span className="text-sm py-1 self-end">{formData.unit}</span>
@@ -180,7 +180,7 @@ const SparePartWindowContent: React.FC<SparePartWindowContentProps> = ({ windowI
                         <FormInput name="min_qty" label="Min Qty" type="number" value={formData.min_qty ?? 1} onChange={handleChange} readOnly={isReadOnly} />
                         <FormInput name="location" label="Location" value={formData.location} onChange={handleChange} readOnly={isReadOnly} />
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 @md:grid-cols-3 gap-4">
                         <FormInput name="unit_cost" label="Unit Cost" type="number" value={formData.unit_cost ?? 0} onChange={handleChange} readOnly={isReadOnly} />
                         {isReadOnly ? (
                             <span className="text-sm py-1 self-end">{formData.currency}</span>

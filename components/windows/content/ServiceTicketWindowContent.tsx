@@ -207,13 +207,13 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
     return (
         <form id={`service-ticket-window-form-${windowId}`} onSubmit={handleSave} className="space-y-6 max-h-full overflow-y-auto p-1 pr-2 custom-scrollbar">
             <FormSection title="Ticket Information">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 @md:grid-cols-4 gap-4">
                     <FormInput name="ticket_no" label="Ticket No" value={formData.ticket_no} onChange={handleChange} readOnly />
                     <FormInput name="ticket_date" label="Date" type="date" value={formData.ticket_date} onChange={handleChange} readOnly={isReadOnly} required />
                     <FormSelect name="ticket_type" label="Type" value={formData.ticket_type} onChange={handleChange} options={TICKET_TYPE_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                     <FormSelect name="priority" label="Priority" value={formData.priority} onChange={handleChange} options={PRIORITY_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 @md:grid-cols-4 gap-4">
                     <FormSelect name="status" label="Status" value={formData.status} onChange={handleChange} options={STATUS_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                     <FormSelect name="warranty_status" label="Warranty" value={formData.warranty_status} onChange={handleChange} options={WARRANTY_OPTIONS as unknown as string[]} disabled={isReadOnly} />
                     <FormInput name="assigned_engineer" label="Assigned Engineer" value={formData.assigned_engineer} onChange={handleChange} readOnly={isReadOnly} />
@@ -226,7 +226,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
             </FormSection>
 
             <FormSection title="Customer">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 @md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1">
                         <label className="text-sm font-medium text-muted-foreground/60">Company Name</label>
                         <SearchableSelect
@@ -254,7 +254,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
             </FormSection>
 
             <FormSection title="Device Information">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 @md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1">
                         <label className="text-sm font-medium text-muted-foreground/60">Serial Number</label>
                         <SearchableSelect

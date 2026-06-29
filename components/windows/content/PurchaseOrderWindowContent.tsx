@@ -828,7 +828,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             </div>
 
             {/* Signature Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 @md:grid-cols-2 gap-6">
                 <FormSection title="Preparation">
                     <div className="grid grid-cols-1 gap-4">
                         <FormInput name="prepared_by" label="Prepared By" value={formData.prepared_by} onChange={handleInputChange} />

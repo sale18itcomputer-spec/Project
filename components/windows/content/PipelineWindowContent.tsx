@@ -476,7 +476,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
             >
                 {/* ── Core Details ────────────────────────────────────────── */}
                 <FormSection title="Core Details">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="grid grid-cols-1 @sm:grid-cols-2 gap-x-6 gap-y-4">
                         {isReadOnly ? <FormDisplay label="Pipeline No" value={formData['Pipeline No']} /> : <FormInput name="Pipeline No" label="Pipeline No" value={formData['Pipeline No'] || ''} onChange={handleChange} required readOnly />}
                         {isReadOnly ? <FormDisplay label="Created Date" value={formatToInputDate(formData['Created Date'])} /> : <FormInput name="Created Date" label="Create Date" value={formData['Created Date'] || ''} onChange={handleChange} type="date" required readOnly />}
                         {isReadOnly ? <FormDisplay label="Taxable" value={formData.Taxable} /> : <FormSelect name="Taxable" label="Taxable" value={formData.Taxable || ''} onChange={handleChange} options={TAXABLE_OPTIONS} required />}
@@ -489,7 +489,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
 
                 {/* ── Company & Contact ───────────────────────────────────── */}
                 <FormSection title="Company & Contact">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="grid grid-cols-1 @sm:grid-cols-2 gap-x-6 gap-y-4">
                         <div className="sm:col-span-1">
                             {isReadOnly ? <FormDisplay label="Company Name" value={formData['Company Name']} /> :
                                 <SearchableSelect
@@ -524,7 +524,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
 
                 {/* ── Deal Financials & Documents ─────────────────────────── */}
                 <FormSection title="Deal Financials & Documents">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
+                    <div className="grid grid-cols-1 @sm:grid-cols-3 gap-x-6 gap-y-4">
                         {isReadOnly ? <FormDisplay label="Total Amount" value={formData['Total Amount']} /> : <FormInput name="Total Amount" label="Total Amount" value={formData['Total Amount'] ?? ''} onChange={handleChange} type="text" placeholder="e.g., 5000" />}
                         {isReadOnly ? <FormDisplay label="Win Rate (%)" value={formData['Win Rate'] != null ? `${formData['Win Rate']}%` : ''} /> : <FormInput name="Win Rate" label="Win Rate (%)" value={formData['Win Rate'] ?? ''} onChange={handleChange} type="number" placeholder="0-100" />}
                         {isReadOnly ? <FormDisplay label="Currency" value={formData.Currency} /> : <FormSelect name="Currency" label="Currency" value={formData.Currency || ''} onChange={handleChange} options={CURRENCY_OPTIONS} />}
@@ -536,7 +536,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
                     {/* Reference Links */}
                     <div className="mt-6 pt-4 border-t border-border/60">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-4">Reference Links</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                        <div className="grid grid-cols-1 @sm:grid-cols-2 gap-x-6 gap-y-4">
                             {/* Ref-Product Inquiries */}
                             {isReadOnly ? (
                                 <FormDisplay label="Ref-Product Inquiry">

@@ -118,7 +118,7 @@ const ConsignmentWindowContent: React.FC<ConsignmentWindowContentProps> = ({ win
             {/* Header fields */}
             <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Voucher Details</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 @md:grid-cols-3 gap-3">
                     <FieldInput label="Voucher No" value={header.voucher_no || ''} onChange={v => setHeader(p => ({ ...p, voucher_no: v }))} placeholder="e.g. KHST0005868" required />
                     <FieldInput label="Transfer Date" value={header.transfer_date || ''} onChange={v => setHeader(p => ({ ...p, transfer_date: v }))} type="date" required />
                     <div>
