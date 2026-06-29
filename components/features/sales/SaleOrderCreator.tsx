@@ -631,8 +631,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
         }));
     };
 
-    const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const contactName = e.target.value;
+    const handleContactChange = (contactName: string) => {
         const contact = contacts?.find(c => c.Name === contactName);
         setSaleOrder(prev => ({
             ...prev,
@@ -1012,15 +1011,14 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                     <FormInput label="Company Address" name="Company Address" value={saleOrder['Company Address'] || ''} onChange={handleHeaderChange} />
                                     <div className="md:col-span-1">
                                         <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Contact Person</label>
-                                        <select
-                                            name="Contact Name"
+                                        <SearchableSelect
+                                            options={contactOptions}
                                             value={saleOrder['Contact Name'] || ''}
                                             onChange={handleContactChange}
-                                            className="w-full text-sm p-2.5 bg-input border border-border rounded-md focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground"
-                                        >
-                                            <option value="">-- Select Contact --</option>
-                                            {contactOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
+                                            disabled={!saleOrder['Company Name']}
+                                            placeholder={saleOrder['Company Name'] ? 'Search or type contact...' : 'Select a company first'}
+                                            allowCustomValue
+                                        />
                                     </div>
                                     <FormInput label="Phone" name="Phone Number" value={saleOrder['Phone Number'] || ''} onChange={handleHeaderChange} />
                                     <FormInput label="Email" name="Email" type="email" value={saleOrder.Email || ''} onChange={handleHeaderChange} />
