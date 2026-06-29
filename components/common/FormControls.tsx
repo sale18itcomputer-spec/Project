@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
 // A more professional, modern card-based section for forms.
 // Increased padding, uses a clean white background with a subtle shadow.
@@ -45,7 +47,13 @@ export const FormInput: React.FC<{ name: string; label: string; value: any; onCh
         </div>
     );
 
-// Updated select with styles consistent with the new FormInput.
+// Custom-styled select — looks like FormInput's siblings and matches the
+// dark theme exactly, unlike a native <select> whose open option list is
+// rendered by the OS/browser and can't be restyled with CSS. A visually
+// hidden native <select> stays mounted underneath in sync with `value` so
+// forms that rely on native `required` constraint validation on submit
+// (several do, via a plain e.preventDefault() + no JS-side required check)
+// keep blocking incomplete submissions exactly as before.
 export const FormSelect: React.FC<{
     name: string;
     label: string;
@@ -57,31 +65,173 @@ export const FormSelect: React.FC<{
     disabledPlaceholder?: string;
     actionButton?: React.ReactNode;
 }> = ({ name, label, value, onChange, options, required = false, disabled = false, disabledPlaceholder, actionButton }) => {
-    const getPlaceholder = () => {
-        if (disabled) {
-            return disabledPlaceholder || `Select ${label}`;
+    const [isOpen, setIsOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | null>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const listId = useId();
+
+    const getPlaceholder = () => disabled ? (disabledPlaceholder || `Select ${label}`) : `Select ${label}`;
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            const insideWrapper = wrapperRef.current && wrapperRef.current.contains(target);
+            const insideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+            if (!insideWrapper && !insideDropdown) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Same floating-window-aware positioning as SearchableSelect: portal to
+    // <body> and poll via rAF (drag/resize never fire resize/scroll events).
+    useEffect(() => {
+        if (!isOpen) {
+            setDropdownStyle(null);
+            return;
         }
-        return `Select ${label}`;
-    }
+        let frameId: number;
+        let lastKey = '';
+        const updatePosition = () => {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (rect) {
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const openUpward = spaceBelow < 200 && rect.top > spaceBelow;
+                const width = Math.max(rect.width, 200);
+                const left = Math.min(rect.left, window.innerWidth - width - 8);
+                const key = `${left}|${width}|${rect.top}|${rect.bottom}|${openUpward}`;
+                if (key !== lastKey) {
+                    lastKey = key;
+                    setDropdownStyle(openUpward
+                        ? { position: 'fixed', left, width, bottom: window.innerHeight - rect.top + 8, zIndex: 1000001 }
+                        : { position: 'fixed', left, width, top: rect.bottom + 8, zIndex: 1000001 }
+                    );
+                }
+            }
+            frameId = requestAnimationFrame(updatePosition);
+        };
+        frameId = requestAnimationFrame(updatePosition);
+        return () => cancelAnimationFrame(frameId);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const idx = options.findIndex(o => o === value);
+        setActiveIndex(idx >= 0 ? idx : 0);
+    }, [isOpen, value, options]);
+
+    useEffect(() => {
+        if (isOpen) optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+    }, [activeIndex, isOpen]);
+
+    const commit = (opt: string) => {
+        onChange({ target: { name, value: opt, type: 'select-one' } } as unknown as React.ChangeEvent<HTMLSelectElement>);
+        setIsOpen(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!isOpen) { setIsOpen(true); return; }
+            setActiveIndex(i => Math.min(i + 1, options.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!isOpen) { setIsOpen(true); return; }
+            setActiveIndex(i => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (isOpen && options[activeIndex] !== undefined) commit(options[activeIndex]);
+            else setIsOpen(o => !o);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+        }
+    };
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col relative" ref={wrapperRef}>
             <div className="flex justify-between items-baseline mb-1.5">
                 <label htmlFor={name} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">{label}{required && <span className="text-rose-500 ml-1">*</span>}</label>
                 {actionButton}
             </div>
-            <select
-                name={name}
-                id={name}
-                value={value || ''}
-                onChange={onChange}
-                required={required}
-                disabled={disabled}
-                className="block w-full px-3.5 py-2.5 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:bg-background focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:text-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:border-muted-foreground/40 dark:[color-scheme:dark]"
-            >
-                <option value="" disabled className="bg-card">{getPlaceholder()}</option>
-                {options.map(opt => <option key={opt} value={opt} className="bg-card">{opt}</option>)}
-            </select>
+            <div className="relative">
+                <button
+                    ref={triggerRef}
+                    type="button"
+                    id={name}
+                    disabled={disabled}
+                    onClick={() => setIsOpen(o => !o)}
+                    onKeyDown={handleKeyDown}
+                    role="combobox"
+                    aria-haspopup="listbox"
+                    aria-expanded={isOpen}
+                    aria-controls={listId}
+                    aria-activedescendant={isOpen ? `${listId}-option-${activeIndex}` : undefined}
+                    className={`flex items-center justify-between w-full px-3.5 py-2.5 bg-input border rounded-lg text-left sm:text-sm transition-colors duration-150
+                        ${isOpen ? 'border-brand-500 ring-2 ring-brand-500/20 bg-background' : 'border-border hover:border-muted-foreground/40'}
+                        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                        ${!value ? 'text-muted-foreground' : 'text-foreground'}
+                    `}
+                >
+                    <span className="truncate">{value || getPlaceholder()}</span>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 ml-2 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <select
+                    name={name}
+                    value={value || ''}
+                    onChange={() => {}}
+                    required={required}
+                    disabled={disabled}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="absolute inset-0 opacity-0 pointer-events-none"
+                >
+                    <option value="" disabled>{getPlaceholder()}</option>
+                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+            </div>
+
+            {isOpen && !disabled && dropdownStyle && typeof document !== 'undefined' && createPortal(
+                <div
+                    ref={dropdownRef}
+                    id={listId}
+                    role="listbox"
+                    style={dropdownStyle}
+                    className="bg-card rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.25)] border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+                >
+                    <ScrollArea className={options.length > 7 ? 'h-[280px]' : ''}>
+                        <div className="p-1.5 space-y-0.5">
+                            {options.map((opt, index) => (
+                                <button
+                                    key={opt}
+                                    ref={el => { optionRefs.current[index] = el; }}
+                                    id={`${listId}-option-${index}`}
+                                    role="option"
+                                    aria-selected={value === opt}
+                                    type="button"
+                                    onClick={() => commit(opt)}
+                                    onMouseEnter={() => setActiveIndex(index)}
+                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-left transition-colors duration-150
+                                        ${value === opt
+                                            ? 'bg-brand-500/10 text-brand-600 font-semibold'
+                                            : index === activeIndex
+                                            ? 'bg-muted text-foreground'
+                                            : 'text-foreground hover:bg-muted'}
+                                    `}
+                                >
+                                    <span className="truncate">{opt}</span>
+                                    {value === opt && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
+                                </button>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
@@ -180,6 +330,12 @@ export const FormSearchSelect: React.FC<{
 
                 {isOpen && (
                     <div className="absolute z-[200] w-full mt-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                        {filtered.length > 0 && (
+                            <div className="px-3.5 py-2 border-b border-border/60 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+                                {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
+                                {filtered.length > 5 && <span className="text-muted-foreground/50 font-normal"> · scroll for more</span>}
+                            </div>
+                        )}
                         <div className="max-h-56 overflow-y-auto custom-scrollbar">
                             {filtered.length > 0 ? filtered.map(opt => (
                                 <button
