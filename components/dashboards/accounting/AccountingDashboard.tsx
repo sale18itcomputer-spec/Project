@@ -1425,7 +1425,9 @@ export default function AccountingDashboard() {
                 a.account_type.toLowerCase().includes(q)
             );
         }
-        return result;
+        return [...result].sort((a, b) =>
+            a.account_number.localeCompare(b.account_number, undefined, { numeric: true })
+        );
     }, [accounts, showHidden, coaSearch]);
 
     const parentOptions = useMemo(() =>
@@ -1470,7 +1472,7 @@ export default function AccountingDashboard() {
                     is_hidden:             false,
                     sort_order:            accounts.length * 10 + 10,
                 });
-                setAccounts(prev => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+                setAccounts(prev => [...prev, created].sort((a, b) => a.account_number.localeCompare(b.account_number, undefined, { numeric: true })));
                 addToast('Account created.', 'success');
                 setShowNewAccountForm(false);
                 setNewAccountForm({ account_number: '', account_name: '', parent_account_number: null, account_type: 'Expense', description: '', is_hidden: false });
