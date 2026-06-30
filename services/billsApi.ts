@@ -110,6 +110,17 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     if (billErr) throw new Error(billErr.message);
     if (bill.status !== 'draft') throw new Error('Bill is already posted.');
 
+    // Idempotency guard: catch duplicate posts even if status update failed previously
+    const { data: existingJe } = await supabase
+        .from('journal_entries')
+        .select('id, entry_number')
+        .eq('source', 'bill')
+        .eq('reference', bill.bill_number)
+        .maybeSingle();
+    if (existingJe?.id) throw new Error(
+        `${bill.bill_number} already has a journal entry (${existingJe.entry_number}). Refresh the page — the bill may already be posted.`
+    );
+
     const { data: lines, error: linesErr } = await supabase
         .from('bill_lines').select('*').eq('bill_id', id);
     if (linesErr) throw new Error(linesErr.message);
