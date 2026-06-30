@@ -790,6 +790,7 @@ export interface Bill {
     bill_type: 'vendor' | 'inter';
     vendor_name?: string;
     po_reference?: string;
+    vendor_reference?: string;
     bill_date: string;
     due_date?: string;
     description: string;

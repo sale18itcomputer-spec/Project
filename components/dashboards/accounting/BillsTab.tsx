@@ -66,6 +66,7 @@ const emptyHeader = (): Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>
     bill_type: 'inter',
     vendor_name: '',
     po_reference: '',
+    vendor_reference: '',
     bill_date: getTodayISO(),
     due_date: '',
     description: '',
@@ -244,6 +245,20 @@ const BillFormModal: React.FC<{
                                 onChange={e => setHeader(h => ({ ...h, bill_date: e.target.value }))}
                                 className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
                         </div>
+                    </div>
+
+                    {/* Vendor reference */}
+                    <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                            Vendor Ref / Voucher No. <span className="text-muted-foreground/50 font-normal">(from vendor's document)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={header.vendor_reference ?? ''}
+                            onChange={e => setHeader(h => ({ ...h, vendor_reference: e.target.value }))}
+                            placeholder="e.g. INV-2026-0123, VCH-00456"
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                        />
                     </div>
 
                     {/* Vendor / PO ref */}
@@ -687,6 +702,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                             <tr>
                                 <th className="w-6" />
                                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Bill #</th>
+                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor Ref</th>
                                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
                                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor / Issuer</th>
                                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
@@ -707,6 +723,9 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                                             </button>
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-foreground">{bill.bill_number}</td>
+                                        <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">
+                                            {bill.vendor_reference || <span className="text-muted-foreground/30">—</span>}
+                                        </td>
                                         <td className="px-3 py-2.5">
                                             <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${TYPE_BADGE[bill.bill_type]}`}>
                                                 {bill.bill_type === 'vendor' ? 'Vendor' : 'Inter'}
