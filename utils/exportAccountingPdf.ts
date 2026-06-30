@@ -83,18 +83,21 @@ const drawTitle = (doc: any, reportName: string, dateStr: string, pageW: number)
     const cx = pageW / 2;
     let y = MARGIN + 2;
 
-    doc.setFontSize(10.5);
+    // Company name — largest, primary identity
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
     doc.text('LIMPERIAL TECHNOLOGY CO., LTD.', cx, y, { align: 'center' });
-    y += 8;
+    y += 9;
 
-    doc.setFontSize(17);
+    // Report name — secondary, smaller than company
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(BODY[0], BODY[1], BODY[2]);
     doc.text(reportName, cx, y, { align: 'center' });
-    y += 8;
+    y += 7;
 
+    // Date — tertiary, muted
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);

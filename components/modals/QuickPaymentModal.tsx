@@ -49,7 +49,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
 
     // ── Form state ────────────────────────────────────────────────────────────
     const [paymentMethod, setPaymentMethod] = useState<NonNullable<Receipt['Payment Method']>>('Cash');
-    const [amountStr, setAmountStr] = useState<string>(() => ar.outstanding.toFixed(2));
+    const [amountStr, setAmountStr] = useState<string>('');
     const [rvDate, setRvDate] = useState<string>(getTodayDateString());
     const [remark, setRemark] = useState<string>('');
 
@@ -297,18 +297,28 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                         </div>
 
                         <div>
-                            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">
-                                Amount Received ({sym}) <span className="text-rose-500">*</span>
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                                    Amount Received ({sym}) <span className="text-rose-500">*</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setAmountStr(ar.outstanding.toFixed(2))}
+                                    disabled={isSubmitting}
+                                    className="text-[10px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-40"
+                                >
+                                    Fill full ({sym}{ar.outstanding.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                </button>
+                            </div>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0.01"
-                                max={ar.outstanding}
                                 value={amountStr}
                                 onChange={e => setAmountStr(e.target.value)}
                                 disabled={isSubmitting}
                                 required
+                                placeholder={`Enter amount (max ${ar.outstanding.toFixed(2)})`}
                                 className={`w-full bg-background border rounded-md px-3 py-2 text-sm font-mono tabular-nums focus:ring-2 transition ${overpayment ? 'border-rose-500 focus:ring-rose-500' : 'border-border focus:ring-brand-500'}`}
                             />
                         </div>
