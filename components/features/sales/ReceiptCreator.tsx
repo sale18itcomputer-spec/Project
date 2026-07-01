@@ -73,6 +73,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     const draftKey = existingReceipt ? `rv-edit-${existingReceipt['RV No']}` : 'rv-new';
     const draft = useRef(readFormDraft<{ doc: Partial<Receipt>; items: LineItem[] }>(draftKey)).current;
     const hasDraft = useRef(!!draft);
+    const submitted = useRef(false);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
@@ -208,6 +209,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     useEffect(() => {
         if (existingReceipt) return;
         if (!doc['RV No']) return;
+        if (submitted.current) return;
         saveDraft({ doc, items });
         setHasDraftState(true);
     }, [doc, items, saveDraft, existingReceipt]);
@@ -346,6 +348,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 setReceipts(cur => cur ? [payload as Receipt, ...cur] : [payload as Receipt]);
             }
             refetchModule('Receipts');
+            submitted.current = true;
             clearDraft();
             setHasDraftState(false);
             setSuccessInfo({ rvNo: doc['RV No']! });

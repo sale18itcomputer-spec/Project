@@ -69,6 +69,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const draftKey = existingInvoice ? `inv-edit-${existingInvoice['Inv No']}` : 'inv-new';
     const draft = useRef(readFormDraft<{ invoice: Partial<Invoice & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
     const hasDraft = useRef(!!draft);
+    const submitted = useRef(false);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
     const autoSavedFromSORef = useRef(false);
@@ -213,6 +214,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
     useEffect(() => {
         if (!invoice['Inv No']) return;
+        if (submitted.current) return;
         saveDraft({ invoice, items });
         setHasDraftState(true);
     }, [invoice, items, saveDraft]);
@@ -650,6 +652,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             if (deductedInventory) refetchModule('Inventory');
             if (syncedSerials) refetchModule('Serial Numbers');
 
+            submitted.current = true;
             clearDraft();
             setHasDraftState(false);
             setSuccessInfo({ invNo: invoice['Inv No'] });

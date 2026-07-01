@@ -199,6 +199,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const draftKey = existingQuotation ? `quote-edit-${existingQuotation['Quote No']}` : 'quote-new';
     const draft = useRef(readFormDraft<{ quote: Partial<Quotation & { [key: string]: any }>; items: LineItem[] }>(draftKey)).current;
     const hasDraft = useRef(!!draft);
+    const submitted = useRef(false);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
@@ -355,6 +356,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
     useEffect(() => {
         if (!quote['Quote No']) return;
+        if (submitted.current) return;
         saveDraft({ quote, items });
         setHasDraftState(true);
     }, [quote, items, saveDraft]);
@@ -666,6 +668,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 }
             });
 
+            submitted.current = true;
             clearDraft();
             setHasDraftState(false);
             // Handle "Close (Win)" auto-conversion logic

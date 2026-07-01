@@ -287,6 +287,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const draftKey = existingSaleOrder ? `so-edit-${existingSaleOrder['SO No']}` : 'so-new';
     const draft = useRef(readFormDraft<{ saleOrder: Partial<SaleOrder & { [key: string]: any }>; items: LineItem[]; selectedSoftware: string[] }>(draftKey)).current;
     const hasDraft = useRef(!!draft);
+    const submitted = useRef(false);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
@@ -502,6 +503,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
 
     useEffect(() => {
         if (!saleOrder['SO No']) return;
+        if (submitted.current) return;
         saveDraft({ saleOrder, items, selectedSoftware });
         setHasDraftState(true);
     }, [saleOrder, items, selectedSoftware, saveDraft]);
@@ -728,6 +730,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             } else {
                 setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
             }
+            submitted.current = true;
             clearDraft();
             setHasDraftState(false);
             setSuccessInfo({ soNo: masterSheetData['SO No'] });

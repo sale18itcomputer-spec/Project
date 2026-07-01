@@ -70,6 +70,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const draftKey = existingDO ? `do-edit-${existingDO['DO No']}` : 'do-new';
     const draft = useRef(readFormDraft<{ doc: Partial<DeliveryOrder & { 'Tin No'?: string }>; items: LineItem[] }>(draftKey)).current;
     const hasDraft = useRef(!!draft);
+    const submitted = useRef(false);
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
 
@@ -159,6 +160,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
 
     useEffect(() => {
         if (!doc['DO No']) return;
+        if (submitted.current) return;
         saveDraft({ doc, items });
         setHasDraftState(true);
     }, [doc, items, saveDraft]);
@@ -472,6 +474,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
 
             refetchModule('Delivery Orders');
             if (syncedSerials) refetchModule('Serial Numbers');
+            submitted.current = true;
             clearDraft();
             setHasDraftState(false);
             setSuccessInfo({ doNo: doc['DO No']! });
