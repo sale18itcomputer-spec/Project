@@ -380,7 +380,17 @@ const BSSection: React.FC<{
         }
     };
 
-    const relevant = lines.filter(l => l.balance !== 0 || l.is_parent);
+    // Roll up children balances into parent display totals
+    const childrenSum: Record<string, number> = {};
+    lines.forEach(l => {
+        if (l.parent_account_number) {
+            childrenSum[l.parent_account_number] = (childrenSum[l.parent_account_number] ?? 0) + l.balance;
+        }
+    });
+    const getDisplayBalance = (l: BalanceSheetLine): number =>
+        l.is_parent ? l.balance + (childrenSum[l.account_number] ?? 0) : l.balance;
+
+    const relevant = lines.filter(l => getDisplayBalance(l) !== 0);
     if (relevant.length === 0 && total === 0) return null;
 
     return (
@@ -391,6 +401,7 @@ const BSSection: React.FC<{
             {relevant.length === 0
                 ? <p className="text-xs text-muted-foreground italic px-1 py-1.5">No balances</p>
                 : relevant.map(l => {
+                    const displayBal = getDisplayBalance(l);
                     const isExpanded = expandedAcct === l.account_number;
                     const detail     = detailCache[l.account_number];
                     const isLoading  = loadingAcct === l.account_number;
@@ -410,8 +421,8 @@ const BSSection: React.FC<{
                                     }
                                     {l.account_number} · {l.account_name}
                                 </span>
-                                <span className={`text-sm tabular-nums ml-4 shrink-0 ${l.balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
-                                    {l.balance < 0 ? `(${fmt(Math.abs(l.balance))})` : fmt(l.balance)}
+                                <span className={`text-sm tabular-nums ml-4 shrink-0 ${displayBal < 0 ? 'text-red-500 dark:text-red-400' : 'text-foreground'}`}>
+                                    {displayBal < 0 ? `(${fmt(Math.abs(displayBal))})` : fmt(displayBal)}
                                 </span>
                             </button>
                             {isExpanded && (
@@ -807,8 +818,17 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
         return [...seen.values()].sort((a, b) => a.account_number.localeCompare(b.account_number));
     };
 
-    const getBal = (d: D, num: string) =>
-        [...d.assets, ...d.liabilities, ...d.equity].find(l => l.account_number === num)?.balance ?? 0;
+    const getBal = (d: D, num: string): number => {
+        const all = [...d.assets, ...d.liabilities, ...d.equity];
+        const found = all.find(l => l.account_number === num);
+        if (!found) return 0;
+        if (found.is_parent) {
+            return all
+                .filter(l => l.parent_account_number === num)
+                .reduce((s, l) => s + l.balance, found.balance);
+        }
+        return found.balance;
+    };
 
     const fmtCell = (v: number) => v === 0 ? '—' : v < 0 ? `($${fmt(Math.abs(v))})` : `$${fmt(v)}`;
 
