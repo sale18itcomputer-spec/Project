@@ -821,7 +821,8 @@ export const autoPostInvoiceJournal = async (params: {
 };
 
 /** Auto-create a draft journal entry for a recorded receipt (payment).
- *  DR Bank account / CR Accounts Receivable 11900
+ *  Non-VAT: DR Bank / CR AR 11900 (gross)
+ *  VAT:     DR Bank / CR AR 11900 (net ex-VAT) / CR VAT Output 23000 (VAT portion)
  */
 export const autoPostReceiptJournal = async (params: {
     rvNo: string;
@@ -829,6 +830,7 @@ export const autoPostReceiptJournal = async (params: {
     amount: number;
     paymentMethod: string;
     createdBy: string;
+    taxType?: string;
 }): Promise<void> => {
     // Idempotent: skip if an auto-entry for this receipt already exists
     const { data: existing } = await supabase
@@ -841,6 +843,35 @@ export const autoPostReceiptJournal = async (params: {
 
     const bankAccount = PAYMENT_METHOD_TO_ACCOUNT[params.paymentMethod] ?? '11100';
     const entryNumber = await getNextEntryNumber();
+    const isVAT = params.taxType === 'VAT';
+
+    // For VAT receipts, split the gross amount: net (÷1.1) to AR, VAT portion (×10/11) to 23000
+    const arAmount  = isVAT ? Math.round((params.amount / 1.1) * 100) / 100 : params.amount;
+    const vatAmount = isVAT ? Math.round((params.amount - arAmount) * 100) / 100 : 0;
+
+    const lines: { account_number: string; description: string; debit: number; credit: number }[] = [
+        {
+            account_number: bankAccount,
+            description: `Bank — ${params.rvNo}`,
+            debit: params.amount,
+            credit: 0,
+        },
+        {
+            account_number: '11900',
+            description: `AR collection — ${params.rvNo}`,
+            debit: 0,
+            credit: arAmount,
+        },
+    ];
+
+    if (isVAT && vatAmount > 0) {
+        lines.push({
+            account_number: '23000',
+            description: `VAT Output — ${params.rvNo}`,
+            debit: 0,
+            credit: vatAmount,
+        });
+    }
 
     await createJournalEntry(
         {
@@ -852,20 +883,7 @@ export const autoPostReceiptJournal = async (params: {
             is_posted: true,
             source: 'receipt',
         },
-        [
-            {
-                account_number: bankAccount,
-                description: `Bank — ${params.rvNo}`,
-                debit: params.amount,
-                credit: 0,
-            },
-            {
-                account_number: '11900',
-                description: `AR collection — ${params.rvNo}`,
-                debit: 0,
-                credit: params.amount,
-            },
-        ],
+        lines,
     );
 };
 

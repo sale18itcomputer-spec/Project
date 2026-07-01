@@ -198,6 +198,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                 amount,
                 paymentMethod,
                 createdBy: currentUser?.Name || 'system',
+                taxType: invoice['Tax Type'] === 'VAT' || invoice['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
             }).catch(err => console.warn('[QuickPaymentModal] auto-post failed:', err));
 
             addToast(
