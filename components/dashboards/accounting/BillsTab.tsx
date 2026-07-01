@@ -12,7 +12,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt, Download } from 'lucide-react';
+import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt, Download, AlertTriangle } from 'lucide-react';
 import { exportBills } from '../../../utils/exportAccountingXlsx';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -386,7 +386,7 @@ const BillFormModal: React.FC<{
                                             <td className="px-3 py-1.5">
                                                 <select value={l.account_number}
                                                     onChange={e => updateLine(l.key, 'account_number', e.target.value)}
-                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600">
+                                                    className={`w-full h-8 px-2 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 ${l.account_number === '12600' ? 'border-amber-400 dark:border-amber-500' : 'border-border'}`}>
                                                     <option value="">— Select account —</option>
                                                     {billLineAccounts.map(a => (
                                                         <option key={a.account_number} value={a.account_number}>
@@ -394,6 +394,12 @@ const BillFormModal: React.FC<{
                                                         </option>
                                                     ))}
                                                 </select>
+                                                {l.account_number === '12600' && (
+                                                    <div className="flex items-center gap-1 mt-0.5 text-amber-600 dark:text-amber-400">
+                                                        <AlertTriangle size={10} />
+                                                        <span className="text-[10px]">Fallback — verify brand (ASUS→12100, MSI→12300, Lenovo→12700)</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 <input type="number" value={l.qty} min="0"
@@ -555,6 +561,17 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     };
 
     const handlePost = async (bill: Bill) => {
+        if (bill.bill_type === 'vendor') {
+            const fallback = (bill.lines ?? []).filter(l => l.account_number === '12600');
+            if (fallback.length > 0) {
+                const ok = confirm(
+                    `⚠ ${bill.bill_number} has ${fallback.length} line(s) mapped to 12600 · Other Accessories.\n\n` +
+                    `This is the fallback used when no brand is recognised. If any line contains ASUS, MSI or Lenovo items, edit the bill and correct the account first:\n` +
+                    `  ASUS → 12100\n  MSI → 12300\n  Lenovo → 12700\n\nPost anyway?`
+                );
+                if (!ok) return;
+            }
+        }
         setBusy(b => ({ ...b, [bill.id!]: true }));
         try {
             const updated = await postBill(bill.id!, currentUser?.Email ?? 'system');
