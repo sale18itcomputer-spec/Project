@@ -390,8 +390,8 @@ const BSSection: React.FC<{
     const getDisplayBalance = (l: BalanceSheetLine): number =>
         l.is_parent ? l.balance + (childrenSum[l.account_number] ?? 0) : l.balance;
 
-    const relevant = lines.filter(l => getDisplayBalance(l) !== 0);
-    if (relevant.length === 0 && total === 0) return null;
+    const relevant = lines;
+    if (relevant.length === 0) return null;
 
     return (
         <div className="mb-3">
