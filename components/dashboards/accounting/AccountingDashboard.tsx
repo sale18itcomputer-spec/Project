@@ -667,10 +667,13 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
     };
 
     const head = (k: string, label: string, cls: string, textCls: string) => (
-        <tr key={k} className={cls}><td colSpan={n + 1} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
+        <tr key={k} className={cls}><td colSpan={n + 2} className={`sticky left-0 ${cls} px-4 py-2`}><span className={`text-[10px] font-bold uppercase tracking-[0.15em] ${textCls}`}>{label}</span></td></tr>
     );
 
-    const acctRow = (k: string, label: string, num: string, negate?: boolean) => (
+    const acctRow = (k: string, label: string, num: string, negate?: boolean) => {
+        const total = cols.reduce((s, c) => s + getAcctBal(c.data, num), 0);
+        const displayedTotal = negate ? -total : total;
+        return (
         <tr key={k} className="border-b border-border/10 hover:bg-muted/20">
             <td className="sticky left-0 z-10 bg-background px-4 pl-10 py-1.5 text-sm text-muted-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
@@ -683,10 +686,16 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
                     </td>
                 );
             })}
+            <td className={`px-4 py-1.5 text-right text-sm tabular-nums font-semibold border-l-2 border-border/60 bg-muted/20 ${displayedTotal < 0 ? 'text-red-500 dark:text-red-400' : displayedTotal === 0 ? 'text-muted-foreground/30' : 'text-foreground'}`}>
+                {fmtAmt3(total, negate)}
+            </td>
         </tr>
-    );
+        );
+    };
 
-    const subtotal = (k: string, label: string, getVal: (d: D) => number, color: string, negate?: boolean) => (
+    const subtotal = (k: string, label: string, getVal: (d: D) => number, color: string, negate?: boolean) => {
+        const total = cols.reduce((s, c) => s + getVal(c.data), 0);
+        return (
         <tr key={k} className="border-t border-border/40 bg-muted/10">
             <td className="sticky left-0 z-10 bg-muted/10 px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
@@ -698,10 +707,16 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
                     </td>
                 );
             })}
+            <td className={`px-4 py-2 text-right text-sm font-bold tabular-nums border-l-2 border-border/60 bg-muted/25 ${color}`}>
+                {fmtAmt3(total, negate)}
+            </td>
         </tr>
-    );
+        );
+    };
 
-    const grand = (k: string, label: string, getVal: (d: D) => number, posColor: string, negColor: string) => (
+    const grand = (k: string, label: string, getVal: (d: D) => number, posColor: string, negColor: string) => {
+        const total = cols.reduce((s, c) => s + getVal(c.data), 0);
+        return (
         <tr key={k} className="border-t-2 border-border bg-muted/20">
             <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground">{label}</td>
             {cols.map(({ month, data }, ci) => {
@@ -713,10 +728,14 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
                     </td>
                 );
             })}
+            <td className={`px-4 py-3 text-right font-bold tabular-nums text-base border-l-2 border-border/60 bg-muted/30 ${total >= 0 ? posColor : negColor}`}>
+                {total < 0 ? `($${fmt(Math.abs(total))})` : `$${fmt(total)}`}
+            </td>
         </tr>
-    );
+        );
+    };
 
-    const spacer = (k: string) => <tr key={k}><td colSpan={n + 1} className="py-1 bg-muted/5" /></tr>;
+    const spacer = (k: string) => <tr key={k}><td colSpan={n + 2} className="py-1 bg-muted/5" /></tr>;
 
     const incomeAccts  = allAccts(d => d.income);
     const cogsAccts    = allAccts(d => d.cogs);
@@ -726,13 +745,14 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
 
     return (
         <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-            <table className="w-full text-sm border-collapse" style={{ minWidth: `${Math.max(600, n * 165 + 280)}px` }}>
+            <table className="w-full text-sm border-collapse" style={{ minWidth: `${Math.max(600, (n + 1) * 165 + 280)}px` }}>
                 <thead>
                     <tr className="bg-muted/60 border-b-2 border-border">
                         <th className="sticky left-0 z-20 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[280px] border-r border-border/40">Account</th>
                         {cols.map(({ month, label }) => (
                             <th key={month} className="px-4 py-3 text-right text-xs font-bold text-foreground min-w-[160px]">{label}</th>
                         ))}
+                        <th className="px-4 py-3 text-right text-xs font-bold text-foreground min-w-[160px] border-l-2 border-border/60 bg-muted/80">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -743,7 +763,7 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
 
                     {head('h-cogs', 'Cost of Goods Sold', 'bg-orange-50/50 dark:bg-orange-950/20', 'text-orange-700 dark:text-orange-400')}
                     {cogsAccts.length === 0
-                        ? <tr key="cogs-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No COGS for these months</td></tr>
+                        ? <tr key="cogs-empty"><td colSpan={n + 2} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No COGS for these months</td></tr>
                         : cogsAccts.map(l => acctRow(`cogs-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number, true))
                     }
                     {subtotal('st-cogs', 'Total COGS', d => d.totalCogs, 'text-orange-600 dark:text-orange-400', true)}
@@ -752,7 +772,7 @@ const PLCompareTab: React.FC<{ data: PLMultiItem[] }> = ({ data: cols }) => {
 
                     {head('h-exp', 'Operating Expenses', 'bg-rose-50/50 dark:bg-rose-950/20', 'text-rose-700 dark:text-rose-400')}
                     {expAccts.length === 0
-                        ? <tr key="exp-empty"><td colSpan={n + 1} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No expenses for these months</td></tr>
+                        ? <tr key="exp-empty"><td colSpan={n + 2} className="px-4 pl-10 py-2 text-xs text-muted-foreground/40 italic">No expenses for these months</td></tr>
                         : expAccts.map(l => acctRow(`exp-${l.account_number}`, `${l.account_number} · ${l.account_name}`, l.account_number, true))
                     }
                     {subtotal('st-exp', 'Total Expenses', d => d.totalExpenses, 'text-rose-600 dark:text-rose-400', true)}
