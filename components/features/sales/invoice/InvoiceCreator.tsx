@@ -434,6 +434,55 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 .filter(item => item.isPromotion)
                 .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
+            // Stock guard: when issuing (Draft → non-Draft) we recognise the sale
+            // (revenue + COGS) and deduct inventory. Warn first if any line's backing
+            // stock isn't in inventory yet — issuing a pre-order before the PO is
+            // received would recognise revenue too early (see TI2026-00003).
+            if (wasDraft && isNowIssued) {
+                const shortfalls: { label: string; requested: number; available: number }[] = [];
+                for (const item of items) {
+                    if (item.isPromotion) continue;
+                    const qty = Number(item.qty) || 0;
+                    if (qty <= 0) continue;
+                    const code  = item.itemCode?.trim();
+                    const model = item.modelName?.trim();
+                    if (!code && !model) continue; // service / free-text line — can't check
+
+                    // Sum available in-stock qty, mirroring the deduction match:
+                    // exact code first, then fuzzy model_name fallback.
+                    let available = 0;
+                    if (code) {
+                        const { data } = await supabase
+                            .from('inventory').select('qty')
+                            .eq('status', 'In Stock').eq('code', code);
+                        available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+                    }
+                    if (available === 0 && model) {
+                        const { data } = await supabase
+                            .from('inventory').select('qty')
+                            .eq('status', 'In Stock').ilike('model_name', `%${model}%`);
+                        available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+                    }
+                    if (available < qty) {
+                        shortfalls.push({ label: model || code || 'item', requested: qty, available });
+                    }
+                }
+
+                if (shortfalls.length > 0) {
+                    const list = shortfalls
+                        .map(s => `  • ${s.label} — need ${s.requested}, ${s.available} in stock`)
+                        .join('\n');
+                    const ok = window.confirm(
+                        `⚠ Stock not yet received for ${shortfalls.length} item(s) on this invoice:\n\n${list}\n\n` +
+                        `Issuing now recognises the sale (revenue + COGS) before the goods are in inventory. ` +
+                        `That is correct only if the goods have already been delivered.\n\n` +
+                        `If this is a pre-order awaiting a purchase order, keep it as Draft (or take a deposit) ` +
+                        `and issue once the stock is received.\n\nIssue the invoice anyway?`
+                    );
+                    if (!ok) { setIsSubmitting(false); return; }
+                }
+            }
+
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
                 setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as unknown as Invoice) : inv) : [payload as unknown as Invoice]);
