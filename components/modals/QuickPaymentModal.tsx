@@ -191,15 +191,18 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                 : [saved]
             );
 
-            // Auto-post a draft journal entry: DR Bank / CR AR (non-fatal)
+            // Auto-post journal entry: DR Bank / CR AR gross (VAT was declared by
+            // the invoice JE; any deposit was already applied to AR by it too).
             autoPostReceiptJournal({
                 rvNo: nextRVNo,
                 entryDate: rvDate,
                 amount,
                 paymentMethod,
                 createdBy: currentUser?.Name || 'system',
-                taxType: invoice['Tax Type'] === 'VAT' || invoice['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
-            }).catch(err => console.warn('[QuickPaymentModal] auto-post failed:', err));
+            }).catch(err => {
+                console.warn('[QuickPaymentModal] auto-post failed:', err);
+                addToast(`Receipt ${nextRVNo} saved, but its journal entry failed: ${err.message}`, 'error');
+            });
 
             addToast(
                 isPartial

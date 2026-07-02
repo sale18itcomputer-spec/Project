@@ -387,8 +387,9 @@ const BSSection: React.FC<{
             childrenSum[l.parent_account_number] = (childrenSum[l.parent_account_number] ?? 0) + l.balance;
         }
     });
+    // Round to 2dp so float residuals (e.g. -0.0004) don't render as "(0.00)"
     const getDisplayBalance = (l: BalanceSheetLine): number =>
-        l.is_parent ? l.balance + (childrenSum[l.account_number] ?? 0) : l.balance;
+        Math.round((l.is_parent ? l.balance + (childrenSum[l.account_number] ?? 0) : l.balance) * 100) / 100;
 
     const relevant = lines;
     if (relevant.length === 0) return null;
@@ -822,12 +823,10 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
         const all = [...d.assets, ...d.liabilities, ...d.equity];
         const found = all.find(l => l.account_number === num);
         if (!found) return 0;
-        if (found.is_parent) {
-            return all
-                .filter(l => l.parent_account_number === num)
-                .reduce((s, l) => s + l.balance, found.balance);
-        }
-        return found.balance;
+        const raw = found.is_parent
+            ? all.filter(l => l.parent_account_number === num).reduce((s, l) => s + l.balance, found.balance)
+            : found.balance;
+        return Math.round(raw * 100) / 100;
     };
 
     const fmtCell = (v: number) => v === 0 ? '—' : v < 0 ? `($${fmt(Math.abs(v))})` : `$${fmt(v)}`;

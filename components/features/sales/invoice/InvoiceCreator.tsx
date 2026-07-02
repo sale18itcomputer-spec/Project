@@ -619,17 +619,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     addToast(`Skipped already-sold serial number(s): ${list}`, 'error');
                 }
 
-                // Auto-post deposit receipt JE first so COA 25000 gets its credit
-                // before the invoice application line debits it.
+                // Auto-post deposit receipt JE first (DR Bank / CR 25000) so COA
+                // 25000 holds the credit before the invoice JE applies it to AR.
                 const depositAmt = toNum(invoice['Deposit']);
                 if (depositAmt > 0.005) {
                     autoPostDepositReceiptJournal({
                         invNo:         invoice['Inv No']!,
                         depositAmount: depositAmt,
-                        isVAT:         invoice['Taxable'] === 'VAT',
                         entryDate:     invoice['Inv Date'] || getTodayDateString(),
                         createdBy:     currentUser?.Name || 'system',
-                    }).catch(err => console.warn('[InvoiceCreator] deposit receipt journal failed:', err));
+                    }).catch(err => {
+                        console.warn('[InvoiceCreator] deposit receipt journal failed:', err);
+                        addToast(`Invoice saved, but the deposit journal entry failed: ${err.message}`, 'error');
+                    });
                 }
 
                 // Auto-post invoice journal with COGS after inventory loop
@@ -645,7 +647,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     cashbackTotal: cashbackTotal !== 0 ? cashbackTotal : undefined,
                     costItems:     costItems.length > 0 ? costItems : undefined,
                     depositAmount: depositAmt > 0.005 ? depositAmt : undefined,
-                }).catch(err => console.warn('[InvoiceCreator] auto-post journal failed:', err));
+                }).catch(err => {
+                    console.warn('[InvoiceCreator] auto-post journal failed:', err);
+                    addToast(`Invoice saved, but its journal entry failed: ${err.message}`, 'error');
+                });
             }
 
             refetchModule('Invoices');

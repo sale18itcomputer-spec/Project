@@ -2,16 +2,7 @@
 
 import { supabase } from '../lib/supabase';
 import { Bill, BillLine } from '../types';
-import { createJournalEntry, getNextEntryNumber } from './accountingApi';
-
-const PAYMENT_TO_ACCOUNT: Record<string, string> = {
-    'Cash':          '10100',
-    'ABA':           '11100',
-    'Bank Transfer': '11100',
-    'KHQR':          '11100',
-    'Cheque':        '11800',
-    'Other':         '11100',
-};
+import { createJournalEntry, getNextEntryNumber, PAYMENT_METHOD_TO_ACCOUNT } from './accountingApi';
 
 export const getNextBillNumber = async (): Promise<string> => {
     const { data, error } = await supabase
@@ -111,14 +102,14 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     if (bill.status !== 'draft') throw new Error('Bill is already posted.');
 
     // Idempotency guard: catch duplicate posts even if status update failed previously
-    const { data: existingJe } = await supabase
+    const { data: existingJes } = await supabase
         .from('journal_entries')
         .select('id, entry_number')
         .eq('source', 'bill')
         .eq('reference', bill.bill_number)
-        .maybeSingle();
-    if (existingJe?.id) throw new Error(
-        `${bill.bill_number} already has a journal entry (${existingJe.entry_number}). Refresh the page — the bill may already be posted.`
+        .limit(1);
+    if (existingJes?.[0]?.id) throw new Error(
+        `${bill.bill_number} already has a journal entry (${existingJes[0].entry_number}). Refresh the page — the bill may already be posted.`
     );
 
     const { data: lines, error: linesErr } = await supabase
@@ -133,8 +124,9 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     const netTotal      = grossTotal - discountTotal;
     if (netTotal <= 0) throw new Error('Net bill amount must be greater than zero.');
 
-    // If this bill references a PO that already has a posted purchase_order JE,
-    // skip creating a duplicate JE (inventory + AP were already booked by that PO JE).
+    // If this bill references a PO that already has a purchase_order JE
+    // (draft OR posted), reuse it — creating a bill JE too would double-book
+    // inventory + AP once the accountant posts the PO draft.
     let jeId: string | null = null;
     let skipJe = false;
     if (bill.po_reference) {
@@ -143,7 +135,6 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
             .select('id')
             .eq('source', 'purchase_order')
             .eq('reference', bill.po_reference)
-            .eq('is_posted', true)
             .maybeSingle();
         if (existingPOJe?.id) {
             // Reuse the existing PO JE — do not double-book AP/Inventory
@@ -208,10 +199,20 @@ export const unpostBill = async (id: string): Promise<Bill> => {
     if (bill.status !== 'posted') throw new Error('Bill is not posted.');
 
     if (bill.journal_entry_id) {
-        await supabase
+        // Only unpost the JE if it belongs to this bill. A purchase_order JE is
+        // shared with the PO flow — unposting it here would silently pull the
+        // PO's inventory + AP out of the books. Detach only in that case.
+        const { data: je } = await supabase
             .from('journal_entries')
-            .update({ is_posted: false })
-            .eq('id', bill.journal_entry_id);
+            .select('source')
+            .eq('id', bill.journal_entry_id)
+            .maybeSingle();
+        if (je?.source === 'bill') {
+            await supabase
+                .from('journal_entries')
+                .update({ is_posted: false })
+                .eq('id', bill.journal_entry_id);
+        }
     }
 
     const { data: updated, error } = await supabase
@@ -234,7 +235,20 @@ export const markBillPaid = async (
     if (billErr) throw new Error(billErr.message);
     if (bill.status !== 'posted') throw new Error('Bill must be posted before marking as paid.');
 
-    const bankAccount = PAYMENT_TO_ACCOUNT[params.paymentMethod] ?? '11100';
+    // Idempotency guard: catch duplicate payment posts even if the status
+    // update failed previously (same failure class as duplicate bill posts).
+    const { data: existingPayJes } = await supabase
+        .from('journal_entries')
+        .select('id, entry_number')
+        .eq('source', 'bill')
+        .eq('reference', bill.bill_number)
+        .like('description', 'Bill Payment —%')
+        .limit(1);
+    if (existingPayJes?.[0]?.id) throw new Error(
+        `${bill.bill_number} already has a payment journal entry (${existingPayJes[0].entry_number}). Refresh the page — the bill may already be paid.`
+    );
+
+    const bankAccount = PAYMENT_METHOD_TO_ACCOUNT[params.paymentMethod] ?? '11100';
     const entryNumber = await getNextEntryNumber();
 
     const je = await createJournalEntry(

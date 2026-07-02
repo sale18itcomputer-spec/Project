@@ -6,7 +6,7 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { generatePosInvNo, generatePosRvNo, createRecord, getSetting } from '../../services/api';
-import { autoPostInvoiceJournal, normalizeBrand } from '../../services/accountingApi';
+import { autoPostInvoiceJournal, autoPostReceiptJournal, normalizeBrand } from '../../services/accountingApi';
 import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
@@ -318,7 +318,28 @@ const PosTerminal: React.FC = () => {
           brandAmounts: brandAmounts.length > 0 ? brandAmounts : undefined,
           costItems:   costItems.length > 0 ? costItems : undefined,
         });
-      })().catch(err => console.warn('[POS] inventory/journal post failed:', err));
+
+        // Cash was received at the counter — book the collection immediately
+        // (DR Cash/Bank per method, CR AR) so POS sales don't inflate GL AR.
+        // Change is always given from cash, so the Cash line is net of change.
+        const receiptPayments = paymentEntries
+          .map(p => ({
+            method: p.method,
+            amount: p.method === 'Cash' ? (p.amount || 0) - changeAmount : (p.amount || 0),
+          }))
+          .filter(p => p.amount > 0.005);
+        await autoPostReceiptJournal({
+          rvNo,
+          entryDate:     today,
+          amount:        grandTotal,
+          paymentMethod: receiptPayments[0]?.method ?? 'Cash',
+          payments:      receiptPayments.length > 0 ? receiptPayments : undefined,
+          createdBy:     session.createdBy,
+        });
+      })().catch(err => {
+        console.warn('[POS] inventory/journal post failed:', err);
+        addToast(`Sale ${invNo} saved, but journal posting failed: ${err.message}`, 'error');
+      });
 
       setCompletedSale({ invNo, rvNo, grandTotal, changeAmount, items: [...cart], paymentEntries: [...paymentEntries] });
       setShowReceiptModal(true);

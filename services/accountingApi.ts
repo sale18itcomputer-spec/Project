@@ -72,6 +72,28 @@ export const createJournalEntry = async (
         throw new Error(`Journal entry is not balanced: debits ${totalDebit.toFixed(2)} ≠ credits ${totalCredit.toFixed(2)}`);
     }
 
+    // Preferred path: single-transaction RPC — header + lines commit or roll back
+    // together, so a failure can never leave an orphaned header.
+    // Falls back to two-step inserts if the migration hasn't been applied yet.
+    const { data: rpcEntry, error: rpcErr } = await supabase
+        .rpc('create_journal_entry_atomic', { p_header: header, p_lines: lines })
+        .maybeSingle();
+    if (!rpcErr && rpcEntry) {
+        const { data: createdLines } = await supabase
+            .from('journal_entry_lines')
+            .select('*')
+            .eq('journal_entry_id', (rpcEntry as any).id);
+        return {
+            ...(rpcEntry as any),
+            lines: createdLines ?? [],
+            total_debit:  totalDebit,
+            total_credit: totalCredit,
+        };
+    }
+    // PGRST202 = function not found (migration not applied) → legacy fallback.
+    // Any other RPC error is a real failure (imbalance, constraint) — surface it.
+    if (rpcErr && rpcErr.code !== 'PGRST202') throw new Error(rpcErr.message);
+
     const { data: entry, error } = await supabase
         .from('journal_entries')
         .insert(header)
@@ -84,7 +106,13 @@ export const createJournalEntry = async (
         .from('journal_entry_lines')
         .insert(lineRows)
         .select();
-    if (linesErr) throw new Error(linesErr.message);
+    if (linesErr) {
+        // Best-effort cleanup so a lines failure doesn't leave an orphaned header
+        // (unpost first — RLS only allows deleting unposted entries).
+        await supabase.from('journal_entries').update({ is_posted: false }).eq('id', entry.id);
+        await supabase.from('journal_entries').delete().eq('id', entry.id);
+        throw new Error(linesErr.message);
+    }
 
     return {
         ...entry,
@@ -614,7 +642,7 @@ export const computeBalanceSheet = async (
 // is_posted = false so the accountant can review before they affect reports.
 // All functions are idempotent: a second call for the same reference is a no-op.
 
-const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
+export const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
     'Cash':          '10100', // Cash on Hand
     'Cheque':        '11800', // Undeposit Cheque
     'ABA':           '11100', // ABA USD-Pisey (default bank)
@@ -650,16 +678,18 @@ export const normalizeBrand = (raw: string): string => {
 };
 
 /** Auto-create a journal entry for a received customer deposit.
- *  DR Accounts Receivable 11900  (deposit AR — cleared when deposit cash is receipted)
- *  CR Customer Deposit   25000  (net pre-VAT deposit — liability until goods/services delivered)
- *  CR VAT Output         23000  (VAT on deposit, if VAT invoice)
+ *  DR Bank (per payment method)  (deposit cash received)
+ *  CR Customer Deposit 25000     (full VAT-inclusive deposit — liability until
+ *                                 the settling receipt applies it: DR 25000 / CR AR)
+ *
+ *  NO VAT line: VAT is declared in full by the invoice JE. The 25000 balance is
+ *  cleared by the invoice JE's deposit-application lines (DR 25000 / CR 11900).
  *
  *  Idempotent: no-op if a deposit_receipt JE already exists for this invNo.
  */
 export const autoPostDepositReceiptJournal = async (params: {
     invNo: string;
     depositAmount: number;
-    isVAT: boolean;
     entryDate: string;
     createdBy: string;
     /** Payment method used for the deposit — defaults to Bank Transfer (11100) */
@@ -700,11 +730,14 @@ export const autoPostDepositReceiptJournal = async (params: {
     return true;
 };
 
-/** Auto-create a draft journal entry for a saved invoice.
- *  DR Accounts Receivable 11900
+/** Auto-create a journal entry for a saved invoice.
+ *  DR Accounts Receivable 11900 (full grand total)
+ *  DR Customer Deposit 25000 / CR AR 11900 (deposit application — consumes the
+ *     liability booked by autoPostDepositReceiptJournal, so GL AR matches the
+ *     Collection outstanding: Amount − Deposit − Paid)
  *  CR Income 40xxx per brand (falls back to 40000 if brand unknown)
- *  CR VAT Output 23000 (if VAT invoice — reduced by deposit VAT already declared)
- *  DR Customer Deposit 25000 / CR AR 11900  (deposit application, when depositAmount > 0)
+ *  CR VAT Output 23000 (full invoice VAT — the single point where VAT is declared)
+ *  DR/CR COGS + Inventory per costItems
  *
  *  Pass brandAmounts for a per-brand revenue breakdown; omit for a single
  *  line against the general Income parent account 40000.
@@ -720,7 +753,7 @@ export const autoPostInvoiceJournal = async (params: {
     /** Negative number representing total cashback/promo deductions on the invoice */
     cashbackTotal?: number;
     costItems?: { brand: string; qty: number; unit_price: number }[];
-    /** VAT-inclusive deposit amount already received — reduces remaining VAT credit and offsets AR */
+    /** VAT-inclusive deposit already received — applied against AR (DR 25000 / CR 11900) */
     depositAmount?: number;
 }): Promise<boolean> => {
     // Idempotent: skip if an auto-entry for this invoice already exists
@@ -760,8 +793,9 @@ export const autoPostInvoiceJournal = async (params: {
 
     if (params.brandAmounts && params.brandAmounts.length > 0) {
         // Per-brand revenue lines — route each brand to its specific income account
-        for (const { brand, subtotal: brandSubtotal } of params.brandAmounts) {
+        for (const { brand: rawBrand, subtotal: brandSubtotal } of params.brandAmounts) {
             if (brandSubtotal <= 0.005) continue;
+            const brand = normalizeBrand(rawBrand);
             const revenueAccount = BRAND_ACCOUNT_MAP[brand]?.revenue ?? '40000';
             lines.push({
                 account_number: revenueAccount,
@@ -786,6 +820,26 @@ export const autoPostInvoiceJournal = async (params: {
             description: `VAT Output — ${params.invNo}`,
             debit: 0,
             credit: invoiceVAT,
+        });
+    }
+
+    // Deposit application: consume the 25000 liability and offset AR so the GL
+    // shows only what the customer still owes (matches Collection outstanding).
+    const deposit = params.depositAmount && params.depositAmount > 0.005
+        ? Math.round(params.depositAmount * 100) / 100
+        : 0;
+    if (deposit > 0) {
+        lines.push({
+            account_number: '25000',
+            description: `Deposit applied — ${params.invNo}`,
+            debit: deposit,
+            credit: 0,
+        });
+        lines.push({
+            account_number: '11900',
+            description: `Deposit offset AR — ${params.invNo}`,
+            debit: 0,
+            credit: deposit,
         });
     }
 
@@ -820,9 +874,17 @@ export const autoPostInvoiceJournal = async (params: {
     return true;
 };
 
-/** Auto-create a draft journal entry for a recorded receipt (payment).
- *  Non-VAT: DR Bank / CR AR 11900 (gross)
- *  VAT:     DR Bank / CR AR 11900 (net ex-VAT) / CR VAT Output 23000 (VAT portion)
+/** Auto-create a journal entry for a recorded receipt (payment).
+ *
+ *  DR Bank (per payment method — one line per method for split payments)
+ *  CR AR 11900 (cash received — gross)
+ *
+ *  NO VAT line: VAT Output 23000 is declared once, in full, by the invoice JE
+ *  (autoPostInvoiceJournal). Splitting VAT again here double-declares it and
+ *  leaves AR with a permanent residual. See 20260623_fix_ti2026_00003_je_amounts.sql.
+ *
+ *  NO deposit lines: deposits are applied against AR by the invoice JE
+ *  (DR 25000 / CR 11900), so receipts only book the cash actually received.
  */
 export const autoPostReceiptJournal = async (params: {
     rvNo: string;
@@ -830,7 +892,8 @@ export const autoPostReceiptJournal = async (params: {
     amount: number;
     paymentMethod: string;
     createdBy: string;
-    taxType?: string;
+    /** Split payments (POS): one DR bank line per method. Overrides paymentMethod/amount. */
+    payments?: { method: string; amount: number }[];
 }): Promise<void> => {
     // Idempotent: skip if an auto-entry for this receipt already exists
     const { data: existing } = await supabase
@@ -841,37 +904,32 @@ export const autoPostReceiptJournal = async (params: {
         .maybeSingle();
     if (existing) return;
 
-    const bankAccount = PAYMENT_METHOD_TO_ACCOUNT[params.paymentMethod] ?? '11100';
     const entryNumber = await getNextEntryNumber();
-    const isVAT = params.taxType === 'VAT';
 
-    // For VAT receipts, split the gross amount: net (÷1.1) to AR, VAT portion (×10/11) to 23000
-    const arAmount  = isVAT ? Math.round((params.amount / 1.1) * 100) / 100 : params.amount;
-    const vatAmount = isVAT ? Math.round((params.amount - arAmount) * 100) / 100 : 0;
+    // Round each payment to 2dp so line debits always sum exactly to the AR credit
+    const payments = (params.payments?.length
+        ? params.payments
+        : [{ method: params.paymentMethod, amount: params.amount }]
+    )
+        .map(p => ({ method: p.method, amount: Math.round(p.amount * 100) / 100 }))
+        .filter(p => p.amount > 0.005);
+    const cashTotal = Math.round(payments.reduce((s, p) => s + p.amount * 100, 0)) / 100;
+    if (cashTotal <= 0.005) return;
 
-    const lines: { account_number: string; description: string; debit: number; credit: number }[] = [
-        {
-            account_number: bankAccount,
-            description: `Bank — ${params.rvNo}`,
-            debit: params.amount,
+    const lines: { account_number: string; description: string; debit: number; credit: number }[] =
+        payments.map(p => ({
+            account_number: PAYMENT_METHOD_TO_ACCOUNT[p.method] ?? '11100',
+            description: `${p.method} — ${params.rvNo}`,
+            debit: p.amount,
             credit: 0,
-        },
-        {
-            account_number: '11900',
-            description: `AR collection — ${params.rvNo}`,
-            debit: 0,
-            credit: arAmount,
-        },
-    ];
+        }));
 
-    if (isVAT && vatAmount > 0) {
-        lines.push({
-            account_number: '23000',
-            description: `VAT Output — ${params.rvNo}`,
-            debit: 0,
-            credit: vatAmount,
-        });
-    }
+    lines.push({
+        account_number: '11900',
+        description: `AR collection — ${params.rvNo}`,
+        debit: 0,
+        credit: cashTotal,
+    });
 
     await createJournalEntry(
         {
@@ -907,13 +965,23 @@ export const autoPostPurchaseOrderJournal = async (params: {
         .maybeSingle();
     if (existing) return;
 
+    // Cross-guard: if a bill referencing this PO already booked its own JE,
+    // creating a PO JE now would double-book inventory + AP.
+    const { data: billBooked } = await supabase
+        .from('bills')
+        .select('id')
+        .eq('po_reference', params.poNumber)
+        .not('journal_entry_id', 'is', null)
+        .limit(1);
+    if (billBooked?.length) return;
+
     // Group by brand → total inventory cost
     const brandTotals: Record<string, number> = {};
     let grandTotal = 0;
     for (const item of params.items) {
         const cost = (item.qty || 0) * (item.unit_price || 0);
         if (cost <= 0.005) continue;
-        const brand = item.brand?.trim() || 'Other Accessories';
+        const brand = normalizeBrand(item.brand?.trim() || 'Other Accessories');
         brandTotals[brand] = (brandTotals[brand] ?? 0) + cost;
         grandTotal += cost;
     }
