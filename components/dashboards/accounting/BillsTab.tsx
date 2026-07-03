@@ -7,6 +7,7 @@ import {
     postBill, unpostBill, markBillPaid, getNextBillNumber,
 } from '../../../services/billsApi';
 import { fetchBillVendors } from '../../../services/billVendorsApi';
+import { BRAND_ACCOUNT_MAP, normalizeBrand } from '../../../services/accountingApi';
 import { readRecords } from '../../../services/api';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -17,16 +18,12 @@ import { exportBills } from '../../../utils/exportAccountingXlsx';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const BILL_BRAND_INVENTORY: Record<string, string> = {
-    'ASUS':              '12100',
-    'MSI':               '12300',
-    'Lenovo':            '12700',
-    'ASUS Accessories':  '12100',
-    'MSI Accessories':   '12300',
-    'Lenovo Accessories':'12700',
-};
+// Route a bill line to the right inventory account from its brand, using the
+// canonical BRAND_ACCOUNT_MAP (single source of truth in accountingApi) so this
+// never drifts. normalizeBrand handles diacritics/casing; unknown brands fall
+// back to 12600 · Other Accessories.
 const getBillInventoryAccount = (brand?: string) =>
-    BILL_BRAND_INVENTORY[brand?.trim() ?? ''] ?? '12600';
+    BRAND_ACCOUNT_MAP[normalizeBrand(brand ?? '')]?.inventory ?? '12600';
 
 const fmt = (n: number) =>
     n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
