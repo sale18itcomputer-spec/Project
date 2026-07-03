@@ -8,7 +8,12 @@ export const fetchChartOfAccounts = async (): Promise<ChartOfAccount[]> => {
     const { data, error } = await supabase
         .from('chart_of_accounts')
         .select('*')
-        .order('sort_order', { ascending: true });
+        // Order by account number, not sort_order. sort_order only ever mirrored
+        // the account number, but new accounts added via the app get sort_order
+        // = accounts.length*10+10 (always appended last), which pushed e.g. 11700
+        // below the fixed assets on reports. account_numbers are fixed-width
+        // numeric strings, so lexicographic order == numeric order.
+        .order('account_number', { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
 };
