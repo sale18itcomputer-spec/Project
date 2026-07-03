@@ -287,7 +287,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     };
 
     const filteredData = useMemo(() => {
-        let dataToFilter = (invoices || []).filter(inv => !inv['Remark']?.startsWith('Service Ticket: '));
+        let dataToFilter = (invoices || []).filter(inv =>
+            !inv['Remark']?.startsWith('Service Ticket: ') && inv['Remark'] !== 'Service Invoice'
+        );
         if (statusFilter) {
             dataToFilter = dataToFilter.filter(item => {
                 if (statusFilter === 'Processing') return item.Status === 'Processing';

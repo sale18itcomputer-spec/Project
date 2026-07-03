@@ -29,7 +29,7 @@ const CONSTRAINED_ROUTES = [
     '/quotations', '/sale-orders', '/invoices', '/delivery-orders',
     '/receipts', '/collection', '/users', '/vendors', '/vendor-pricelist',
     '/purchase-orders', '/weekly-report', '/inventory', '/inquiries',
-    '/service-tickets', '/pdi-records', '/serial-numbers', '/spare-parts',
+    '/service-tickets', '/service-invoices', '/pdi-records', '/serial-numbers', '/spare-parts',
     '/pos',
     '/',
 ];

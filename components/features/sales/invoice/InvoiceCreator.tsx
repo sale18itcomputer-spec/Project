@@ -237,6 +237,18 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 unitPrice: ticket.repair_cost || 0,
                 amount: ticket.repair_cost || 0,
             }]);
+        } else if (initialData?.action === 'service-new') {
+            setInvoice(prev => {
+                if (Object.keys(prev).length > 0 && prev['Inv No']) return prev;
+                return {
+                    'Inv No': nextInvNo,
+                    'Inv Date': getTodayDateString(),
+                    'Status': 'Processing',
+                    'Currency': 'USD',
+                    'Taxable': 'NON-VAT',
+                    'Remark': 'Service Invoice',
+                };
+            });
         } else {
             setInvoice(prev => {
                 if (Object.keys(prev).length > 0 && prev['Inv No']) return prev;

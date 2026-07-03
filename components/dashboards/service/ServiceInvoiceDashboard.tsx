@@ -5,7 +5,7 @@ import { Invoice } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { Receipt as ReceiptIcon, Search, Wallet } from 'lucide-react';
+import { Plus, Receipt as ReceiptIcon, Search, Wallet } from 'lucide-react';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import InvoiceWindowContent from '../../windows/content/InvoiceWindowContent';
@@ -15,6 +15,8 @@ import { formatCurrencySmartly } from '../../../utils/formatters';
 import { PermissionGate } from '../../common/PermissionGate';
 
 const SERVICE_REMARK_PREFIX = 'Service Ticket: ';
+const isServiceInvoice = (inv: Invoice) =>
+    (inv['Remark'] as any)?.startsWith(SERVICE_REMARK_PREFIX) || inv['Remark'] === 'Service Invoice';
 
 const STATUS_STYLES: Record<string, string> = {
     'Draft':      'bg-sky-500/10 text-sky-500',
@@ -39,7 +41,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
 
     const serviceInvoices = useMemo(
-        () => (invoices ?? []).filter(inv => inv['Remark']?.startsWith(SERVICE_REMARK_PREFIX)),
+        () => (invoices ?? []).filter(isServiceInvoice),
         [invoices]
     );
 
@@ -57,6 +59,20 @@ const ServiceInvoiceDashboard: React.FC = () => {
         }
         return data;
     }, [serviceInvoices, statusFilter, searchQuery]);
+
+    const openNewServiceInvoice = useCallback(() => {
+        const id = `invoice-service-new-${Date.now()}`;
+        openWindow({
+            id,
+            title: 'New Service Invoice',
+            content: <InvoiceWindowContent windowId={id} invNo={null} initialData={{ action: 'service-new' }} />,
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
+    }, [openWindow]);
 
     const openInvoiceWindow = useCallback((invNo: string) => {
         const id = `invoice-${invNo}`;
@@ -131,15 +147,26 @@ const ServiceInvoiceDashboard: React.FC = () => {
                             {filteredData.length} invoices
                         </span>
                     </div>
-                    <div className="relative w-full lg:w-64">
-                        <input
-                            type="text"
-                            placeholder="Search invoices..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-                        />
-                        <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-full lg:w-64">
+                            <input
+                                type="text"
+                                placeholder="Search invoices..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
+                            />
+                            <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
+                        </div>
+                        <PermissionGate module="service_invoices" action="create">
+                            <button
+                                onClick={openNewServiceInvoice}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition whitespace-nowrap"
+                            >
+                                <Plus size={16} />
+                                New Invoice
+                            </button>
+                        </PermissionGate>
                     </div>
                 </div>
 
