@@ -11,7 +11,8 @@ import { formatToInputDate } from '@/utils/time';
 import { supabase } from '@/lib/supabase';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '@/components/common/FormControls';
 import SearchableSelect from '@/components/common/SearchableSelect';
-import { Check, Loader2, Pencil } from 'lucide-react';
+import { Check, Loader2, Pencil, FileText } from 'lucide-react';
+import InvoiceWindowContent from '@/components/windows/content/InvoiceWindowContent';
 
 const TICKET_TYPE_OPTIONS  = ['Warranty Claim', 'Out-of-Warranty Repair', 'Preventive Maintenance', 'Software Issue', 'Hardware Issue', 'Return (RMA)', 'Other'] as const;
 const PRIORITY_OPTIONS     = ['Low', 'Normal', 'High', 'Critical'] as const;
@@ -33,7 +34,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
     const { fetchModule, serviceTickets, setServiceTickets, companies, contacts, serialNumbers } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
-    const { closeWindow, updateWindow } = useWindowManager();
+    const { closeWindow, updateWindow, openWindow } = useWindowManager();
 
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isSaving, setIsSaving] = useState(false);
@@ -179,6 +180,26 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
         }
     }, [formData, existingTicket, setServiceTickets, addToast, closeWindow, windowId, currentUser]);
 
+    const handleCreateInvoice = useCallback(() => {
+        const invWindowId = `invoice-new-from-ticket-${windowId}`;
+        openWindow({
+            id: invWindowId,
+            title: `New Invoice — ${formData.ticket_no}`,
+            content: (
+                <InvoiceWindowContent
+                    windowId={invWindowId}
+                    invNo={null}
+                    initialData={{ action: 'create', ticketData: formData as ServiceTicket }}
+                />
+            ),
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
+    }, [windowId, formData, openWindow]);
+
     // Dynamic title & footer
     useEffect(() => {
         const title = isEditMode
@@ -188,9 +209,16 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
         const footer = isReadOnly ? (
             <div className="flex justify-between items-center w-full">
                 <button type="button" onClick={() => closeWindow(windowId)} className="font-semibold py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted text-sm">Close</button>
-                <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
-                    <Pencil size={16} /> Edit
-                </button>
+                <div className="flex items-center gap-2">
+                    {isEditMode && (
+                        <button type="button" onClick={handleCreateInvoice} className="flex items-center gap-1.5 text-sm font-semibold py-2 px-4 rounded-lg border border-brand-500/40 text-brand-500 hover:bg-brand-500/10 transition">
+                            <FileText size={15} /> Create Invoice
+                        </button>
+                    )}
+                    <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
+                        <Pencil size={16} /> Edit
+                    </button>
+                </div>
             </div>
         ) : (
             <div className="flex justify-end gap-3 w-full">
@@ -202,7 +230,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
             </div>
         );
         updateWindow(windowId, { title, footer });
-    }, [windowId, isEditMode, isReadOnly, isSaving, formData.ticket_no, updateWindow, closeWindow, handleCancelClick]);
+    }, [windowId, isEditMode, isReadOnly, isSaving, formData.ticket_no, updateWindow, closeWindow, handleCancelClick, handleCreateInvoice]);
 
     return (
         <form id={`service-ticket-window-form-${windowId}`} onSubmit={handleSave} className="space-y-6 max-h-full overflow-y-auto p-1 pr-2 custom-scrollbar">

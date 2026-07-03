@@ -45,7 +45,8 @@ const PATH_TO_MODULES: Record<string, string[]> = {
   '/purchase-orders':  ['Vendors', 'Vendor Pricelist', 'Purchase Orders', 'Raw'],
   '/inventory':        ['Inventory', 'Purchase Orders', 'Vendors'],
   '/inquiries':        ['Product Inquiries'],
-  '/service-tickets':  ['Service Tickets'],
+  '/service-tickets':   ['Service Tickets'],
+  '/service-invoices':  ['Invoices', 'Receipts'],
   '/pdi-records':      ['PDI Records'],
   '/serial-numbers':   ['Serial Numbers'],
   '/spare-parts':      ['Spare Parts'],
@@ -74,6 +75,7 @@ const LazyVendorDashboard          = React.lazy(() => import('../dashboards/inve
 const LazyConsignmentDashboard     = React.lazy(() => import('../dashboards/inventory/ConsignmentDashboard'));
 const LazyInquiryDashboard         = React.lazy(() => import('../dashboards/procurement/InquiryDashboard'));
 const LazyServiceTicketDashboard   = React.lazy(() => import('../dashboards/service/ServiceTicketDashboard'));
+const LazyServiceInvoiceDashboard  = React.lazy(() => import('../dashboards/service/ServiceInvoiceDashboard'));
 const LazyPdiDashboard             = React.lazy(() => import('../dashboards/service/PdiDashboard'));
 const LazySerialNumberDashboard    = React.lazy(() => import('../dashboards/service/SerialNumberDashboard'));
 const LazySparePartDashboard       = React.lazy(() => import('../dashboards/service/SparePartDashboard'));
@@ -103,6 +105,7 @@ const LAZY_DASH_MAP: Record<string, [React.LazyExoticComponent<React.ComponentTy
   consignment:       [LazyConsignmentDashboard],
   product_inquiries: [LazyInquiryDashboard],
   service_tickets:   [LazyServiceTicketDashboard],
+  service_invoices:  [LazyServiceInvoiceDashboard],
   pdi_records:       [LazyPdiDashboard],
   serial_numbers:    [LazySerialNumberDashboard],
   spare_parts:       [LazySparePartDashboard],
@@ -141,6 +144,7 @@ const NAV_ITEM_REGISTRY: NavItemDef[] = [
   { key: 'product_inquiries', label: 'Inquiries',        icon: <Search size={16} />,          path: '/inquiries' },
   { key: 'consignment',       label: 'Consignment',      icon: <PackageCheck size={16} />,    path: '/consignment' },
   { key: 'service_tickets',   label: 'Service Tickets',  icon: <Wrench size={16} />,          path: '/service-tickets' },
+  { key: 'service_invoices',  label: 'Service Invoices', icon: <Receipt size={16} />,          path: '/service-invoices' },
   { key: 'pdi_records',       label: 'PDI Records',      icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
   { key: 'serial_numbers',    label: 'Serial Numbers',   icon: <Hash size={16} />,            path: '/serial-numbers' },
   { key: 'spare_parts',       label: 'Spare Parts',      icon: <Boxes size={16} />,           path: '/spare-parts' },
@@ -495,6 +499,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     product_inquiries:  canView('product_inquiries'),
     consignment:        canView('consignment'),
     service_tickets:    canView('service_tickets'),
+    service_invoices:   canView('invoices'),
     pdi_records:        canView('pdi_records'),
     serial_numbers:     canView('serial_numbers'),
     spare_parts:        canView('spare_parts'),
@@ -512,7 +517,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           show.weekly_report || show.pos;
   const showProducts    = show.pricelist || show.b2b_pricelist || show.vendor_pricelist || show.vendors;
   const showProcurement = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
-  const showService     = show.service_tickets || show.pdi_records || show.serial_numbers || show.spare_parts;
+  const showService     = show.service_tickets || show.service_invoices || show.pdi_records || show.serial_numbers || show.spare_parts;
   const showActivity    = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
   const showTools       = show.pricing_calculator || show.accounting;
 
@@ -743,6 +748,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <NavItem icon={<Wrench size={16} />} label="Service Tickets"
                   isActive={isActive('/service-tickets')} onClick={go('/service-tickets')} onPrefetch={() => prefetch('/service-tickets')} isCollapsed={isCollapsed}
                   {...navProps('service_tickets')} />
+              )}
+              {show.service_invoices && (
+                <NavItem icon={<Receipt size={16} />} label="Service Invoices"
+                  isActive={isActive('/service-invoices')} onClick={go('/service-invoices')} onPrefetch={() => prefetch('/service-invoices')} isCollapsed={isCollapsed}
+                  {...navProps('service_invoices')} />
               )}
               {show.pdi_records && (
                 <NavItem icon={<ClipboardCheck size={16} />} label="PDI Records"

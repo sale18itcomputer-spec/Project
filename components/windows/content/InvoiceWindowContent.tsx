@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
-import { Invoice, SaleOrder } from '@/types';
+import { Invoice, SaleOrder, ServiceTicket } from '@/types';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useData } from '@/contexts/DataContext';
 import InvoiceCreator from '@/components/features/sales/invoice/InvoiceCreator';
@@ -13,6 +13,7 @@ interface InvoiceWindowContentProps {
         action: string;
         soData?: SaleOrder;
         duplicateOf?: Invoice;
+        ticketData?: ServiceTicket;
     };
 }
 

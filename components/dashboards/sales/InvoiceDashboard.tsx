@@ -77,7 +77,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         if (navigation.action === 'view') setViewMode('detail');
     }, [navigation.action]);
 
-    const openInvoiceWindow = (invNo: string | null, initialData?: { action: string; soData?: any; duplicateOf?: Invoice }) => {
+    const openInvoiceWindow = (invNo: string | null, initialData?: { action: string; soData?: any; duplicateOf?: Invoice; ticketData?: any }) => {
         const id = invNo ? `invoice-${invNo}` : `invoice-new-${Date.now()}`;
         openWindow({
             id,
@@ -108,6 +108,8 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 ? { action: 'create', soData: payload.soData }
                 : payload?.action === 'duplicate' || payload?.duplicateOf
                 ? { action: 'duplicate', duplicateOf: payload.duplicateOf }
+                : payload?.ticketData
+                ? { action: 'create', ticketData: payload.ticketData }
                 : undefined;
             openInvoiceWindow(null, initData);
         } else if (navigation.action === 'edit' && navigation.id) {
@@ -285,7 +287,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     };
 
     const filteredData = useMemo(() => {
-        let dataToFilter = invoices || [];
+        let dataToFilter = (invoices || []).filter(inv => !inv['Remark']?.startsWith('Service Ticket: '));
         if (statusFilter) {
             dataToFilter = dataToFilter.filter(item => {
                 if (statusFilter === 'Processing') return item.Status === 'Processing';

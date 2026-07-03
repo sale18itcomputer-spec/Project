@@ -2,7 +2,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Invoice, SaleOrder } from "../../../../types";
+import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
@@ -27,6 +27,7 @@ interface InvoiceCreatorProps {
         action: string;
         soData?: SaleOrder;
         duplicateOf?: Invoice;
+        ticketData?: ServiceTicket;
     };
 }
 
@@ -198,6 +199,44 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     id: `item-${Math.random()}`
                 })));
             }
+        } else if (initialData?.ticketData) {
+            const ticket = initialData.ticketData;
+            const company = companies?.find(c => c['Company Name'] === ticket.company_name);
+            const invDate = getTodayDateString();
+
+            setInvoice({
+                'Inv No': nextInvNo,
+                'Inv Date': invDate,
+                'Due Date': invDate,
+                'Company Name': ticket.company_name,
+                'Company Name (Khmer)': company?.['Company Name (Khmer)'] || '',
+                'Company Address': company?.['Address (English)'] || '',
+                'Tin No': company?.['Tin No'] || company?.['Patent'] || '',
+                'Contact Name': ticket.contact_name,
+                'Phone Number': ticket.contact_phone,
+                'Amount': ticket.repair_cost || 0,
+                'Taxable': 'NON-VAT',
+                'Status': 'Processing',
+                'Currency': ticket.currency || 'USD',
+                'Remark': `Service Ticket: ${ticket.ticket_no}`,
+            });
+
+            const serviceDesc = [
+                ticket.ticket_type,
+                ticket.serial_number ? `S/N: ${ticket.serial_number}` : '',
+            ].filter(Boolean).join(' — ');
+            const modelLabel = [ticket.brand, ticket.model_name].filter(Boolean).join(' ') || 'Service';
+
+            setItems([{
+                id: `item-${Date.now()}`,
+                no: 1,
+                itemCode: ticket.ticket_no,
+                modelName: modelLabel,
+                description: serviceDesc,
+                qty: 1,
+                unitPrice: ticket.repair_cost || 0,
+                amount: ticket.repair_cost || 0,
+            }]);
         } else {
             setInvoice(prev => {
                 if (Object.keys(prev).length > 0 && prev['Inv No']) return prev;

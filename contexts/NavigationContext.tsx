@@ -41,6 +41,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'inventory': '/inventory',
   'inquiries': '/inquiries',
   'service-tickets': '/service-tickets',
+  'service-invoices': '/service-invoices',
   'pdi-records': '/pdi-records',
   'serial-numbers': '/serial-numbers',
   'spare-parts': '/spare-parts',
