@@ -100,7 +100,11 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     // Auto-open window when navigated from another page with create/edit action
     const lastNavKeyRef = useRef('');
     useEffect(() => {
-        if (!navigation.action || navigation.action === 'view') return;
+        // Reset the dedup key whenever the action clears, so a repeat create/edit
+        // fires. Without this, the key for a create is always "create:" (no id),
+        // so after the first conversion the ref stays set and every subsequent
+        // create is silently swallowed (page stays mounted under the window manager).
+        if (!navigation.action || navigation.action === 'view') { lastNavKeyRef.current = ''; return; }
         const key = `${navigation.action}:${navigation.id ?? ''}`;
         if (lastNavKeyRef.current === key) return;
         lastNavKeyRef.current = key;

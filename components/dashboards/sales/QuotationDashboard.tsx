@@ -108,7 +108,9 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   // Auto-open window when navigated from another page with create/edit action
   const lastNavKeyRef = useRef('');
   useEffect(() => {
-    if (!navigation.action || navigation.action === 'view') return;
+    // Reset the dedup key when the action clears so a repeat create/edit fires
+    // (create's key is always "create:" with no id — otherwise it only opens once).
+    if (!navigation.action || navigation.action === 'view') { lastNavKeyRef.current = ''; return; }
     const key = `${navigation.action}:${navigation.id ?? ''}`;
     if (lastNavKeyRef.current === key) return;
     lastNavKeyRef.current = key;
