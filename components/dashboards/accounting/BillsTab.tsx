@@ -198,8 +198,15 @@ const BillFormModal: React.FC<{
 
     const handleSave = () => {
         if (!header.bill_date) return;
-        if (!lines.every(l => l.account_number && parseFloat(l.amount) > 0)) {
-            alert('Each line needs an account and a positive amount.');
+        // Each line needs an account and a non-negative amount. $0 is allowed for
+        // free/bundled items (e.g. a case included free with a laptop on the PO) —
+        // the overall bill just has to net to a positive payable.
+        if (!lines.every(l => l.account_number && parseFloat(l.amount) >= 0)) {
+            alert('Each line needs an account and an amount of 0 or more.');
+            return;
+        }
+        if (netAmt <= 0) {
+            alert('The bill must net to a positive amount payable.');
             return;
         }
         const mappedLines = lines.map(l => ({
