@@ -499,7 +499,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     product_inquiries:  canView('product_inquiries'),
     consignment:        canView('consignment'),
     service_tickets:    canView('service_tickets'),
-    service_invoices:   canView('invoices'),
+    service_invoices:   canView('service_invoices'),
     pdi_records:        canView('pdi_records'),
     serial_numbers:     canView('serial_numbers'),
     spare_parts:        canView('spare_parts'),

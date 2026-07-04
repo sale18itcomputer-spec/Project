@@ -470,13 +470,19 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
 
 /**
  * Returns the effective permissions for a user.
- * If user.permissions is set, that object is used directly (full snapshot stored at save time).
- * Otherwise falls back to the role preset.
+ * If user.permissions is set (full snapshot stored at save time), it is merged
+ * over the role preset — modules added to PERMISSION_MODULES after the snapshot
+ * was saved fall back to the preset defaults instead of silently denying access.
+ * Otherwise the role preset is used directly.
  */
 export function resolvePermissions(user: User | null): UserPermissions {
   if (!user) return ROLE_PRESETS['User'];
-  if (user.permissions) return user.permissions;
-  return ROLE_PRESETS[user.Role] ?? ROLE_PRESETS['User'];
+  const preset = ROLE_PRESETS[user.Role] ?? ROLE_PRESETS['User'];
+  if (!user.permissions) return preset;
+  return {
+    modules: { ...preset.modules, ...user.permissions.modules },
+    dataVisibility: user.permissions.dataVisibility ?? preset.dataVisibility,
+  };
 }
 
 /**
