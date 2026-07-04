@@ -123,11 +123,19 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 <div style={{ fontWeight: 'bold', fontSize: 11, textDecoration: 'underline', textTransform: 'uppercase', marginBottom: 4 }}>
                     Term Condition:
                 </div>
-                <ul style={{ paddingLeft: 16, margin: 0, listStyleType: 'disc' }}>
-                    <li style={{ marginBottom: 2 }}><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
-                    <li style={{ marginBottom: 2 }}><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
-                    <li><strong>Warranty:</strong> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
-                </ul>
+                {isService ? (
+                    <ul style={{ paddingLeft: 16, margin: 0, listStyleType: 'disc' }}>
+                        <li style={{ marginBottom: 2 }}><strong>Payment Terms:</strong> Full payment is required upon completion of service unless otherwise agreed.</li>
+                        <li style={{ marginBottom: 2 }}><strong>Service &amp; Parts:</strong> All service charges and replaced parts are non-refundable. Please test the device carefully upon receipt.</li>
+                        <li><strong>Service Warranty:</strong> Repair work and replaced parts are covered under our service warranty policy. Warranty does not cover physical or liquid damage, unauthorized repairs, or broken seals.</li>
+                    </ul>
+                ) : (
+                    <ul style={{ paddingLeft: 16, margin: 0, listStyleType: 'disc' }}>
+                        <li style={{ marginBottom: 2 }}><strong>Payment Terms:</strong> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
+                        <li style={{ marginBottom: 2 }}><strong>Goods Sold:</strong> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
+                        <li><strong>Warranty:</strong> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+                    </ul>
+                )}
             </div>
             <div>
                 <div style={{ fontWeight: 'bold', fontSize: 11, textDecoration: 'underline', textTransform: 'uppercase', marginBottom: 4 }}>

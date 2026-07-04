@@ -25,6 +25,8 @@ export function buildTaxInvoice(
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
     // English-only mode is only meaningful for NON-VAT invoices (VAT invoices keep Khmer).
     const noKhmer = !showVat && hideKhmer;
+    // docTitle is only passed for Service Invoices — switches terms and signature labels.
+    const isService = !!docTitle;
 
     const invNo      = esc(hd['Inv No.'] || hd['Inv No'] || hd['Invoice No'] || '');
     const invDate    = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || ''));
@@ -346,9 +348,15 @@ export function buildTaxInvoice(
     </div>` : `<div class="mt-4 text-[10px] no-break">
       <h4 class="font-bold text-[11px] underline uppercase mb-1">Term Condition:</h4>
       <ul class="list-disc list-inside space-y-0.5">
+        ${isService ? `
+        <li><span class="font-bold">Payment Terms:</span> Full payment is required upon completion of service unless otherwise agreed.</li>
+        <li><span class="font-bold">Service &amp; Parts:</span> All service charges and replaced parts are non-refundable. Please test the device carefully upon receipt.</li>
+        <li><span class="font-bold">Service Warranty:</span> Repair work and replaced parts are covered under our service warranty policy. Warranty does not cover physical or liquid damage, unauthorized repairs, or broken seals.</li>
+        ` : `
         <li><span class="font-bold">Payment Terms:</span> Full payment is required as per the agreed terms. Late payments may result in order suspension.</li>
         <li><span class="font-bold">Goods Sold:</span> All goods sold are non-refundable and exchangeable. Please inspect all goods carefully before signing.</li>
         <li><span class="font-bold">Warranty:</span> All goods sold are covered under our warranty policy. Warranty does not cover unauthorized repairs or broken seals.</li>
+        `}
       </ul>
     </div>`}
   </div>
@@ -366,7 +374,7 @@ export function buildTaxInvoice(
       <div style="margin-bottom:${labelPadding}px"></div>
       <div class="border-t-2 border-black mb-2"></div>
       ${noKhmer ? '' : `<p class="text-[11px] mb-1">ហត្ថលេខា និងឈ្មោះអ្នកដឹកជញ្ជូន</p>`}
-      <p class="font-bold text-[11px]">Deliverer's Signature &amp; Name</p>
+      <p class="font-bold text-[11px]">${isService ? "Technician's" : "Deliverer's"} Signature &amp; Name</p>
     </div>` : ''}
     <div class="w-[${showVat ? '35' : '28'}%] text-center">
       <div style="margin-bottom:${labelPadding}px"></div>
