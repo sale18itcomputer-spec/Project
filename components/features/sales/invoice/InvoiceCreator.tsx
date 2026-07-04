@@ -5,7 +5,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { createRecord, updateRecord, uploadFile, generateInvNo } from "../../../../services/api";
+import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo } from "../../../../services/api";
+import { isServiceInvoice } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
@@ -85,17 +86,27 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [hideKhmer, setHideKhmer] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
+    // Service invoices are a separate document series (SI numbers, own PDF
+    // title). Detected from the creation source or, when editing, the record.
+    const isService = useMemo(() =>
+        initialData?.action === 'service-new' ||
+        !!initialData?.ticketData ||
+        (existingInvoice ? isServiceInvoice(existingInvoice) : false),
+    [initialData, existingInvoice]);
+
     // Next invoice number — fetched async from BOTH b2c+b2b tables so the
     // sequence is globally unique regardless of which mode the user is in.
     const [nextInvNo, setNextInvNo] = useState('');
     useEffect(() => {
         if (existingInvoice) return;
         const taxable: string = initialData?.soData?.['Bill Invoice'] || initialData?.duplicateOf?.['Taxable'] || 'VAT';
-        generateInvNo(taxable).then(setNextInvNo).catch(() => {
+        const gen = isService ? generateServiceInvNo() : generateInvNo(taxable);
+        gen.then(setNextInvNo).catch(() => {
             // Fallback: derive from current-mode cache if the DB query fails
             const year = new Date().getFullYear().toString();
             let prefix = `INV${year}-`;
-            if (taxable === 'VAT') prefix = `TI${year}-`;
+            if (isService) prefix = `SI${year}-`;
+            else if (taxable === 'VAT') prefix = `TI${year}-`;
             else if (taxable === 'Commercial Invoice') prefix = `CI${year}-`;
             const filtered = (invoices || []).filter(i => (i as any)['Inv No']?.startsWith(prefix));
             const max = filtered.reduce((m, i) => {
@@ -105,7 +116,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             setNextInvNo(`${prefix}${String(max + 1).padStart(5, '0')}`);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [existingInvoice, initialData]);
+    }, [existingInvoice, initialData, isService]);
 
     useEffect(() => {
         if (hasDraft.current) return;
@@ -293,7 +304,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         });
         // When Taxable type changes on a new invoice, re-fetch the global next number
         // so the prefix (TI / INV / CI) stays unique across B2C and B2B.
-        if (name === 'Taxable' && !existingInvoice) {
+        // Service invoices keep their SI number — the series does not depend on tax type.
+        if (name === 'Taxable' && !existingInvoice && !isService) {
             generateInvNo(value)
                 .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
                 .catch(() => {/* keep current number if query fails */});
@@ -782,10 +794,13 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const handleDownloadPDF = () => {
         const taxable = invoice['Taxable'] || 'NON-VAT';
 
-        let pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice';
+        let pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice' | 'Service Invoice';
         let filePrefix = 'Invoice';
 
-        if (taxable === 'VAT') {
+        if (isService) {
+            pdfType = 'Service Invoice';
+            filePrefix = 'ServiceInvoice';
+        } else if (taxable === 'VAT') {
             pdfType = 'Tax Invoice';
             filePrefix = 'TaxInvoice';
         } else if (taxable === 'Commercial Invoice') {
@@ -864,7 +879,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const headerLeft = (
         <div className="flex items-center gap-2 ml-4">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border border-border text-sm font-bold text-muted-foreground">
-                <FileText className="w-4 h-4" /> Invoice
+                <FileText className="w-4 h-4" /> {isService ? 'Service Invoice' : 'Invoice'}
             </div>
         </div>
     );
@@ -908,7 +923,9 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     return (
         <>
             <DocumentEditorContainer
-                title={existingInvoice ? `Edit Invoice: ${invoice['Inv No']}` : "New Invoice"}
+                title={existingInvoice
+                    ? `Edit ${isService ? 'Service ' : ''}Invoice: ${invoice['Inv No']}`
+                    : isService ? 'New Service Invoice' : 'New Invoice'}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}

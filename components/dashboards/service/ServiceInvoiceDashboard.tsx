@@ -21,9 +21,7 @@ import QuickPaymentModal from '../../modals/QuickPaymentModal';
 import { computeInvoiceAR, InvoiceAR } from '../../../utils/collection';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 
-const SERVICE_REMARK_PREFIX = 'Service Ticket: ';
-export const isServiceInvoice = (inv: Invoice) =>
-    (inv['Remark'] as any)?.startsWith(SERVICE_REMARK_PREFIX) || inv['Remark'] === 'Service Invoice';
+import { isServiceInvoice, SERVICE_REMARK_PREFIX } from '../../../utils/serviceInvoice';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-service-invoices-columns-visibility';
 

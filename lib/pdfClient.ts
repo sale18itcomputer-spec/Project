@@ -12,7 +12,7 @@
 import { sharePdfViaBot } from './miniapp/telegramShare';
 
 export interface PdfClientOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Commercial Invoice' | 'Delivery Order' | 'Purchase Order' | 'Receipt';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Commercial Invoice' | 'Delivery Order' | 'Purchase Order' | 'Receipt';
     headerData: Record<string, any>;
     items: Array<{
         no: number | string;

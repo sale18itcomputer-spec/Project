@@ -19,6 +19,7 @@ export function buildTaxInvoice(
     labelPadding = 200,
     columnWidths?: number[],
     hideKhmer = false,
+    docTitle?: { en: string; km: string },
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
@@ -269,7 +270,7 @@ export function buildTaxInvoice(
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>${showVat ? 'Tax Invoice' : 'Invoice'} - LIMPERIAL TECHNOLOGY CO., LTD.</title>
+<title>${docTitle ? docTitle.en : showVat ? 'Tax Invoice' : 'Invoice'} - LIMPERIAL TECHNOLOGY CO., LTD.</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Moul&display=swap');
@@ -304,8 +305,8 @@ export function buildTaxInvoice(
     </div>
   </header>` : ''}
   <div class="text-center mb-6${showVat ? '' : ' pt-6'}">
-    ${noKhmer ? '' : `<h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>`}
-    <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">${showVat ? 'TAX INVOICE' : 'INVOICE'}</h4>
+    ${noKhmer ? '' : `<h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${docTitle ? docTitle.km : showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>`}
+    <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">${docTitle ? docTitle.en : showVat ? 'TAX INVOICE' : 'INVOICE'}</h4>
   </div>
   <div class="flex justify-between gap-0 mb-6">
     <div class="w-[55%]">

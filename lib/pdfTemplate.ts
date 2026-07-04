@@ -133,6 +133,7 @@ const DEFAULT_WIDTHS: Record<string, number[]> = {
     'Sale Order':      [7, 17, 46,  6, 10, 14],
     'Tax Invoice':     [4, 12, 38, 14, 17, 15],
     'Invoice':         [4, 12, 38, 14, 17, 15],
+    'Service Invoice': [4, 12, 38, 14, 17, 15],
     'Commercial Invoice': [4, 12, 38, 14, 17, 15],
     'Delivery Order':  [7, 17, 70,  6,  0,  0],
     'Receipt':         [4, 16, 33, 12, 16, 19],
@@ -168,7 +169,7 @@ function sigBlock(label: string, name: string, pos: string): string {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PdfTemplateOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Delivery Order' | 'Purchase Order' | 'Commercial Invoice' | 'Receipt';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Delivery Order' | 'Purchase Order' | 'Commercial Invoice' | 'Receipt';
     headerData: Record<string, any>;
     items: Array<{
         no: number | string;
@@ -206,6 +207,11 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     }
     if (opts.type === 'Tax Invoice') {
         return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
+    }
+    if (opts.type === 'Service Invoice') {
+        // NON-VAT invoice layout with a Service Invoice title.
+        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer,
+            { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' });
     }
     if (opts.type === 'Commercial Invoice') {
         const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);

@@ -706,3 +706,27 @@ export const generateInvNo = async (taxableType: string): Promise<string> => {
     const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
     return `${prefix}${String(max + 1).padStart(5, '0')}`;
 };
+
+/**
+ * Generates the next service invoice number — its own SI{year}- series,
+ * fully separate from the sales TI/INV/CI sequences. Queries both invoice
+ * tables like generateInvNo so the series stays unique across modes.
+ */
+export const generateServiceInvNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `SI${year}-`;
+
+    const [{ data: b2c }, { data: b2b }] = await Promise.all([
+        supabase.from('invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
+        supabase.from('b2b_invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
+    ]);
+
+    const parseSeq = (invNo: string | undefined | null): number => {
+        if (!invNo) return 0;
+        const n = parseInt(invNo.slice(prefix.length), 10);
+        return isNaN(n) ? 0 : n;
+    };
+
+    const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
+    return `${prefix}${String(max + 1).padStart(5, '0')}`;
+};

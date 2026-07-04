@@ -75,6 +75,12 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
                 hd, items as any, totals as any, opts.currency, sym, tax,
                 false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
             );
+        case 'Service Invoice':
+            return buildTaxInvoice(
+                hd, items as any, totals as any, opts.currency, sym, tax,
+                false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
+                { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' },
+            );
         default:
             return null;
     }

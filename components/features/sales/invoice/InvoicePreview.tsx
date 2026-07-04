@@ -4,6 +4,7 @@ import { LineItem } from './types';
 import { generatePDF } from '../../../../lib/pdfClient';
 import { buildPreviewHtml } from '../../../../lib/buildPreviewHtml';
 import { useToast } from '../../../../contexts/ToastContext';
+import { isServiceInvoice } from '../../../../utils/serviceInvoice';
 import { SlidersHorizontal, ChevronUp, ChevronDown, Languages } from 'lucide-react';
 
 interface InvoicePreviewProps {
@@ -57,7 +58,8 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, items, 
     const { addToast } = useToast();
 
     const taxable = invoice['Taxable'] || 'NON-VAT';
-    const pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice' =
+    const pdfType: 'Tax Invoice' | 'Invoice' | 'Commercial Invoice' | 'Service Invoice' =
+        isServiceInvoice(invoice) ? 'Service Invoice' :
         taxable === 'VAT' ? 'Tax Invoice' :
         taxable === 'Commercial Invoice' ? 'Commercial Invoice' : 'Invoice';
 

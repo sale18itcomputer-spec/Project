@@ -1,4 +1,5 @@
 import React from 'react';
+import { isServiceInvoice } from '../../utils/serviceInvoice';
 
 interface LineItem {
     id: string;
@@ -34,6 +35,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
     const sym = getCurrencySymbol(currency);
     const isTaxInvoice = headerData['Taxable'] === 'VAT';
     const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';
+    const isService = isServiceInvoice(headerData);
     const hasVatTin = !!(headerData['Tin No'] || headerData['Tin No.'] || headerData['VAT TIN']);
 
     const fmtNum = (v: number | string) => {
@@ -164,6 +166,14 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 <div style={{ textAlign: 'center', marginBottom: 14 }}>
                     <div style={{ fontSize: 15, fontWeight: 'bold' }}>វិក្កយបត្រ</div>
                     <div style={{ fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 }}>Commercial Invoice</div>
+                </div>
+            );
+        }
+        if (isService) {
+            return (
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ fontSize: 15, fontWeight: 'bold' }}>វិក្កយបត្រសេវាកម្ម</div>
+                    <div style={{ fontSize: 13, fontWeight: 'bold' }}>SERVICE INVOICE</div>
                 </div>
             );
         }

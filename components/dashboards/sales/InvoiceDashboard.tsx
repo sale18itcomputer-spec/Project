@@ -27,6 +27,7 @@ import { DropdownMenuItem } from "../../ui/dropdown-menu";
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import QuickPaymentModal from "../../modals/QuickPaymentModal";
 import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
+import { isServiceInvoice } from "../../../utils/serviceInvoice";
 
 interface InvoiceDashboardProps {
     initialPayload?: any;
@@ -287,9 +288,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     };
 
     const filteredData = useMemo(() => {
-        let dataToFilter = (invoices || []).filter(inv =>
-            !inv['Remark']?.startsWith('Service Ticket: ') && inv['Remark'] !== 'Service Invoice'
-        );
+        let dataToFilter = (invoices || []).filter(inv => !isServiceInvoice(inv));
         if (statusFilter) {
             dataToFilter = dataToFilter.filter(item => {
                 if (statusFilter === 'Processing') return item.Status === 'Processing';
