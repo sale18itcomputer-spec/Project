@@ -360,7 +360,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             <div style={{ width: '35%', textAlign: 'center' }}>
                 <div style={{ borderTop: '2px solid #000', marginBottom: wide ? 16 : 4 }}></div>
                 {!isService && <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>}
-                <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>Seller's Signature &amp; Name</div>
+                <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>{isService ? "Receiver's" : "Seller's"} Signature &amp; Name</div>
             </div>
         </div>
     );
