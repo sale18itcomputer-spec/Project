@@ -36,6 +36,8 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
     const isTaxInvoice = headerData['Taxable'] === 'VAT';
     const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';
     const isService = isServiceInvoice(headerData);
+    // Bilingual label helper — service invoices are English-only.
+    const L = (bilingual: string, en: string) => (isService ? en : bilingual);
     const hasVatTin = !!(headerData['Tin No'] || headerData['Tin No.'] || headerData['VAT TIN']);
 
     const fmtNum = (v: number | string) => {
@@ -148,14 +150,14 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             <div style={{ position: 'absolute', left: 0, top: 0 }}>
                 <img src={LOGO_URL} alt="Limperial Logo" style={{ height: 24, width: 'auto', objectFit: 'contain' }} />
             </div>
-            <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 2, fontFamily: "'Moul', serif" }}>លីមភើរៀល ថេកណូឡូជី ឯ.ក</div>
+            {!isService && <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 2, fontFamily: "'Moul', serif" }}>លីមភើរៀល ថេកណូឡូជី ឯ.ក</div>}
             <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 2, textTransform: 'uppercase', fontFamily: "'Times New Roman', serif" }}>LIMPERIAL TECHNOLOGY CO., LTD.</div>
             {isTaxInvoice && (
-                <div style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN)៖ K003-902201968</div>
+                <div style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>{L('លេខអត្តសញ្ញាណកម្មអាករ (VAT TIN)៖', 'VAT TIN:')} K003-902201968</div>
             )}
-            <div style={{ fontSize: 9, marginBottom: 1 }}>អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</div>
-            <div style={{ fontSize: 7, whiteSpace: 'nowrap', overflow: 'hidden', marginBottom: 2 }}>Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</div>
-            <div style={{ fontSize: 9 }}>E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</div>
+            {!isService && <div style={{ fontSize: 9, marginBottom: 1 }}>អាសយដ្ឋាន៖ #B១៥ (ជាន់ផ្ទាល់ដី ជាន់ទី១ ជាន់ទី២ ជាន់ទី៣ និង ជាន់ទី៤) ផ្លូវ អយស្ម័យយានបូព៍ (១៣៩) ភូមិ ១ សង្កាត់ស្រះចក ខណ្ឌដូនពេញ រាជធានីភ្នំពេញ</div>}
+            <div style={{ fontSize: isService ? 8 : 7, whiteSpace: 'nowrap', overflow: 'hidden', marginBottom: 2 }}>Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</div>
+            <div style={{ fontSize: 9 }}>E-mail: info@limperialtech.com || {L('លេខទូរស័ព្ទ (Telephone)', 'Telephone')}: +855 92 218 333</div>
         </div>
     );
 
@@ -170,10 +172,10 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             );
         }
         if (isService) {
+            // Service invoices are English-only.
             return (
                 <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                    <div style={{ fontSize: 15, fontWeight: 'bold' }}>វិក្កយបត្រសេវាកម្ម</div>
-                    <div style={{ fontSize: 13, fontWeight: 'bold' }}>SERVICE INVOICE</div>
+                    <div style={{ fontSize: 14, fontWeight: 'bold' }}>SERVICE INVOICE</div>
                 </div>
             );
         }
@@ -192,40 +194,42 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
             <div style={{ width: '55%' }}>
                 <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: 10 }}>
                     <tbody>
-                        <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>អតិថិជន</td>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
-                            <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Company Name (Khmer)'] || headerData['Company Name'] || ''}</td>
-                        </tr>
+                        {!isService && (
+                            <tr>
+                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>អតិថិជន</td>
+                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
+                                <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Company Name (Khmer)'] || headerData['Company Name'] || ''}</td>
+                            </tr>
+                        )}
                         <tr>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>Customer</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Company Name'] || ''}</td>
                         </tr>
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap', verticalAlign: 'top' }}>អាសយដ្ឋាន (Address)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{L('អាសយដ្ឋាន (Address)', 'Address')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center', verticalAlign: 'top' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}><div style={{ maxWidth: 220, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', whiteSpace: 'normal' }}>{headerData['Company Address'] || ''}</div></td>
                         </tr>
                         {isTaxInvoice && (
                             <tr>
-                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខអត្តសញ្ញាណកម្ម (VAT TIN)</td>
+                                <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('លេខអត្តសញ្ញាណកម្ម (VAT TIN)', 'VAT TIN')}</td>
                                 <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                                 <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Tin No'] || headerData['Tin No.'] || headerData['VAT TIN'] || ''}</td>
                             </tr>
                         )}
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>ទំនាក់ទំនង (Contact Person)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('ទំនាក់ទំនង (Contact Person)', 'Contact Person')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Contact Name'] || ''}</td>
                         </tr>
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខទូរស័ព្ទ (Telephone)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('លេខទូរស័ព្ទ (Telephone)', 'Telephone')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Phone Number'] || ''}</td>
                         </tr>
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>អ៊ីម៉ែល (E-mail)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('អ៊ីម៉ែល (E-mail)', 'E-mail')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto' }}>{headerData['Email'] || ''}</td>
                         </tr>
@@ -237,12 +241,12 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                 <table style={{ width: 'auto', marginLeft: 'auto', borderCollapse: 'collapse', fontSize: 10 }}>
                     <tbody>
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>លេខរៀងវិក្កយបត្រ (Invoice Nº)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('លេខរៀងវិក្កយបត្រ (Invoice Nº)', 'Invoice Nº')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto', verticalAlign: 'middle' }}>{headerData['Inv No'] || headerData['Inv No.'] || headerData['Invoice No'] || ''}</td>
                         </tr>
                         <tr>
-                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>កាលបរិច្ឆេទ (Date)</td>
+                            <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', whiteSpace: 'nowrap' }}>{L('កាលបរិច្ឆេទ (Date)', 'Date')}</td>
                             <td style={{ fontWeight: 'bold', border: 'none', padding: '3px 0', width: 10, textAlign: 'center' }}>:</td>
                             <td style={{ border: 'none', padding: '3px 0', width: 'auto', verticalAlign: 'middle' }}>{fmtDate(headerData['Inv Date'])}</td>
                         </tr>
@@ -257,17 +261,18 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
         <>
             <thead>
                 <tr>
-                    <th style={thStyle}><div>ល.រ</div><div>Nº</div></th>
+                    <th style={thStyle}>{isService ? <div>Nº</div> : <><div>ល.រ</div><div>Nº</div></>}</th>
+                    {!isService && (
+                        <th style={thStyle}>
+                            <div>{isCommercial ? 'លេខកូដទំនិញ' : 'លេខសម្គាល់ទំនិញ'}</div>
+                            <div>Part Number</div>
+                        </th>
+                    )}
+                    <th style={thStyle}>{isService ? <div>Description</div> : <><div>បរិយាយទំនិញ</div><div>Description</div></>}</th>
+                    <th style={thStyle}>{isService ? <div>Qty</div> : <><div>បរិមាណ</div><div>{isCommercial ? 'Quantity' : 'Qty'}</div></>}</th>
+                    <th style={thStyle}>{isService ? <div>Unit Price</div> : <><div>តម្លៃឯកតា</div><div>Unit Price</div></>}</th>
                     <th style={thStyle}>
-                        <div>{isCommercial ? 'លេខកូដទំនិញ' : 'លេខសម្គាល់ទំនិញ'}</div>
-                        <div>Part Number</div>
-                    </th>
-                    <th style={thStyle}><div>បរិយាយទំនិញ</div><div>Description</div></th>
-                    <th style={thStyle}><div>បរិមាណ</div><div>{isCommercial ? 'Quantity' : 'Qty'}</div></th>
-                    <th style={thStyle}><div>តម្លៃឯកតា</div><div>Unit Price</div></th>
-                    <th style={thStyle}>
-                        <div>{isCommercial ? 'តម្លៃសរុប' : 'តម្លៃទំនិញ'}</div>
-                        <div>Amount</div>
+                        {isService ? <div>Amount</div> : <><div>{isCommercial ? 'តម្លៃសរុប' : 'តម្លៃទំនិញ'}</div><div>Amount</div></>}
                     </th>
                 </tr>
             </thead>
@@ -280,7 +285,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                             <React.Fragment key={item.id || idx}>
                                 <tr className="break-inside-avoid" style={{ textAlign: 'center' }}>
                                     <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
-                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>
+                                    {!isService && <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}></td>}
                                     <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, paddingBottom: 8, fontStyle: 'italic', color: '#666', fontSize: 10, whiteSpace: 'pre-wrap' }}>
                                         {item.description || 'Cashback / Promotion'}
                                     </td>
@@ -301,7 +306,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                         <React.Fragment key={item.id || idx}>
                             <tr className="break-inside-avoid" style={{ height: isCommercial ? 40 : 'auto', textAlign: 'center' }}>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.no > 0 ? item.no : ''}</td>
-                                <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.itemCode}</td>
+                                {!isService && <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.itemCode}</td>}
                                 <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>
                                     <div style={{ fontWeight: item.modelName ? 'bold' : 'normal' }}>{item.modelName}</div>
                                     {item.description && (
@@ -341,12 +346,12 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
         }}>
             <div style={{ width: '35%', textAlign: 'center' }}>
                 <div style={{ borderTop: '2px solid #000', marginBottom: wide ? 16 : 4 }}></div>
-                <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>
+                {!isService && <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកទិញ</div>}
                 <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>Customer's Signature &amp; Name</div>
             </div>
             <div style={{ width: '35%', textAlign: 'center' }}>
                 <div style={{ borderTop: '2px solid #000', marginBottom: wide ? 16 : 4 }}></div>
-                <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>
+                {!isService && <div style={{ fontSize: 11, marginBottom: 2 }}>ហត្ថលេខា និងឈ្មោះអ្នកលក់</div>}
                 <div style={{ fontSize: 11, fontWeight: wide ? 'normal' : 'bold' }}>Seller's Signature &amp; Name</div>
             </div>
         </div>
@@ -394,8 +399,8 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
                         <colgroup>
                             <col style={{ width: '5%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '45%' }} />
+                            {!isService && <col style={{ width: '15%' }} />}
+                            <col style={{ width: isService ? '60%' : '45%' }} />
                             <col style={{ width: '10%' }} />
                             <col style={{ width: '12%' }} />
                             <col style={{ width: '13%' }} />
@@ -449,38 +454,38 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                         {isTaxInvoice && !isCommercial && (
                             <tbody className="break-inside-avoid">
                                 <tr>
-                                    <td colSpan={3} rowSpan={hasDeposit ? 7 : 5} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
+                                    <td colSpan={isService ? 2 : 3} rowSpan={hasDeposit ? 7 : 5} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
                                         <TermsPaymentBlock />
                                     </td>
-                                    <td colSpan={2} style={taxTotLbl}>សរុប (Sub Total)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុប (Sub Total)', 'Sub Total')}</td>
                                     <td style={taxTotVal}>{moneyFlex(sym, subTotal > 0 ? subTotal : null)}</td>
                                 </tr>
                                 {hasDeposit && (
                                     <>
                                         <tr>
-                                            <td colSpan={2} style={taxTotLbl}>ប្រាក់កក់ (Deposit)</td>
+                                            <td colSpan={2} style={taxTotLbl}>{L('ប្រាក់កក់ (Deposit)', 'Deposit')}</td>
                                             <td style={taxTotVal}>{moneyFlex(sym, deposit)}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={2} style={taxTotLbl}>សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+                                            <td colSpan={2} style={taxTotLbl}>{L('សរុបដកប្រាក់កក់ (Total Less Deposit)', 'Total Less Deposit')}</td>
                                             <td style={taxTotVal}>{moneyFlex(sym, totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
                                         </tr>
                                     </>
                                 )}
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>អាករលើតម្លៃបន្ថែម (VAT 10%)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('អាករលើតម្លៃបន្ថែម (VAT 10%)', 'VAT 10%')}</td>
                                     <td style={taxTotVal}>{moneyFlex(sym, vatAmount > 0 ? vatAmount : null)}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)', 'Grand Total in Dollar')}</td>
                                     <td style={taxTotVal}>{moneyFlex(sym, grandUsd > 0 ? grandUsd : null)}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>អត្រាប្តូរប្រាក់រៀល (Exchange Rate)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('អត្រាប្តូរប្រាក់រៀល (Exchange Rate)', 'Exchange Rate')}</td>
                                     <td style={{ ...taxTotVal, verticalAlign: 'middle' }}>{exchangeRate}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)', 'Grand Total in Riel')}</td>
                                     <td style={taxTotVal}>{moneyFlex('R', grandRiel > 0 ? grandRiel : null)}</td>
                                 </tr>
                             </tbody>
@@ -491,34 +496,34 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                         {!isTaxInvoice && !isCommercial && (
                             <tbody className="break-inside-avoid">
                                 <tr>
-                                    <td colSpan={3} rowSpan={hasDeposit ? 6 : 4} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
+                                    <td colSpan={isService ? 2 : 3} rowSpan={hasDeposit ? 6 : 4} style={{ border: 'none', verticalAlign: 'top', padding: 12 }}>
                                         <TermsPaymentBlock />
                                     </td>
-                                    <td colSpan={2} style={taxTotLbl}>សរុប (Sub Total)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុប (Sub Total)', 'Sub Total')}</td>
                                     <td style={taxTotVal}>{moneyFlex(sym, subTotal > 0 ? subTotal : null)}</td>
                                 </tr>
                                 {hasDeposit && (
                                     <>
                                         <tr>
-                                            <td colSpan={2} style={taxTotLbl}>ប្រាក់កក់ (Deposit)</td>
+                                            <td colSpan={2} style={taxTotLbl}>{L('ប្រាក់កក់ (Deposit)', 'Deposit')}</td>
                                             <td style={taxTotVal}>{moneyFlex(sym, deposit)}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={2} style={taxTotLbl}>សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+                                            <td colSpan={2} style={taxTotLbl}>{L('សរុបដកប្រាក់កក់ (Total Less Deposit)', 'Total Less Deposit')}</td>
                                             <td style={taxTotVal}>{moneyFlex(sym, totalLessDeposit > 0 ? totalLessDeposit : null)}</td>
                                         </tr>
                                     </>
                                 )}
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុបរួមជាប្រាក់ដុល្លារ (Grand Total in Dollar)', 'Grand Total in Dollar')}</td>
                                     <td style={taxTotVal}>{moneyFlex(sym, grandUsd > 0 ? grandUsd : null)}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>អត្រាប្តូរប្រាក់រៀល (Exchange Rate)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('អត្រាប្តូរប្រាក់រៀល (Exchange Rate)', 'Exchange Rate')}</td>
                                     <td style={{ ...taxTotVal, verticalAlign: 'middle' }}>{exchangeRate}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={2} style={taxTotLbl}>សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+                                    <td colSpan={2} style={taxTotLbl}>{L('សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)', 'Grand Total in Riel')}</td>
                                     <td style={taxTotVal}>{moneyFlex('R', grandRiel > 0 ? grandRiel : null)}</td>
                                 </tr>
                             </tbody>

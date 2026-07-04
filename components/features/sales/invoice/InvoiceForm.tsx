@@ -184,10 +184,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                                 {item.no}
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1 min-w-[140px]">
-                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Item Code</label>
-                                                            <PricelistCombobox item={item} onItemChange={handleItemChange} onPricelistItemSelect={handlePricelistItemSelect} />
-                                                        </div>
+                                                        {!isService && (
+                                                            <div className="flex-1 min-w-[140px]">
+                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Item Code</label>
+                                                                <PricelistCombobox item={item} onItemChange={handleItemChange} onPricelistItemSelect={handlePricelistItemSelect} />
+                                                            </div>
+                                                        )}
                                                         <div className="flex-[1.5] min-w-[160px]">
                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Model</label>
                                                             <input

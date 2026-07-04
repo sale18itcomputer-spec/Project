@@ -133,7 +133,7 @@ const DEFAULT_WIDTHS: Record<string, number[]> = {
     'Sale Order':      [7, 17, 46,  6, 10, 14],
     'Tax Invoice':     [4, 12, 38, 14, 17, 15],
     'Invoice':         [4, 12, 38, 14, 17, 15],
-    'Service Invoice': [4, 12, 38, 14, 17, 15],
+    'Service Invoice': [4, 0, 50, 14, 17, 15],
     'Commercial Invoice': [4, 12, 38, 14, 17, 15],
     'Delivery Order':  [7, 17, 70,  6,  0,  0],
     'Receipt':         [4, 16, 33, 12, 16, 19],
@@ -145,6 +145,10 @@ function resolveWidths(type: string, override?: number[]): number[] {
     if (override && override.length === 6) return override;
     return DEFAULT_WIDTHS[type] ?? [7, 17, 46, 6, 10, 14];
 }
+
+// Service invoices never show the Part Number column (code width = 0) —
+// fixed layout, not user-adjustable.
+const SERVICE_INVOICE_WIDTHS = DEFAULT_WIDTHS['Service Invoice'];
 
 
 function companyHeader(): string {
@@ -209,9 +213,10 @@ export function buildHtml(opts: PdfTemplateOptions): string {
         return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
     }
     if (opts.type === 'Service Invoice') {
-        // NON-VAT invoice layout with a Service Invoice title.
-        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer,
-            { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' });
+        // NON-VAT invoice layout, always English-only, no Part Number column,
+        // titled SERVICE INVOICE. Fixed widths override any user column setup.
+        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding,
+            SERVICE_INVOICE_WIDTHS, true, { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' });
     }
     if (opts.type === 'Commercial Invoice') {
         const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);

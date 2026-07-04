@@ -76,9 +76,10 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
                 false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
             );
         case 'Service Invoice':
+            // Always English-only with no Part Number column (code width 0).
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
-                false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
+                false, opts.signaturePadding, opts.labelPadding, [4, 0, 50, 14, 17, 15], true,
                 { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' },
             );
         default:
