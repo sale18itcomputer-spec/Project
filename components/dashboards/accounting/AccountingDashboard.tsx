@@ -18,9 +18,13 @@ import {
     BookOpen, PlusCircle, Trash2, Check, X, ChevronRight, ChevronDown,
     AlertTriangle, TrendingUp, TrendingDown, Scale, Edit2, Eye, EyeOff,
     FileText, Landmark, Activity, BarChart2, RefreshCw, Receipt, Building2, Download, Printer, Power,
+    ListChecks, Repeat, Banknote,
 } from 'lucide-react';
 import BillsTab from './BillsTab';
 import AccountingVendorsTab from './AccountingVendorsTab';
+import TrialBalanceTab from './TrialBalanceTab';
+import RecurringTab from './RecurringTab';
+import BankReconciliationTab from './BankReconciliationTab';
 import {
     exportCoA, exportJournalEntries, exportGeneralLedger,
     exportBalanceSheet, exportBSCompare,
@@ -1136,7 +1140,7 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'balance' | 'cashflow' | 'pl';
+type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'trial' | 'recurring' | 'bankrec' | 'balance' | 'cashflow' | 'pl';
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
@@ -1819,7 +1823,7 @@ export default function AccountingDashboard() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Chart of Accounts · General Ledger · Journal Entries · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">Chart of Accounts · General Ledger · Journal Entries · Trial Balance · Recurring · Bank Reconciliation · Balance Sheet · Cash Flow · Profit &amp; Loss</p>
                     </div>
                 </div>
             </div>
@@ -1831,6 +1835,9 @@ export default function AccountingDashboard() {
                 <TabBtn id="journal"  label="Journal Entries"   icon={<FileText size={15} />} />
                 <TabBtn id="bills"    label="Bills"             icon={<Receipt size={15} />} />
                 <TabBtn id="vendors"  label="Vendors"           icon={<Building2 size={15} />} />
+                <TabBtn id="trial"    label="Trial Balance"     icon={<ListChecks size={15} />} />
+                <TabBtn id="recurring" label="Recurring"        icon={<Repeat size={15} />} />
+                <TabBtn id="bankrec"  label="Bank Reconciliation" icon={<Banknote size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
                 <TabBtn id="pl"       label="Profit & Loss"     icon={<BarChart2 size={15} />} />
@@ -3037,6 +3044,21 @@ export default function AccountingDashboard() {
             {/* ── TAB: Vendors ───────────────────────────────────────────── */}
             {activeTab === 'vendors' && (
                 <AccountingVendorsTab />
+            )}
+
+            {/* ── TAB: Trial Balance ─────────────────────────────────────── */}
+            {activeTab === 'trial' && (
+                <TrialBalanceTab accounts={accounts} />
+            )}
+
+            {/* ── TAB: Recurring ─────────────────────────────────────────── */}
+            {activeTab === 'recurring' && (
+                <RecurringTab accounts={accounts} />
+            )}
+
+            {/* ── TAB: Bank Reconciliation ───────────────────────────────── */}
+            {activeTab === 'bankrec' && (
+                <BankReconciliationTab accounts={accounts} />
             )}
 
             {/* ── TAB: Balance Sheet ─────────────────────────────────────────── */}

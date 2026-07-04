@@ -641,6 +641,73 @@ export const computeBalanceSheet = async (
     };
 };
 
+// ── Trial Balance ─────────────────────────────────────────────────────────────
+
+export interface TrialBalanceRow {
+    account_number: string;
+    account_name: string;
+    account_type: string;
+    debit: number;   // net debit balance (0 when the account is credit-balance)
+    credit: number;  // net credit balance (0 when the account is debit-balance)
+}
+
+/** Trial balance as of a date (defaults to all-time): every account with activity,
+ *  its net balance placed in the debit or credit column. Total debits must equal
+ *  total credits — the fundamental double-entry check. */
+export const computeTrialBalance = async (
+    accounts: ChartOfAccount[],
+    asOfDate?: string,
+): Promise<{ rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number; isBalanced: boolean }> => {
+    let jeQuery = supabase.from('journal_entries').select('id').eq('is_posted', true);
+    if (asOfDate) jeQuery = jeQuery.lte('entry_date', asOfDate);
+    const { data: jeRows, error: jeErr } = await jeQuery;
+    if (jeErr) throw new Error(jeErr.message);
+    const jeIds = (jeRows ?? []).map((r: any) => r.id as string);
+
+    let lines: any[] = [];
+    if (jeIds.length > 0) {
+        const { data, error } = await supabase
+            .from('journal_entry_lines')
+            .select('account_number, debit, credit')
+            .in('journal_entry_id', jeIds);
+        if (error) throw new Error(error.message);
+        lines = data ?? [];
+    }
+
+    const agg: Record<string, { debit: number; credit: number }> = {};
+    lines.forEach((l: any) => {
+        if (!agg[l.account_number]) agg[l.account_number] = { debit: 0, credit: 0 };
+        agg[l.account_number].debit  += Number(l.debit);
+        agg[l.account_number].credit += Number(l.credit);
+    });
+
+    const nameOf = new Map(accounts.map(a => [a.account_number, a]));
+    const rows: TrialBalanceRow[] = [];
+    let totalDebit = 0, totalCredit = 0;
+
+    Object.keys(agg)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach(num => {
+            const net = Math.round((agg[num].debit - agg[num].credit) * 100) / 100;
+            if (net === 0) return; // zero-balance accounts are omitted from the TB
+            const acc = nameOf.get(num);
+            const debit  = net > 0 ? net : 0;
+            const credit = net < 0 ? -net : 0;
+            rows.push({
+                account_number: num,
+                account_name: acc?.account_name ?? '(unknown)',
+                account_type: acc?.account_type ?? '',
+                debit, credit,
+            });
+            totalDebit += debit;
+            totalCredit += credit;
+        });
+
+    totalDebit = Math.round(totalDebit * 100) / 100;
+    totalCredit = Math.round(totalCredit * 100) / 100;
+    return { rows, totalDebit, totalCredit, isBalanced: Math.abs(totalDebit - totalCredit) < 0.01 };
+};
+
 // ── Auto-Post Helpers ─────────────────────────────────────────────────────────
 // These functions create draft journal entries automatically when business
 // transactions (invoices, receipts) are saved. Entries are created with
