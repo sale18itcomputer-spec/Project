@@ -91,6 +91,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const isService = useMemo(() =>
         initialData?.action === 'service-new' ||
         !!initialData?.ticketData ||
+        (initialData?.duplicateOf ? isServiceInvoice(initialData.duplicateOf) : false) ||
         (existingInvoice ? isServiceInvoice(existingInvoice) : false),
     [initialData, existingInvoice]);
 

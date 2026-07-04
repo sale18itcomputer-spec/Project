@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Invoice } from '../../../types';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Invoice, ServiceTicket } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { Plus, Receipt as ReceiptIcon, Search, Wallet, Pencil, Trash2, Info, ArrowRightToLine, WrapText, Scissors, LayoutGrid } from 'lucide-react';
+import { Plus, Receipt as ReceiptIcon, Search, Wallet, Pencil, Trash2, Info, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Printer, Copy, Wrench } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { deleteRecord } from '../../../services/api';
@@ -17,6 +17,8 @@ import RowActionMenuItems from '../../common/RowActionMenuItems';
 import { DropdownMenuItem } from '../../ui/dropdown-menu';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import InvoiceWindowContent from '../../windows/content/InvoiceWindowContent';
+import ServiceTicketWindowContent from '../../windows/content/ServiceTicketWindowContent';
+import { generatePDF } from '../../../lib/pdfClient';
 import QuickPaymentModal from '../../modals/QuickPaymentModal';
 import { computeInvoiceAR, InvoiceAR } from '../../../utils/collection';
 import { formatCurrencySmartly } from '../../../utils/formatters';
@@ -39,10 +41,13 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
 );
 
 const ServiceInvoiceDashboard: React.FC = () => {
-    const { invoices, setInvoices, receipts, loading } = useData();
+    const { invoices, setInvoices, receipts, companies, serviceTickets, fetchModule, loading } = useData();
     const { can } = usePermissions();
     const { addToast } = useToast();
     const { openWindow } = useWindowManager();
+
+    // Tickets are needed for the "Open Ticket" jump from linked invoices.
+    useEffect(() => { fetchModule('Service Tickets'); }, [fetchModule]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -116,6 +121,91 @@ const ServiceInvoiceDashboard: React.FC = () => {
     const handleRecordPayment = useCallback((inv: Invoice) => {
         setPaymentTarget(computeInvoiceAR(inv, receipts));
     }, [receipts]);
+
+    // ── Summary ───────────────────────────────────────────────────────────────
+
+    const statusCounts = useMemo(() => {
+        const counts: Record<string, number> = { All: serviceInvoices.length };
+        for (const inv of serviceInvoices) {
+            counts[inv.Status] = (counts[inv.Status] ?? 0) + 1;
+        }
+        return counts;
+    }, [serviceInvoices]);
+
+    // Total unpaid across active USD invoices (KHR invoices excluded from the sum).
+    const outstandingUSD = useMemo(() =>
+        serviceInvoices
+            .filter(inv => (inv.Currency ?? 'USD') === 'USD' && inv.Status !== 'Cancel')
+            .reduce((sum, inv) => sum + Math.max(0, computeInvoiceAR(inv, receipts).outstanding), 0),
+    [serviceInvoices, receipts]);
+
+    // ── Print / Duplicate / Ticket link ──────────────────────────────────────
+
+    const handlePrintInvoice = useCallback(async (invoice: Invoice) => {
+        let items: any[] = [];
+        if (typeof invoice.ItemsJSON === 'string') {
+            try { items = JSON.parse(invoice.ItemsJSON); } catch { /* ignore malformed JSON */ }
+        } else {
+            items = invoice.ItemsJSON || [];
+        }
+
+        const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+        const tax = invoice.Taxable === 'VAT' ? subTotal * 0.1 : 0;
+        const grandTotal = subTotal + tax;
+
+        try {
+            await generatePDF({
+                type: 'Service Invoice',
+                headerData: {
+                    ...invoice,
+                    'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
+                    'Invoice No': invoice['Inv No'],
+                    'Inv No.': invoice['Inv No'],
+                },
+                items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
+                    no: item.no,
+                    itemCode: item.itemCode,
+                    modelName: item.modelName,
+                    description: item.description,
+                    qty: item.qty,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                    isPromotion: item.isPromotion,
+                })),
+                totals: { subTotal, tax, grandTotal },
+                currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
+                filename: `ServiceInvoice_${invoice['Inv No']}.pdf`,
+            });
+        } catch (err: any) {
+            addToast(`Failed to generate PDF: ${err.message}`, 'error');
+        }
+    }, [companies, addToast]);
+
+    const handleDuplicateInvoice = useCallback((invoice: Invoice) => {
+        openInvoiceWindow(null, { action: 'duplicate', duplicateOf: invoice });
+        addToast('Duplicating service invoice...', 'info');
+    }, [openInvoiceWindow, addToast]);
+
+    const findLinkedTicket = useCallback((inv: Invoice): ServiceTicket | undefined => {
+        const remark = inv['Remark'] ?? '';
+        if (!remark.startsWith(SERVICE_REMARK_PREFIX)) return undefined;
+        const ticketNo = remark.slice(SERVICE_REMARK_PREFIX.length).trim();
+        return serviceTickets?.find(t => t.ticket_no === ticketNo);
+    }, [serviceTickets]);
+
+    const openTicketWindow = useCallback((ticket: ServiceTicket) => {
+        const windowId = `service-ticket-${ticket.id}`;
+        openWindow({
+            id: windowId,
+            title: 'Service Ticket',
+            content: <ServiceTicketWindowContent windowId={windowId} ticketId={ticket.id!} initialReadOnly={true} />,
+            draggable: true,
+            initialWidth: 900,
+            initialHeight: 760,
+            minWidth: 880,
+            minHeight: 480,
+        });
+    }, [openWindow]);
 
     // ── Columns ───────────────────────────────────────────────────────────────
 
@@ -205,6 +295,9 @@ const ServiceInvoiceDashboard: React.FC = () => {
                         <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                             {filteredData.length}
                         </span>
+                        <span className={`text-sm font-semibold px-2.5 py-0.5 rounded-full ${outstandingUSD > 0.005 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                            Outstanding: {formatCurrencySmartly(outstandingUSD, 'USD')}
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap">
@@ -265,6 +358,9 @@ const ServiceInvoiceDashboard: React.FC = () => {
                             }`}
                         >
                             {s}
+                            <span className={`ml-1.5 text-xs ${statusFilter === s ? 'text-white/70' : 'text-muted-foreground/60'}`}>
+                                {statusCounts[s] ?? 0}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -306,6 +402,13 @@ const ServiceInvoiceDashboard: React.FC = () => {
                                         </button>
                                     </PermissionGate>
                                 )}
+                                <button
+                                    onClick={e => { e.stopPropagation(); handlePrintInvoice(row); }}
+                                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
+                                    title="Print PDF"
+                                >
+                                    <Printer size={15} />
+                                </button>
                                 <PermissionGate module="service_invoices" action="delete">
                                     <button
                                         onClick={e => { e.stopPropagation(); handleDeleteRequest(row); }}
@@ -321,12 +424,26 @@ const ServiceInvoiceDashboard: React.FC = () => {
                     renderRowContextMenu={row => {
                         const ar = computeInvoiceAR(row, receipts);
                         const canPay = (row.Status === 'Processing' || row.Status === 'Completed') && ar.outstanding > 0.005;
+                        const linkedTicket = findLinkedTicket(row);
                         return (
                             <RowActionMenuItems
                                 onOpenWindow={() => openInvoiceWindow(row['Inv No'])}
                                 onEdit={can('service_invoices', 'edit') ? () => openInvoiceWindow(row['Inv No']) : undefined}
                                 onDelete={can('service_invoices', 'delete') ? () => handleDeleteRequest(row) : undefined}
                             >
+                                {linkedTicket && (
+                                    <DropdownMenuItem onClick={() => openTicketWindow(linkedTicket)}>
+                                        <Wrench className="mr-2 h-4 w-4" /> Open Ticket {linkedTicket.ticket_no}
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handlePrintInvoice(row)}>
+                                    <Printer className="mr-2 h-4 w-4" /> Print
+                                </DropdownMenuItem>
+                                {can('service_invoices', 'create') && (
+                                    <DropdownMenuItem onClick={() => handleDuplicateInvoice(row)}>
+                                        <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                    </DropdownMenuItem>
+                                )}
                                 {canPay && can('service_invoices', 'edit') && (
                                     <DropdownMenuItem onClick={() => handleRecordPayment(row)}>
                                         <Wallet className="mr-2 h-4 w-4" /> Record Payment
