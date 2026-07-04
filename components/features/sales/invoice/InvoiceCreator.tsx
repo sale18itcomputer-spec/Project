@@ -6,7 +6,7 @@ import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo } from "../../../../services/api";
-import { isServiceInvoice } from "../../../../utils/serviceInvoice";
+import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
@@ -59,7 +59,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
 };
 
 const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice, initialData }) => {
-    const { invoices, setInvoices, companies, contacts, saleOrders, pricelist, refetchModule, setSerialNumbers } = useData();
+    const { invoices, setInvoices, companies, contacts, saleOrders, pricelist, serviceTickets, fetchModule, refetchModule, setSerialNumbers } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
 
@@ -338,6 +338,36 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         } else {
             setInvoice(prev => ({ ...prev, 'Company Name': companyName }));
         }
+    };
+
+    // Service mode: load tickets for the Service Ticket reference selector.
+    useEffect(() => {
+        if (isService) fetchModule('Service Tickets');
+    }, [isService, fetchModule]);
+
+    const serviceTicketOptions = useMemo(
+        () => serviceTickets
+            ? [...new Set(serviceTickets.map(t => t.ticket_no).filter(Boolean))].sort().reverse() as string[]
+            : [],
+        [serviceTickets]
+    );
+
+    // Ticket reference shown in the form — derived from the Remark marker.
+    const serviceTicketRef = invoice['Remark']?.startsWith(SERVICE_REMARK_PREFIX)
+        ? invoice['Remark'].slice(SERVICE_REMARK_PREFIX.length)
+        : '';
+
+    const handleServiceTicketSelect = (ticketNo: string) => {
+        const ticket = serviceTickets?.find(t => t.ticket_no === ticketNo);
+        setInvoice(prev => ({
+            ...prev,
+            'Remark': ticketNo ? `${SERVICE_REMARK_PREFIX}${ticketNo}` : SERVICE_REMARK_PLAIN,
+            ...(ticket ? {
+                'Company Name': prev['Company Name'] || ticket.company_name,
+                'Contact Name': prev['Contact Name'] || ticket.contact_name,
+                'Phone Number': prev['Phone Number'] || ticket.contact_phone,
+            } : {}),
+        }));
     };
 
     const handleSOSelect = (soNo: string) => {
@@ -957,7 +987,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} addPromoRow={addPromoRow} handlePromoAmountChange={handlePromoAmountChange} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} />
+                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} addPromoRow={addPromoRow} handlePromoAmountChange={handlePromoAmountChange} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={isService ? TAXABLE_OPTIONS.filter(t => t !== 'Commercial Invoice') : TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} isService={isService} serviceTicketOptions={serviceTicketOptions} serviceTicketRef={serviceTicketRef} handleServiceTicketSelect={handleServiceTicketSelect} />
                 </div>
 
                 <div className="print-only">

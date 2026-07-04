@@ -35,20 +35,31 @@ interface InvoiceFormProps {
     TAXABLE_OPTIONS: string[];
     CURRENCY_OPTIONS: ('USD' | 'KHR')[];
     getCurrencySymbol: (currency?: 'USD' | 'KHR') => string;
+    /** Service invoice mode — swaps the SO reference for a Service Ticket link and service labels. */
+    isService?: boolean;
+    serviceTicketOptions?: string[];
+    serviceTicketRef?: string;
+    handleServiceTicketSelect?: (ticketNo: string) => void;
 }
 
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     invoice, setInvoice, items, setItems, handleInputChange, handleSOSelect, soOptions,
     handleCompanySelect, companyOptions, removeItem, handleItemChange, handlePricelistItemSelect,
     addItem, addPromoRow, handlePromoAmountChange, totals, fileInputRef, handleFileUpload, isUploading, showFormPanel, setShowFormPanel,
-    STATUS_OPTIONS, TAXABLE_OPTIONS, CURRENCY_OPTIONS, getCurrencySymbol
+    STATUS_OPTIONS, TAXABLE_OPTIONS, CURRENCY_OPTIONS, getCurrencySymbol,
+    isService = false, serviceTicketOptions = [], serviceTicketRef = '', handleServiceTicketSelect
 }) => {
     return (
                     <div className={`bg-card border-l border-border transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
-                                <h3 className="text-sm font-bold text-foreground">Document Information</h3>
+                                <div className={`w-1 h-5 rounded-full ${isService ? 'bg-amber-500' : 'bg-brand-500'}`}></div>
+                                <h3 className="text-sm font-bold text-foreground">{isService ? 'Service Invoice Details' : 'Document Information'}</h3>
+                                {isService && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                        Service
+                                    </span>
+                                )}
                             </div>
                             <button
                                 onClick={() => setShowFormPanel(false)}
@@ -65,14 +76,25 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                     <FormInput label="Invoice No." name="Inv No" value={invoice['Inv No']} onChange={handleInputChange} required />
                                     <FormInput label="Invoice Date" name="Inv Date" type="date" value={invoice['Inv Date']} onChange={handleInputChange} />
                                     <FormInput label="Due Date" name="Due Date" type="date" value={invoice['Due Date']} onChange={handleInputChange} />
-                                    <SearchableSelect
-                                        name="SO No"
-                                        label="SO Reference"
-                                        value={invoice['SO No'] || ''}
-                                        options={soOptions}
-                                        onChange={handleSOSelect}
-                                        placeholder="Select SO"
-                                    />
+                                    {isService ? (
+                                        <SearchableSelect
+                                            name="Service Ticket"
+                                            label="Service Ticket"
+                                            value={serviceTicketRef}
+                                            options={serviceTicketOptions}
+                                            onChange={v => handleServiceTicketSelect?.(v)}
+                                            placeholder="Link a ticket (optional)"
+                                        />
+                                    ) : (
+                                        <SearchableSelect
+                                            name="SO No"
+                                            label="SO Reference"
+                                            value={invoice['SO No'] || ''}
+                                            options={soOptions}
+                                            onChange={handleSOSelect}
+                                            placeholder="Select SO"
+                                        />
+                                    )}
                                     <FormSelect label="Status" name="Status" value={invoice['Status']} options={STATUS_OPTIONS} onChange={handleInputChange} />
                                     <FormSelect label="Taxable" name="Taxable" value={invoice['Taxable']} options={TAXABLE_OPTIONS} onChange={handleInputChange} />
                                     <FormSelect label="Currency" name="Currency" value={invoice['Currency']} options={CURRENCY_OPTIONS} onChange={handleInputChange} />
@@ -114,7 +136,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                 </FormSection>
 
                                 <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Line Items</h3>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">{isService ? 'Service & Parts' : 'Line Items'}</h3>
                                     <div className="space-y-4">
                                         {items.map((item) => {
                                             const isPromoRow = !!item.isPromotion;
@@ -213,11 +235,13 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
                                         <div className="flex gap-3">
                                         <button onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 hover:border-brand-400 font-bold text-sm transition-all flex items-center justify-center gap-2">
-                                            <Plus className="w-4 h-4" /> Add Item
+                                            <Plus className="w-4 h-4" /> {isService ? 'Add Service / Part' : 'Add Item'}
                                         </button>
-                                        <button type="button" onClick={addPromoRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
-                                            <span>+ Add Cashback</span>
-                                        </button>
+                                        {!isService && (
+                                            <button type="button" onClick={addPromoRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                <span>+ Add Cashback</span>
+                                            </button>
+                                        )}
                                         </div>
 
                                         <div className="bg-muted/50 rounded-xl p-5 border border-border mt-6 space-y-3">
