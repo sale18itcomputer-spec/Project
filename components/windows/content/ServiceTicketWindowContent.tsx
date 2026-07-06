@@ -13,6 +13,7 @@ import { FormSection, FormInput, FormSelect, FormTextarea } from '@/components/c
 import SearchableSelect from '@/components/common/SearchableSelect';
 import { Check, Loader2, Pencil, FileText } from 'lucide-react';
 import InvoiceWindowContent from '@/components/windows/content/InvoiceWindowContent';
+import { SERVICE_REMARK_PREFIX } from '@/utils/serviceInvoice';
 
 const TICKET_TYPE_OPTIONS  = ['Warranty Claim', 'Out-of-Warranty Repair', 'Preventive Maintenance', 'Software Issue', 'Hardware Issue', 'Return (RMA)', 'Other'] as const;
 const PRIORITY_OPTIONS     = ['Low', 'Normal', 'High', 'Critical'] as const;
@@ -31,7 +32,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
     ticketId,
     initialReadOnly = false,
 }) => {
-    const { fetchModule, serviceTickets, setServiceTickets, companies, contacts, serialNumbers } = useData();
+    const { fetchModule, serviceTickets, setServiceTickets, companies, contacts, serialNumbers, invoices } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { closeWindow, updateWindow, openWindow } = useWindowManager();
@@ -86,8 +87,14 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
     );
 
     useEffect(() => {
-        fetchModule('Company List', 'Contact_List', 'Serial Numbers');
+        fetchModule('Company List', 'Contact_List', 'Serial Numbers', 'Invoices');
     }, [fetchModule]);
+
+    // Invoice already raised for this ticket (matched via the Remark link).
+    const linkedInvoice = useMemo(() => {
+        if (!formData.ticket_no || !invoices) return null;
+        return invoices.find(i => (i as any)['Remark'] === `${SERVICE_REMARK_PREFIX}${formData.ticket_no}`) ?? null;
+    }, [invoices, formData.ticket_no]);
 
     useEffect(() => {
         if (isEditMode && existingTicket) {
@@ -180,6 +187,22 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
         }
     }, [formData, existingTicket, setServiceTickets, addToast, closeWindow, windowId, currentUser]);
 
+    const handleOpenLinkedInvoice = useCallback(() => {
+        if (!linkedInvoice) return;
+        const invNo = linkedInvoice['Inv No'];
+        const invWindowId = `invoice-${invNo}`;
+        openWindow({
+            id: invWindowId,
+            title: `Invoice: ${invNo}`,
+            content: <InvoiceWindowContent windowId={invWindowId} invNo={invNo} />,
+            noPadding: true,
+            initialWidth: 1200,
+            initialHeight: 820,
+            minWidth: 900,
+            minHeight: 600,
+        });
+    }, [linkedInvoice, openWindow]);
+
     const handleCreateInvoice = useCallback(() => {
         const invWindowId = `invoice-new-from-ticket-${windowId}`;
         openWindow({
@@ -211,9 +234,18 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
                 <button type="button" onClick={() => closeWindow(windowId)} className="font-semibold py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted text-sm">Close</button>
                 <div className="flex items-center gap-2">
                     {isEditMode && (
-                        <button type="button" onClick={handleCreateInvoice} className="flex items-center gap-1.5 text-sm font-semibold py-2 px-4 rounded-lg border border-brand-500/40 text-brand-500 hover:bg-brand-500/10 transition">
-                            <FileText size={15} /> Create Invoice
-                        </button>
+                        linkedInvoice ? (
+                            <button type="button" onClick={handleOpenLinkedInvoice} className="flex items-center gap-1.5 text-sm font-semibold py-2 px-4 rounded-lg border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition">
+                                <FileText size={15} /> Invoice {linkedInvoice['Inv No']}
+                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10">
+                                    {linkedInvoice.Status}
+                                </span>
+                            </button>
+                        ) : (
+                            <button type="button" onClick={handleCreateInvoice} className="flex items-center gap-1.5 text-sm font-semibold py-2 px-4 rounded-lg border border-brand-500/40 text-brand-500 hover:bg-brand-500/10 transition">
+                                <FileText size={15} /> Create Invoice
+                            </button>
+                        )
                     )}
                     <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
                         <Pencil size={16} /> Edit
@@ -230,7 +262,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
             </div>
         );
         updateWindow(windowId, { title, footer });
-    }, [windowId, isEditMode, isReadOnly, isSaving, formData.ticket_no, updateWindow, closeWindow, handleCancelClick, handleCreateInvoice]);
+    }, [windowId, isEditMode, isReadOnly, isSaving, formData.ticket_no, linkedInvoice, updateWindow, closeWindow, handleCancelClick, handleCreateInvoice, handleOpenLinkedInvoice]);
 
     return (
         <form id={`service-ticket-window-form-${windowId}`} onSubmit={handleSave} className="space-y-6 max-h-full overflow-y-auto p-1 pr-2 custom-scrollbar">

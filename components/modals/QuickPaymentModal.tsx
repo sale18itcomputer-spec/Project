@@ -8,8 +8,10 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '../../contexts/NavigationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { createRecord } from '../../services/api';
+import { createRecord, updateRecord } from '../../services/api';
 import { autoPostReceiptJournal } from '../../services/accountingApi';
+import { supabase } from '../../lib/supabase';
+import { SERVICE_REMARK_PREFIX } from '../../utils/serviceInvoice';
 import { formatCurrencySmartly } from '../../utils/formatters';
 import { formatToSheetDate } from '../../utils/time';
 import { InvoiceAR } from '../../utils/collection';
@@ -36,7 +38,7 @@ interface Props {
 }
 
 const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
-    const { receipts, setReceipts, deliveryOrders, companies } = useData();
+    const { receipts, setReceipts, deliveryOrders, companies, setInvoices, setServiceTickets } = useData();
     const { currentUser } = useAuth();
     const { handleNavigation } = useNavigation();
     const { addToast } = useToast();
@@ -203,6 +205,44 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                 console.warn('[QuickPaymentModal] auto-post failed:', err);
                 addToast(`Receipt ${nextRVNo} saved, but its journal entry failed: ${err.message}`, 'error');
             });
+
+            // Auto-complete: this payment settles the full balance, so flip the
+            // invoice to Completed and, for a service invoice created from a
+            // ticket, resolve the ticket too. Best-effort — a failure here must
+            // not undo the recorded payment.
+            if (!isPartial && invoice.Status !== 'Completed' && invoice.Status !== 'Cancel') {
+                try {
+                    await updateRecord('Invoices', invoice['Inv No'], { 'Status': 'Completed' });
+                    setInvoices(prev => prev
+                        ? prev.map(i => i['Inv No'] === invoice['Inv No'] ? { ...i, Status: 'Completed' as const } : i)
+                        : prev
+                    );
+                    addToast(`Invoice ${invoice['Inv No']} marked Completed`, 'success');
+
+                    const invRemark: string = (invoice as any)['Remark'] ?? '';
+                    if (invRemark.startsWith(SERVICE_REMARK_PREFIX)) {
+                        const ticketNo = invRemark.slice(SERVICE_REMARK_PREFIX.length).trim();
+                        const ACTIVE_TICKET_STATUSES = ['Open', 'In Progress', 'Pending Parts'];
+                        const { error: ticketErr } = await supabase
+                            .from('service_tickets')
+                            .update({ status: 'Resolved' })
+                            .eq('ticket_no', ticketNo)
+                            .in('status', ACTIVE_TICKET_STATUSES);
+                        if (!ticketErr) {
+                            setServiceTickets(prev => prev
+                                ? prev.map(t => t.ticket_no === ticketNo && ACTIVE_TICKET_STATUSES.includes(t.status)
+                                    ? { ...t, status: 'Resolved' as const }
+                                    : t)
+                                : prev
+                            );
+                            addToast(`Service ticket ${ticketNo} marked Resolved`, 'success');
+                        }
+                    }
+                } catch (err: any) {
+                    console.warn('[QuickPaymentModal] auto-complete failed:', err);
+                    addToast(`Payment saved, but auto-completing the invoice failed: ${err.message}`, 'error');
+                }
+            }
 
             addToast(
                 isPartial
