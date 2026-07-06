@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
+import GlobalSearch from '@/components/common/GlobalSearch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
@@ -231,6 +232,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div key={pathname} className="animate-slide-up">{children}</div>
                 </main>
                 <MobileBottomNav />
+                <GlobalSearch />
             </div>
         );
     }
@@ -254,6 +256,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                 </main>
             </div>
+            <GlobalSearch />
         </div>
     );
 }

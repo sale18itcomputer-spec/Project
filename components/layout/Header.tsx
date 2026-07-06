@@ -11,7 +11,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { transformToDirectImageUrl } from "../../utils/imageUrl";
 import { useConnectivity } from "../../contexts/ConnectivityContext";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { formatRelativeTime } from "../../utils/time";
@@ -58,7 +57,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
   const { currentUser, logout } = useAuth();
   const { isOnline } = useConnectivity();
   const [isAvatarError, setAvatarError] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -202,18 +200,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
       </div>
       <div className="flex items-center space-x-3 sm:space-x-5">
         {!isMobile && (
-          <div className={`relative hidden md:block transition-all duration-300 ease-in-out ${isSearchFocused ? 'w-96' : 'w-64 lg:w-72'}`}>
-            <label htmlFor="search-global" className="sr-only">Search</label>
-            <Search className={`w-4 h-4 absolute top-1/2 left-3 -translate-y-1/2 z-10 pointer-events-none transition-colors duration-300 ${isSearchFocused ? 'text-brand-500' : 'text-muted-foreground'}`} />
-            <Input
-              type="text"
-              id="search-global"
-              placeholder="Search..."
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              className={`pl-9 border-transparent shadow-sm transition-all duration-300 ${isSearchFocused ? 'bg-background ring-2 ring-brand-500/20 border-brand-500/50' : 'bg-muted/50 hover:bg-muted/80'}`}
-            />
-          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-global-search'))}
+            className="relative hidden md:flex items-center gap-2 w-64 lg:w-72 h-9 pl-3 pr-2 rounded-md bg-muted/50 hover:bg-muted/80 border border-transparent shadow-sm text-sm text-muted-foreground/70 transition-colors"
+            aria-label="Open global search"
+          >
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <span className="flex-1 text-left">Search...</span>
+            <kbd className="text-[10px] font-semibold text-muted-foreground bg-background border border-border rounded px-1.5 py-0.5">Ctrl K</kbd>
+          </button>
         )}
         <B2BToggle />
 
