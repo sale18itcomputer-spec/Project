@@ -28,6 +28,7 @@ import RowActionMenuItems from "../../common/RowActionMenuItems";
 import QuickPaymentModal from "../../modals/QuickPaymentModal";
 import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
 import { isServiceInvoice } from "../../../utils/serviceInvoice";
+import { getUserTelegramChatId } from "../../../utils/telegram";
 
 interface InvoiceDashboardProps {
     initialPayload?: any;
@@ -292,7 +293,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     };
 
     const handleSendToTelegram = async (invoice: Invoice) => {
-        const chatId = currentUser?.['Telegram Chat ID'];
+        const chatId = getUserTelegramChatId(currentUser);
         if (!chatId) {
             addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
             return;

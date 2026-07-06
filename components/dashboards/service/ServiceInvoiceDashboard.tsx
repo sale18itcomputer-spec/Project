@@ -20,6 +20,7 @@ import InvoiceWindowContent from '../../windows/content/InvoiceWindowContent';
 import ServiceTicketWindowContent from '../../windows/content/ServiceTicketWindowContent';
 import { generatePDF, sendPdfToTelegramChat } from '../../../lib/pdfClient';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getUserTelegramChatId } from '../../../utils/telegram';
 import QuickPaymentModal from '../../modals/QuickPaymentModal';
 import { computeInvoiceAR, InvoiceAR } from '../../../utils/collection';
 import { formatCurrencySmartly } from '../../../utils/formatters';
@@ -188,7 +189,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
     }, [buildPdfPayload, addToast]);
 
     const handleSendToTelegram = useCallback(async (invoice: Invoice) => {
-        const chatId = currentUser?.['Telegram Chat ID'];
+        const chatId = getUserTelegramChatId(currentUser);
         if (!chatId) {
             addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
             return;

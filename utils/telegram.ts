@@ -2,6 +2,20 @@
 // Sends quotation data to our own Next.js API route, which forwards it
 // to Telegram using the bot token stored in server-side env vars.
 
+import { User } from '../types';
+
+/**
+ * Resolve the Telegram chat the system bot can message for a user.
+ * Prefers the explicit "Telegram Chat ID" profile field; falls back to the
+ * legacy `telegram_id` column populated when the user linked the miniapp.
+ */
+export const getUserTelegramChatId = (user: User | null | undefined): string | null => {
+    const explicit = user?.['Telegram Chat ID']?.trim();
+    if (explicit) return explicit;
+    const legacy = (user as any)?.telegram_id;
+    return legacy != null && String(legacy).trim() !== '' ? String(legacy) : null;
+};
+
 export interface QuotationTelegramPayload {
     quoteNo: string;
     customerName: string;

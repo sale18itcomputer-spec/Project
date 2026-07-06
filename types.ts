@@ -83,6 +83,8 @@ export interface User {
   'Phone 2'?: string;
   /** Telegram chat ID for this user — lets the bot send them documents/notifications. */
   'Telegram Chat ID'?: string;
+  /** Legacy chat id column, populated when the user linked the Telegram miniapp. */
+  telegram_id?: number | string | null;
   /**
    * Fine-grained permission snapshot (JSONB from Supabase).
    * null / undefined → resolved from ROLE_PRESETS[role] at runtime.
