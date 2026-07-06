@@ -116,6 +116,49 @@ export async function generatePDF(opts: PdfClientOptions): Promise<string | void
 }
 
 /**
+ * Generates the PDF server-side and relays it to a Telegram chat via the
+ * system bot — works from the normal dashboard (session-cookie auth), unlike
+ * sharePdfToTelegram which requires running inside a Telegram WebApp.
+ * Throws on failure with a human-readable message.
+ */
+export async function sendPdfToTelegramChat(
+    opts: PdfClientOptions & { chatId: string; caption?: string }
+): Promise<void> {
+    const res = await fetch('/api/pdf/generate', {
+        method:  'POST',
+        headers: buildHeaders(),
+        body:    buildBody(opts),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(`PDF generation failed: ${err.error || res.statusText}`);
+    }
+
+    const buf = new Uint8Array(await res.arrayBuffer());
+    let binary = '';
+    const CHUNK = 8192;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+        binary += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+    }
+    const pdf_base64 = btoa(binary);
+
+    const sendRes = await fetch('/api/telegram/send-document', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id:  opts.chatId,
+            filename: opts.filename || 'document.pdf',
+            caption:  opts.caption,
+            pdf_base64,
+        }),
+    });
+    const data = await sendRes.json().catch(() => ({}));
+    if (!sendRes.ok || !data.ok) {
+        throw new Error(data.error || 'Telegram send failed');
+    }
+}
+
+/**
  * Generates the PDF and sends it directly to one or more Telegram chat_ids
  * via the bot. Only works inside a Telegram WebApp — returns false otherwise.
  */

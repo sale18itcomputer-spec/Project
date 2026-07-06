@@ -609,6 +609,18 @@ const UserManagementDashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold ml-1">Telegram Chat ID</label>
+                    <Input
+                      placeholder="e.g. 123456789"
+                      value={formData['Telegram Chat ID'] || ''}
+                      onChange={e => setFormData({ ...formData, 'Telegram Chat ID': e.target.value.trim() })}
+                    />
+                    <p className="text-xs text-muted-foreground ml-1">
+                      Lets the system bot send this user documents and notifications on Telegram.
+                      To find it: message <span className="font-semibold">@userinfobot</span> on Telegram and copy the ID number.
+                    </p>
+                  </div>
                   {isAdding && (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold ml-1">

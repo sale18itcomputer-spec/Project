@@ -5,7 +5,7 @@ import { Invoice, ServiceTicket } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import DataTable, { ColumnDef } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { Plus, Receipt as ReceiptIcon, Search, Wallet, Pencil, Trash2, Info, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Printer, Copy, Wrench } from 'lucide-react';
+import { Plus, Receipt as ReceiptIcon, Search, Wallet, Pencil, Trash2, Info, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Printer, Copy, Wrench, Send } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { deleteRecord } from '../../../services/api';
@@ -18,7 +18,8 @@ import { DropdownMenuItem } from '../../ui/dropdown-menu';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import InvoiceWindowContent from '../../windows/content/InvoiceWindowContent';
 import ServiceTicketWindowContent from '../../windows/content/ServiceTicketWindowContent';
-import { generatePDF } from '../../../lib/pdfClient';
+import { generatePDF, sendPdfToTelegramChat } from '../../../lib/pdfClient';
+import { useAuth } from '../../../contexts/AuthContext';
 import QuickPaymentModal from '../../modals/QuickPaymentModal';
 import { computeInvoiceAR, InvoiceAR } from '../../../utils/collection';
 import { formatCurrencySmartly } from '../../../utils/formatters';
@@ -45,6 +46,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
     const { can } = usePermissions();
     const { addToast } = useToast();
     const { openWindow } = useWindowManager();
+    const { currentUser } = useAuth();
 
     // Tickets are needed for the "Open Ticket" jump from linked invoices.
     useEffect(() => { fetchModule('Service Tickets'); }, [fetchModule]);
@@ -141,7 +143,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
 
     // ── Print / Duplicate / Ticket link ──────────────────────────────────────
 
-    const handlePrintInvoice = useCallback(async (invoice: Invoice) => {
+    const buildPdfPayload = useCallback((invoice: Invoice) => {
         let items: any[] = [];
         if (typeof invoice.ItemsJSON === 'string') {
             try { items = JSON.parse(invoice.ItemsJSON); } catch { /* ignore malformed JSON */ }
@@ -153,33 +155,56 @@ const ServiceInvoiceDashboard: React.FC = () => {
         const tax = invoice.Taxable === 'VAT' ? subTotal * 0.1 : 0;
         const grandTotal = subTotal + tax;
 
+        return {
+            type: 'Service Invoice' as const,
+            headerData: {
+                ...invoice,
+                'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
+                'Invoice No': invoice['Inv No'],
+                'Inv No.': invoice['Inv No'],
+            },
+            items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
+                no: item.no,
+                itemCode: item.itemCode,
+                modelName: item.modelName,
+                description: item.description,
+                qty: item.qty,
+                unitPrice: item.unitPrice,
+                amount: item.amount,
+                isPromotion: item.isPromotion,
+            })),
+            totals: { subTotal, tax, grandTotal },
+            currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
+            filename: `ServiceInvoice_${invoice['Inv No']}.pdf`,
+        };
+    }, [companies]);
+
+    const handlePrintInvoice = useCallback(async (invoice: Invoice) => {
         try {
-            await generatePDF({
-                type: 'Service Invoice',
-                headerData: {
-                    ...invoice,
-                    'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
-                    'Invoice No': invoice['Inv No'],
-                    'Inv No.': invoice['Inv No'],
-                },
-                items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
-                    no: item.no,
-                    itemCode: item.itemCode,
-                    modelName: item.modelName,
-                    description: item.description,
-                    qty: item.qty,
-                    unitPrice: item.unitPrice,
-                    amount: item.amount,
-                    isPromotion: item.isPromotion,
-                })),
-                totals: { subTotal, tax, grandTotal },
-                currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
-                filename: `ServiceInvoice_${invoice['Inv No']}.pdf`,
-            });
+            await generatePDF(buildPdfPayload(invoice));
         } catch (err: any) {
             addToast(`Failed to generate PDF: ${err.message}`, 'error');
         }
-    }, [companies, addToast]);
+    }, [buildPdfPayload, addToast]);
+
+    const handleSendToTelegram = useCallback(async (invoice: Invoice) => {
+        const chatId = currentUser?.['Telegram Chat ID'];
+        if (!chatId) {
+            addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
+            return;
+        }
+        addToast('Sending to your Telegram...', 'info');
+        try {
+            await sendPdfToTelegramChat({
+                ...buildPdfPayload(invoice),
+                chatId,
+                caption: `<b>Service Invoice ${invoice['Inv No']}</b>\n${invoice['Company Name'] ?? ''}`,
+            });
+            addToast('Sent to your Telegram.', 'success');
+        } catch (err: any) {
+            addToast(`Telegram send failed: ${err.message}`, 'error');
+        }
+    }, [buildPdfPayload, currentUser, addToast]);
 
     const handleDuplicateInvoice = useCallback((invoice: Invoice) => {
         openInvoiceWindow(null, { action: 'duplicate', duplicateOf: invoice });
@@ -438,6 +463,9 @@ const ServiceInvoiceDashboard: React.FC = () => {
                                 )}
                                 <DropdownMenuItem onClick={() => handlePrintInvoice(row)}>
                                     <Printer className="mr-2 h-4 w-4" /> Print
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSendToTelegram(row)}>
+                                    <Send className="mr-2 h-4 w-4" /> Send to my Telegram
                                 </DropdownMenuItem>
                                 {can('service_invoices', 'create') && (
                                     <DropdownMenuItem onClick={() => handleDuplicateInvoice(row)}>

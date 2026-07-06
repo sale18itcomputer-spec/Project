@@ -9,7 +9,7 @@ import { formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck, BookOpen } from 'lucide-react';
+import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck, BookOpen, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
@@ -18,7 +18,7 @@ import { deleteRecord } from "../../../services/api";
 import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
-import { generatePDF } from "../../../lib/pdfClient";
+import { generatePDF, sendPdfToTelegramChat } from "../../../lib/pdfClient";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
@@ -241,7 +241,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         }
     };
 
-    const handlePrintInvoice = async (invoice: Invoice) => {
+    const buildPdfPayload = (invoice: Invoice) => {
         let items: any[] = [];
         if (typeof invoice.ItemsJSON === 'string') {
             try { items = JSON.parse(invoice.ItemsJSON); } catch { /* ignore malformed JSON */ }
@@ -260,30 +260,53 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         else if (taxable === 'Commercial Invoice') { pdfType = 'Commercial Invoice'; filePrefix = 'CommercialInvoice'; }
         else { pdfType = 'Invoice'; filePrefix = 'Invoice'; }
 
+        return {
+            type: pdfType,
+            headerData: {
+                ...invoice,
+                'Company Name (Khmer)': invoice['Company Name (Khmer)'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Company Name (Khmer)'] || '',
+                'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
+            },
+            items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
+                no: item.no,
+                itemCode: item.itemCode,
+                modelName: item.modelName,
+                description: item.description,
+                qty: item.qty,
+                unitPrice: item.unitPrice,
+                amount: item.amount,
+                isPromotion: item.isPromotion,
+            })),
+            totals: { subTotal, tax, grandTotal },
+            currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
+            filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
+        };
+    };
+
+    const handlePrintInvoice = async (invoice: Invoice) => {
         try {
-            await generatePDF({
-                type: pdfType,
-                headerData: {
-                    ...invoice,
-                    'Company Name (Khmer)': invoice['Company Name (Khmer)'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Company Name (Khmer)'] || '',
-                    'Company Address': invoice['Company Address'] || companies?.find(c => c['Company Name'] === invoice['Company Name'])?.['Address (English)'] || '',
-                },
-                items: items.filter((item: any) => item.no > 0 || item.isPromotion).map((item: any) => ({
-                    no: item.no,
-                    itemCode: item.itemCode,
-                    modelName: item.modelName,
-                    description: item.description,
-                    qty: item.qty,
-                    unitPrice: item.unitPrice,
-                    amount: item.amount,
-                    isPromotion: item.isPromotion,
-                })),
-                totals: { subTotal, tax, grandTotal },
-                currency: (invoice.Currency as 'USD' | 'KHR') || 'USD',
-                filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
-            });
+            await generatePDF(buildPdfPayload(invoice));
         } catch (err: any) {
             addToast(`Failed to generate PDF: ${err.message}`, 'error');
+        }
+    };
+
+    const handleSendToTelegram = async (invoice: Invoice) => {
+        const chatId = currentUser?.['Telegram Chat ID'];
+        if (!chatId) {
+            addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
+            return;
+        }
+        addToast('Sending to your Telegram...', 'info');
+        try {
+            await sendPdfToTelegramChat({
+                ...buildPdfPayload(invoice),
+                chatId,
+                caption: `<b>Invoice ${invoice['Inv No']}</b>\n${invoice['Company Name'] ?? ''}`,
+            });
+            addToast('Sent to your Telegram.', 'success');
+        } catch (err: any) {
+            addToast(`Telegram send failed: ${err.message}`, 'error');
         }
     };
 
@@ -516,6 +539,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                     )}
                                     <DropdownMenuItem onClick={() => handlePrintInvoice(row)}>
                                         <Printer className="mr-2 h-4 w-4" /> Print
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleSendToTelegram(row)}>
+                                        <Send className="mr-2 h-4 w-4" /> Send to my Telegram
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleDuplicateInvoice(row)}>
                                         <Copy className="mr-2 h-4 w-4" /> Duplicate
