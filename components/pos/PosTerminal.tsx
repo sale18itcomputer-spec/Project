@@ -4,8 +4,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PosCartItem, PosSessionForm, PosPaymentMethod, PosPaymentEntry, PricelistItem } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useB2B } from '../../contexts/B2BContext';
 import { useToast } from '../../contexts/ToastContext';
-import { generatePosInvNo, generatePosRvNo, createRecord, getSetting } from '../../services/api';
+import { generatePosInvNo, generatePosRvNo, createRecord, readRecords, getSetting } from '../../services/api';
 import { autoPostInvoiceJournal, autoPostReceiptJournal, normalizeBrand } from '../../services/accountingApi';
 import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
@@ -27,9 +28,38 @@ const PAYMENT_ICONS: Record<PosPaymentMethod, React.ReactNode> = {
 };
 
 const PosTerminal: React.FC = () => {
-  const { pricelist, invoices, setInvoices, setReceipts } = useData();
+  // POS is a retail counter (Walk-In Customer, Cash/ABA/KHQR/Card) and must
+  // stay on the B2C dataset regardless of the app's global B2B/B2C toggle —
+  // b2b_pricelist is empty, so following the global mode here left POS with
+  // no products whenever an admin switched the rest of the app to B2B.
+  const { setInvoices, setReceipts } = useData();
+  const { isB2B } = useB2B();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+
+  const [pricelist, setPricelist] = useState<PricelistItem[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    readRecords<PricelistItem>('Raw', false) // isB2B=false forces the B2C pricelist table
+      .then(data => { if (!cancelled) setPricelist(data); })
+      .catch((err: any) => { if (!cancelled) addToast(`Failed to load products: ${err.message}`, 'error'); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [todaySaleCount, setTodaySaleCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const prefix = `POS-${new Date().getFullYear()}-`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    supabase
+      .from('invoices') // always the B2C table — POS invoices never live in b2b_invoices
+      .select('"Inv No"', { count: 'exact', head: true })
+      .ilike('"Inv No"', `${prefix}%`)
+      .eq('"Inv Date"', todayStr)
+      .then(({ count }) => { if (!cancelled) setTodaySaleCount(count ?? 0); });
+    return () => { cancelled = true; };
+  }, []);
 
   const [cart, setCart] = useState<PosCartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,10 +138,6 @@ const PosTerminal: React.FC = () => {
   };
 
   const today = new Date().toISOString().split('T')[0];
-  const todaySaleCount = (invoices ?? []).filter(
-    inv => inv['Inv No']?.startsWith(`POS-${new Date().getFullYear()}-`) &&
-      inv['Inv Date']?.startsWith(today)
-  ).length;
 
   // Categories from pricelist
   const categories = useMemo(() => {
@@ -232,8 +258,11 @@ const PosTerminal: React.FC = () => {
         })),
       };
 
-      await createRecord('Invoices', invoicePayload);
-      setInvoices(prev => prev ? [invoicePayload as any, ...prev] : [invoicePayload as any]);
+      await createRecord('Invoices', invoicePayload, false); // false = always the B2C table
+      // Only mirror into the global list when it currently represents B2C data —
+      // in B2B mode that array holds b2b_invoices rows and this would be a phantom entry.
+      if (!isB2B) setInvoices(prev => prev ? [invoicePayload as any, ...prev] : [invoicePayload as any]);
+      setTodaySaleCount(c => c + 1);
 
       const receiptPayload = {
         'RV No':          rvNo,
@@ -252,8 +281,8 @@ const PosTerminal: React.FC = () => {
         'ItemsJSON':      invoicePayload['ItemsJSON'],
       };
 
-      await createRecord('Receipts', receiptPayload);
-      setReceipts(prev => prev ? [receiptPayload as any, ...prev] : [receiptPayload as any]);
+      await createRecord('Receipts', receiptPayload, false); // false = always the B2C table
+      if (!isB2B) setReceipts(prev => prev ? [receiptPayload as any, ...prev] : [receiptPayload as any]);
 
       // Non-fatal: inventory deduction + COGS + revenue journal
       const cartSnapshot = [...cart];

@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useData } from '../../contexts/DataContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import { X, ShoppingBag, TrendingUp, DollarSign, Receipt, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
-import { PosSessionForm } from '../../types';
+import { PosSessionForm, Invoice as InvoiceRow, Receipt as ReceiptRow } from '../../types';
 import { formatToInputDate } from '../../utils/time';
 
 type Period = 'today' | 'week' | 'month' | 'all';
@@ -31,7 +31,13 @@ interface PosSalesModalProps {
 }
 
 const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
-  const { invoices, receipts } = useData();
+  // POS sales always live in the B2C invoices/receipts tables (POS is B2C-only —
+  // see PosTerminal), so this modal fetches directly rather than using the
+  // mode-dependent useData() lists, which would be empty/wrong while an admin
+  // has the rest of the app switched to B2B.
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>('today');
   const [expandedInvNo, setExpandedInvNo] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -42,6 +48,21 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
 
   const year = new Date().getFullYear();
   const POS_PREFIX = `POS-${year}-`;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      supabase.from('invoices').select('*').ilike('"Inv No"', `${POS_PREFIX}%`),
+      supabase.from('receipts').select('*').ilike('"Inv No"', `${POS_PREFIX}%`),
+    ]).then(([invRes, recRes]) => {
+      if (cancelled) return;
+      setInvoices((invRes.data ?? []) as InvoiceRow[]);
+      setReceipts((recRes.data ?? []) as ReceiptRow[]);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, POS_PREFIX]);
 
   const receiptByInvNo = useMemo(() => {
     const map = new Map<string, typeof receipts[0]>();
@@ -246,7 +267,11 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredInvoices.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-16 text-muted-foreground text-sm">Loading…</td>
+                    </tr>
+                  ) : filteredInvoices.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="text-center py-16 text-muted-foreground">
                         <div className="flex flex-col items-center gap-2">
