@@ -16,7 +16,7 @@ import { Trash2, AlertTriangle, Download, PanelRight, Send, Save, Plus, Search, 
 import { generatePDF, sharePdfToTelegram } from "@/lib/pdfClient";
 import { useColumnWidths } from "@/hooks/useColumnWidths";
 import { ColumnWidthPopover } from "./ColumnWidthPopover";
-import { sendQuotationToTelegram } from "../../../utils/telegram";
+import { sendQuotationToTelegram, getUserTelegramChatId } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { parseSheetValue } from "../../../utils/formatters";
@@ -711,6 +711,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 taxType:         (quote['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
                 note:            quote.Remark || '',
                 items,
+                // Deliver to the sender's own chat when no admin chat is configured server-side.
+                chatId:          getUserTelegramChatId(currentUser) ?? undefined,
             });
             addToast('Quotation sent to Telegram!', 'success');
         } catch (err: any) {

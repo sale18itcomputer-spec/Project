@@ -84,8 +84,7 @@ export async function POST(request: NextRequest) {
         const token   = process.env.TELEGRAM_BOT_TOKEN;
         const adminId = process.env.TELEGRAM_ADMIN_CHAT_ID;
 
-        if (!token)   return NextResponse.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' }, { status: 500 });
-        if (!adminId) return NextResponse.json({ success: false, error: 'TELEGRAM_ADMIN_CHAT_ID not configured' }, { status: 500 });
+        if (!token) return NextResponse.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' }, { status: 500 });
 
         // Support both JSON and form-encoded bodies
         let fields: Record<string, string> = {};
@@ -111,6 +110,12 @@ export async function POST(request: NextRequest) {
         const taxType         = fields.taxType          || 'VAT';
         const note            = fields.note             || '';
         const chatId          = fields.chat_id          || adminId;
+        if (!chatId) {
+            return NextResponse.json(
+                { success: false, error: 'No destination chat — set your Telegram Chat ID on your user profile, or configure TELEGRAM_ADMIN_CHAT_ID' },
+                { status: 400 }
+            );
+        }
 
         let items: LineItem[] = [];
         try {

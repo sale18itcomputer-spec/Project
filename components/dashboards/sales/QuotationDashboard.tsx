@@ -21,7 +21,8 @@ import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { readQuotationSheetData } from '../../../services/b2bDb';
-import { sendQuotationToTelegram } from '../../../utils/telegram';
+import { sendQuotationToTelegram, getUserTelegramChatId } from '../../../utils/telegram';
+import { useAuth } from '../../../contexts/AuthContext';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
 
@@ -67,6 +68,7 @@ interface QuotationDashboardProps {
 
 const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload }) => {
   const { quotations, setQuotations, loading, error, isB2B } = useB2BData();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>('Quote Pending');
   const { handleNavigation, navigation } = useNavigation();
@@ -191,6 +193,8 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         taxType:         (quotation['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
         note:            quotation.Remark || '',
         items,
+        // Deliver to the sender's own chat when no admin chat is configured server-side.
+        chatId:          getUserTelegramChatId(currentUser) ?? undefined,
       });
       addToast('Quotation sent to Telegram!', 'success');
     } catch (err: any) {
