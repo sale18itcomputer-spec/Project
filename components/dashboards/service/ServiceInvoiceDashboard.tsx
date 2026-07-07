@@ -67,7 +67,11 @@ const ServiceInvoiceDashboard: React.FC = () => {
 
     const filteredData = useMemo(() => {
         let data = serviceInvoices;
-        if (statusFilter !== 'All') data = data.filter(inv => inv.Status === statusFilter);
+        if (statusFilter === 'Overdue') {
+            data = data.filter(inv => computeInvoiceAR(inv, receipts).collectionStatus === 'Overdue');
+        } else if (statusFilter !== 'All') {
+            data = data.filter(inv => inv.Status === statusFilter);
+        }
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             data = data.filter(inv =>
@@ -78,7 +82,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
             );
         }
         return data;
-    }, [serviceInvoices, statusFilter, searchQuery]);
+    }, [serviceInvoices, statusFilter, searchQuery, receipts]);
 
     // ── Window helpers ────────────────────────────────────────────────────────
 
@@ -128,12 +132,13 @@ const ServiceInvoiceDashboard: React.FC = () => {
     // ── Summary ───────────────────────────────────────────────────────────────
 
     const statusCounts = useMemo(() => {
-        const counts: Record<string, number> = { All: serviceInvoices.length };
+        const counts: Record<string, number> = { All: serviceInvoices.length, Overdue: 0 };
         for (const inv of serviceInvoices) {
             counts[inv.Status] = (counts[inv.Status] ?? 0) + 1;
+            if (computeInvoiceAR(inv, receipts).collectionStatus === 'Overdue') counts.Overdue += 1;
         }
         return counts;
-    }, [serviceInvoices]);
+    }, [serviceInvoices, receipts]);
 
     // Total unpaid across active USD invoices (KHR invoices excluded from the sum).
     const outstandingUSD = useMemo(() =>
@@ -281,12 +286,28 @@ const ServiceInvoiceDashboard: React.FC = () => {
             isSortable: true,
             cell: (v: any) => <StatusBadge value={v} />,
         },
-    ], []);
+        {
+            accessorKey: 'Due Date',
+            header: 'Due / Overdue',
+            isSortable: true,
+            cell: (_: any, row: Invoice) => {
+                const ar = computeInvoiceAR(row, receipts);
+                if (!ar.dueDate) return <span className="text-muted-foreground/30 text-xs">COD</span>;
+                if (ar.outstanding <= 0.005) return <span className="text-xs text-muted-foreground">{formatDisplayDate(row['Due Date'] || ar.dueDate.toISOString())}</span>;
+                if (ar.daysPastDue > 0) return <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{ar.daysPastDue}d overdue</span>;
+                return <span className="text-xs text-muted-foreground">in {Math.abs(ar.daysPastDue)}d</span>;
+            },
+        },
+    ], [receipts]);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
             const saved = localStorageGet(COLUMNS_VISIBILITY_KEY);
-            if (saved) return new Set(JSON.parse(saved));
+            if (saved) {
+                const set = new Set<string>(JSON.parse(saved));
+                set.add('Due Date'); // surface the newly-added overdue column for older saved sets
+                return set;
+            }
         } catch { }
         return new Set(allColumns.map(c => c.accessorKey as string).filter(Boolean));
     });
@@ -306,7 +327,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
         [allColumns, visibleColumns]
     );
 
-    const STATUS_FILTERS = ['All', 'Draft', 'Processing', 'Completed', 'Cancel'];
+    const STATUS_FILTERS = ['All', 'Draft', 'Processing', 'Completed', 'Overdue', 'Cancel'];
 
     return (
         <div className="h-full flex flex-col">

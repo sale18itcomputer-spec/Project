@@ -317,6 +317,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             dataToFilter = dataToFilter.filter(item => {
                 if (statusFilter === 'Processing') return item.Status === 'Processing';
                 if (statusFilter === 'Completed') return item.Status === 'Completed';
+                if (statusFilter === 'Overdue') return computeInvoiceAR(item, receipts).collectionStatus === 'Overdue';
                 return true;
             });
         }
@@ -326,7 +327,12 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 String(item[key as keyof Invoice] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
             )
         );
-    }, [invoices, searchQuery, statusFilter]);
+    }, [invoices, searchQuery, statusFilter, receipts]);
+
+    const overdueCount = useMemo(
+        () => (invoices || []).filter(inv => !isServiceInvoice(inv) && computeInvoiceAR(inv, receipts).collectionStatus === 'Overdue').length,
+        [invoices, receipts],
+    );
 
     const allColumns = useMemo<ColumnDef<Invoice>[]>(() => [
         {
@@ -383,13 +389,34 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             header: 'Status',
             isSortable: true,
             cell: (value: Invoice['Status']) => <StatusBadge status={value} />
+        },
+        {
+            accessorKey: 'Due Date',
+            header: 'Due / Overdue',
+            isSortable: true,
+            cell: (_: any, row: Invoice) => {
+                const ar = computeInvoiceAR(row, receipts);
+                if (!ar.dueDate) return <span className="text-muted-foreground/30 text-xs">COD</span>;
+                if (ar.outstanding <= 0.005) {
+                    return <span className="text-xs text-muted-foreground">{formatDisplayDate(row['Due Date'] || ar.dueDate.toISOString())}</span>;
+                }
+                if (ar.daysPastDue > 0) {
+                    return <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{ar.daysPastDue}d overdue</span>;
+                }
+                return <span className="text-xs text-muted-foreground">in {Math.abs(ar.daysPastDue)}d</span>;
+            },
         }
-    ], [invoices]);
+    ], [invoices, receipts]);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
         try {
             const saved = localStorageGet(INVOICE_COLUMNS_VISIBILITY_KEY);
-            if (saved) return new Set(JSON.parse(saved));
+            if (saved) {
+                const set = new Set<string>(JSON.parse(saved));
+                // Surface the newly-added overdue column for users with an older saved set.
+                set.add('Due Date');
+                return set;
+            }
         } catch { }
         return new Set(allColumns.map(c => c.accessorKey || (c as any).id).filter(Boolean));
     });
@@ -692,6 +719,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
                     <button onClick={() => setStatusFilter(statusFilter === 'Processing' ? null : 'Processing')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Processing' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Processing</button>
                     <button onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Completed</button>
+                    <button onClick={() => setStatusFilter(statusFilter === 'Overdue' ? null : 'Overdue')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition whitespace-nowrap ${statusFilter === 'Overdue' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/5 hover:bg-rose-500/10'}`}>
+                        Overdue{overdueCount > 0 ? ` (${overdueCount})` : ''}
+                    </button>
                 </div>
             </footer>
             <ConfirmationModal
