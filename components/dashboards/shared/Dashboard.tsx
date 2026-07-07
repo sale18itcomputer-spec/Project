@@ -7,6 +7,7 @@ import { FilterProvider } from "../../../contexts/FilterContext";
 
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import ContentSkeleton from "../../common/ContentSkeleton";
+import FinancialKpiRow from "./FinancialKpiRow";
 
 import { Briefcase, Building, Users, MessageSquare, ClipboardList, Calendar } from 'lucide-react';
 import { useB2B } from "../../../contexts/B2BContext";
@@ -188,6 +189,9 @@ const Dashboard = () => {
             isEmpty={!stats?.totalOrdersCount}
           />
         </div>
+
+        {/* Financial & service KPIs */}
+        <FinancialKpiRow />
 
         {/* Analytics section */}
         <Suspense fallback={<ContentSkeleton />}>
