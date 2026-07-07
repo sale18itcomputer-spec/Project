@@ -13,10 +13,10 @@ import Spinner from "../../common/Spinner";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
 import QuotationPDFPreview from "./QuotationPDFPreview";
 import { Trash2, AlertTriangle, Download, PanelRight, Send, Save, Plus, Search, Copy, Check, Package, Tag, Layers, ArrowUpDown, ChevronUp, ChevronDown, List, Loader2 } from 'lucide-react';
-import { generatePDF, sharePdfToTelegram } from "@/lib/pdfClient";
+import { generatePDF, sharePdfToTelegram, sendPdfToTelegramChat } from "@/lib/pdfClient";
 import { useColumnWidths } from "@/hooks/useColumnWidths";
 import { ColumnWidthPopover } from "./ColumnWidthPopover";
-import { sendQuotationToTelegram, getUserTelegramChatId } from "../../../utils/telegram";
+import { getUserTelegramChatId } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
 import { parseSheetValue } from "../../../utils/formatters";
@@ -701,20 +701,52 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     };
 
     const handleSendToTelegram = async () => {
+        const chatId = getUserTelegramChatId(currentUser);
+        if (!chatId) {
+            addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
+            return;
+        }
         setIsSendingTelegram(true);
         try {
-            await sendQuotationToTelegram({
-                quoteNo:         quote['Quote No'] || '',
-                customerName:    quote['Company Name']   || '',
-                customerContact: quote['Contact Number'] || quote['Contact Name'] || '',
-                currency:        (quote.Currency as 'USD' | 'KHR') || 'USD',
-                taxType:         (quote['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
-                note:            quote.Remark || '',
-                items,
-                // Deliver to the sender's own chat when no admin chat is configured server-side.
-                chatId:          getUserTelegramChatId(currentUser) ?? undefined,
+            // Same payload as handleDownloadPDF — the actual quotation PDF is delivered.
+            await sendPdfToTelegramChat({
+                type: 'Quotation',
+                headerData: {
+                    ...quote,
+                    'Quotation ID': quote['Quote No'],
+                    'Quote Date': quote['Quote Date'],
+                    'Validity Date': quote['Validity Date'],
+                    'Company Name': quote['Company Name'],
+                    'Company Address': quote['Company Address'],
+                    'Contact Person': quote['Contact Name'],
+                    'Contact Tel': quote['Contact Number'],
+                    'Contact Email': quote['Contact Email'],
+                    'Stock Status': quote['Stock Status'],
+                },
+                items: items.filter(item => item.no > 0 || item.isPromotion).map(item => ({
+                    no: item.no,
+                    itemCode: item.itemCode,
+                    modelName: item.modelName,
+                    description: item.description,
+                    qty: item.qty,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                    commission: item.commission,
+                    isPromotion: item.isPromotion,
+                })),
+                totals: {
+                    subTotal: totals.subTotal,
+                    tax: totals.vat,
+                    vat: totals.vat,
+                    grandTotal: totals.grandTotal
+                },
+                currency: quote.Currency || 'USD',
+                filename: `Quotation_${quote['Quote No']}.pdf`,
+                columnWidths: colWidths,
+                chatId,
+                caption: `<b>Quotation ${quote['Quote No']}</b>\n${quote['Company Name'] || ''}`,
             });
-            addToast('Quotation sent to Telegram!', 'success');
+            addToast('Quotation PDF sent to your Telegram!', 'success');
         } catch (err: any) {
             addToast(`Telegram send failed: ${err.message}`, 'error');
         } finally {

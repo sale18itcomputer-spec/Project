@@ -21,7 +21,8 @@ import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { readQuotationSheetData } from '../../../services/b2bDb';
-import { sendQuotationToTelegram, getUserTelegramChatId } from '../../../utils/telegram';
+import { getUserTelegramChatId } from '../../../utils/telegram';
+import { sendPdfToTelegramChat } from '../../../lib/pdfClient';
 import { useAuth } from '../../../contexts/AuthContext';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
@@ -182,21 +183,36 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   };
 
   const handleSendToTelegram = async (quotation: Quotation) => {
+    const chatId = getUserTelegramChatId(currentUser);
+    if (!chatId) {
+      addToast('No Telegram Chat ID on your user profile. Ask an admin to add it in User Management.', 'error');
+      return;
+    }
     setIsSendingTelegram(true);
     try {
-      const { items } = await readQuotationSheetData(quotation['Quote No'], isB2B);
-      await sendQuotationToTelegram({
-        quoteNo:         quotation['Quote No'],
-        customerName:    quotation['Company Name']   || '',
-        customerContact: quotation['Contact Number'] || quotation['Contact Name'] || '',
-        currency:        (quotation.Currency as 'USD' | 'KHR') || 'USD',
-        taxType:         (quotation['Tax Type'] as 'VAT' | 'NON-VAT') || 'VAT',
-        note:            quotation.Remark || '',
-        items,
-        // Deliver to the sender's own chat when no admin chat is configured server-side.
-        chatId:          getUserTelegramChatId(currentUser) ?? undefined,
+      const { header, items } = await readQuotationSheetData(quotation['Quote No'], isB2B);
+      const rows = (items || []).filter((it: any) => it.no > 0 || it.isPromotion);
+      const subTotal = rows.reduce((sum: number, it: any) =>
+        sum + (Number(it.amount) || (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
+      const taxType = header?.['Tax Type'] || quotation['Tax Type'] || 'VAT';
+      const vat = taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+
+      await sendPdfToTelegramChat({
+        type: 'Quotation',
+        headerData: {
+          ...header,
+          'Quotation ID': quotation['Quote No'],
+          'Contact Person': header?.['Contact Name'] || quotation['Contact Name'] || '',
+          'Contact Tel': header?.['Contact Number'] || quotation['Contact Number'] || '',
+        },
+        items: rows,
+        totals: { subTotal, tax: vat, vat, grandTotal: subTotal + vat },
+        currency: (quotation.Currency as 'USD' | 'KHR') || 'USD',
+        filename: `Quotation_${quotation['Quote No']}.pdf`,
+        chatId,
+        caption: `<b>Quotation ${quotation['Quote No']}</b>\n${quotation['Company Name'] || ''}`,
       });
-      addToast('Quotation sent to Telegram!', 'success');
+      addToast('Quotation PDF sent to your Telegram!', 'success');
     } catch (err: any) {
       addToast(`Telegram send failed: ${err.message}`, 'error');
     } finally {
