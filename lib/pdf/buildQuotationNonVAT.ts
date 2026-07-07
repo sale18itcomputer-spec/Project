@@ -136,7 +136,13 @@ export function buildQuotationNonVAT(
         return rows;
     };
 
-    const itemRows = dataItems.map(makeItemRow).join('');
+    // Each item gets its own <tbody class="break-inside-avoid"> so a page
+    // break can only fall BETWEEN items — every item's last row carries the
+    // closing bottom border, so the table is never left open at a page cut
+    // (Chromium does not reliably paint the repeated-tfoot collapsed border).
+    const itemRows = dataItems
+        .map(item => `<tbody class="break-inside-avoid">${makeItemRow(item)}</tbody>`)
+        .join('');
 
     const moneyCellUsd = (v: number | null) =>
         v !== null && v > 0
@@ -160,7 +166,7 @@ export function buildQuotationNonVAT(
   th, td { padding: 4px 8px; }
   .items-table th, .items-table td { border: 1px solid #000 !important; }
   .items-table thead { break-after: avoid; page-break-after: avoid; }
-  .items-table tbody tr:first-child { break-before: avoid; page-break-before: avoid; }
+  .items-table tbody:first-of-type tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
   .addr-clamp { white-space: normal; word-break: break-word; }
   @page { size:A4; margin:10mm 8mm; }
@@ -270,9 +276,7 @@ export function buildQuotationNonVAT(
       <tfoot style="display: table-footer-group;">
         <tr><td colspan="${visibleCols}" style="padding:0 !important; border:none !important; border-top:1px solid #000 !important; height:0;"></td></tr>
       </tfoot>
-      <tbody>
-        ${itemRows}
-      </tbody>
+      ${itemRows}
     </table>
 
     <table class="w-full mx-auto" style="border-collapse: collapse; margin-top: -1px; table-layout: fixed;">
