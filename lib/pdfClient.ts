@@ -12,8 +12,10 @@
 import { sharePdfViaBot } from './miniapp/telegramShare';
 
 export interface PdfClientOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Commercial Invoice' | 'Delivery Order' | 'Purchase Order' | 'Receipt';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Commercial Invoice' | 'Delivery Order' | 'Purchase Order' | 'Receipt' | 'Statement';
     headerData: Record<string, any>;
+    /** Rows for the Statement document type (not item-based). */
+    statementRows?: Array<Record<string, any>>;
     items: Array<{
         no: number | string;
         itemCode: string;
@@ -65,6 +67,7 @@ function buildBody(opts: PdfClientOptions): string {
     return JSON.stringify({
         type:             opts.type,
         headerData:       opts.headerData,
+        statementRows:    opts.statementRows,
         items:            opts.items,
         totals:           opts.totals,
         currency:         opts.currency,

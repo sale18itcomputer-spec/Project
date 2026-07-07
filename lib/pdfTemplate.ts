@@ -16,6 +16,7 @@ import { buildQuotationVAT }        from './pdf/buildQuotationVAT';
 import { buildQuotationNonVAT }     from './pdf/buildQuotationNonVAT';
 import { buildReceipt }             from './pdf/buildReceipt';
 import { buildSaleOrder as buildSaleOrderPdf } from './pdf/buildSaleOrder';
+import { buildStatement, StatementRow, StatementHeader } from './pdf/buildStatement';
 
 const MM = 3.7795; // px per mm at 96 dpi
 const mm = (v: number) => `${v * MM}px`;
@@ -173,8 +174,10 @@ function sigBlock(label: string, name: string, pos: string): string {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PdfTemplateOptions {
-    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Delivery Order' | 'Purchase Order' | 'Commercial Invoice' | 'Receipt';
+    type: 'Quotation' | 'Sale Order' | 'Invoice' | 'Tax Invoice' | 'Service Invoice' | 'Delivery Order' | 'Purchase Order' | 'Commercial Invoice' | 'Receipt' | 'Statement';
     headerData: Record<string, any>;
+    /** Rows for the Statement document type only. */
+    statementRows?: StatementRow[];
     items: Array<{
         no: number | string;
         itemCode: string;
@@ -201,6 +204,12 @@ export interface PdfTemplateOptions {
 
 export function buildHtml(opts: PdfTemplateOptions): string {
     const sym = opts.currency === 'KHR' ? '\u17db' : '$';
+
+    // Statement is not item-based \u2014 render early from its own rows.
+    if (opts.type === 'Statement') {
+        return buildStatement(opts.headerData as StatementHeader, opts.statementRows ?? [], sym);
+    }
+
     const { headerData: hd, items, totals } = opts;
     const tax = totals.tax ?? totals.vat ?? 0;
     const cw = resolveWidths(opts.type, opts.columnWidths);

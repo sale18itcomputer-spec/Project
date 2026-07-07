@@ -102,7 +102,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    if (!opts.type || !opts.headerData || !opts.items || !opts.totals || !opts.currency) {
+    // Statement is not item-based, so items/totals are not required for it.
+    const missingBase = !opts.type || !opts.headerData || !opts.currency;
+    const missingItems = opts.type !== 'Statement' && (!opts.items || !opts.totals);
+    if (missingBase || missingItems) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 

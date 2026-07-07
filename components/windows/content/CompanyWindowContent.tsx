@@ -8,12 +8,14 @@ import { uploadFile } from '@/services/api';
 import { FormSection, FormInput, FormTextarea } from '@/components/common/FormControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useB2BData } from '@/hooks/useB2BData';
+import { useData } from '@/contexts/DataContext';
 import { useB2B } from '@/contexts/B2BContext';
+import { generateCustomerStatement } from '@/utils/statement';
 import { useToast } from '@/contexts/ToastContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useNavigation } from '@/contexts/NavigationContext';
 import { formatToSheetDate, formatToInputDate, formatDisplayDate } from '@/utils/time';
-import { Check, Trash2, Loader2, X, ExternalLink } from 'lucide-react';
+import { Check, Trash2, Loader2, X, ExternalLink, FileText } from 'lucide-react';
 import ConfirmationModal from '@/components/modals/ConfirmationModal';
 import EmptyState from '@/components/common/EmptyState';
 import Spinner from '@/components/common/Spinner';
@@ -34,11 +36,13 @@ interface CompanyWindowContentProps {
 const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, companyId }) => {
     const { currentUser } = useAuth();
     const { companies, setCompanies, projects, contacts, quotations, saleOrders } = useB2BData();
+    const { invoices, receipts, fetchModule } = useData();
     const { isB2B } = useB2B();
     const { addToast } = useToast();
     const { closeWindow, updateWindow } = useWindowManager();
     const { handleNavigation } = useNavigation();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
 
     const [formData, setFormData] = useState<Partial<Company>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +153,25 @@ const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, c
         }
     }, [formData, isEditMode, existingData, companies, setCompanies, isB2B, addToast, closeWindow, windowId]);
 
+    // Load invoices + receipts so the statement button can build from live AR data.
+    useEffect(() => {
+        if (isEditMode) fetchModule('Invoices', 'Receipts');
+    }, [isEditMode, fetchModule]);
+
+    const handleGenerateStatement = useCallback(async () => {
+        if (!existingData) return;
+        setIsGeneratingStatement(true);
+        try {
+            const count = await generateCustomerStatement({ company: existingData, invoices, receipts, openOnly: true });
+            if (count === 0) addToast('No outstanding invoices for this customer.', 'info');
+            else addToast(`Statement generated (${count} open invoices).`, 'success');
+        } catch (err: any) {
+            addToast(`Failed to generate statement: ${err.message}`, 'error');
+        } finally {
+            setIsGeneratingStatement(false);
+        }
+    }, [existingData, invoices, receipts, addToast]);
+
     const handleDelete = async () => {
         if (!existingData) return;
         const original = companies ? [...companies] : [];
@@ -179,6 +202,11 @@ const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, c
                     )}
                 </div>
                 <div className="flex items-center gap-3">
+                    {isEditMode && (
+                        <button type="button" onClick={handleGenerateStatement} disabled={isGeneratingStatement} className="flex items-center gap-2 font-semibold py-2 px-4 rounded-lg border border-brand-500/40 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10 text-sm disabled:opacity-50">
+                            {isGeneratingStatement ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />} Statement
+                        </button>
+                    )}
                     <button type="button" onClick={() => closeWindow(windowId)} className="font-semibold py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted text-sm">
                         {isEditMode ? 'Close' : 'Cancel'}
                     </button>
@@ -190,7 +218,7 @@ const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, c
             </div>
         );
         updateWindow(windowId, { title, footer });
-    }, [windowId, companyId, isEditMode, existingData, isSubmitting, updateWindow, closeWindow]);
+    }, [windowId, companyId, isEditMode, existingData, isSubmitting, isGeneratingStatement, handleGenerateStatement, updateWindow, closeWindow]);
 
     return (
         <>
