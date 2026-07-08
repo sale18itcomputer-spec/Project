@@ -1534,6 +1534,364 @@ reg(
 );
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PROCUREMENT WORKFLOW — full CRUD (Purchase Orders, Vendors, Vendor Pricelist, Inventory)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const toNum = (v: unknown): number => {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  if (v == null) return 0;
+  const n = parseFloat(String(v).replace(/,/g, ''));
+  return isFinite(n) ? n : 0;
+};
+
+// Generate the next PO number for a given year: PO-YYYY-NNN
+async function nextPoNumber(year: number): Promise<string> {
+  const prefix = `PO-${year}-`;
+  const { data } = await supabase
+    .from('purchase_orders')
+    .select('po_number')
+    .ilike('po_number', `${prefix}%`)
+    .order('po_number', { ascending: false })
+    .limit(1);
+  const last = data?.[0]?.po_number as string | undefined;
+  const seq = last ? parseInt(last.slice(prefix.length), 10) : 0;
+  return `${prefix}${String((isNaN(seq) ? 0 : seq) + 1).padStart(3, '0')}`;
+}
+
+// Map incoming item objects to purchase_order_items rows for a given PO id.
+function buildPoItemRows(poId: string, items: any[]): any[] {
+  return (items ?? []).map((it, i) => {
+    const qty = toNum(it.qty);
+    const unit = toNum(it.unit_price ?? it.unitPrice);
+    return {
+      po_id: poId,
+      line_number: it.line_number ?? i + 1,
+      item_number: it.item_number ?? it.itemCode ?? '',
+      description: it.description ?? '',
+      qty,
+      unit_price: unit,
+      total: it.total != null ? toNum(it.total) : qty * unit,
+      brand: it.brand ?? '',
+      category: it.category ?? '',
+      model_name: it.model_name ?? it.modelName ?? '',
+      serial_number: it.serial_number ?? it.serialNumber ?? '',
+      is_promotion: !!it.is_promotion,
+    };
+  });
+}
+
+reg(
+  'db_get_purchase_order_items',
+  'Get the line items of a purchase order by po_number.',
+  {
+    po_number: z.string().describe('Purchase order number, e.g. PO-2026-011'),
+  },
+  async ({ po_number }) => {
+    try {
+      const { data: po, error: pe } = await supabase
+        .from('purchase_orders')
+        .select('id')
+        .eq('po_number', po_number)
+        .single();
+      if (pe) return err(pe.message);
+      const { data, error } = await supabase
+        .from('purchase_order_items')
+        .select('*')
+        .eq('po_id', po.id)
+        .order('line_number');
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_create_purchase_order',
+  'Create a purchase order (header + optional line items). Auto-generates po_number (PO-YYYY-NNN) if not supplied. If items are given and sub_total/grand_total are omitted, they are computed from the items (VAT tax_type adds 10%).',
+  {
+    data: z.record(z.string(), z.any()).describe('Header fields: vendor_name, vendor_id, order_date, delivery_date, payment_term, currency, status, tax_type, prepared_by, remarks, etc.'),
+    items: z.array(z.record(z.string(), z.any())).optional().describe('Line items: { item_number, model_name, description, qty, unit_price, brand, category, serial_number }'),
+  },
+  async ({ data: header, items }) => {
+    try {
+      const now = new Date().toISOString();
+      const orderDate = header.order_date ? new Date(header.order_date) : new Date();
+      const year = isNaN(orderDate.getTime()) ? new Date().getFullYear() : orderDate.getFullYear();
+      const po_number = header.po_number || (await nextPoNumber(year));
+
+      const lineTotals = (items ?? []).map(it => (it.total != null ? toNum(it.total) : toNum(it.qty) * toNum(it.unit_price ?? it.unitPrice)));
+      const computedSub = lineTotals.reduce((s, n) => s + n, 0);
+      const isVat = String(header.tax_type ?? '').toUpperCase() === 'VAT';
+      const sub_total = header.sub_total != null ? toNum(header.sub_total) : computedSub;
+      const vat_amount = header.vat_amount != null ? toNum(header.vat_amount) : (isVat ? sub_total * 0.1 : 0);
+      const grand_total = header.grand_total != null ? toNum(header.grand_total) : sub_total + vat_amount;
+
+      const payload = {
+        ...header,
+        po_number,
+        currency: header.currency ?? 'USD',
+        status: header.status ?? 'Draft',
+        sub_total,
+        vat_amount,
+        grand_total,
+        created_at: now,
+        updated_at: now,
+      };
+      const { data: po, error } = await supabase
+        .from('purchase_orders')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) return err(error.message);
+
+      let insertedItems: any[] = [];
+      if (items && items.length) {
+        const rows = buildPoItemRows(po.id, items);
+        const { data: itData, error: itErr } = await supabase
+          .from('purchase_order_items')
+          .insert(rows)
+          .select();
+        if (itErr) return err(`PO ${po_number} created, but items failed: ${itErr.message}`);
+        insertedItems = itData ?? [];
+      }
+      return ok({ purchase_order: po, items: insertedItems });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_purchase_order',
+  'Update a purchase order header by po_number. If items are provided, they REPLACE all existing line items for that PO.',
+  {
+    po_number: z.string().describe('Purchase order number (key)'),
+    data: z.record(z.string(), z.any()).optional().describe('Header fields to update (status, delivery_date, sub_total, grand_total, remarks, etc.)'),
+    items: z.array(z.record(z.string(), z.any())).optional().describe('If given, deletes existing line items and inserts these instead'),
+  },
+  async ({ po_number, data: updates, items }) => {
+    try {
+      const { data: existing, error: findErr } = await supabase
+        .from('purchase_orders')
+        .select('id')
+        .eq('po_number', po_number)
+        .single();
+      if (findErr) return err(findErr.message);
+
+      let po = null;
+      if (updates && Object.keys(updates).length) {
+        const { data, error } = await supabase
+          .from('purchase_orders')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('po_number', po_number)
+          .select()
+          .single();
+        if (error) return err(error.message);
+        po = data;
+      }
+
+      let replacedItems: any[] | undefined;
+      if (items) {
+        await supabase.from('purchase_order_items').delete().eq('po_id', existing.id);
+        if (items.length) {
+          const { data: itData, error: itErr } = await supabase
+            .from('purchase_order_items')
+            .insert(buildPoItemRows(existing.id, items))
+            .select();
+          if (itErr) return err(`Header updated, but items replace failed: ${itErr.message}`);
+          replacedItems = itData ?? [];
+        } else {
+          replacedItems = [];
+        }
+      }
+      return ok({ purchase_order: po ?? { po_number, id: existing.id }, items: replacedItems });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_delete_purchase_order',
+  'Delete a purchase order (and its line items) by po_number. This does not touch inventory rows already created from it.',
+  {
+    po_number: z.string().describe('Purchase order number to delete'),
+  },
+  async ({ po_number }) => {
+    try {
+      const { data: po, error: findErr } = await supabase
+        .from('purchase_orders')
+        .select('id')
+        .eq('po_number', po_number)
+        .single();
+      if (findErr) return err(findErr.message);
+      await supabase.from('purchase_order_items').delete().eq('po_id', po.id);
+      const { error } = await supabase.from('purchase_orders').delete().eq('po_number', po_number);
+      if (error) return err(error.message);
+      return ok({ deleted: po_number });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ── Vendors ─────────────────────────────────────────────────────────────────────
+
+reg(
+  'db_create_vendor',
+  'Create a vendor (Vendor Master).',
+  {
+    vendor_name: z.string().describe('Vendor name'),
+    data: z.record(z.string(), z.any()).optional().describe('Optional fields: contact_person, email, phone, address, website, payment_terms, tax_id, category, status, remarks'),
+  },
+  async ({ vendor_name, data: extra }) => {
+    try {
+      const now = new Date().toISOString();
+      const payload = { vendor_name, status: 'Active', ...(extra ?? {}), created_at: now, updated_at: now };
+      const { data, error } = await supabase.from('vendors').insert(payload).select().single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_vendor',
+  'Update a vendor by id (preferred) or by vendor_name.',
+  {
+    id: z.string().optional().describe('Vendor UUID (preferred key)'),
+    vendor_name: z.string().optional().describe('Vendor name (used if id not given)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update'),
+  },
+  async ({ id, vendor_name, data: updates }) => {
+    try {
+      if (!id && !vendor_name) return err('Provide id or vendor_name');
+      let q = supabase.from('vendors').update({ ...updates, updated_at: new Date().toISOString() });
+      q = id ? q.eq('id', id) : q.eq('vendor_name', vendor_name!);
+      const { data, error } = await q.select();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_delete_vendor',
+  'Delete a vendor by id.',
+  { id: z.string().describe('Vendor UUID') },
+  async ({ id }) => {
+    try {
+      const { error } = await supabase.from('vendors').delete().eq('id', id);
+      if (error) return err(error.message);
+      return ok({ deleted: id });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ── Vendor Pricelist ──────────────────────────────────────────────────────────
+
+reg(
+  'db_create_vendor_pricelist',
+  'Add a vendor pricelist item.',
+  {
+    data: z.record(z.string(), z.any()).describe('Fields: brand, model_name, specification, dealer_price, user_price, currency, promotion, status, vendor_id, remarks'),
+  },
+  async ({ data: fields }) => {
+    try {
+      const now = new Date().toISOString();
+      const payload = { currency: 'USD', status: 'Active', ...fields, created_at: now, updated_at: now };
+      const { data, error } = await supabase.from('vendor_pricelist').insert(payload).select().single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_vendor_pricelist',
+  'Update a vendor pricelist item by id.',
+  {
+    id: z.string().describe('Vendor pricelist row UUID'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (dealer_price, user_price, promotion, status, etc.)'),
+  },
+  async ({ id, data: updates }) => {
+    try {
+      const { data, error } = await supabase
+        .from('vendor_pricelist')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_delete_vendor_pricelist',
+  'Delete a vendor pricelist item by id.',
+  { id: z.string().describe('Vendor pricelist row UUID') },
+  async ({ id }) => {
+    try {
+      const { error } = await supabase.from('vendor_pricelist').delete().eq('id', id);
+      if (error) return err(error.message);
+      return ok({ deleted: id });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ── Inventory (completes CRUD; get + update already exist) ─────────────────────
+
+reg(
+  'db_create_inventory',
+  'Create an inventory item (stock intake). Typically linked to a PO via po_id/po_number.',
+  {
+    data: z.record(z.string(), z.any()).describe('Fields: code, brand, model_name, description, category, qty, unit_price, currency, status, po_id, po_number, vendor_id, vendor_name'),
+  },
+  async ({ data: fields }) => {
+    try {
+      const now = new Date().toISOString();
+      const payload = { currency: 'USD', qty: 0, status: 'In Stock', ...fields, created_at: now, updated_at: now };
+      const { data, error } = await supabase.from('inventory').insert(payload).select().single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_delete_inventory',
+  'Delete an inventory item by code.',
+  { code: z.string().describe('Inventory item code (unique key)') },
+  async ({ code }) => {
+    try {
+      const { error } = await supabase.from('inventory').delete().eq('code', code);
+      if (error) return err(error.message);
+      return ok({ deleted: code });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Google Sheets tools
 // ══════════════════════════════════════════════════════════════════════════════
 
