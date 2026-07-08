@@ -477,6 +477,8 @@ export interface InventoryItem {
   brand?: string;
   model_name?: string;
   description?: string;
+  /** Device serial number(s) for this stock line — comma/newline separated if more than one. */
+  serial_number?: string;
   qty: number;
   unit_price: number;
   currency?: 'USD' | 'KHR';

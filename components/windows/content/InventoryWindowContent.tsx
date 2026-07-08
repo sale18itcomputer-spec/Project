@@ -47,6 +47,7 @@ const InventoryWindowContent: React.FC<InventoryWindowContentProps> = ({ windowI
             brand: formData.brand,
             model_name: formData.model_name,
             description: formData.description,
+            serial_number: formData.serial_number,
             qty: Number(formData.qty) || 0,
             unit_price: Number(formData.unit_price) || 0,
             currency: formData.currency,
@@ -94,6 +95,7 @@ const InventoryWindowContent: React.FC<InventoryWindowContentProps> = ({ windowI
                 <FormInput name="code" label="Code" value={formData.code} onChange={handleChange} placeholder="e.g. ABC-123" />
                 <FormInput name="brand" label="Brand" value={formData.brand} onChange={handleChange} placeholder="e.g. ASUS" />
                 <FormInput name="model_name" label="Model" value={formData.model_name} onChange={handleChange} placeholder="e.g. ROG Strix B650" />
+                <FormInput name="serial_number" label="Serial Number" value={formData.serial_number} onChange={handleChange} placeholder="Device serial (comma-separate if more than one)" />
                 <FormTextarea name="description" label="Description" value={formData.description} onChange={handleChange} rows={3} />
             </FormSection>
 
