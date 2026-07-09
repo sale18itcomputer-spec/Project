@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { supabase } from '@/lib/supabase';
-import { convertPurchaseOrderToInventory } from '@/services/inventoryApi';
+import { convertPurchaseOrderToInventory, syncPurchaseOrderSerialsToInventory } from '@/services/inventoryApi';
 import { Plus, Trash2, Save, ShoppingCart, Download, Loader2, Eye } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from '@/components/common/FormControls';
 import { formatCurrencySmartly, stripHtml } from '@/utils/formatters';
@@ -531,6 +531,13 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                     addToast(`PO saved, but inventory sync failed: ${ie.message}`, 'info');
                 }
             }
+
+            // Keep inventory serials in sync with the PO — updates rows already
+            // committed to inventory (no re-convert needed), so a serial added to
+            // the PO after conversion flows through to the existing stock rows.
+            try {
+                await syncPurchaseOrderSerialsToInventory(savedPoId, items);
+            } catch { /* non-fatal — the PO itself is already saved */ }
 
             addToast('Purchase Order saved successfully!', 'success');
             await refetchData();

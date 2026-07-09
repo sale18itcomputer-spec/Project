@@ -6,6 +6,7 @@ import { useData } from '../../../contexts/DataContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import { supabase } from '../../../lib/supabase';
+import { syncInventorySerialToPurchaseOrder } from '../../../services/inventoryApi';
 import { FormSection, FormInput, FormSelect, FormTextarea, FormDisplay } from '../../common/FormControls';
 import { Check } from 'lucide-react';
 
@@ -61,6 +62,17 @@ const InventoryWindowContent: React.FC<InventoryWindowContentProps> = ({ windowI
                 .eq('id', itemId);
             if (error) throw error;
             setInventoryItems(prev => prev ? prev.map(i => i.id === itemId ? { ...i, ...updated } : i) : null);
+
+            // Push the serial back to the source PO line item so the two stay in sync.
+            try {
+                await syncInventorySerialToPurchaseOrder({
+                    po_id: item.po_id,
+                    code: updated.code,
+                    model_name: updated.model_name,
+                    serial_number: updated.serial_number,
+                });
+            } catch { /* non-fatal — the inventory row is already saved */ }
+
             addToast('Inventory item updated.', 'success');
             closeWindow(windowId);
         } catch (err: any) {

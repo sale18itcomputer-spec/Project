@@ -2,6 +2,14 @@ import { supabase } from '../lib/supabase';
 import { PurchaseOrder, PurchaseOrderItem, PricelistItem, VendorPricelistItem } from '../types';
 import { stripHtml } from '../utils/formatters';
 
+/** Collapse a multi-line/comma serial field into a single comma-separated string. */
+export const normalizeSerials = (raw?: string | null): string =>
+    (raw ?? '')
+        .split(/[\n,]/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .join(', ');
+
 export interface ConvertPOToInventoryResult {
     /** True if new inventory rows were inserted by this call. */
     converted: boolean;
@@ -135,6 +143,7 @@ export const convertPurchaseOrderToInventory = async (
                 brand:       resolvedBrand,
                 model_name:  resolvedModel,
                 description: resolvedDesc,
+                serial_number: normalizeSerials(item.serial_number),
                 qty:         item.qty,
                 unit_price:  item.unit_price ?? 0,
                 currency:    po.currency ?? 'USD',
@@ -189,4 +198,93 @@ export const convertPurchaseOrderToInventory = async (
     }
 
     return { converted: true, alreadyConverted: false, count: inventoryPayload.length };
+};
+
+/**
+ * Push serial numbers from a PO's line items onto the inventory rows already
+ * created from that PO — WITHOUT re-converting or deleting anything. Runs on
+ * every PO save so a serial added to the PO after it was committed to inventory
+ * flows through to the existing stock rows.
+ *
+ * Matching within the same po_id, greedy and order-independent:
+ *   1) inventory.code === item_number
+ *   2) inventory.model_name === item.model_name
+ *   3) positional fallback (nth unclaimed row)
+ * Only non-empty serials are pushed — an empty PO serial never wipes a serial
+ * that was typed directly on the inventory row.
+ *
+ * Returns the number of inventory rows updated.
+ */
+export const syncPurchaseOrderSerialsToInventory = async (
+    poId: string,
+    items: PurchaseOrderItem[],
+): Promise<number> => {
+    const { data: invRows, error } = await supabase
+        .from('inventory')
+        .select('id, code, model_name')
+        .eq('po_id', poId)
+        .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    if (!invRows || invRows.length === 0) return 0;
+
+    const filtered = items.filter(it => it.qty > 0 && !it.is_promotion);
+    const remaining = [...invRows];
+    const claim = (predicate: (r: any) => boolean): any | null => {
+        const idx = remaining.findIndex(predicate);
+        return idx === -1 ? null : remaining.splice(idx, 1)[0];
+    };
+
+    let count = 0;
+    for (const it of filtered) {
+        const serial = normalizeSerials(it.serial_number);
+        const code = (it.item_number ?? '').trim().toLowerCase();
+        const model = (it.model_name ?? '').trim().toLowerCase();
+
+        let row = code ? claim(r => (r.code ?? '').toLowerCase() === code) : null;
+        if (!row && model) row = claim(r => (r.model_name ?? '').toLowerCase() === model);
+        if (!row) row = remaining.shift() ?? null; // positional fallback keeps 1:1 alignment
+        if (!row || !serial) continue; // never wipe an inventory serial with an empty PO serial
+
+        const { error: uErr } = await supabase
+            .from('inventory')
+            .update({ serial_number: serial, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+        if (!uErr) count++;
+    }
+    return count;
+};
+
+/**
+ * Push a serial typed on an inventory row back to its source PO line item, so
+ * the two stay consistent. Matches within the inventory row's po_id by
+ * item_number → model_name → single-line PO. No-op when the row has no po_id or
+ * no serial. Returns true if a PO line item was updated.
+ */
+export const syncInventorySerialToPurchaseOrder = async (inv: {
+    po_id?: string | null;
+    code?: string;
+    model_name?: string;
+    serial_number?: string;
+}): Promise<boolean> => {
+    const serial = normalizeSerials(inv.serial_number);
+    if (!inv.po_id || !serial) return false;
+
+    const { data: poItems, error } = await supabase
+        .from('purchase_order_items')
+        .select('id, item_number, model_name')
+        .eq('po_id', inv.po_id);
+    if (error || !poItems || poItems.length === 0) return false;
+
+    const code = (inv.code ?? '').trim().toLowerCase();
+    const model = (inv.model_name ?? '').trim().toLowerCase();
+    let target = code ? poItems.find(p => (p.item_number ?? '').toLowerCase() === code) : undefined;
+    if (!target && model) target = poItems.find(p => (p.model_name ?? '').toLowerCase() === model);
+    if (!target && poItems.length === 1) target = poItems[0];
+    if (!target) return false;
+
+    const { error: uErr } = await supabase
+        .from('purchase_order_items')
+        .update({ serial_number: serial })
+        .eq('id', target.id);
+    return !uErr;
 };
