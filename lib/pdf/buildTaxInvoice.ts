@@ -3,7 +3,7 @@
  * TAX INVOICE HTML builder — bilingual Khmer/English.
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
-import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals } from './shared-pure';
+import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals, computeVatDepositFooter } from './shared-pure';
 
 const DEFAULT_WIDTHS = [4, 12, 38, 14, 17, 15];
 
@@ -57,18 +57,22 @@ export function buildTaxInvoice(
 
     const subTotal  = totals.subTotal;
     const hasDeposit = deposit > 0;
-    // Deposit % is always quoted against the full VAT-inclusive contract value
-    // (grandTotal = subTotal + VAT), not the pre-VAT subtotal — a 20%-of-total
-    // deposit on a VAT deal divides out to 22% of the pre-VAT subtotal, which
-    // is what this used to show.
-    const depositPercent = hasDeposit && totals.grandTotal > 0 ? Math.round((deposit / totals.grandTotal) * 100) : 0;
     const totalLessDeposit = subTotal - deposit;
-    // When a deposit is present, this VAT invoice bills only the deposit portion now —
-    // VAT and Grand Total are computed on the deposit amount, not the full subtotal.
-    const vatBase   = hasDeposit ? deposit : subTotal;
-    const vatAmount = showVat ? (hasDeposit ? vatBase * 0.1 : (tax > 0 ? tax : vatBase * 0.1)) : 0;
-    const grandUsd  = vatBase + vatAmount;
-    const grandRiel = rateNum > 0 ? Math.round(grandUsd * rateNum) : 0;
+    // All deposit-mode figures (percent, net, VAT, grand total in both
+    // currencies) come from ONE function with a hard reconciliation check —
+    // see computeVatDepositFooter's doc comment for the two incidents this
+    // replaces (a wrong percent, then a separately-wrong dollar amount).
+    const {
+        depositPercent = 0,
+        depositNet = 0,
+        depositVat = 0,
+        grandUsd: depositGrandUsd = 0,
+        grandRiel: depositGrandRiel = 0,
+    } = hasDeposit ? computeVatDepositFooter(deposit, totals.grandTotal, rateNum) : {};
+    const vatBase   = hasDeposit ? depositNet : subTotal;
+    const vatAmount = showVat ? (hasDeposit ? depositVat : (tax > 0 ? tax : vatBase * 0.1)) : 0;
+    const grandUsd  = hasDeposit ? depositGrandUsd : vatBase + vatAmount;
+    const grandRiel = hasDeposit ? depositGrandRiel : (rateNum > 0 ? Math.round(grandUsd * rateNum) : 0);
     // Non-VAT footer is simplified to just a "Total" row (+ Deposit/Less Deposit when present).
     // VAT footer keeps the full breakdown: Sub Total, [Deposit], VAT, Grand USD, Exchange Rate, Grand Riel.
     const footerRows = showVat
@@ -237,7 +241,7 @@ export function buildTaxInvoice(
         ${hasDeposit ? `
         <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">កក់ប្រាក់${depositPercent}% (Deposit ${depositPercent}%)</td>
-          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(deposit)}</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(depositNet)}</td>
         </tr>` : ''}
         <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អាករ (VAT 10%)</td>
