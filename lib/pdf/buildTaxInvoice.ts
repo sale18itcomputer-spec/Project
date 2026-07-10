@@ -57,7 +57,11 @@ export function buildTaxInvoice(
 
     const subTotal  = totals.subTotal;
     const hasDeposit = deposit > 0;
-    const depositPercent = hasDeposit && subTotal > 0 ? Math.round((deposit / subTotal) * 100) : 0;
+    // Deposit % is always quoted against the full VAT-inclusive contract value
+    // (grandTotal = subTotal + VAT), not the pre-VAT subtotal — a 20%-of-total
+    // deposit on a VAT deal divides out to 22% of the pre-VAT subtotal, which
+    // is what this used to show.
+    const depositPercent = hasDeposit && totals.grandTotal > 0 ? Math.round((deposit / totals.grandTotal) * 100) : 0;
     const totalLessDeposit = subTotal - deposit;
     // When a deposit is present, this VAT invoice bills only the deposit portion now —
     // VAT and Grand Total are computed on the deposit amount, not the full subtotal.
