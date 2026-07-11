@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff, ShoppingCart, Package, BookOpen, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff, ShoppingCart, Package, BookOpen, CheckCircle2, CornerDownRight, Undo2 } from 'lucide-react';
 import {
   PERMISSION_MODULES,
   SECTION_ORDER,
@@ -147,6 +147,11 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
   const toggleSection = (section: string) =>
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
 
+  // Modules with subTabs (e.g. Accounting) start collapsed — expand on demand.
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const toggleModuleExpanded = (moduleKey: string) =>
+    setExpandedModules(prev => ({ ...prev, [moduleKey]: !prev[moduleKey] }));
+
   // ── Module action toggle ──────────────────────────────────────────────────
 
   const toggleAction = useCallback(
@@ -178,6 +183,48 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
       }
 
       onChange(updated);
+    },
+    [permissions, onChange],
+  );
+
+  // ── Sub-tab action toggle (e.g. Accounting's Profit & Loss tab) ──────────
+  // Toggling flips the currently-EFFECTIVE value (explicit override if one
+  // exists, otherwise the module's own value) so the pill always does what it
+  // visually shows, regardless of whether this is the first override or not.
+
+  const toggleSubTabAction = useCallback(
+    (moduleKey: string, subTabKey: string, action: PermissionAction) => {
+      const moduleVal = permissions.modules[moduleKey]?.[action] === true;
+      const explicit = permissions.subModules?.[moduleKey]?.[subTabKey]?.[action];
+      const current = explicit !== undefined ? explicit : moduleVal;
+
+      onChange({
+        ...permissions,
+        subModules: {
+          ...permissions.subModules,
+          [moduleKey]: {
+            ...permissions.subModules?.[moduleKey],
+            [subTabKey]: {
+              ...permissions.subModules?.[moduleKey]?.[subTabKey],
+              [action]: !current,
+            },
+          },
+        },
+      });
+    },
+    [permissions, onChange],
+  );
+
+  // Removes all explicit overrides for one sub-tab, so it goes back to
+  // inheriting the module's own permissions.
+  const resetSubTab = useCallback(
+    (moduleKey: string, subTabKey: string) => {
+      const moduleSubTabs = { ...permissions.subModules?.[moduleKey] };
+      delete moduleSubTabs[subTabKey];
+      onChange({
+        ...permissions,
+        subModules: { ...permissions.subModules, [moduleKey]: moduleSubTabs },
+      });
     },
     [permissions, onChange],
   );
@@ -382,39 +429,118 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 {modulesInSection.map(([moduleKey, def], idx) => {
                   const mp = permissions.modules[moduleKey] ?? {};
                   const isViewable = mp.view === true || mp.use === true;
+                  const hasSubTabs = !!def.subTabs && def.subTabs.length > 0;
+                  const isExpanded = hasSubTabs && !!expandedModules[moduleKey];
+                  const restrictedSubTabCount = hasSubTabs
+                    ? Object.keys(permissions.subModules?.[moduleKey] ?? {}).length
+                    : 0;
 
                   return (
-                    <div
-                      key={moduleKey}
-                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${
-                        idx % 2 === 0 ? 'bg-card' : 'bg-muted/10'
-                      } ${!isViewable ? 'opacity-60' : ''}`}
-                    >
-                      {/* Module name */}
-                      <span className={`flex-1 text-[13px] font-medium min-w-0 ${
-                        isViewable ? 'text-foreground' : 'text-muted-foreground'
-                      }`}>
-                        {def.label}
-                      </span>
+                    <div key={moduleKey} className={idx % 2 === 0 ? 'bg-card' : 'bg-muted/10'}>
+                      <div
+                        className={`flex items-center gap-3 px-3 py-2 transition-colors ${!isViewable ? 'opacity-60' : ''}`}
+                      >
+                        {/* Expand toggle for modules with sub-tabs */}
+                        {hasSubTabs ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleModuleExpanded(moduleKey)}
+                            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                            title={isExpanded ? 'Hide sub-tabs' : 'Show sub-tab permissions'}
+                          >
+                            {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                          </button>
+                        ) : (
+                          <span className="w-[13px] shrink-0" />
+                        )}
 
-                      {/* Pills */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        {def.actions.map(action => {
-                          const isEnabled = mp[action] === true;
-                          const isDisabled =
-                            action !== 'view' && action !== 'use' && !isViewable;
+                        {/* Module name */}
+                        <span className={`flex-1 text-[13px] font-medium min-w-0 flex items-center gap-2 ${
+                          isViewable ? 'text-foreground' : 'text-muted-foreground'
+                        }`}>
+                          {def.label}
+                          {restrictedSubTabCount > 0 && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                              {restrictedSubTabCount} sub-tab override{restrictedSubTabCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </span>
 
-                          return (
-                            <ActionPill
-                              key={action}
-                              action={action}
-                              enabled={isEnabled}
-                              disabled={isDisabled}
-                              onClick={() => !isDisabled && toggleAction(moduleKey, action)}
-                            />
-                          );
-                        })}
+                        {/* Pills */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {def.actions.map(action => {
+                            const isEnabled = mp[action] === true;
+                            const isDisabled =
+                              action !== 'view' && action !== 'use' && !isViewable;
+
+                            return (
+                              <ActionPill
+                                key={action}
+                                action={action}
+                                enabled={isEnabled}
+                                disabled={isDisabled}
+                                onClick={() => !isDisabled && toggleAction(moduleKey, action)}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
+
+                      {/* Sub-tab rows */}
+                      {isExpanded && (
+                        <div className="pl-8 pr-3 pb-2 space-y-1">
+                          {!isViewable && (
+                            <p className="text-[11px] text-muted-foreground/60 italic py-1">
+                              Enable View on {def.label} first — sub-tabs are unreachable until then.
+                            </p>
+                          )}
+                          {def.subTabs!.map(subTab => {
+                            const override = permissions.subModules?.[moduleKey]?.[subTab.key];
+                            const hasOverride = override && Object.keys(override).length > 0;
+
+                            return (
+                              <div
+                                key={subTab.key}
+                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${
+                                  hasOverride ? 'border-amber-300/60 bg-amber-500/5' : 'border-border/40 bg-background/40'
+                                }`}
+                              >
+                                <CornerDownRight size={11} className="text-muted-foreground/50 shrink-0" />
+                                <span className="flex-1 text-[12px] text-muted-foreground min-w-0 truncate">
+                                  {subTab.label}
+                                </span>
+                                {hasOverride && (
+                                  <button
+                                    type="button"
+                                    onClick={() => resetSubTab(moduleKey, subTab.key)}
+                                    title="Reset to inherit from module"
+                                    className="shrink-0 text-muted-foreground/50 hover:text-brand-600 transition-colors"
+                                  >
+                                    <Undo2 size={12} />
+                                  </button>
+                                )}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {def.actions.map(action => {
+                                    const explicit = override?.[action];
+                                    const effective = explicit !== undefined ? explicit : mp[action] === true;
+                                    const isDisabled = action !== 'view' && action !== 'use' && !isViewable;
+
+                                    return (
+                                      <ActionPill
+                                        key={action}
+                                        action={action}
+                                        enabled={effective}
+                                        disabled={isDisabled}
+                                        onClick={() => !isDisabled && toggleSubTabAction(moduleKey, subTab.key, action)}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

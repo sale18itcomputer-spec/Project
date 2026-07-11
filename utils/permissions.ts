@@ -13,11 +13,18 @@ import { User, UserPermissions, PermissionAction, DataVisibility } from '../type
 
 // ─── Module Registry ──────────────────────────────────────────────────────────
 
+export interface ModuleSubTab {
+  key: string;
+  label: string;
+}
+
 export interface ModuleDefinition {
   label: string;
   section: 'Overview' | 'Sales' | 'Products' | 'Procurement' | 'Service' | 'Activity' | 'Tools' | 'Admin';
   actions: PermissionAction[];
   route: string[];
+  /** Sub-tabs within this module that can be individually restricted per user (e.g. Accounting's tab bar). */
+  subTabs?: ModuleSubTab[];
 }
 
 export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
@@ -219,6 +226,19 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     section: 'Tools',
     actions: ['view', 'create', 'edit', 'delete'],
     route: ['/accounting'],
+    subTabs: [
+      { key: 'coa',       label: 'Chart of Accounts' },
+      { key: 'ledger',    label: 'General Ledger' },
+      { key: 'journal',   label: 'Journal Entries' },
+      { key: 'bills',     label: 'Bills' },
+      { key: 'vendors',   label: 'Vendors' },
+      { key: 'trial',     label: 'Trial Balance' },
+      { key: 'recurring', label: 'Recurring' },
+      { key: 'bankrec',   label: 'Bank Reconciliation' },
+      { key: 'balance',   label: 'Balance Sheet' },
+      { key: 'cashflow',  label: 'Cash Flow' },
+      { key: 'pl',        label: 'Profit & Loss' },
+    ],
   },
 
   // Admin
@@ -481,6 +501,7 @@ export function resolvePermissions(user: User | null): UserPermissions {
   if (!user.permissions) return preset;
   return {
     modules: { ...preset.modules, ...user.permissions.modules },
+    subModules: { ...preset.subModules, ...user.permissions.subModules },
     dataVisibility: user.permissions.dataVisibility ?? preset.dataVisibility,
   };
 }
@@ -493,6 +514,23 @@ export function checkPermission(
   module: string,
   action: PermissionAction,
 ): boolean {
+  return permissions.modules[module]?.[action] === true;
+}
+
+/**
+ * Check a module/sub-tab/action triple (e.g. Accounting's Profit & Loss tab).
+ * A sub-tab with no explicit override inherits the module's own permission for
+ * that action — so a module with `subTabs` defined but no per-user overrides
+ * behaves exactly as before (every sub-tab visible to anyone with module access).
+ */
+export function checkSubTabPermission(
+  permissions: UserPermissions,
+  module: string,
+  subTab: string,
+  action: PermissionAction,
+): boolean {
+  const override = permissions.subModules?.[module]?.[subTab]?.[action];
+  if (override !== undefined) return override === true;
   return permissions.modules[module]?.[action] === true;
 }
 

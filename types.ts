@@ -38,6 +38,14 @@ export interface DataVisibility {
  */
 export interface UserPermissions {
   modules: Record<string, ModulePermissions>;
+  /**
+   * Per-sub-tab overrides for modules that declare `subTabs` (e.g. Accounting's
+   * Journal Entries / Trial Balance / P&L tabs). Keyed by module, then sub-tab
+   * key. A sub-tab with no entry here falls back to the module's own `view`
+   * permission — so existing users see every sub-tab exactly as before until
+   * an admin explicitly restricts one.
+   */
+  subModules?: Record<string, Record<string, ModulePermissions>>;
   dataVisibility?: DataVisibility;
 }
 
@@ -556,7 +564,7 @@ export interface JournalEntry {
   reference: string;
   created_by: string;
   is_posted: boolean;
-  source?: string;
+  source: string;
   posted_by?: string;
   posted_at?: string;
   lines?: JournalEntryLine[];

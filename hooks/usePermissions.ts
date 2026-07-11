@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   resolvePermissions,
   checkPermission,
+  checkSubTabPermission,
   checkFieldVisibility,
 } from '../utils/permissions';
 import { PermissionAction, DataVisibility, UserPermissions } from '../types';
@@ -25,6 +26,10 @@ export interface UsePermissionsReturn {
   can: (module: string, action: PermissionAction) => boolean;
   /** Shorthand — check if the user can VIEW a module */
   canView: (module: string) => boolean;
+  /** Check if the user has a specific action on a module's sub-tab (e.g. Accounting's Profit & Loss tab) */
+  canSubTab: (module: string, subTab: string, action: PermissionAction) => boolean;
+  /** Shorthand — check if the user can VIEW a module's sub-tab */
+  canViewSubTab: (module: string, subTab: string) => boolean;
   /** Check if a sensitive data field should be visible */
   showField: (field: keyof DataVisibility) => boolean;
   /** The fully-resolved permission object (for the permissions editor UI) */
@@ -61,6 +66,22 @@ export function usePermissions(): UsePermissionsReturn {
     [resolvedPermissions, isAuthLoading],
   );
 
+  const canSubTab = useCallback(
+    (module: string, subTab: string, action: PermissionAction): boolean => {
+      if (isAuthLoading) return false;
+      return checkSubTabPermission(resolvedPermissions, module, subTab, action);
+    },
+    [resolvedPermissions, isAuthLoading],
+  );
+
+  const canViewSubTab = useCallback(
+    (module: string, subTab: string): boolean => {
+      if (isAuthLoading) return false;
+      return checkSubTabPermission(resolvedPermissions, module, subTab, 'view');
+    },
+    [resolvedPermissions, isAuthLoading],
+  );
+
   const showField = useCallback(
     (field: keyof DataVisibility): boolean => {
       if (isAuthLoading) return false;
@@ -72,6 +93,8 @@ export function usePermissions(): UsePermissionsReturn {
   return {
     can,
     canView,
+    canSubTab,
+    canViewSubTab,
     showField,
     resolvedPermissions,
     isLoading: isAuthLoading,

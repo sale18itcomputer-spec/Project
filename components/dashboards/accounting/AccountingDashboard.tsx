@@ -1141,19 +1141,29 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
 type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'trial' | 'recurring' | 'bankrec' | 'balance' | 'cashflow' | 'pl';
+const TAB_ORDER: Tab[] = ['coa', 'ledger', 'journal', 'bills', 'vendors', 'trial', 'recurring', 'bankrec', 'balance', 'cashflow', 'pl'];
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
 export default function AccountingDashboard() {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
-    const { can } = usePermissions();
+    const { can, canViewSubTab } = usePermissions();
 
     const canCreate = can('accounting', 'create');
     const canEdit   = can('accounting', 'edit');
     const canDelete = can('accounting', 'delete');
 
+    const canSeeTab = useCallback((tab: Tab) => canViewSubTab('accounting', tab), [canViewSubTab]);
+
     const [activeTab, setActiveTab] = useState<Tab>('coa');
+    // If the default/restored tab isn't visible to this user (e.g. an admin
+    // just restricted it), fall over to the first tab they can actually see.
+    useEffect(() => {
+        if (canSeeTab(activeTab)) return;
+        const firstVisible = TAB_ORDER.find(canSeeTab);
+        if (firstVisible) setActiveTab(firstVisible);
+    }, [activeTab, canSeeTab]);
 
     // ── Data ──────────────────────────────────────────────────────────────────
     const [accounts, setAccounts]       = useState<ChartOfAccount[]>([]);
@@ -1634,6 +1644,7 @@ export default function AccountingDashboard() {
                         reference:    entryHeader.reference || '',
                         created_by:   currentUser?.Name || '',
                         is_posted:    false,
+                        source:       'manual',
                     },
                     mappedLines,
                 );
@@ -1795,19 +1806,22 @@ export default function AccountingDashboard() {
 
     // ── Render helpers ────────────────────────────────────────────────────────
 
-    const TabBtn = ({ id, label, icon }: { id: Tab; label: string; icon: React.ReactNode }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                activeTab === id
-                    ? 'border-brand-600 text-brand-600 dark:text-brand-400 dark:border-brand-400'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-            }`}
-        >
-            {icon}
-            {label}
-        </button>
-    );
+    const TabBtn = ({ id, label, icon }: { id: Tab; label: string; icon: React.ReactNode }) => {
+        if (!canSeeTab(id)) return null;
+        return (
+            <button
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    activeTab === id
+                        ? 'border-brand-600 text-brand-600 dark:text-brand-400 dark:border-brand-400'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                }`}
+            >
+                {icon}
+                {label}
+            </button>
+        );
+    };
 
 
     // ── Render ────────────────────────────────────────────────────────────────
