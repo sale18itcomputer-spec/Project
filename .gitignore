@@ -24,7 +24,10 @@ next-env.d.ts
 *.sln
 *.sw?
 .vercel
+.env
 .env*.local
+.env.development
+.env.production
 tmp/
 .gemini/
 .agents/
