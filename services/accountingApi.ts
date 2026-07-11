@@ -725,7 +725,7 @@ export const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
 
 // Mirrors the brand_account_mapping table seeded in 20260529_accounting_security.sql.
 // Kept here as a cache so auto-post functions don't need an extra DB round-trip.
-export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; inventory: string }> = {
+export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; inventory?: string }> = {
     'ASUS':                  { revenue: '40100', cogs: '50100', inventory: '12100' },
     'DELL':                  { revenue: '40200', cogs: '50200', inventory: '12200' },
     'MSI':                   { revenue: '40300', cogs: '50300', inventory: '12300' },
@@ -734,6 +734,11 @@ export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; 
     'Other Accessories':     { revenue: '40600', cogs: '50600', inventory: '12600' },
     'Lenovo':                { revenue: '40700', cogs: '50700', inventory: '12700' },
     'Lenovo Accessories':    { revenue: '40800', cogs: '50800', inventory: '12800' },
+    // PC Build: assembled units sold as one line (see autoPostInvoiceJournal costItems
+    // cogsBrand). No inventory account of its own — components keep their own real
+    // brand's inventory account (12100/12300/12600/etc.), only revenue and COGS
+    // consolidate here.
+    'PC Build':              { revenue: '40900', cogs: '50900' },
 };
 
 /**
@@ -807,12 +812,12 @@ export const autoPostDepositReceiptJournal = async (params: {
  *  DR Customer Deposit 25000 / CR AR 11900 (deposit application — consumes the
  *     liability booked by autoPostDepositReceiptJournal, so GL AR matches the
  *     Collection outstanding: Amount − Deposit − Paid)
- *  CR Income 40xxx per brand (falls back to 40000 if brand unknown)
+ *  CR Income 40xxx per brand (unmapped brands → 40600 Other Accessories, never the 40000 parent)
  *  CR VAT Output 23000 (full invoice VAT — the single point where VAT is declared)
  *  DR/CR COGS + Inventory per costItems
  *
  *  Pass brandAmounts for a per-brand revenue breakdown; omit for a single
- *  line against the general Income parent account 40000.
+ *  line against the 40600 Other Accessories account.
  */
 export const autoPostInvoiceJournal = async (params: {
     invNo: string;
@@ -824,7 +829,11 @@ export const autoPostInvoiceJournal = async (params: {
     brandAmounts?: { brand: string; subtotal: number }[];
     /** Negative number representing total cashback/promo deductions on the invoice */
     cashbackTotal?: number;
-    costItems?: { brand: string; qty: number; unit_price: number }[];
+    /** cogsBrand overrides which BRAND_ACCOUNT_MAP entry's COGS account is used
+     *  (e.g. 'PC Build' → 50900) while `brand` still controls the inventory
+     *  account credited — used when a component is sold as part of a build but
+     *  its physical inventory lives under its own real brand. */
+    costItems?: { brand: string; qty: number; unit_price: number; cogsBrand?: string }[];
     /** VAT-inclusive deposit already received — applied against AR (DR 25000 / CR 11900) */
     depositAmount?: number;
 }): Promise<boolean> => {
@@ -868,7 +877,7 @@ export const autoPostInvoiceJournal = async (params: {
         for (const { brand: rawBrand, subtotal: brandSubtotal } of params.brandAmounts) {
             if (brandSubtotal <= 0.005) continue;
             const brand = normalizeBrand(rawBrand);
-            const revenueAccount = BRAND_ACCOUNT_MAP[brand]?.revenue ?? '40000';
+            const revenueAccount = BRAND_ACCOUNT_MAP[brand]?.revenue ?? '40600';
             lines.push({
                 account_number: revenueAccount,
                 description: `Revenue ${brand} — ${params.invNo}`,
@@ -877,9 +886,10 @@ export const autoPostInvoiceJournal = async (params: {
             });
         }
     } else {
-        // Fall back to the generic parent income account
+        // Fall back to the Other Accessories leaf income account — never the
+        // 40000 parent (summary accounts must not hold direct postings).
         lines.push({
-            account_number: '40000',
+            account_number: '40600',
             description: `Revenue — ${params.invNo}`,
             debit: 0,
             credit: grossSubtotal,
@@ -915,17 +925,21 @@ export const autoPostInvoiceJournal = async (params: {
         });
     }
 
-    // COGS + Inventory reduction — one line pair per item
-    // Account routing is ALWAYS via BRAND_ACCOUNT_MAP (after normalization).
-    // No per-row overrides — stale DB fields caused repeat misrouting bugs.
+    // COGS + Inventory reduction — one line pair per item.
+    // Routing is via BRAND_ACCOUNT_MAP (after normalization) — NOT per-row DB
+    // account fields, whose stale values caused repeat misrouting bugs. Any brand
+    // not in the map (PC-build components: Intel / GSkill / Kingston / FSP / etc.)
+    // falls back to the Other Accessories LEAF accounts (50600 / 12600), never the
+    // 50000 / 12000 parents — parent/summary accounts must not hold direct postings.
     if (params.costItems && params.costItems.length > 0) {
-        for (const { brand: rawBrand, qty, unit_price } of params.costItems) {
+        for (const { brand: rawBrand, qty, unit_price, cogsBrand: rawCogsBrand } of params.costItems) {
             const cost = qty * unit_price;
             if (cost <= 0.005) continue;
             const brand      = normalizeBrand(rawBrand);
             const brandEntry = BRAND_ACCOUNT_MAP[brand];
-            const cogsAcct   = brandEntry?.cogs      ?? '50000';
-            const invAcct    = brandEntry?.inventory  ?? '12000';
+            const cogsEntry  = rawCogsBrand ? BRAND_ACCOUNT_MAP[normalizeBrand(rawCogsBrand)] : brandEntry;
+            const cogsAcct   = cogsEntry?.cogs       ?? '50600';
+            const invAcct    = brandEntry?.inventory ?? '12600';
             lines.push({ account_number: cogsAcct, description: `COGS ${brand} — ${params.invNo}`,          debit: cost, credit: 0 });
             lines.push({ account_number: invAcct,  description: `Inventory out ${brand} — ${params.invNo}`, debit: 0,    credit: cost });
         }
@@ -1065,9 +1079,10 @@ export const autoPostPurchaseOrderJournal = async (params: {
 
     const cashback = params.cashbackTotal && params.cashbackTotal < 0 ? Math.abs(params.cashbackTotal) : 0;
 
-    // DR Inventory per brand (at gross cost, before vendor cashback)
+    // DR Inventory per brand (at gross cost, before vendor cashback).
+    // Unmapped brands (PC-build components) → 12600 Other Accessories leaf, not the 12000 parent.
     for (const [brand, cost] of Object.entries(brandTotals)) {
-        const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12000';
+        const inventoryAccount = BRAND_ACCOUNT_MAP[brand]?.inventory ?? '12600';
         lines.push({
             account_number: inventoryAccount,
             description: `Inventory ${brand} — ${params.poNumber}`,
@@ -1148,8 +1163,9 @@ export const autoPostDeliveryOrderJournal = async (params: {
         if (cost <= 0.005) continue;
         const brand      = normalizeBrand(rawBrand?.trim() || 'Other Accessories');
         const brandEntry = BRAND_ACCOUNT_MAP[brand];
-        const cogsAcct   = brandEntry?.cogs      ?? '50000';
-        const invAcct    = brandEntry?.inventory  ?? '12000';
+        // Unmapped brands (PC-build components) → Other Accessories leaf, not the parent.
+        const cogsAcct   = brandEntry?.cogs      ?? '50600';
+        const invAcct    = brandEntry?.inventory  ?? '12600';
         lines.push({
             account_number: cogsAcct,
             description: `COGS ${brand} — ${params.doNo}`,
@@ -1278,8 +1294,9 @@ export const backfillAllMissingCOGS = async (
             if (unitPrice > 0) {
                 const key = JSON.stringify({
                     brand,
-                    cogsAcct: invCogsAcct || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50000',
-                    invAcct:  invInvAcct  || BRAND_ACCOUNT_MAP[brand]?.inventory || '12000',
+                    // item field → brand map → Other Accessories leaf (never the 50000/12000 parent)
+                    cogsAcct: invCogsAcct || BRAND_ACCOUNT_MAP[brand]?.cogs      || '50600',
+                    invAcct:  invInvAcct  || BRAND_ACCOUNT_MAP[brand]?.inventory || '12600',
                 });
                 brandCost[key] = (brandCost[key] ?? 0) + qty * unitPrice;
             }

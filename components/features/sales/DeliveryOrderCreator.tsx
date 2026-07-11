@@ -5,7 +5,7 @@ import { DeliveryOrder, Invoice, SaleOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createRecord, updateRecord, uploadFile } from '../../../services/api';
-import { autoPostDeliveryOrderJournal } from '../../../services/accountingApi';
+import type { BuildComponent } from './invoice/types';
 import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
@@ -40,6 +40,8 @@ interface LineItem {
     qty: number | string;
     serialNumber?: string;
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }
 
 interface Props {
@@ -152,6 +154,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     description: item.description || '',
                     qty: item.qty ?? 1,
                     serialNumber: item.serialNumber || '',
+                    isPCBuild: item.isPCBuild || false,
+                    buildComponents: item.buildComponents || undefined,
                 })));
             }
         } catch { /* keep default */ }
@@ -213,6 +217,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     description: item.description || '',
                     qty: item.qty ?? 1,
                     serialNumber: item.serialNumber || '',
+                    isPCBuild: item.isPCBuild || false,
+                    buildComponents: item.buildComponents || undefined,
                 })));
                 addToast(`Items loaded from ${invNo}`, 'success');
             }
@@ -322,61 +328,153 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         d.setMonth(d.getMonth() + months);
                         return d.toISOString().slice(0, 10);
                     };
-                    const warrantyEnd = addMonths(warrantyStart, 12);
+                    // Finds the oldest matching in-stock inventory lot (code first, then
+                    // fuzzy model fallback) and deducts qty from it.
+                    const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
+                        let invRows: any[] | null = null;
+                        if (code) {
+                            const { data } = await supabase
+                                .from('inventory').select('id, qty, unit_price, brand')
+                                .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
+                                .order('created_at', { ascending: true }).limit(1);
+                            invRows = data;
+                        }
+                        if ((!invRows || invRows.length === 0) && model) {
+                            const { data } = await supabase
+                                .from('inventory').select('id, qty, unit_price, brand')
+                                .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
+                                .order('created_at', { ascending: true }).limit(1);
+                            invRows = data;
+                        }
+                        if (!invRows || invRows.length === 0) return null;
+                        const inv = invRows[0];
+                        const newQty = Math.max(0, Number(inv.qty) - qty);
+                        await supabase.from('inventory').update({
+                            qty: newQty,
+                            status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
+                        }).eq('id', inv.id);
+                        return { id: inv.id as string, brand: (inv.brand?.trim() || null) as string | null, unitCost: Number(inv.unit_price) || 0 };
+                    };
+
+                    // Creates or updates the serial_numbers row for a delivered unit.
+                    // Shared by normal line items and PC-build components (each
+                    // component keeps its own warranty length, not a flat 12 months).
+                    const syncSerial = async (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
+                        const thisWarrantyEnd = addMonths(warrantyStart, opts.warrantyMonths);
+                        const { data: existingSN } = await supabase
+                            .from('serial_numbers')
+                            .select('id, stock_status, so_no')
+                            .eq('serial_number', sn)
+                            .limit(1);
+
+                        if (existingSN && existingSN.length > 0) {
+                            const existingRow = existingSN[0];
+                            const soNo = doc['SO No'] || '';
+
+                            // Already sold to a different SO — don't silently reassign
+                            // the unit to this delivery; flag it for the user instead.
+                            if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
+                                conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
+                                return;
+                            }
+
+                            // Row already exists (e.g. seeded at PO intake) — update it
+                            // with this sale's customer/warranty info instead of skipping,
+                            // so the lifecycle transitions from "in stock" to "sold".
+                            const { data: updatedSN, error: updErr } = await supabase
+                                .from('serial_numbers')
+                                .update({
+                                    brand: opts.brand,
+                                    model_name: opts.modelName,
+                                    description: opts.description,
+                                    inventory_id: opts.inventoryId,
+                                    so_no: soNo,
+                                    company_name: doc['Company Name'] || '',
+                                    contact_name: doc['Contact Name'] || '',
+                                    warranty_start_date: warrantyStart,
+                                    warranty_period_months: opts.warrantyMonths,
+                                    warranty_end_date: thisWarrantyEnd,
+                                    status: 'Active',
+                                    stock_status: 'Sold',
+                                })
+                                .eq('id', existingRow.id)
+                                .select()
+                                .single();
+
+                            if (!updErr && updatedSN) {
+                                setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
+                                syncedSerials = true;
+                            }
+                            return;
+                        }
+
+                        const { data: newSN, error: snErr } = await supabase
+                            .from('serial_numbers')
+                            .insert({
+                                serial_number: sn,
+                                brand: opts.brand,
+                                model_name: opts.modelName,
+                                description: opts.description,
+                                inventory_id: opts.inventoryId,
+                                so_no: doc['SO No'] || '',
+                                company_name: doc['Company Name'] || '',
+                                contact_name: doc['Contact Name'] || '',
+                                warranty_start_date: warrantyStart,
+                                warranty_period_months: opts.warrantyMonths,
+                                warranty_end_date: thisWarrantyEnd,
+                                status: 'Active',
+                                stock_status: 'Sold',
+                                created_by: currentUser?.Name || '',
+                            })
+                            .select()
+                            .single();
+
+                        if (!snErr && newSN) {
+                            setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
+                            syncedSerials = true;
+                        }
+                    };
 
                     for (const item of items) {
+                        if (item.isPromotion) continue;
+
+                        // PC Build: components were purchased/serialed individually via
+                        // PO, so relieve each one from its own real inventory account
+                        // instead of trying to match the build's synthetic line.
+                        if (item.isPCBuild) {
+                            for (const comp of item.buildComponents || []) {
+                                const compQty = Number(comp.qty) || 0;
+                                if (compQty <= 0) continue;
+                                const code  = comp.itemCode?.trim();
+                                const model = comp.modelName?.trim();
+
+                                const matched = (code || model) ? await deductInventoryFIFO(code, model, compQty) : null;
+                                if (matched && matched.unitCost > 0) {
+                                    costItems.push({ brand: matched.brand ?? comp.brand, qty: compQty, unit_price: matched.unitCost });
+                                }
+
+                                const serials = (comp.serialNumber || '').split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                                for (const sn of serials) {
+                                    await syncSerial(sn, {
+                                        brand: (code && brandMap.get(code)) || matched?.brand || comp.brand || '',
+                                        modelName: comp.modelName || '',
+                                        description: item.description || '',
+                                        inventoryId: matched?.id ?? null,
+                                        warrantyMonths: comp.warrantyMonths ?? 12,
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+
                         const qty = Number(item.qty) || 0;
                         if (qty <= 0) continue;
                         const code  = item.itemCode?.trim();
                         const model = item.modelName?.trim();
 
-                        let matchedInvId: string | null = null;
-                        let matchedInvBrand: string | null = null;
-
-                        if (code || model) {
-                            let invRows: any[] | null = null;
-
-                            if (code) {
-                                const { data } = await supabase
-                                    .from('inventory')
-                                    .select('id, qty, unit_price, brand')
-                                    .eq('status', 'In Stock')
-                                    .gt('qty', 0)
-                                    .eq('code', code)
-                                    .order('created_at', { ascending: true })
-                                    .limit(1);
-                                invRows = data;
-                            }
-
-                            if ((!invRows || invRows.length === 0) && model) {
-                                const { data } = await supabase
-                                    .from('inventory')
-                                    .select('id, qty, unit_price, brand')
-                                    .eq('status', 'In Stock')
-                                    .gt('qty', 0)
-                                    .ilike('model_name', `%${model}%`)
-                                    .order('created_at', { ascending: true })
-                                    .limit(1);
-                                invRows = data;
-                            }
-
-                            if (invRows && invRows.length > 0) {
-                                const inv = invRows[0];
-                                const newQty = Math.max(0, Number(inv.qty) - qty);
-                                await supabase
-                                    .from('inventory')
-                                    .update({
-                                        qty:    newQty,
-                                        status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
-                                    })
-                                    .eq('id', inv.id);
-
-                                matchedInvId = inv.id;
-                                matchedInvBrand = inv.brand?.trim() || null;
-                                if (Number(inv.unit_price) > 0) {
-                                    costItems.push({ brand: inv.brand ?? undefined, qty, unit_price: Number(inv.unit_price) });
-                                }
-                            }
+                        const matched = (code || model) ? await deductInventoryFIFO(code, model, qty) : null;
+                        if (matched && matched.unitCost > 0) {
+                            costItems.push({ brand: matched.brand ?? undefined, qty, unit_price: matched.unitCost });
                         }
 
                         const serials = (item.serialNumber || '')
@@ -385,78 +483,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                             .filter(s => s.length > 0);
 
                         for (const sn of serials) {
-                            const { data: existingSN } = await supabase
-                                .from('serial_numbers')
-                                .select('id, stock_status, so_no')
-                                .eq('serial_number', sn)
-                                .limit(1);
-
-                            if (existingSN && existingSN.length > 0) {
-                                const existingRow = existingSN[0];
-                                const soNo = doc['SO No'] || '';
-
-                                // Already sold to a different SO — don't silently reassign
-                                // the unit to this delivery; flag it for the user instead.
-                                if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
-                                    conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
-                                    continue;
-                                }
-
-                                // Row already exists (e.g. seeded at PO intake) — update it
-                                // with this sale's customer/warranty info instead of skipping,
-                                // so the lifecycle transitions from "in stock" to "sold".
-                                const { data: updatedSN, error: updErr } = await supabase
-                                    .from('serial_numbers')
-                                    .update({
-                                        brand: (code && brandMap.get(code)) || matchedInvBrand || '',
-                                        model_name: item.modelName || '',
-                                        description: item.description || '',
-                                        inventory_id: matchedInvId,
-                                        so_no: soNo,
-                                        company_name: doc['Company Name'] || '',
-                                        contact_name: doc['Contact Name'] || '',
-                                        warranty_start_date: warrantyStart,
-                                        warranty_period_months: 12,
-                                        warranty_end_date: warrantyEnd,
-                                        status: 'Active',
-                                        stock_status: 'Sold',
-                                    })
-                                    .eq('id', existingRow.id)
-                                    .select()
-                                    .single();
-
-                                if (!updErr && updatedSN) {
-                                    setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
-                                    syncedSerials = true;
-                                }
-                                continue;
-                            }
-
-                            const { data: newSN, error: snErr } = await supabase
-                                .from('serial_numbers')
-                                .insert({
-                                    serial_number: sn,
-                                    brand: (code && brandMap.get(code)) || matchedInvBrand || '',
-                                    model_name: item.modelName || '',
-                                    description: item.description || '',
-                                    inventory_id: matchedInvId,
-                                    so_no: doc['SO No'] || '',
-                                    company_name: doc['Company Name'] || '',
-                                    contact_name: doc['Contact Name'] || '',
-                                    warranty_start_date: warrantyStart,
-                                    warranty_period_months: 12,
-                                    warranty_end_date: warrantyEnd,
-                                    status: 'Active',
-                                    stock_status: 'Sold',
-                                    created_by: currentUser?.Name || '',
-                                })
-                                .select()
-                                .single();
-
-                            if (!snErr && newSN) {
-                                setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
-                                syncedSerials = true;
-                            }
+                            await syncSerial(sn, {
+                                brand: (code && brandMap.get(code)) || matched?.brand || '',
+                                modelName: item.modelName || '',
+                                description: item.description || '',
+                                inventoryId: matched?.id ?? null,
+                                warrantyMonths: 12,
+                            });
                         }
                     }
 
@@ -758,11 +791,17 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                         </div>
                                                         <div className="flex-1">
                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Item Code</label>
-                                                            <input
-                                                                type="text" value={item.itemCode}
-                                                                onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
-                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
-                                                            />
+                                                            {item.isPCBuild ? (
+                                                                <div className="h-9 flex items-center justify-center bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-lg border border-violet-500/30 font-bold text-xs uppercase tracking-wide">
+                                                                    PC Build ({(item.buildComponents || []).length} parts)
+                                                                </div>
+                                                            ) : (
+                                                                <input
+                                                                    type="text" value={item.itemCode}
+                                                                    onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
+                                                                    className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                                                />
+                                                            )}
                                                         </div>
                                                         <div className="flex-[1.5]">
                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Model</label>
@@ -794,13 +833,23 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                             />
                                                         </div>
                                                         <div className="flex-1">
-                                                            <SerialNumberPicker
-                                                                itemCode={item.itemCode}
-                                                                modelName={item.modelName}
-                                                                qty={Number(item.qty) || 0}
-                                                                value={item.serialNumber || ''}
-                                                                onChange={v => handleItemChange(item.id, 'serialNumber', v)}
-                                                            />
+                                                            {item.isPCBuild ? (
+                                                                <div className="text-xs text-muted-foreground/70 py-2">
+                                                                    {(item.buildComponents || []).map(c => c.serialNumber).filter(Boolean).length > 0
+                                                                        ? (item.buildComponents || []).filter(c => c.serialNumber).map((c, i) => (
+                                                                            <div key={i} className="font-mono">{c.modelName || c.itemCode}: {c.serialNumber}</div>
+                                                                        ))
+                                                                        : 'Component serials carried from the linked invoice.'}
+                                                                </div>
+                                                            ) : (
+                                                                <SerialNumberPicker
+                                                                    itemCode={item.itemCode}
+                                                                    modelName={item.modelName}
+                                                                    qty={Number(item.qty) || 0}
+                                                                    value={item.serialNumber || ''}
+                                                                    onChange={v => handleItemChange(item.id, 'serialNumber', v)}
+                                                                />
+                                                            )}
                                                         </div>
                                                     </div>
                                                     </>

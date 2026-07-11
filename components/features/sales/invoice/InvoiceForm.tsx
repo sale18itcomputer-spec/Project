@@ -1,6 +1,6 @@
 import React from 'react';
 import { Invoice } from "../../../../types";
-import { LineItem } from "./types";
+import { LineItem, BuildComponent } from "./types";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../../common/FormControls";
 import SearchableSelect from "../../../common/SearchableSelect";
 import { ScrollArea } from "../../../ui/scroll-area";
@@ -8,6 +8,7 @@ import Spinner from "../../../common/Spinner";
 import { Trash2, X, Upload, Plus } from 'lucide-react';
 import { PricelistCombobox } from "./PricelistCombobox";
 import { SerialNumberPicker } from "../../../common/SerialNumberPicker";
+import { PCBuildComponentPicker } from "./PCBuildComponentPicker";
 
 interface InvoiceFormProps {
     invoice: Partial<Invoice>;
@@ -24,6 +25,8 @@ interface InvoiceFormProps {
     handlePricelistItemSelect: (item: LineItem, p: any) => void;
     addItem: () => void;
     addPromoRow: () => void;
+    addPCBuildRow: () => void;
+    handleBuildComponentsChange: (id: string, components: BuildComponent[]) => void;
     handlePromoAmountChange: (id: string, value: string) => void;
     totals: { subTotal: number; tax: number; grandTotal: number; };
     fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -45,7 +48,7 @@ interface InvoiceFormProps {
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     invoice, setInvoice, items, setItems, handleInputChange, handleSOSelect, soOptions,
     handleCompanySelect, companyOptions, removeItem, handleItemChange, handlePricelistItemSelect,
-    addItem, addPromoRow, handlePromoAmountChange, totals, fileInputRef, handleFileUpload, isUploading, showFormPanel, setShowFormPanel,
+    addItem, addPromoRow, addPCBuildRow, handleBuildComponentsChange, handlePromoAmountChange, totals, fileInputRef, handleFileUpload, isUploading, showFormPanel, setShowFormPanel,
     STATUS_OPTIONS, TAXABLE_OPTIONS, CURRENCY_OPTIONS, getCurrencySymbol,
     isService = false, serviceTicketOptions = [], serviceTicketRef = '', handleServiceTicketSelect
 }) => {
@@ -140,8 +143,9 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                     <div className="space-y-4">
                                         {items.map((item) => {
                                             const isPromoRow = !!item.isPromotion;
+                                            const isPCBuildRow = !!item.isPCBuild;
                                             return (
-                                            <div key={item.id} className={`relative p-4 rounded-xl border shadow-sm transition-all group ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-muted/50 border-border hover:border-brand-400 hover:shadow-md'}`}>
+                                            <div key={item.id} className={`relative p-4 rounded-xl border shadow-sm transition-all group ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : isPCBuildRow ? 'bg-violet-500/5 border-violet-500/30 hover:border-violet-500/60' : 'bg-muted/50 border-border hover:border-brand-400 hover:shadow-md'}`}>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItem(item.id)}
@@ -184,18 +188,26 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                                 {item.no}
                                                             </div>
                                                         </div>
-                                                        {!isService && (
+                                                        {isPCBuildRow ? (
+                                                            <div className="w-[140px]">
+                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Type</label>
+                                                                <div className="h-9 flex items-center justify-center bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-lg border border-violet-500/30 font-bold text-xs uppercase tracking-wide">
+                                                                    PC Build
+                                                                </div>
+                                                            </div>
+                                                        ) : !isService && (
                                                             <div className="flex-1 min-w-[140px]">
                                                                 <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Item Code</label>
                                                                 <PricelistCombobox item={item} onItemChange={handleItemChange} onPricelistItemSelect={handlePricelistItemSelect} />
                                                             </div>
                                                         )}
                                                         <div className="flex-[1.5] min-w-[160px]">
-                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Model</label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">{isPCBuildRow ? 'Build Name' : 'Model'}</label>
                                                             <input
                                                                 type="text"
                                                                 value={item.modelName}
                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
+                                                                placeholder={isPCBuildRow ? 'e.g. Custom Gaming PC — Ben' : ''}
                                                                 className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm "
                                                             />
                                                         </div>
@@ -215,19 +227,29 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Unit Price</label>
                                                             <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-input border border-border rounded-lg text-foreground" />
                                                         </div>
-                                                        <div className="w-full">
-                                                            <SerialNumberPicker
-                                                                itemCode={item.itemCode}
-                                                                modelName={item.modelName}
-                                                                qty={Number(item.qty) || 0}
-                                                                value={item.serialNumber || ''}
-                                                                onChange={v => handleItemChange(item.id, 'serialNumber', v)}
-                                                            />
-                                                        </div>
+                                                        {!isPCBuildRow && (
+                                                            <div className="w-full">
+                                                                <SerialNumberPicker
+                                                                    itemCode={item.itemCode}
+                                                                    modelName={item.modelName}
+                                                                    qty={Number(item.qty) || 0}
+                                                                    value={item.serialNumber || ''}
+                                                                    onChange={v => handleItemChange(item.id, 'serialNumber', v)}
+                                                                />
+                                                            </div>
+                                                        )}
                                                         <div className="flex-1 text-right pt-4">
                                                             <div className="text-[10px] font-bold text-muted-foreground uppercase">Total</div>
                                                             <div className="text-lg font-bold text-foreground">{getCurrencySymbol(invoice.Currency as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                                                         </div>
+                                                        {isPCBuildRow && (
+                                                            <div className="w-full">
+                                                                <PCBuildComponentPicker
+                                                                    components={item.buildComponents || []}
+                                                                    onChange={(components) => handleBuildComponentsChange(item.id, components)}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     </>
                                                 )}
@@ -242,6 +264,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                         {!isService && (
                                             <button type="button" onClick={addPromoRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                 <span>+ Add Cashback</span>
+                                            </button>
+                                        )}
+                                        {!isService && (
+                                            <button type="button" onClick={addPCBuildRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-violet-500/40 text-violet-600 dark:text-violet-400 bg-violet-500/5 hover:bg-violet-500/10 hover:border-violet-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                <span>+ Add PC Build</span>
                                             </button>
                                         )}
                                         </div>

@@ -1,3 +1,13 @@
+export interface BuildComponent {
+    itemCode: string;
+    modelName: string;
+    brand?: string;
+    qty: number;
+    unitCost: number;
+    serialNumber?: string;
+    warrantyMonths?: number;
+}
+
 export interface LineItem {
     id: string;
     no: number;
@@ -11,4 +21,6 @@ export interface LineItem {
     serialNumber?: string;
     serialNumbers?: string[];
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }

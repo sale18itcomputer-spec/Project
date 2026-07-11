@@ -32,7 +32,7 @@ interface InvoiceCreatorProps {
     };
 }
 
-import { LineItem } from "./types";
+import { LineItem, BuildComponent } from "./types";
 import { InvoicePreview } from "./InvoicePreview";
 import { InvoiceForm } from "./InvoiceForm";
 
@@ -462,6 +462,32 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         setItems(prev => [...prev, { id: `promo-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '', qty: 0, unitPrice: 0, amount: 0, isPromotion: true }]);
     };
 
+    const addPCBuildRow = () => {
+        setItems(prev => renumberItems([...prev, {
+            id: `item-${Date.now()}`, no: 0, itemCode: '', modelName: '', description: '',
+            qty: 1, unitPrice: 0, amount: 0, isPCBuild: true, buildComponents: [],
+        }]));
+    };
+
+    // The customer sees one price for the whole build, but still needs to know
+    // what's inside it — mirrors how quotations already spell out each part
+    // with its own warranty (e.g. Q-0000099's "-MB: ... (3Years)" bullet list).
+    const formatBuildDescription = (components: BuildComponent[]): string =>
+        components
+            .filter(c => c.modelName || c.itemCode)
+            .map(c => {
+                const qtyPart = c.qty > 1 ? ` x${c.qty}` : '';
+                const warrantyPart = c.warrantyMonths ? ` (${c.warrantyMonths} months warranty)` : ' (no warranty)';
+                return `- ${c.modelName || c.itemCode}${qtyPart}${warrantyPart}`;
+            })
+            .join('\n');
+
+    const handleBuildComponentsChange = (id: string, components: BuildComponent[]) => {
+        setItems(prev => prev.map(item => item.id === id
+            ? { ...item, buildComponents: components, description: formatBuildDescription(components) }
+            : item));
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -481,6 +507,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const handleSave = async () => {
         if (!invoice['Inv No'] || !invoice['Company Name']) {
             addToast('Please fill in Invoice No. and Company Name', 'error');
+            return;
+        }
+
+        const emptyBuild = items.find(i => i.isPCBuild && (!i.buildComponents || i.buildComponents.length === 0));
+        if (emptyBuild) {
+            addToast(`PC Build line "${emptyBuild.modelName || 'Untitled'}" has no components — add at least one part.`, 'error');
             return;
         }
 
@@ -534,14 +566,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             // received would recognise revenue too early (see TI2026-00003).
             if (wasDraft && isNowIssued) {
                 const shortfalls: { label: string; requested: number; available: number }[] = [];
-                for (const item of items) {
-                    if (item.isPromotion) continue;
-                    const qty = Number(item.qty) || 0;
-                    if (qty <= 0) continue;
-                    const code  = item.itemCode?.trim();
-                    const model = item.modelName?.trim();
-                    if (!code && !model) continue; // service / free-text line — can't check
-
+                const checkAvailability = async (code: string | undefined, model: string | undefined, qty: number, label: string) => {
+                    if (!code && !model) return; // service / free-text line — can't check
                     // Sum available in-stock qty, mirroring the deduction match:
                     // exact code first, then fuzzy model_name fallback.
                     let available = 0;
@@ -558,8 +584,23 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
                     }
                     if (available < qty) {
-                        shortfalls.push({ label: model || code || 'item', requested: qty, available });
+                        shortfalls.push({ label, requested: qty, available });
                     }
+                };
+                for (const item of items) {
+                    if (item.isPromotion) continue;
+                    if (item.isPCBuild) {
+                        for (const comp of item.buildComponents || []) {
+                            const compQty = Number(comp.qty) || 0;
+                            if (compQty <= 0) continue;
+                            await checkAvailability(comp.itemCode?.trim(), comp.modelName?.trim(), compQty,
+                                `${item.modelName || 'PC Build'} — ${comp.modelName || comp.itemCode || 'component'}`);
+                        }
+                        continue;
+                    }
+                    const qty = Number(item.qty) || 0;
+                    if (qty <= 0) continue;
+                    await checkAvailability(item.itemCode?.trim(), item.modelName?.trim(), qty, item.modelName?.trim() || item.itemCode?.trim() || 'item');
                 }
 
                 if (shortfalls.length > 0) {
@@ -597,77 +638,179 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // if nothing matches / nothing to sync, skip silently.
                 const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
                 const warrantyStart = invoice['Inv Date'] || getTodayDateString();
-                const warrantyEnd = addMonths(warrantyStart, 12);
 
-                const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+                const costItems: { brand: string; qty: number; unit_price: number; cogsBrand?: string }[] = [];
                 const brandTotals: Record<string, number> = {};
                 const conflictSerials: { serial: string; soNo: string }[] = [];
+
+                // Finds the oldest matching in-stock inventory lot (code first, then
+                // fuzzy model fallback) and deducts qty from it. Shared by both normal
+                // line items and PC-build components — same FIFO matching either way.
+                const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
+                    let invRows: any[] | null = null;
+                    if (code) {
+                        const { data } = await supabase
+                            .from('inventory').select('id, qty, unit_price, brand')
+                            .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
+                            .order('created_at', { ascending: true }).limit(1);
+                        invRows = data;
+                    }
+                    if ((!invRows || invRows.length === 0) && model) {
+                        const { data } = await supabase
+                            .from('inventory').select('id, qty, unit_price, brand')
+                            .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
+                            .order('created_at', { ascending: true }).limit(1);
+                        invRows = data;
+                    }
+                    if (!invRows || invRows.length === 0) return null;
+                    const inv = invRows[0];
+                    const newQty = Math.max(0, Number(inv.qty) - qty);
+                    await supabase.from('inventory').update({
+                        qty: newQty,
+                        status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
+                    }).eq('id', inv.id);
+                    deductedInventory = true;
+                    return { id: inv.id as string, brand: (inv.brand?.trim() || null) as string | null, unitCost: Number(inv.unit_price) || 0 };
+                };
+
+                // Creates or updates the serial_numbers row for a sold unit. Shared by
+                // normal line items and PC-build components (each component keeps its
+                // own warranty length instead of the flat 12-month default).
+                const syncSerial = async (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
+                    const warrantyEnd = addMonths(warrantyStart, opts.warrantyMonths);
+                    const { data: existingSN } = await supabase
+                        .from('serial_numbers')
+                        .select('id, stock_status, so_no')
+                        .eq('serial_number', sn)
+                        .limit(1);
+
+                    if (existingSN && existingSN.length > 0) {
+                        const existingRow = existingSN[0];
+                        const soNo = invoice['SO No'] || '';
+
+                        // Already sold to a different SO — don't silently reassign
+                        // the unit to this sale; flag it for the user instead.
+                        if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
+                            conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
+                            return;
+                        }
+
+                        // Row already exists (e.g. seeded at PO intake) — update it
+                        // with this sale's customer/warranty info instead of skipping,
+                        // so the lifecycle transitions from "in stock" to "sold".
+                        const { data: updatedSN, error: updErr } = await supabase
+                            .from('serial_numbers')
+                            .update({
+                                brand: opts.brand,
+                                model_name: opts.modelName,
+                                description: opts.description,
+                                inventory_id: opts.inventoryId,
+                                so_no: soNo,
+                                company_name: invoice['Company Name'] || '',
+                                contact_name: invoice['Contact Name'] || '',
+                                warranty_start_date: warrantyStart,
+                                warranty_period_months: opts.warrantyMonths,
+                                warranty_end_date: warrantyEnd,
+                                status: 'Active',
+                                stock_status: 'Sold',
+                            })
+                            .eq('id', existingRow.id)
+                            .select()
+                            .single();
+
+                        if (!updErr && updatedSN) {
+                            setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
+                            syncedSerials = true;
+                        }
+                        return;
+                    }
+
+                    const { data: newSN, error: snErr } = await supabase
+                        .from('serial_numbers')
+                        .insert({
+                            serial_number: sn,
+                            brand: opts.brand,
+                            model_name: opts.modelName,
+                            description: opts.description,
+                            inventory_id: opts.inventoryId,
+                            so_no: invoice['SO No'] || '',
+                            company_name: invoice['Company Name'] || '',
+                            contact_name: invoice['Contact Name'] || '',
+                            warranty_start_date: warrantyStart,
+                            warranty_period_months: opts.warrantyMonths,
+                            warranty_end_date: warrantyEnd,
+                            status: 'Active',
+                            stock_status: 'Sold',
+                            created_by: currentUser?.Name || '',
+                        })
+                        .select()
+                        .single();
+
+                    if (!snErr && newSN) {
+                        setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
+                        syncedSerials = true;
+                    }
+                };
 
                 try {
                     for (const item of items) {
                         if (item.isPromotion) continue;
+
+                        // PC Build: revenue recognises as ONE line under the 'PC Build'
+                        // brand (routes to 40900), but each component is relieved from
+                        // its OWN real inventory account and keeps its own warranty —
+                        // components were purchased and serialed individually via PO.
+                        if (item.isPCBuild) {
+                            const buildTotal = Number(item.amount) || 0;
+                            if (buildTotal > 0) {
+                                brandTotals['PC Build'] = (brandTotals['PC Build'] ?? 0) + buildTotal;
+                            }
+                            for (const comp of item.buildComponents || []) {
+                                const compQty = Number(comp.qty) || 0;
+                                if (compQty <= 0) continue;
+                                const code  = comp.itemCode?.trim();
+                                const model = comp.modelName?.trim();
+
+                                const matched = (code || model) ? await deductInventoryFIFO(code, model, compQty) : null;
+                                const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || matched?.brand || comp.brand || 'Other Accessories');
+                                const unitCost = matched?.unitCost ?? 0;
+                                if (unitCost > 0) {
+                                    costItems.push({ brand: resolvedBrand, qty: compQty, unit_price: unitCost, cogsBrand: 'PC Build' });
+                                }
+
+                                const serials = (comp.serialNumber || '').split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                                for (const sn of serials) {
+                                    await syncSerial(sn, {
+                                        brand: (code && brandMap.get(code)) || matched?.brand || comp.brand || '',
+                                        modelName: comp.modelName || '',
+                                        description: item.description || '',
+                                        inventoryId: matched?.id ?? null,
+                                        warrantyMonths: comp.warrantyMonths ?? 12,
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+
                         const qty = Number(item.qty) || 0;
                         if (qty <= 0) continue;
                         const code  = item.itemCode?.trim();
                         const model = item.modelName?.trim();
 
-                        let matchedInvId: string | null = null;
-                        let matchedInvBrand: string | null = null;
+                        const matched = (code || model) ? await deductInventoryFIFO(code, model, qty) : null;
 
-                        if (code || model) {
-                            let invRows: any[] | null = null;
-
-                            if (code) {
-                                const { data } = await supabase
-                                    .from('inventory')
-                                    .select('id, qty, unit_price, brand')
-                                    .eq('status', 'In Stock')
-                                    .gt('qty', 0)
-                                    .eq('code', code)
-                                    .order('created_at', { ascending: true })
-                                    .limit(1);
-                                invRows = data;
+                        if (matched) {
+                            // Brand resolved with inventory fallback — used for BOTH COGS and revenue
+                            const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || matched.brand || 'Other Accessories');
+                            if (matched.unitCost > 0) {
+                                costItems.push({ brand: resolvedBrand, qty, unit_price: matched.unitCost });
                             }
-
-                            if ((!invRows || invRows.length === 0) && model) {
-                                const { data } = await supabase
-                                    .from('inventory')
-                                    .select('id, qty, unit_price, brand')
-                                    .eq('status', 'In Stock')
-                                    .gt('qty', 0)
-                                    .ilike('model_name', `%${model}%`)
-                                    .order('created_at', { ascending: true })
-                                    .limit(1);
-                                invRows = data;
-                            }
-
-                            if (invRows && invRows.length > 0) {
-                                const inv = invRows[0];
-                                const newQty = Math.max(0, Number(inv.qty) - qty);
-                                await supabase
-                                    .from('inventory')
-                                    .update({
-                                        qty:    newQty,
-                                        status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
-                                    })
-                                    .eq('id', inv.id);
-                                deductedInventory = true;
-                                matchedInvId = inv.id;
-                                matchedInvBrand = inv.brand?.trim() || null;
-
-                                // Brand resolved with inventory fallback — used for BOTH COGS and revenue
-                                const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
-                                const unitCost = Number(inv.unit_price) || 0;
-                                if (unitCost > 0) {
-                                    costItems.push({ brand: resolvedBrand, qty, unit_price: unitCost });
-                                }
-                                // Accumulate revenue total under same brand as COGS
-                                brandTotals[resolvedBrand] = (brandTotals[resolvedBrand] ?? 0) + (Number(item.amount) || 0);
-                            } else {
-                                // No inventory match — use pricelist brand only (no inventory fallback available)
-                                const plBrand = normalizeBrand((code && brandMap.get(code)) || 'Other Accessories');
-                                brandTotals[plBrand] = (brandTotals[plBrand] ?? 0) + (Number(item.amount) || 0);
-                            }
+                            // Accumulate revenue total under same brand as COGS
+                            brandTotals[resolvedBrand] = (brandTotals[resolvedBrand] ?? 0) + (Number(item.amount) || 0);
+                        } else if (code || model) {
+                            // No inventory match — use pricelist brand only (no inventory fallback available)
+                            const plBrand = normalizeBrand((code && brandMap.get(code)) || 'Other Accessories');
+                            brandTotals[plBrand] = (brandTotals[plBrand] ?? 0) + (Number(item.amount) || 0);
                         } else {
                             // No code/model — fall through as Other Accessories revenue
                             brandTotals['Other Accessories'] = (brandTotals['Other Accessories'] ?? 0) + (Number(item.amount) || 0);
@@ -679,78 +822,13 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             .filter(s => s.length > 0);
 
                         for (const sn of serials) {
-                            const { data: existingSN } = await supabase
-                                .from('serial_numbers')
-                                .select('id, stock_status, so_no')
-                                .eq('serial_number', sn)
-                                .limit(1);
-
-                            if (existingSN && existingSN.length > 0) {
-                                const existingRow = existingSN[0];
-                                const soNo = invoice['SO No'] || '';
-
-                                // Already sold to a different SO — don't silently reassign
-                                // the unit to this sale; flag it for the user instead.
-                                if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
-                                    conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
-                                    continue;
-                                }
-
-                                // Row already exists (e.g. seeded at PO intake) — update it
-                                // with this sale's customer/warranty info instead of skipping,
-                                // so the lifecycle transitions from "in stock" to "sold".
-                                const { data: updatedSN, error: updErr } = await supabase
-                                    .from('serial_numbers')
-                                    .update({
-                                        brand: (code && brandMap.get(code)) || matchedInvBrand || '',
-                                        model_name: item.modelName || '',
-                                        description: item.description || '',
-                                        inventory_id: matchedInvId,
-                                        so_no: soNo,
-                                        company_name: invoice['Company Name'] || '',
-                                        contact_name: invoice['Contact Name'] || '',
-                                        warranty_start_date: warrantyStart,
-                                        warranty_period_months: 12,
-                                        warranty_end_date: warrantyEnd,
-                                        status: 'Active',
-                                        stock_status: 'Sold',
-                                    })
-                                    .eq('id', existingRow.id)
-                                    .select()
-                                    .single();
-
-                                if (!updErr && updatedSN) {
-                                    setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
-                                    syncedSerials = true;
-                                }
-                                continue;
-                            }
-
-                            const { data: newSN, error: snErr } = await supabase
-                                .from('serial_numbers')
-                                .insert({
-                                    serial_number: sn,
-                                    brand: (code && brandMap.get(code)) || matchedInvBrand || '',
-                                    model_name: item.modelName || '',
-                                    description: item.description || '',
-                                    inventory_id: matchedInvId,
-                                    so_no: invoice['SO No'] || '',
-                                    company_name: invoice['Company Name'] || '',
-                                    contact_name: invoice['Contact Name'] || '',
-                                    warranty_start_date: warrantyStart,
-                                    warranty_period_months: 12,
-                                    warranty_end_date: warrantyEnd,
-                                    status: 'Active',
-                                    stock_status: 'Sold',
-                                    created_by: currentUser?.Name || '',
-                                })
-                                .select()
-                                .single();
-
-                            if (!snErr && newSN) {
-                                setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
-                                syncedSerials = true;
-                            }
+                            await syncSerial(sn, {
+                                brand: (code && brandMap.get(code)) || matched?.brand || '',
+                                modelName: item.modelName || '',
+                                description: item.description || '',
+                                inventoryId: matched?.id ?? null,
+                                warrantyMonths: 12,
+                            });
                         }
                     }
                 } catch (invErr: any) {
@@ -966,6 +1044,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Unsaved draft
+                        <button
+                            type="button"
+                            title="Discard draft and reload"
+                            className="ml-0.5 text-amber-500/70 hover:text-rose-500 transition-colors leading-none"
+                            onClick={() => {
+                                clearDraft();
+                                setHasDraftState(false);
+                                hasDraft.current = false;
+                            }}
+                        >✕</button>
                     </span>
                 ) : undefined}
             >
@@ -988,7 +1076,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     </div>
 
                     {/* Right Panel: Form Sidebar */}
-                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} addPromoRow={addPromoRow} handlePromoAmountChange={handlePromoAmountChange} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={isService ? TAXABLE_OPTIONS.filter(t => t !== 'Commercial Invoice') : TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} isService={isService} serviceTicketOptions={serviceTicketOptions} serviceTicketRef={serviceTicketRef} handleServiceTicketSelect={handleServiceTicketSelect} />
+                    <InvoiceForm invoice={invoice} setInvoice={setInvoice} items={items} setItems={setItems} handleInputChange={handleInputChange} handleSOSelect={handleSOSelect} soOptions={soOptions} handleCompanySelect={handleCompanySelect} companyOptions={companyOptions} removeItem={removeItem} handleItemChange={handleItemChange} handlePricelistItemSelect={handlePricelistItemSelect} addItem={addItem} addPromoRow={addPromoRow} addPCBuildRow={addPCBuildRow} handleBuildComponentsChange={handleBuildComponentsChange} handlePromoAmountChange={handlePromoAmountChange} totals={totals} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} isUploading={isUploading} showFormPanel={showFormPanel} setShowFormPanel={setShowFormPanel} STATUS_OPTIONS={STATUS_OPTIONS} TAXABLE_OPTIONS={isService ? TAXABLE_OPTIONS.filter(t => t !== 'Commercial Invoice') : TAXABLE_OPTIONS} CURRENCY_OPTIONS={CURRENCY_OPTIONS} getCurrencySymbol={getCurrencySymbol} isService={isService} serviceTicketOptions={serviceTicketOptions} serviceTicketRef={serviceTicketRef} handleServiceTicketSelect={handleServiceTicketSelect} />
                 </div>
 
                 <div className="print-only">
