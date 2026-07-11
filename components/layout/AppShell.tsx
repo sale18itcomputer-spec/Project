@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
 import GlobalSearch from '@/components/common/GlobalSearch';
+import AiChatWidget from '@/components/common/AiChatWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
@@ -31,7 +32,7 @@ const CONSTRAINED_ROUTES = [
     '/receipts', '/collection', '/users', '/vendors', '/vendor-pricelist',
     '/purchase-orders', '/weekly-report', '/inventory', '/inquiries',
     '/service-tickets', '/service-invoices', '/pdi-records', '/serial-numbers', '/spare-parts',
-    '/pos',
+    '/pos', '/assistant',
     '/',
 ];
 
@@ -136,7 +137,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (isAuthLoading || !isAuthenticated || !currentUser) return;
 
-        const skipPrefixes = ['/unlock', '/login', '/miniapp'];
+        const skipPrefixes = ['/unlock', '/login', '/miniapp', '/assistant'];
         if (skipPrefixes.some(p => pathname.startsWith(p))) return;
 
         // Root redirect is handled by the dashboard layout; skip it here
@@ -233,6 +234,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </main>
                 <MobileBottomNav />
                 <GlobalSearch />
+                <AiChatWidget />
             </div>
         );
     }
@@ -257,6 +259,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </main>
             </div>
             <GlobalSearch />
+            <AiChatWidget />
         </div>
     );
 }

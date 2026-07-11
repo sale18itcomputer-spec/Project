@@ -38,3 +38,5 @@ _agent/
 .brave-profile/.env
 dist-mcp/
 mcp-test-*.txt
+.claude/
+.cloudflared-url
