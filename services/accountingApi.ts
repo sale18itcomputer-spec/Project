@@ -837,14 +837,33 @@ export const autoPostInvoiceJournal = async (params: {
     /** VAT-inclusive deposit already received — applied against AR (DR 25000 / CR 11900) */
     depositAmount?: number;
 }): Promise<boolean> => {
-    // Idempotent: skip if an auto-entry for this invoice already exists
+    // Idempotent: skip if an auto-entry for this invoice already exists — but
+    // ONLY if its AR total actually matches this invoice. A reference that's
+    // been mislabeled onto the wrong invoice (or reused/corrupted some other
+    // way) must not silently look like "already posted", or the real sale
+    // never gets a JE at all while appearing fully reconciled (see
+    // INV2026-00002, where JE-2059 actually belonged to a different $1,230
+    // invoice but its stale reference blocked this $33,600 sale from ever
+    // posting). A mismatch throws instead of failing silently so it surfaces
+    // as a visible error, not a permanent gap discovered later on the Balance Sheet.
     const { data: existing } = await supabase
         .from('journal_entries')
-        .select('id')
+        .select('id, entry_number')
         .eq('reference', params.invNo)
         .eq('source', 'invoice')
         .maybeSingle();
-    if (existing) return false;
+    if (existing) {
+        const { data: arLines } = await supabase
+            .from('journal_entry_lines')
+            .select('debit, credit')
+            .eq('journal_entry_id', existing.id)
+            .eq('account_number', '11900');
+        const arNet = (arLines ?? []).reduce((s, l) => s + (Number(l.debit) || 0) - (Number(l.credit) || 0), 0);
+        if (Math.abs(arNet - params.grandTotal) <= 1) return false; // genuinely already posted — safe to skip
+        throw new Error(
+            `${existing.entry_number} already references ${params.invNo} but its AR total ($${arNet.toFixed(2)}) doesn't match this invoice's total ($${params.grandTotal.toFixed(2)}). This looks like a mislabeled or reused reference, not a real duplicate — refusing to silently skip. Fix ${existing.entry_number}'s reference before re-saving this invoice.`
+        );
+    }
 
     const entryNumber = await getNextEntryNumber();
     const cashback = params.cashbackTotal && params.cashbackTotal < 0 ? Math.abs(params.cashbackTotal) : 0;
@@ -981,17 +1000,6 @@ export const autoPostReceiptJournal = async (params: {
     /** Split payments (POS): one DR bank line per method. Overrides paymentMethod/amount. */
     payments?: { method: string; amount: number }[];
 }): Promise<void> => {
-    // Idempotent: skip if an auto-entry for this receipt already exists
-    const { data: existing } = await supabase
-        .from('journal_entries')
-        .select('id')
-        .eq('reference', params.rvNo)
-        .eq('source', 'receipt')
-        .maybeSingle();
-    if (existing) return;
-
-    const entryNumber = await getNextEntryNumber();
-
     // Round each payment to 2dp so line debits always sum exactly to the AR credit
     const payments = (params.payments?.length
         ? params.payments
@@ -1001,6 +1009,31 @@ export const autoPostReceiptJournal = async (params: {
         .filter(p => p.amount > 0.005);
     const cashTotal = Math.round(payments.reduce((s, p) => s + p.amount * 100, 0)) / 100;
     if (cashTotal <= 0.005) return;
+
+    // Idempotent: skip if an auto-entry for this receipt already exists — but
+    // only if its AR credit actually matches this receipt (see
+    // autoPostInvoiceJournal for why a mismatched reference must not
+    // silently look like "already posted").
+    const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id, entry_number')
+        .eq('reference', params.rvNo)
+        .eq('source', 'receipt')
+        .maybeSingle();
+    if (existing) {
+        const { data: arLines } = await supabase
+            .from('journal_entry_lines')
+            .select('debit, credit')
+            .eq('journal_entry_id', existing.id)
+            .eq('account_number', '11900');
+        const arCredited = (arLines ?? []).reduce((s, l) => s + (Number(l.credit) || 0) - (Number(l.debit) || 0), 0);
+        if (Math.abs(arCredited - cashTotal) <= 1) return; // genuinely already posted — safe to skip
+        throw new Error(
+            `${existing.entry_number} already references ${params.rvNo} but its AR credit ($${arCredited.toFixed(2)}) doesn't match this receipt's total ($${cashTotal.toFixed(2)}). This looks like a mislabeled or reused reference, not a real duplicate — refusing to silently skip. Fix ${existing.entry_number}'s reference before re-saving this receipt.`
+        );
+    }
+
+    const entryNumber = await getNextEntryNumber();
 
     const lines: { account_number: string; description: string; debit: number; credit: number }[] =
         payments.map(p => ({
