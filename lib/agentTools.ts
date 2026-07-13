@@ -389,6 +389,27 @@ async function nextDocNo(supabase: SupabaseClient, table: string, col: string, p
   return `${prefix}${String(max + 1).padStart(7, '0')}`;
 }
 
+/** Copy a document (quotation/sale order) into a new one with a fresh number + date. */
+async function duplicateDoc(
+  supabase: SupabaseClient,
+  cfg: { table: string; keyCol: string; prefix: string; status: string; dateCol?: string; srcKey: string; userName?: string; extra?: Record<string, any> },
+) {
+  const { data: src, error } = await supabase.from(cfg.table).select('*').eq(cfg.keyCol, cfg.srcKey).single();
+  if (error || !src) throw new Error(`${cfg.srcKey} not found`);
+  const newNo = await nextDocNo(supabase, cfg.table, cfg.keyCol, cfg.prefix);
+  const copy: Record<string, any> = { ...src, ...(cfg.extra ?? {}) };
+  delete copy.id; delete copy.created_at;
+  copy[cfg.keyCol] = newNo;
+  if (cfg.dateCol) copy[cfg.dateCol] = new Date().toISOString().slice(0, 10);
+  copy['Status'] = cfg.status;
+  copy['Created By'] = cfg.userName ?? src['Created By'] ?? 'AI Assistant';
+  copy['Remark'] = `Duplicated from ${cfg.srcKey}`;
+  copy['updated_at'] = new Date().toISOString();
+  const { data: row, error: e2 } = await supabase.from(cfg.table).upsert(copy, { onConflict: cfg.keyCol }).select().single();
+  if (e2) throw new Error(e2.message);
+  return { new_no: newNo, source: cfg.srcKey, row };
+}
+
 const itemsSchema = {
   type: 'array',
   description: 'Line items: [{ itemCode, modelName, description, qty, unitPrice }]',
@@ -495,6 +516,22 @@ const documentTools: AgentTool[] = [
     },
   },
   {
+    name: 'duplicate_quotation',
+    description: 'Copy an existing quotation into a NEW Open quotation (new Q- number, today\'s date) with the same company, contact, items and terms. Use when staff say "duplicate/copy this quote".',
+    kind: 'write', module: 'quotations', action: 'create',
+    parameters: { type: 'object', properties: { quoteNo: { type: 'string', description: 'the quotation to copy' } }, required: ['quoteNo'] },
+    summarize: ({ quoteNo }) => `Duplicate quotation ${str(quoteNo)} → new Open quote`,
+    run: async ({ quoteNo }, { supabase, userName }) => {
+      if (!str(quoteNo)) throw new Error('quoteNo is required');
+      const validity = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+      const r = await duplicateDoc(supabase, {
+        table: 'quotations', keyCol: 'Quote No', prefix: 'Q-', status: 'Open',
+        dateCol: 'Quote Date', srcKey: str(quoteNo), userName, extra: { 'Validity Date': validity },
+      });
+      return { new_quote_no: r.new_no, source: r.source, row: r.row };
+    },
+  },
+  {
     name: 'create_sale_order',
     description: 'Create a B2C sale order with line items. Auto-numbers (SO-XXXXXXX), computes VAT + total, stores items as ItemsJSON. Optionally link a source quotation via quoteNo.',
     kind: 'write', module: 'sale_orders', action: 'create',
@@ -572,6 +609,21 @@ const documentTools: AgentTool[] = [
       const { error } = await supabase.from('sale_orders').delete().eq('SO No', str(soNo));
       if (error) throw new Error(error.message);
       return { deleted: str(soNo) };
+    },
+  },
+  {
+    name: 'duplicate_sale_order',
+    description: 'Copy an existing sale order into a NEW Pending sale order (new SO- number, today\'s date) with the same company, contact, items and terms.',
+    kind: 'write', module: 'sale_orders', action: 'create',
+    parameters: { type: 'object', properties: { soNo: { type: 'string', description: 'the sale order to copy' } }, required: ['soNo'] },
+    summarize: ({ soNo }) => `Duplicate sale order ${str(soNo)} → new Pending order`,
+    run: async ({ soNo }, { supabase, userName }) => {
+      if (!str(soNo)) throw new Error('soNo is required');
+      const r = await duplicateDoc(supabase, {
+        table: 'sale_orders', keyCol: 'SO No', prefix: 'SO-', status: 'Pending',
+        dateCol: 'SO Date', srcKey: str(soNo), userName,
+      });
+      return { new_so_no: r.new_no, source: r.source, row: r.row };
     },
   },
 ];
