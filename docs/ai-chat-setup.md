@@ -188,6 +188,47 @@ bloating the prompt.
   db_upsert/…`) become confirm cards and are restricted to **Admin/Manager**
   roles (they run with the MCP admin key).
 
+## Making it work on Vercel (off-LAN) too
+
+Vercel's servers can't reach the LAN, so each AI service needs a public HTTPS
+tunnel. The app calls them **server-side**, so once the URLs are set as Vercel
+env vars, every visitor gets AI regardless of their network.
+
+**Chat + agent** — tunnel the authed gateway (`:3000`) and set on Vercel:
+`AI_PROXY_URL=https://<tunnel>` and `AI_PROXY_KEY=<key>`. That alone gives chat +
+the full agent (CRM, quotations, web search, memory, skills — its data tools hit
+Supabase, which Vercel already reaches).
+
+**MCP tools** — the MCP server (`:8080`) is already authed, so tunnel it and set:
+`AGENT_MCP_URL=https://<tunnel-8080>/mcp` and `AGENT_MCP_KEY=<key>`.
+
+**RAG (document search)** — do NOT expose Ollama `:11434` (it has no auth). Instead
+proxy embeddings through the gateway. Add this route to `server.js` (keeps Ollama
+private, reuses the same key):
+
+```js
+// server.js — embeddings behind the same x-api-key, proxied to Ollama
+app.post('/embed', async (req, res) => {
+  const key = req.headers['x-api-key'] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+  if (!API_KEY || key !== API_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const r = await fetch('http://127.0.0.1:11434/api/embed', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.body),
+    });
+    res.status(r.status).json(await r.json());
+  } catch (e) { res.status(502).json({ error: String(e) }); }
+});
+```
+
+Then on Vercel **leave `AI_OLLAMA_URL` unset** — `lib/agentEmbed.ts` automatically
+falls back to `POST <AI_PROXY_URL>/embed`. On the LAN app keep `AI_OLLAMA_URL`
+set (it embeds directly against Ollama, faster). Pull the model once:
+`ollama pull nomic-embed-text`.
+
+> Quick `trycloudflare` URLs change on restart. For staff-facing use, run a
+> **named tunnel** with a domain (e.g. `ai.example.com` → `:3000`,
+> `mcp.example.com` → `:8080`) so the URLs are stable.
+
 ## Manage models
 
 ```bash

@@ -1,53 +1,45 @@
 /**
- * Text embeddings via Ollama (server-side, LAN).
- * ─────────────────────────────────────────────────────────────
- * Uses the AI_EMBED_MODEL model on AI_OLLAMA_URL. Pull it once on the server:
- *   ollama pull nomic-embed-text     (768-dim vectors)
+ * Text embeddings for RAG. Two paths, picked by which env is set:
+ *   • AI_OLLAMA_URL set  → embed directly against Ollama (LAN app, fastest).
+ *   • else, gateway set  → embed via the authed gateway's /embed route
+ *                          (Vercel / off-LAN — keeps Ollama private, reuses the
+ *                          same x-api-key + tunnel as chat).
  *
- * Supports both Ollama endpoints: /api/embed (newer, batched) and
- * /api/embeddings (older, single). Throws a clear message if the model isn't
- * installed so RAG upload/search can surface "run ollama pull …".
+ * Pull the model once on the server: ollama pull nomic-embed-text  (768-dim)
+ * The gateway needs a small /embed route that proxies to Ollama's /api/embed
+ * (see docs/ai-chat-setup.md).
  */
+import { getProxyConfig } from './aiProxy';
+
 const TIMEOUT = 60_000;
 
-function base(): string {
+function ollamaBase(): string {
   return (process.env.AI_OLLAMA_URL || '').replace(/\/+$/, '');
 }
 export function embedModel(): string {
   return process.env.AI_EMBED_MODEL || 'nomic-embed-text';
 }
 export function embedConfigured(): boolean {
-  return !!base();
+  return !!ollamaBase() || !!getProxyConfig();
 }
 
-async function post(path: string, body: unknown): Promise<Response> {
+async function timedFetch(url: string, init: RequestInit): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT);
-  try {
-    return await fetch(`${base()}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-  } finally {
-    clearTimeout(t);
-  }
+  try { return await fetch(url, { ...init, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
 }
 
-/** Embed a batch of strings → one vector each. */
-export async function embedTexts(texts: string[]): Promise<number[][]> {
-  if (!base()) throw new Error('Embeddings not configured (AI_OLLAMA_URL is empty)');
+async function embedDirect(base: string, inputs: string[]): Promise<number[][]> {
   const model = embedModel();
-  const inputs = texts.map(t => (t || '').slice(0, 8_000));
+  const post = (path: string, body: unknown) =>
+    timedFetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-  // Newer batched endpoint first.
   let res = await post('/api/embed', { model, input: inputs });
   if (res.ok) {
     const data: any = await res.json();
     if (Array.isArray(data?.embeddings)) return data.embeddings;
   } else if (res.status === 404 || res.status === 400) {
-    // Fall back to the single-input endpoint (older Ollama).
     const out: number[][] = [];
     for (const input of inputs) {
       const r = await post('/api/embeddings', { model, prompt: input });
@@ -60,6 +52,33 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
   }
   if (!res.ok) throw await embedError(res, model);
   throw new Error('Unexpected embedding response');
+}
+
+async function embedViaGateway(cfg: { url: string; key: string }, inputs: string[]): Promise<number[][]> {
+  const model = embedModel();
+  const res = await timedFetch(`${cfg.url}/embed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': cfg.key, Authorization: `Bearer ${cfg.key}` },
+    body: JSON.stringify({ model, input: inputs }),
+  });
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('The gateway has no /embed route yet — add it to server.js (see docs/ai-chat-setup.md).');
+    throw await embedError(res, model);
+  }
+  const data: any = await res.json();
+  if (Array.isArray(data?.embeddings)) return data.embeddings;
+  if (Array.isArray(data?.embedding)) return [data.embedding];
+  throw new Error('Unexpected embedding response from gateway');
+}
+
+/** Embed a batch of strings → one vector each. */
+export async function embedTexts(texts: string[]): Promise<number[][]> {
+  const inputs = texts.map(t => (t || '').slice(0, 8_000));
+  const base = ollamaBase();
+  if (base) return embedDirect(base, inputs);
+  const cfg = getProxyConfig();
+  if (cfg) return embedViaGateway(cfg, inputs);
+  throw new Error('Embeddings not configured (set AI_OLLAMA_URL on the LAN, or AI_PROXY_URL for the gateway path)');
 }
 
 export async function embedText(text: string): Promise<number[]> {
