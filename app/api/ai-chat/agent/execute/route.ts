@@ -53,6 +53,17 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
+  // Generic data tools resolve their module/action from the args (e.g. entity).
+  if (tool.resolvePermission) {
+    const rp = tool.resolvePermission(body.args ?? {});
+    if (!rp) return NextResponse.json({ ok: false, error: 'Unknown or unsupported entity.' }, { status: 400 });
+    if (!checkPermission(perms, rp.module, rp.action as PermissionAction)) {
+      return NextResponse.json(
+        { ok: false, error: `You don't have permission to ${rp.action} ${rp.module.replace(/_/g, ' ')}.` },
+        { status: 403 },
+      );
+    }
+  }
   // MCP tools run with the MCP server's admin key — restrict writes to elevated roles.
   if (tool.mcp && !['Admin', 'Manager'].includes(String((user as any).Role))) {
     return NextResponse.json(

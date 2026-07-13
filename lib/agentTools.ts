@@ -39,6 +39,8 @@ export interface AgentTool {
   action?: PermissionAction;
   /** True for the MCP meta-tools (mcp_call) — gated by role, not a module. */
   mcp?: boolean;
+  /** For generic meta-tools whose target module depends on args (e.g. entity). */
+  resolvePermission?: (args: Record<string, any>) => { module: string; action: PermissionAction } | null;
   run: (args: Record<string, any>, ctx: ToolContext) => Promise<any>;
   /** One-line human summary of a proposed write, shown on the confirm card. */
   summarize?: (args: Record<string, any>) => string;
@@ -676,10 +678,108 @@ const mcpTools: AgentTool[] = [
   },
 ];
 
+// ── GENERIC DATA CRUD (all remaining operations, via one small tool set) ─────────
+// One registry → four tools, instead of ~40 hand-written ones. Each write is
+// permission-gated by the entity's own module (resolvePermission) + confirm-gated.
+// Numbered/financial docs (quotations, sale orders, invoices, receipts, delivery
+// orders, journal entries) are deliberately NOT here — they go through dedicated
+// tools / posting logic, so raw table writes can't bypass their integrity rules.
+
+interface EntityDef {
+  label: string; table: string; keyCol: string; module: string;
+  searchCol?: string; orderCol?: string;
+}
+const ENTITIES: Record<string, EntityDef> = {
+  contact_log:     { label: 'contact log', table: 'contact_logs', keyCol: 'Log ID', module: 'contact_logs', searchCol: 'Company Name', orderCol: 'Log ID' },
+  pipeline:        { label: 'pipeline', table: 'pipelines', keyCol: 'Pipeline No', module: 'pipelines', searchCol: 'Company Name', orderCol: 'Pipeline No' },
+  site_survey:     { label: 'site survey', table: 'site_survey_logs', keyCol: 'Site ID', module: 'site_surveys', searchCol: 'Location', orderCol: 'Site ID' },
+  meeting:         { label: 'meeting', table: 'meeting_logs', keyCol: 'Meeting ID', module: 'meetings', searchCol: 'Company Name', orderCol: 'Meeting ID' },
+  vendor:          { label: 'vendor', table: 'vendors', keyCol: 'id', module: 'vendors', searchCol: 'vendor_name', orderCol: 'vendor_name' },
+  vendor_price:    { label: 'vendor pricelist item', table: 'vendor_pricelist', keyCol: 'id', module: 'vendor_pricelist', searchCol: 'model_name', orderCol: 'model_name' },
+  price:           { label: 'pricelist item', table: 'pricelist', keyCol: 'Code', module: 'pricelist', searchCol: 'Model', orderCol: 'Model' },
+  inventory:       { label: 'inventory item', table: 'inventory', keyCol: 'id', module: 'inventory', searchCol: 'model_name', orderCol: 'id' },
+  product_inquiry: { label: 'product inquiry', table: 'product_inquiries', keyCol: 'inquiry_no', module: 'product_inquiries', searchCol: 'company_name', orderCol: 'inquiry_date' },
+  service_ticket:  { label: 'service ticket', table: 'service_tickets', keyCol: 'ticket_no', module: 'service_tickets', searchCol: 'company_name', orderCol: 'ticket_date' },
+  pdi_record:      { label: 'PDI record', table: 'pdi_records', keyCol: 'pdi_no', module: 'pdi_records', searchCol: 'company_name', orderCol: 'pdi_date' },
+  serial_number:   { label: 'serial number', table: 'serial_numbers', keyCol: 'serial_number', module: 'serial_numbers', searchCol: 'model_name', orderCol: 'created_at' },
+  spare_part:      { label: 'spare part', table: 'spare_parts', keyCol: 'part_no', module: 'spare_parts', searchCol: 'part_name', orderCol: 'part_name' },
+  purchase_order:  { label: 'purchase order', table: 'purchase_orders', keyCol: 'po_number', module: 'purchase_orders', searchCol: 'vendor_name', orderCol: 'po_number' },
+};
+const ENTITY_NAMES = Object.keys(ENTITIES).join(', ');
+const getEntity = (name: unknown): EntityDef => {
+  const e = ENTITIES[str(name)];
+  if (!e) throw new Error(`Unknown entity "${str(name)}". Valid: ${ENTITY_NAMES}`);
+  return e;
+};
+
+const dataTools: AgentTool[] = [
+  {
+    name: 'list_records',
+    description: `List/search operational records. entity ∈ {${ENTITY_NAMES}}. Returns up to 15 rows with their keys + fields — use it to find the record's key before update_record/delete_record.`,
+    kind: 'read',
+    parameters: { type: 'object', properties: { entity: { type: 'string' }, search: { type: 'string', description: 'optional keyword' } }, required: ['entity'] },
+    run: async ({ entity, search }, { supabase }) => {
+      const e = getEntity(entity);
+      let q = supabase.from(e.table).select('*');
+      if (str(search) && e.searchCol) q = q.ilike(e.searchCol, `%${str(search)}%`);
+      if (e.orderCol) q = q.order(e.orderCol, { ascending: false });
+      const { data, error } = await q.limit(15);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  },
+  {
+    name: 'create_record',
+    description: `Create an operational record. entity ∈ {${ENTITY_NAMES}}. Provide the full record as "data" (include the key field + relevant columns; use list_records to see the shape). Quotations/sale orders/invoices have their own tools — don't use this for those.`,
+    kind: 'write',
+    parameters: { type: 'object', properties: { entity: { type: 'string' }, data: { type: 'object', additionalProperties: true } }, required: ['entity', 'data'] },
+    resolvePermission: (a) => { const e = ENTITIES[str(a.entity)]; return e ? { module: e.module, action: 'create' } : null; },
+    summarize: ({ entity, data }) => { const e = ENTITIES[str(entity)]; return `Create ${e?.label ?? str(entity)}${e && data?.[e.keyCol] ? ` ${data[e.keyCol]}` : ''}`; },
+    run: async ({ entity, data }, { supabase }) => {
+      const e = getEntity(entity);
+      if (!data || typeof data !== 'object') throw new Error('data (the record) is required');
+      const { data: row, error } = await supabase.from(e.table).insert(data).select().single();
+      if (error) throw new Error(error.message);
+      return row;
+    },
+  },
+  {
+    name: 'update_record',
+    description: `Update an operational record by its key. entity ∈ {${ENTITY_NAMES}}. Pass "key" (the ${'`keyCol`'} value from list_records) and "data" (changed fields only).`,
+    kind: 'write',
+    parameters: { type: 'object', properties: { entity: { type: 'string' }, key: { type: 'string' }, data: { type: 'object', additionalProperties: true } }, required: ['entity', 'key', 'data'] },
+    resolvePermission: (a) => { const e = ENTITIES[str(a.entity)]; return e ? { module: e.module, action: 'edit' } : null; },
+    summarize: ({ entity, key, data }) => { const e = ENTITIES[str(entity)]; return `Update ${e?.label ?? str(entity)} ${str(key)}: ${Object.keys(data ?? {}).join(', ') || '(no fields)'}`; },
+    run: async ({ entity, key, data }, { supabase }) => {
+      const e = getEntity(entity);
+      if (!str(key)) throw new Error('key is required');
+      if (!data || !Object.keys(data).length) throw new Error('data (fields to change) is required');
+      const { data: row, error } = await supabase.from(e.table).update(data).eq(e.keyCol, str(key)).select().single();
+      if (error) throw new Error(error.message);
+      return row;
+    },
+  },
+  {
+    name: 'delete_record',
+    description: `Delete an operational record by key. entity ∈ {${ENTITY_NAMES}}. Permanent.`,
+    kind: 'write',
+    parameters: { type: 'object', properties: { entity: { type: 'string' }, key: { type: 'string' } }, required: ['entity', 'key'] },
+    resolvePermission: (a) => { const e = ENTITIES[str(a.entity)]; return e ? { module: e.module, action: 'delete' } : null; },
+    summarize: ({ entity, key }) => { const e = ENTITIES[str(entity)]; return `Delete ${e?.label ?? str(entity)} ${str(key)} (permanent)`; },
+    run: async ({ entity, key }, { supabase }) => {
+      const e = getEntity(entity);
+      if (!str(key)) throw new Error('key is required');
+      const { error } = await supabase.from(e.table).delete().eq(e.keyCol, str(key));
+      if (error) throw new Error(error.message);
+      return { deleted: str(key) };
+    },
+  },
+];
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 export const AGENT_TOOLS: Record<string, AgentTool> = Object.fromEntries(
-  [...readTools, ...webToolDefs, ...ragTools, ...documentTools, ...memoryTools, ...skillRunTools, ...mcpTools, ...writeTools]
+  [...readTools, ...webToolDefs, ...ragTools, ...documentTools, ...memoryTools, ...skillRunTools, ...dataTools, ...mcpTools, ...writeTools]
     .map(t => [t.name, t]),
 );
 
