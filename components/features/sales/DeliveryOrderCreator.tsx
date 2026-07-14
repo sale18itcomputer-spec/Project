@@ -8,6 +8,7 @@ import { createRecord, updateRecord, uploadFile } from '../../../services/api';
 import type { BuildComponent } from './invoice/types';
 import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
+import { friendlyDbError } from '../../../utils/formatters';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
 import { SerialNumberPicker } from '../../common/SerialNumberPicker';
@@ -89,7 +90,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             .filter(d => d['DO No']?.startsWith(prefix))
             .map(d => parseInt(d['DO No'].slice(prefix.length), 10))
             .filter(n => !isNaN(n));
-        const max = nums.length > 0 ? Math.max(...nums) : 1;
+        const max = nums.length > 0 ? Math.max(...nums) : 0;
         return `${prefix}${String(max + 1).padStart(5, '0')}`;
     }, [deliveryOrders]);
 
@@ -522,7 +523,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             setHasDraftState(false);
             setSuccessInfo({ doNo: doc['DO No']! });
         } catch (err: any) {
-            addToast(err.message || 'Failed to save Delivery Order', 'error');
+            addToast(friendlyDbError(err, 'DO number') || 'Failed to save Delivery Order', 'error');
         } finally {
             setIsSubmitting(false);
         }

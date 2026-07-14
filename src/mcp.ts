@@ -147,7 +147,21 @@ const err = (msg: string) => ({
 
 type Role = 'admin' | 'marketing';
 
-const MARKETING_TOOLS = ['db_get_pricelist', 'db_upsert_pricelist'];
+const MARKETING_TOOLS = [
+  // Pricelist (read + write)
+  'db_get_pricelist',
+  'db_upsert_pricelist',
+  // Vendor pricelist (read)
+  'db_get_vendor_pricelist',
+  // CRM read-only
+  'db_search_companies',
+  'db_search_contacts',
+  'db_get_quotations',
+  'db_get_sale_orders',
+  'db_get_pipelines',
+  'db_get_contact_logs',
+  'db_get_product_inquiries',
+];
 
 function resolveRole(authHeader: string): { role: Role; authorized: boolean } {
   const adminKey = process.env.MCP_API_KEY;
@@ -248,21 +262,26 @@ reg(
 
 reg(
   'db_get_quotations',
-  'Get quotations. Filter by type (b2c/b2b), company, dateFrom.',
+  'Get quotations. Filter by type (b2c/b2b), company, dateFrom/dateTo, status, or quote number keyword.',
   {
     type: z.enum(['b2c', 'b2b']).optional().describe('b2c (default) or b2b'),
     company: z.string().optional(),
     dateFrom: z.string().optional().describe('ISO date — Quote Date >='),
+    dateTo: z.string().optional().describe('ISO date — Quote Date <='),
     status: z.string().optional().describe('e.g. Open, Close (Win)'),
+    quote_no: z.string().optional().describe('Quote No contains'),
+    limit: z.number().optional().describe('Max rows to return (default 200)'),
   },
-  async ({ type, company, dateFrom, status }) => {
+  async ({ type, company, dateFrom, dateTo, status, quote_no, limit }) => {
     try {
       const table = type === 'b2b' ? 'b2b_quotations' : 'quotations';
       let q = supabase.from(table).select('*').order('Quote No', { ascending: false });
       if (company) q = q.ilike('Company Name', `%${company}%`);
       if (dateFrom) q = q.gte('Quote Date', dateFrom);
+      if (dateTo) q = q.lte('Quote Date', dateTo);
       if (status) q = q.eq('Status', status);
-      const { data, error } = await q.limit(200);
+      if (quote_no) q = q.ilike('Quote No', `%${quote_no}%`);
+      const { data, error } = await q.limit(limit ?? 200);
       if (error) return err(error.message);
       return ok(data);
     } catch (e) {
@@ -273,21 +292,26 @@ reg(
 
 reg(
   'db_get_sale_orders',
-  'Get sale orders. Filter by company, status, dateFrom, type (b2c/b2b).',
+  'Get sale orders. Filter by company, status, dateFrom/dateTo, SO number, or type (b2c/b2b).',
   {
     type: z.enum(['b2c', 'b2b']).optional(),
     company: z.string().optional(),
     status: z.string().optional().describe('Pending | Completed | Cancel'),
     dateFrom: z.string().optional().describe('ISO date — SO Date >='),
+    dateTo: z.string().optional().describe('ISO date — SO Date <='),
+    so_no: z.string().optional().describe('SO No contains'),
+    limit: z.number().optional().describe('Max rows (default 200)'),
   },
-  async ({ type, company, status, dateFrom }) => {
+  async ({ type, company, status, dateFrom, dateTo, so_no, limit }) => {
     try {
       const table = type === 'b2b' ? 'b2b_sale_orders' : 'sale_orders';
       let q = supabase.from(table).select('*').order('SO No', { ascending: false });
       if (company) q = q.ilike('Company Name', `%${company}%`);
       if (status) q = q.eq('Status', status);
       if (dateFrom) q = q.gte('SO Date', dateFrom);
-      const { data, error } = await q.limit(200);
+      if (dateTo) q = q.lte('SO Date', dateTo);
+      if (so_no) q = q.ilike('SO No', `%${so_no}%`);
+      const { data, error } = await q.limit(limit ?? 200);
       if (error) return err(error.message);
       return ok(data);
     } catch (e) {
@@ -298,21 +322,27 @@ reg(
 
 reg(
   'db_get_invoices',
-  'Get invoices. Filter by type (b2c/b2b), company, status, dateFrom.',
+  'Get invoices. Filter by type (b2c/b2b/service), company, status, dateFrom/dateTo, or Inv No keyword. type=service returns SI-prefix service invoices only.',
   {
-    type: z.enum(['b2c', 'b2b']).optional(),
+    type: z.enum(['b2c', 'b2b', 'service']).optional(),
     company: z.string().optional(),
     status: z.string().optional().describe('Draft | Processing | Completed | Cancel'),
     dateFrom: z.string().optional().describe('ISO date — Inv Date >='),
+    dateTo: z.string().optional().describe('ISO date — Inv Date <='),
+    inv_no: z.string().optional().describe('Inv No contains'),
+    limit: z.number().optional().describe('Max rows (default 200)'),
   },
-  async ({ type, company, status, dateFrom }) => {
+  async ({ type, company, status, dateFrom, dateTo, inv_no, limit }) => {
     try {
       const table = type === 'b2b' ? 'b2b_invoices' : 'invoices';
       let q = supabase.from(table).select('*').order('Inv No', { ascending: false });
       if (company) q = q.ilike('Company Name', `%${company}%`);
       if (status) q = q.eq('Status', status);
       if (dateFrom) q = q.gte('Inv Date', dateFrom);
-      const { data, error } = await q.limit(200);
+      if (dateTo) q = q.lte('Inv Date', dateTo);
+      if (inv_no) q = q.ilike('Inv No', `%${inv_no}%`);
+      if (type === 'service') q = q.ilike('Inv No', 'SI%');
+      const { data, error } = await q.limit(limit ?? 200);
       if (error) return err(error.message);
       return ok(data);
     } catch (e) {
@@ -326,12 +356,13 @@ reg(
   'Get pipeline projects. status=open (default) excludes closed pipelines.',
   {
     type: z.enum(['b2c', 'b2b']).optional(),
-    status: z.string().optional().describe(
-      'open (default) | closed | exact Status value',
-    ),
+    status: z.string().optional().describe('open (default) | closed | exact Status value'),
     company: z.string().optional(),
+    responsible: z.string().optional().describe('Filter by responsible person name (contains)'),
+    dateFrom: z.string().optional().describe('ISO date — Pipeline Date >='),
+    limit: z.number().optional().describe('Max rows (default 200)'),
   },
-  async ({ type, status, company }) => {
+  async ({ type, status, company, responsible, dateFrom, limit }) => {
     try {
       const table = type === 'b2b' ? 'b2b_pipelines' : 'pipelines';
       let q = supabase.from(table).select('*').order('Pipeline No', { ascending: false });
@@ -344,7 +375,9 @@ reg(
         q = q.eq('Status', s);
       }
       if (company) q = q.ilike('Company Name', `%${company}%`);
-      const { data, error } = await q.limit(200);
+      if (responsible) q = q.ilike('Responsible', `%${responsible}%`);
+      if (dateFrom) q = q.gte('Pipeline Date', dateFrom);
+      const { data, error } = await q.limit(limit ?? 200);
       if (error) return err(error.message);
       return ok(data);
     } catch (e) {
@@ -971,20 +1004,19 @@ reg(
 
 reg(
   'db_update_inventory',
-  'Update an inventory item by code',
+  'Update an inventory item. Identify by id (UUID, preferred) or code.',
   {
-    code: z.string().describe('Inventory item code (unique key)'),
-    data: z.record(z.string(), z.any()).describe('Fields to update'),
+    id: z.string().optional().describe('Inventory item UUID (preferred — from db_get_inventory)'),
+    code: z.string().optional().describe('Inventory item code (used if id not given)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (qty, unit_price, status, serial_number, description, etc.)'),
   },
-  async ({ code, data: updates }) => {
+  async ({ id, code, data: updates }) => {
     try {
+      if (!id && !code) return err('Provide id or code');
       const payload = { ...updates, updated_at: new Date().toISOString() };
-      const { data, error } = await supabase
-        .from('inventory')
-        .update(payload)
-        .eq('code', code)
-        .select()
-        .single();
+      let q = supabase.from('inventory').update(payload);
+      q = id ? q.eq('id', id) : q.eq('code', code!);
+      const { data, error } = await q.select().single();
       if (error) return err(error.message);
       return ok(data);
     } catch (e) {
@@ -1878,13 +1910,363 @@ reg(
 
 reg(
   'db_delete_inventory',
-  'Delete an inventory item by code.',
-  { code: z.string().describe('Inventory item code (unique key)') },
-  async ({ code }) => {
+  'Delete an inventory item by id (UUID, preferred) or code.',
+  {
+    id: z.string().optional().describe('Inventory item UUID'),
+    code: z.string().optional().describe('Inventory item code (used if id not given)'),
+  },
+  async ({ id, code }) => {
     try {
-      const { error } = await supabase.from('inventory').delete().eq('code', code);
+      if (!id && !code) return err('Provide id or code');
+      let q = supabase.from('inventory').delete();
+      q = id ? q.eq('id', id) : q.eq('code', code!);
+      const { error } = await q;
       if (error) return err(error.message);
-      return ok({ deleted: code });
+      return ok({ deleted: id ?? code });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ── Sales helpers ──────────────────────────────────────────────────────────────
+
+reg(
+  'db_delete_quotation',
+  'Delete a draft quotation by Quote No. Only deletes if status is Draft or Open — refuses to delete won/lost records to protect history.',
+  {
+    quoteNo: z.string().describe('Quote No to delete'),
+    type: z.enum(['b2c', 'b2b']).optional(),
+    force: z.boolean().optional().describe('If true, skip the status guard and delete regardless of status'),
+  },
+  async ({ quoteNo, type, force }) => {
+    try {
+      const table = type === 'b2b' ? 'b2b_quotations' : 'quotations';
+      if (!force) {
+        const { data: row, error: findErr } = await supabase
+          .from(table)
+          .select('Status')
+          .eq('Quote No', quoteNo)
+          .single();
+        if (findErr) return err(findErr.message);
+        const s = (row?.Status ?? '').toLowerCase();
+        if (s.includes('win') || s.includes('lost') || s.includes('close')) {
+          return err(`Refused: status is "${row?.Status}". Pass force=true to override.`);
+        }
+      }
+      const { error } = await supabase.from(table).delete().eq('Quote No', quoteNo);
+      if (error) return err(error.message);
+      return ok({ deleted: quoteNo });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_update_delivery_order',
+  'Update a delivery order by DO No (status, remarks, delivery_date, etc.)',
+  {
+    do_no: z.string().describe('DO No (primary key)'),
+    data: z.record(z.string(), z.any()).describe('Fields to update (Status, Remarks, DO Date, etc.)'),
+  },
+  async ({ do_no, data: updates }) => {
+    try {
+      const payload = { ...updates, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase
+        .from('delivery_orders')
+        .update(payload)
+        .eq('DO No', do_no)
+        .select()
+        .single();
+      if (error) return err(error.message);
+      return ok(data);
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_company_overview',
+  'Return a 360° view of a company: company record + contacts + open pipelines + recent sale orders + unpaid invoices + open service tickets + recent contact logs.',
+  {
+    company: z.string().describe('Company name (exact or partial match)'),
+    type: z.enum(['b2c', 'b2b']).optional().describe('Which SO/invoice tables to query (default b2c)'),
+  },
+  async ({ company, type }) => {
+    try {
+      const soTable = type === 'b2b' ? 'b2b_sale_orders' : 'sale_orders';
+      const invTable = type === 'b2b' ? 'b2b_invoices' : 'invoices';
+      const pipeTable = type === 'b2b' ? 'b2b_pipelines' : 'pipelines';
+
+      const [companyRes, contactsRes, pipelinesRes, soRes, invoiceRes, ticketRes, logRes] =
+        await Promise.all([
+          supabase.from('companies').select('*').ilike('Company Name', `%${company}%`).limit(3),
+          supabase.from('contacts').select('*').ilike('Company Name', `%${company}%`).limit(20),
+          supabase.from(pipeTable).select('*').ilike('Company Name', `%${company}%`)
+            .not('Status', 'ilike', '%close%').order('Pipeline No', { ascending: false }).limit(10),
+          supabase.from(soTable).select('*').ilike('Company Name', `%${company}%`)
+            .order('SO No', { ascending: false }).limit(10),
+          supabase.from(invTable).select('*').ilike('Company Name', `%${company}%`)
+            .neq('Status', 'Completed').neq('Status', 'Cancel')
+            .order('Inv No', { ascending: false }).limit(10),
+          supabase.from('service_tickets').select('*').ilike('company_name', `%${company}%`)
+            .not('status', 'eq', 'Closed').order('ticket_date', { ascending: false }).limit(10),
+          supabase.from('contact_logs').select('*').ilike('Company Name', `%${company}%`)
+            .order('Log ID', { ascending: false }).limit(10),
+        ]);
+
+      return ok({
+        companies: companyRes.data ?? [],
+        contacts: contactsRes.data ?? [],
+        open_pipelines: pipelinesRes.data ?? [],
+        recent_sale_orders: soRes.data ?? [],
+        unpaid_invoices: invoiceRes.data ?? [],
+        open_service_tickets: ticketRes.data ?? [],
+        recent_contact_logs: logRes.data ?? [],
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_run_digest',
+  'Return a business intelligence digest: open pipeline count, pending SOs, unpaid invoices total, overdue invoices, open service tickets by priority, and last-7-day activity summary. Use this for daily briefings or AI summaries.',
+  {
+    type: z.enum(['b2c', 'b2b']).optional().describe('Which tables to query (default b2c)'),
+  },
+  async ({ type }) => {
+    try {
+      const soTable = type === 'b2b' ? 'b2b_sale_orders' : 'sale_orders';
+      const invTable = type === 'b2b' ? 'b2b_invoices' : 'invoices';
+      const pipeTable = type === 'b2b' ? 'b2b_pipelines' : 'pipelines';
+
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [
+        pipelinesRes,
+        pendingSoRes,
+        unpaidInvRes,
+        overdueInvRes,
+        ticketsRes,
+        recentLogsRes,
+        recentMeetingsRes,
+        recentQuotesRes,
+      ] = await Promise.all([
+        supabase.from(pipeTable).select('Status,"Company Name"').not('Status', 'ilike', '%close%'),
+        supabase.from(soTable).select('"SO No","Company Name","Grand Total",Status').eq('Status', 'Pending').limit(100),
+        supabase.from(invTable).select('"Inv No","Company Name","Grand Total","Due Date",Status')
+          .not('Status', 'eq', 'Completed').not('Status', 'eq', 'Cancel').limit(200),
+        supabase.from(invTable).select('"Inv No","Company Name","Grand Total","Due Date"')
+          .not('Status', 'eq', 'Completed').not('Status', 'eq', 'Cancel')
+          .lt('Due Date', today).limit(50),
+        supabase.from('service_tickets').select('status,priority,ticket_type').not('status', 'eq', 'Closed'),
+        supabase.from('contact_logs').select('"Contact Name","Company Name","Contact Date","Remark"')
+          .gte('Contact Date', sevenDaysAgo).order('Log ID', { ascending: false }).limit(30),
+        supabase.from('meeting_logs').select('"Company Name","Meeting Date","Meeting Type","Remark"')
+          .gte('Meeting Date', sevenDaysAgo).order('Meeting ID', { ascending: false }).limit(20),
+        supabase.from(type === 'b2b' ? 'b2b_quotations' : 'quotations')
+          .select('"Quote No","Company Name","Grand Total",Status')
+          .gte('Quote Date', sevenDaysAgo).order('Quote No', { ascending: false }).limit(30),
+      ]);
+
+      const unpaidInvoices = unpaidInvRes.data ?? [];
+      const totalOutstanding = unpaidInvoices.reduce(
+        (s: number, inv: any) => s + (parseFloat(inv['Grand Total']) || 0),
+        0,
+      );
+      const overdueList = overdueInvRes.data ?? [];
+      const totalOverdue = overdueList.reduce(
+        (s: number, inv: any) => s + (parseFloat(inv['Grand Total']) || 0),
+        0,
+      );
+
+      const ticketsByPriority: Record<string, number> = {};
+      for (const t of ticketsRes.data ?? []) {
+        const p = t.priority ?? 'Unknown';
+        ticketsByPriority[p] = (ticketsByPriority[p] ?? 0) + 1;
+      }
+      const ticketsByStatus: Record<string, number> = {};
+      for (const t of ticketsRes.data ?? []) {
+        const s = t.status ?? 'Unknown';
+        ticketsByStatus[s] = (ticketsByStatus[s] ?? 0) + 1;
+      }
+
+      const pendingSos = pendingSoRes.data ?? [];
+      const totalPendingValue = pendingSos.reduce(
+        (s: number, so: any) => s + (parseFloat(so['Grand Total']) || 0),
+        0,
+      );
+
+      return ok({
+        as_of: today,
+        pipelines: {
+          open_count: (pipelinesRes.data ?? []).length,
+        },
+        sale_orders: {
+          pending_count: pendingSos.length,
+          pending_total_usd: totalPendingValue,
+        },
+        invoices: {
+          unpaid_count: unpaidInvoices.length,
+          outstanding_total_usd: totalOutstanding,
+          overdue_count: overdueList.length,
+          overdue_total_usd: totalOverdue,
+          overdue_list: overdueList.slice(0, 10),
+        },
+        service_tickets: {
+          open_count: (ticketsRes.data ?? []).length,
+          by_priority: ticketsByPriority,
+          by_status: ticketsByStatus,
+        },
+        last_7_days: {
+          new_quotations: (recentQuotesRes.data ?? []).length,
+          contact_logs: recentLogsRes.data ?? [],
+          meetings: recentMeetingsRes.data ?? [],
+          quotations: recentQuotesRes.data ?? [],
+        },
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ── Procurement helpers ────────────────────────────────────────────────────────
+
+reg(
+  'db_convert_po_to_inventory',
+  'Mark a PO as Completed and convert its line items to inventory rows. No-op if inventory already exists for this PO (idempotent). Returns count of items created.',
+  {
+    po_number: z.string().describe('Purchase order number to convert'),
+  },
+  async ({ po_number }) => {
+    try {
+      const { data: po, error: poErr } = await supabase
+        .from('purchase_orders')
+        .select('id, status')
+        .eq('po_number', po_number)
+        .single();
+      if (poErr) return err(poErr.message);
+
+      // Check if already converted
+      const { data: existing } = await supabase
+        .from('inventory')
+        .select('id')
+        .eq('po_id', po.id)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        return ok({ already_converted: true, po_number, message: 'Inventory rows already exist for this PO.' });
+      }
+
+      // Fetch items
+      const { data: items, error: itemsErr } = await supabase
+        .from('purchase_order_items')
+        .select('*')
+        .eq('po_id', po.id)
+        .order('line_number');
+      if (itemsErr) return err(itemsErr.message);
+
+      // Fetch full PO for vendor info
+      const { data: fullPo, error: fullPoErr } = await supabase
+        .from('purchase_orders')
+        .select('*')
+        .eq('po_number', po_number)
+        .single();
+      if (fullPoErr) return err(fullPoErr.message);
+
+      const filteredItems = (items ?? []).filter((it: any) => it.qty > 0 && !it.is_promotion);
+      if (filteredItems.length === 0) {
+        return ok({ converted: false, po_number, message: 'No eligible items (qty > 0, not promotion).' });
+      }
+
+      // Build inventory rows
+      const now = new Date().toISOString();
+      const invPayload = filteredItems.map((it: any) => ({
+        po_id: po.id,
+        po_number,
+        vendor_id: fullPo.vendor_id ?? null,
+        vendor_name: fullPo.vendor_name ?? '',
+        category: it.category || 'General',
+        code: it.item_number || '',
+        brand: it.brand || '',
+        model_name: it.model_name || it.description?.substring(0, 80) || 'N/A',
+        description: it.description || '',
+        serial_number: (it.serial_number ?? '').split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean).join(', '),
+        qty: it.qty,
+        unit_price: it.unit_price ?? 0,
+        currency: fullPo.currency ?? 'USD',
+        status: 'In Stock',
+        created_by: 'MCP',
+        created_at: now,
+        updated_at: now,
+      }));
+
+      const { data: inserted, error: insErr } = await supabase
+        .from('inventory')
+        .insert(invPayload)
+        .select('id, code, model_name');
+      if (insErr) return err(insErr.message);
+
+      // Mark PO as Completed
+      await supabase
+        .from('purchase_orders')
+        .update({ status: 'Completed', updated_at: now })
+        .eq('po_number', po_number);
+
+      return ok({
+        converted: true,
+        po_number,
+        items_created: (inserted ?? []).length,
+        inventory: inserted ?? [],
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_get_inventory_valuation',
+  'Return a summary of inventory stock value grouped by category, plus a grand total and low-stock count.',
+  {},
+  async () => {
+    try {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('category, brand, qty, unit_price, currency, status')
+        .order('category');
+      if (error) return err(error.message);
+
+      const rows = data ?? [];
+      const byCategory: Record<string, { count: number; total_usd: number }> = {};
+      let grandTotal = 0;
+      let lowStockCount = 0;
+
+      for (const row of rows) {
+        const cat = row.category || 'Uncategorized';
+        const val = (parseFloat(row.qty) || 0) * (parseFloat(row.unit_price) || 0);
+        if (!byCategory[cat]) byCategory[cat] = { count: 0, total_usd: 0 };
+        byCategory[cat].count += 1;
+        byCategory[cat].total_usd += val;
+        grandTotal += val;
+        if ((parseFloat(row.qty) || 0) <= 0) lowStockCount++;
+      }
+
+      return ok({
+        grand_total_usd: Math.round(grandTotal * 100) / 100,
+        total_items: rows.length,
+        low_stock_count: lowStockCount,
+        by_category: Object.entries(byCategory).map(([category, v]) => ({
+          category,
+          item_count: v.count,
+          total_usd: Math.round(v.total_usd * 100) / 100,
+        })).sort((a, b) => b.total_usd - a.total_usd),
+      });
     } catch (e) {
       return err((e as Error).message);
     }

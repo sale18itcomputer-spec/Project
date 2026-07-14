@@ -10,6 +10,7 @@ import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from ".
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
+import { friendlyDbError } from "../../../../utils/formatters";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
 import Spinner from "../../../common/Spinner";
@@ -884,7 +885,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             setHasDraftState(false);
             setSuccessInfo({ invNo: invoice['Inv No'] });
         } catch (err: any) {
-            addToast(err.message || 'Failed to save invoice', 'error');
+            addToast(friendlyDbError(err, 'invoice number') || 'Failed to save invoice', 'error');
         } finally {
             setIsSubmitting(false);
         }

@@ -730,3 +730,31 @@ export const generateServiceInvNo = async (): Promise<string> => {
     const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
     return `${prefix}${String(max + 1).padStart(5, '0')}`;
 };
+
+/**
+ * Next quotation number read from the LIVE table (not a stale client-side list),
+ * so two salespeople creating quotes at the same time can't land on the same
+ * number and silently overwrite each other. B2C = Q-, B2B = BQ-, 7 digits.
+ */
+export const generateQuoteNo = async (isB2B = false): Promise<string> => {
+    const table = isB2B ? 'b2b_quotations' : 'quotations';
+    const prefix = isB2B ? 'BQ-' : 'Q-';
+    const { data } = await supabase
+        .from(table).select('"Quote No"').ilike('"Quote No"', `${prefix}%`)
+        .order('"Quote No"', { ascending: false }).limit(1);
+    const last = data?.[0]?.['Quote No'] as string | undefined;
+    const seq = last ? (parseInt(last.slice(prefix.length), 10) || 0) : 0;
+    return `${prefix}${String(seq + 1).padStart(7, '0')}`;
+};
+
+/** Next sale-order number read from the LIVE table (avoids concurrent collisions). */
+export const generateSaleOrderNo = async (isB2B = false): Promise<string> => {
+    const table = isB2B ? 'b2b_sale_orders' : 'sale_orders';
+    const prefix = 'SO-';
+    const { data } = await supabase
+        .from(table).select('"SO No"').ilike('"SO No"', `${prefix}%`)
+        .order('"SO No"', { ascending: false }).limit(1);
+    const last = data?.[0]?.['SO No'] as string | undefined;
+    const seq = last ? (parseInt(last.slice(prefix.length), 10) || 0) : 0;
+    return `${prefix}${String(seq + 1).padStart(7, '0')}`;
+};

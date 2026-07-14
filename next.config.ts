@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
         'luckyexcel',
         'exceljs',
         '@corbe30/fortune-excel',
+        'pdfjs-dist',
     ],
 
 

@@ -77,6 +77,8 @@ interface DataTableProps<T extends object> {
   enableRowSelection?: boolean;
   bulkActions?: BulkActionConfig<T>[];
   enableFindReplace?: boolean;
+  /** Allow dragging rows into the AI assistant (default true). */
+  enableDragToAI?: boolean;
 }
 
 const DOTS = '...';
@@ -204,6 +206,7 @@ function DataTable<T extends object>({
   enableRowSelection = false,
   bulkActions,
   enableFindReplace = false,
+  enableDragToAI = true,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
@@ -244,6 +247,22 @@ function DataTable<T extends object>({
   const getRowKey = useCallback((row: T, fallbackIndex: number): string => {
     return getRowId ? getRowId(row) : String(fallbackIndex);
   }, [getRowId]);
+
+  // Drag a row (or the whole selection, if the row is selected) into the AI.
+  const handleRowDragStart = useCallback((e: React.DragEvent, row: T, rowId: string) => {
+    const el = e.target as HTMLElement;
+    if (el.closest('input,textarea,button,select,a,[role="checkbox"]')) { e.preventDefault(); return; }
+    let rows: T[] = [row];
+    if (enableRowSelection && getRowId && selectedKeys.size > 0 && selectedKeys.has(rowId)) {
+      const sel = data.filter(r => selectedKeys.has(getRowId(r)));
+      if (sel.length) rows = sel;
+    }
+    try {
+      e.dataTransfer.setData('application/x-lpt-rows', JSON.stringify({ source: tableId, count: rows.length, rows }));
+      e.dataTransfer.setData('text/plain', `${rows.length} row(s) from ${tableId}`);
+      e.dataTransfer.effectAllowed = 'copy';
+    } catch { /* ignore */ }
+  }, [enableRowSelection, getRowId, selectedKeys, data, tableId]);
 
   const toggleRowSelection = (rowId: string) => {
     setSelectedKeys(prev => {
@@ -893,6 +912,8 @@ function DataTable<T extends object>({
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(item, globalIndex)}
                         onContextMenu={(e) => handleRowContextMenu(e, item)}
                         tabIndex={onRowClick || isMobile ? 0 : -1}
+                        draggable={enableDragToAI}
+                        onDragStart={enableDragToAI ? (e) => handleRowDragStart(e, item, rowId) : undefined}
                       >
                         {enableRowSelection && (
                           <td
