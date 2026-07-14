@@ -33,6 +33,14 @@ export function moneyTd(v: number | string, sym: string, extraStyle = ''): strin
     return `<td style="${style}">${moneyInner(v, sym)}</td>`;
 }
 
+export interface PdfBuildComponent {
+    itemCode: string;
+    modelName: string;
+    qty: number | string;
+    serialNumber?: string;
+    warrantyMonths?: number;
+}
+
 export interface PdfItem {
     no: number | string;
     itemCode: string;
@@ -45,6 +53,9 @@ export interface PdfItem {
     serialNumber?: string;
     serialNumbers?: string[];
     isPromotion?: boolean;
+    /** PC Build: sold as one priced line, but printed with each real part as its own row. */
+    isPCBuild?: boolean;
+    buildComponents?: PdfBuildComponent[];
 }
 
 export interface PdfTotals {

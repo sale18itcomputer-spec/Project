@@ -23,6 +23,7 @@ import { ScrollArea } from "../../ui/scroll-area";
 import { useColumnWidths } from "../../../hooks/useColumnWidths";
 import { ColumnWidthPopover } from "./ColumnWidthPopover";
 import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
+import type { BuildComponent } from "./invoice/types";
 
 interface SaleOrderCreatorProps {
     onBack: () => void;
@@ -41,6 +42,8 @@ interface LineItem {
     commission: number | string;
     amount: number;
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }
 
 const BULLET_TYPES = [
@@ -832,6 +835,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 no: item.no, itemCode: item.itemCode, modelName: item.modelName,
                 description: item.description, qty: item.qty, unitPrice: item.unitPrice,
                 amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
+                isPCBuild: item.isPCBuild, buildComponents: item.buildComponents,
             })),
             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
             currency: saleOrder.Currency || 'USD',
@@ -868,6 +872,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             id: item.id, no: item.no, itemCode: item.itemCode, modelName: item.modelName,
             description: item.description, qty: item.qty, unitPrice: item.unitPrice,
             amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
+            isPCBuild: item.isPCBuild, buildComponents: item.buildComponents,
         })),
         totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
         currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',
@@ -970,6 +975,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                 no: item.no, itemCode: item.itemCode, modelName: item.modelName,
                                 description: item.description, qty: item.qty, unitPrice: item.unitPrice,
                                 amount: item.amount, commission: item.commission, isPromotion: item.isPromotion,
+                                isPCBuild: item.isPCBuild, buildComponents: item.buildComponents,
                             })),
                             totals: { subTotal: totals.subTotal, tax: totals.tax, grandTotal: totals.grandTotal },
                             currency: (saleOrder.Currency || 'USD') as 'USD' | 'KHR',

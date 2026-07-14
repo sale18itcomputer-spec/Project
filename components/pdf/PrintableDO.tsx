@@ -1,5 +1,13 @@
 import React from 'react';
 
+interface BuildComponent {
+    itemCode: string;
+    modelName: string;
+    qty: number | string;
+    serialNumber?: string;
+    warrantyMonths?: number;
+}
+
 interface LineItem {
     id: string;
     no: number;
@@ -10,6 +18,8 @@ interface LineItem {
     serialNumber?: string;
     serialNumbers?: string[];
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }
 
 interface PrintableDOProps {
@@ -208,6 +218,38 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signatureP
                                                 <td style={tdBorder}></td>
                                                 <td style={tdBorder}></td>
                                             </tr>
+                                        </React.Fragment>
+                                    );
+                                }
+                                // PC Build: sold as one priced line, but the delivery note
+                                // must list each real part being handed over — one row per
+                                // component with its own item code, qty, and serial.
+                                if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+                                    return (
+                                        <React.Fragment key={item.id || idx}>
+                                            <tr style={{ textAlign: 'center' }}>
+                                                <td style={{ ...tdBorder, borderBottom: 'none', verticalAlign: 'top', paddingTop: 6 }}>{item.no > 0 ? item.no : ''}</td>
+                                                <td style={{ ...tdBorder, borderBottom: 'none', verticalAlign: 'top', paddingTop: 6 }}>{item.itemCode}</td>
+                                                <td style={{ ...tdBorder, borderBottom: 'none', textAlign: 'left', fontWeight: 'bold', verticalAlign: 'top', paddingTop: 6 }}>{item.modelName || ''}</td>
+                                                <td style={{ ...tdBorder, borderBottom: 'none', verticalAlign: 'top', paddingTop: 6 }}>{item.qty || ''}</td>
+                                                <td style={{ ...tdBorder, borderBottom: 'none' }}></td>
+                                            </tr>
+                                            {item.buildComponents.map((c, ci) => {
+                                                const isLast = ci === item.buildComponents!.length - 1;
+                                                const compBorder = { ...tdBorder, borderTop: 'none', borderBottom: isLast ? '1px solid #000' : 'none' };
+                                                return (
+                                                    <tr key={`${item.id}-comp-${ci}`} style={{ textAlign: 'center' }}>
+                                                        <td style={compBorder}></td>
+                                                        <td style={{ ...compBorder, fontSize: 9, verticalAlign: 'top', paddingTop: 2 }}>{c.itemCode}</td>
+                                                        <td style={{ ...compBorder, textAlign: 'left', fontWeight: 'normal', fontSize: 9, verticalAlign: 'top', paddingTop: 2 }}>
+                                                            {c.modelName}
+                                                            {c.warrantyMonths && <div style={{ fontSize: 7, color: '#666' }}>{c.warrantyMonths} months warranty</div>}
+                                                        </td>
+                                                        <td style={{ ...compBorder, fontSize: 9, verticalAlign: 'top', paddingTop: 2 }}>{c.qty}</td>
+                                                        <td style={{ ...compBorder, textAlign: 'left', fontSize: 8, verticalAlign: 'top', paddingTop: 2 }}>{c.serialNumber || ''}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </React.Fragment>
                                     );
                                 }

@@ -40,6 +40,37 @@ export function buildDeliveryNote(
         const snCell = sns.filter(s => s.trim()).length > 0
             ? sns.filter(s => s.trim()).map(s => `<div style="line-height:1.6;">${esc(s)}</div>`).join('')
             : '';
+
+        // PC Build: sold as one priced line (no price shown on a DO anyway),
+        // but the delivery note must list each real part being handed over —
+        // one row per component with its own item code, qty, and serial.
+        if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+            let rows = `
+        <tr class="text-center">
+          <td style="vertical-align:top;padding-top:6px;border-bottom:none !important;">${esc(item.no)}</td>
+          <td style="vertical-align:top;padding-top:6px;border-bottom:none !important;">${esc(item.itemCode)}</td>
+          <td class="text-left" style="vertical-align:top;padding-top:6px;border-bottom:none !important;">${esc(item.modelName ?? '')}</td>
+          <td style="vertical-align:top;padding-top:6px;border-bottom:none !important;">${esc(item.qty)}</td>
+          <td style="vertical-align:top;padding-top:6px;border-bottom:none !important;"></td>
+        </tr>`;
+            const comps = item.buildComponents;
+            comps.forEach((c, idx) => {
+                const isLast = idx === comps.length - 1;
+                const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
+                const padStyle = isLast ? 'padding-bottom:6px;' : 'padding-bottom:0;';
+                const warranty = c.warrantyMonths ? `<div style="font-size:9px;color:#666;">${c.warrantyMonths} months warranty</div>` : '';
+                rows += `
+        <tr class="text-center">
+          <td style="${borderStyle}"></td>
+          <td class="text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.itemCode)}</td>
+          <td class="text-left text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.modelName)}${warranty}</td>
+          <td class="text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.qty)}</td>
+          <td class="text-left" style="font-size:9px;vertical-align:top;padding-top:2px;line-height:1.6;${padStyle}${borderStyle}">${esc(c.serialNumber ?? '')}</td>
+        </tr>`;
+            });
+            return rows;
+        }
+
         return `
         <tr class="text-center">
           <td style="vertical-align:top;padding-top:6px;">${esc(item.no)}</td>

@@ -1,6 +1,14 @@
 import React from 'react';
 import { isServiceInvoice } from '../../utils/serviceInvoice';
 
+interface BuildComponent {
+    itemCode: string;
+    modelName: string;
+    qty: number | string;
+    serialNumber?: string;
+    warrantyMonths?: number;
+}
+
 interface LineItem {
     id: string;
     no: number;
@@ -11,6 +19,8 @@ interface LineItem {
     unitPrice: number | string;
     amount: number;
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }
 
 interface PrintableInvoiceProps {
@@ -310,6 +320,57 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                     }
                     const price = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
                     const amt = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0;
+
+                    // PC Build: sold as one priced line, but printed with each
+                    // real component as its own row (itemCode + qty + serial)
+                    // instead of squeezed into description text.
+                    if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+                        return (
+                            <React.Fragment key={item.id || idx}>
+                                <tr className="break-inside-avoid" style={{ textAlign: 'center' }}>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, borderBottom: 'none' }}>{item.no > 0 ? item.no : ''}</td>
+                                    {!isService && <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, borderBottom: 'none' }}>{item.itemCode}</td>}
+                                    <td style={{ ...tdBorder, textAlign: 'left', verticalAlign: 'top', paddingTop: 8, borderBottom: 'none' }}>
+                                        <div style={{ fontWeight: 'bold' }}>{item.modelName}</div>
+                                    </td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, borderBottom: 'none' }}>{item.qty || ''}</td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, borderBottom: 'none' }}>
+                                        {price !== 0
+                                            ? <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>{sym}</span><span>{fmtNum(price)}</span></div>
+                                            : null}
+                                    </td>
+                                    <td style={{ ...tdBorder, verticalAlign: 'top', textAlign: isCommercial ? 'right' : 'left', fontWeight: isCommercial ? 'bold' : 'normal', paddingTop: 8, borderBottom: 'none', paddingRight: isCommercial ? 8 : undefined }}>
+                                        {isCommercial
+                                            ? (amt !== 0 ? `${sym}${fmtNum(amt)}` : '')
+                                            : <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>{sym}</span><span>{amt !== 0 ? fmtNum(amt) : '-'}</span></div>
+                                        }
+                                    </td>
+                                </tr>
+                                {item.buildComponents.map((c, ci) => {
+                                    const isLast = ci === item.buildComponents!.length - 1;
+                                    const compBorder: React.CSSProperties = { ...tdBorder, borderTop: 'none', borderBottom: isLast ? '1px solid #000' : 'none' };
+                                    return (
+                                        <tr key={`${item.id}-comp-${ci}`} className="break-inside-avoid" style={{ textAlign: 'center' }}>
+                                            <td style={{ ...compBorder, paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}></td>
+                                            {!isService && <td style={{ ...compBorder, verticalAlign: 'top', fontSize: 9, paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}>{c.itemCode}</td>}
+                                            <td style={{ ...compBorder, textAlign: 'left', verticalAlign: 'top', fontSize: 9, fontWeight: 'normal', paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}>
+                                                {c.modelName}
+                                                {(c.warrantyMonths || c.serialNumber?.trim()) && (
+                                                    <div style={{ fontSize: 7, color: '#666' }}>
+                                                        {[c.warrantyMonths ? `${c.warrantyMonths} months warranty` : '', c.serialNumber?.trim() ? `S/N: ${c.serialNumber}` : ''].filter(Boolean).join(' · ')}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ ...compBorder, verticalAlign: 'top', fontSize: 9, paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}>{c.qty}</td>
+                                            <td style={{ ...compBorder, paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}></td>
+                                            <td style={{ ...compBorder, paddingTop: 2, paddingBottom: isLast ? 8 : 0 }}></td>
+                                        </tr>
+                                    );
+                                })}
+                            </React.Fragment>
+                        );
+                    }
+
                     return (
                         <React.Fragment key={item.id || idx}>
                             <tr className="break-inside-avoid" style={{ height: isCommercial ? 40 : 'auto', textAlign: 'center' }}>

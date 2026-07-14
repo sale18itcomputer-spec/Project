@@ -130,6 +130,40 @@ export function buildTaxInvoice(
         const amtDisplay  = amt > 0   ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(amt)}</span></div>`   : `<div class="flex justify-between"><span>${sym}</span><span>-</span></div>`;
         const priceDisplay = price > 0 ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>` : '';
 
+        // PC Build: sold as one priced line, but printed with each real
+        // component as its own row (itemCode + qty + serial), not squeezed
+        // into description text — the parent row carries the one sale price.
+        if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+            let rows = `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
+          ${wCode>0 ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.itemCode)}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-bold align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.qty)}</td>` : ''}
+          ${wPrice>0? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${priceDisplay}</td>` : ''}
+          ${wAmt>0  ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
+        </tr>`;
+            const comps = item.buildComponents;
+            comps.forEach((c, idx) => {
+                const isLast = idx === comps.length - 1;
+                const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
+                const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+                const sn = c.serialNumber?.trim();
+                const warranty = c.warrantyMonths ? `${c.warrantyMonths} months warranty` : '';
+                const subLine = [warranty, sn ? `S/N: ${sn}` : ''].filter(Boolean).join(' · ');
+                rows += `
+        <tr class="text-center break-inside-avoid">
+          ${wNo>0   ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wCode>0 ? `<td class="align-top py-0 text-[11px]" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.itemCode)}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-normal text-[11px] align-top" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.modelName)}${subLine ? `<div class="text-[9px]" style="color:#666;">${esc(subLine)}</div>` : ''}</td>` : ''}
+          ${wQty>0  ? `<td class="align-top py-0 text-[11px]" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.qty)}</td>` : ''}
+          ${wPrice>0? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+          ${wAmt>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
+        </tr>`;
+            });
+            return rows;
+        }
+
         if (!item.description) {
             return `
         <tr class="text-center break-inside-avoid">

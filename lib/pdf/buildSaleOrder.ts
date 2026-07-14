@@ -93,6 +93,37 @@ export function buildSaleOrder(
         const amtDisplay   = `<div class="flex justify-between"><span>${sym}</span><span>${amt > 0 ? fmtNum(amt) : '-'}</span></div>`;
         const priceDisplay = dispPrice > 0 ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(dispPrice)}</span></div>` : '';
 
+        // PC Build: sold as one priced line, but printed with each real
+        // component as its own row (itemCode + qty) — no serial numbers here,
+        // the Sale Order is internal-use only (see Invoice/DO for serials).
+        if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+            let rows = `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.itemCode)}</td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-bold align-top py-2" style="border-bottom:none !important;">${esc(item.modelName ?? '')}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-2" style="border-bottom:none !important;">${esc(item.qty)}</td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-2" style="border-bottom:none !important;">${priceDisplay}</td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-2" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
+            </tr>`;
+            const comps = item.buildComponents;
+            comps.forEach((c, idx) => {
+                const isLast = idx === comps.length - 1;
+                const tdStyle = isLast ? 'border-top:none !important;' : 'border-bottom:none !important; border-top:none !important;';
+                const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+                rows += `
+            <tr class="text-center break-inside-avoid">
+              ${wNo>0    ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wCode>0  ? `<td class="align-top py-0 text-[11px]" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.itemCode)}</td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-normal text-[11px] align-top" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.modelName)}</td>` : ''}
+              ${wQty>0   ? `<td class="align-top py-0 text-[11px]" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.qty)}</td>` : ''}
+              ${wPrice>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+              ${wAmt>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
+            </tr>`;
+            });
+            return rows;
+        }
+
         if (!item.description) {
             return `
             <tr class="text-center break-inside-avoid">

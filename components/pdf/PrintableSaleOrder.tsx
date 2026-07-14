@@ -1,5 +1,11 @@
 import React from 'react';
 
+interface BuildComponent {
+    itemCode: string;
+    modelName: string;
+    qty: number | string;
+}
+
 interface LineItem {
     id: string;
     no: number;
@@ -11,6 +17,8 @@ interface LineItem {
     commission: number | string;
     amount: number;
     isPromotion?: boolean;
+    isPCBuild?: boolean;
+    buildComponents?: BuildComponent[];
 }
 
 interface PrintableSaleOrderProps {
@@ -167,6 +175,37 @@ const PrintableSaleOrder: React.FC<PrintableSaleOrderProps> = ({ headerData, ite
                                                 {`(${currencySymbol} ${promoAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`}
                                             </td>
                                         </tr>
+                                    </React.Fragment>
+                                );
+                            }
+                            // PC Build: sold as one priced line, but printed with each real
+                            // component as its own row (itemCode + qty) — no serials or
+                            // unit prices here, this is the internal-use Sale Order.
+                            if (item.isPCBuild && item.buildComponents && item.buildComponents.length > 0) {
+                                return (
+                                    <React.Fragment key={item.id || `item-${index}`}>
+                                        <tr>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top', textAlign: 'center' }}>{item.no || ''}</td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top' }}>{item.itemCode || ''}</td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top', fontWeight: 'bold' }}>{item.modelName || ''}</td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top', textAlign: 'center' }}>{item.qty || ''}</td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top', textAlign: 'right' }}>{item.unitPrice ? formatCurrency(item.unitPrice) : ''}</td>
+                                            <td style={{ padding: '8px', border: '1px solid #000', borderBottom: 'none', verticalAlign: 'top', textAlign: 'right' }}>{item.amount ? formatCurrency(item.amount) : ''}</td>
+                                        </tr>
+                                        {item.buildComponents.map((c, ci) => {
+                                            const isLast = ci === item.buildComponents!.length - 1;
+                                            const compBorder = { border: '1px solid #000', borderTop: 'none', borderBottom: isLast ? '1px solid #000' : 'none' };
+                                            return (
+                                                <tr key={`${item.id}-comp-${ci}`}>
+                                                    <td style={compBorder}></td>
+                                                    <td style={{ ...compBorder, padding: '2px 8px', verticalAlign: 'top', fontSize: '10px' }}>{c.itemCode}</td>
+                                                    <td style={{ ...compBorder, padding: '2px 8px', verticalAlign: 'top', fontSize: '10px', fontWeight: 'normal' }}>{c.modelName}</td>
+                                                    <td style={{ ...compBorder, padding: '2px 8px', verticalAlign: 'top', fontSize: '10px', textAlign: 'center' }}>{c.qty}</td>
+                                                    <td style={compBorder}></td>
+                                                    <td style={compBorder}></td>
+                                                </tr>
+                                            );
+                                        })}
                                     </React.Fragment>
                                 );
                             }
