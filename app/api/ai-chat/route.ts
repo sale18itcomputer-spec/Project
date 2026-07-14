@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { chat, getProxyConfig, type ChatMessage } from '@/lib/aiProxy';
+import { stripThinking } from '@/lib/agentXml';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const reply = await chat(model, clean);
+    const reply = stripThinking(await chat(model, clean));
     return NextResponse.json({ ok: true, reply });
   } catch (err: any) {
     console.error('[ai-chat]', err?.message || err);

@@ -64,6 +64,18 @@ export function stripInvokes(text: string): string {
   return (text || '').replace(INVOKE_RE, '').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/**
+ * Strip reasoning-model "thinking" so it never reaches the user or the invoke
+ * parser. Handles qwen3/deepseek <think>…</think> (and an unclosed leading
+ * <think> if the reply got cut off mid-thought).
+ */
+export function stripThinking(text: string): string {
+  let t = (text || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Unclosed thinking block at the start → drop everything up to the first close, or all of it.
+  if (/<think>/i.test(t)) t = t.replace(/<think>[\s\S]*$/i, '');
+  return t.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** Build the system-prompt section that documents the tools + the call format. */
 export function buildToolInstructions(tools: AgentTool[]): string {
   const lines: string[] = [

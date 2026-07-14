@@ -740,6 +740,8 @@ const mcpTools: AgentTool[] = [
 interface EntityDef {
   label: string; table: string; keyCol: string; module: string;
   searchCol?: string; orderCol?: string;
+  /** Separate line-item table + its FK to this table's id (for duplicate). */
+  itemTable?: string; itemFk?: string;
 }
 const ENTITIES: Record<string, EntityDef> = {
   contact_log:     { label: 'contact log', table: 'contact_logs', keyCol: 'Log ID', module: 'contact_logs', searchCol: 'Company Name', orderCol: 'Log ID' },
@@ -750,12 +752,12 @@ const ENTITIES: Record<string, EntityDef> = {
   vendor_price:    { label: 'vendor pricelist item', table: 'vendor_pricelist', keyCol: 'id', module: 'vendor_pricelist', searchCol: 'model_name', orderCol: 'model_name' },
   price:           { label: 'pricelist item', table: 'pricelist', keyCol: 'Code', module: 'pricelist', searchCol: 'Model', orderCol: 'Model' },
   inventory:       { label: 'inventory item', table: 'inventory', keyCol: 'id', module: 'inventory', searchCol: 'model_name', orderCol: 'id' },
-  product_inquiry: { label: 'product inquiry', table: 'product_inquiries', keyCol: 'inquiry_no', module: 'product_inquiries', searchCol: 'company_name', orderCol: 'inquiry_date' },
+  product_inquiry: { label: 'product inquiry', table: 'product_inquiries', keyCol: 'inquiry_no', module: 'product_inquiries', searchCol: 'company_name', orderCol: 'inquiry_date', itemTable: 'inquiry_items', itemFk: 'inquiry_id' },
   service_ticket:  { label: 'service ticket', table: 'service_tickets', keyCol: 'ticket_no', module: 'service_tickets', searchCol: 'company_name', orderCol: 'ticket_date' },
-  pdi_record:      { label: 'PDI record', table: 'pdi_records', keyCol: 'pdi_no', module: 'pdi_records', searchCol: 'company_name', orderCol: 'pdi_date' },
+  pdi_record:      { label: 'PDI record', table: 'pdi_records', keyCol: 'pdi_no', module: 'pdi_records', searchCol: 'company_name', orderCol: 'pdi_date', itemTable: 'pdi_items', itemFk: 'pdi_id' },
   serial_number:   { label: 'serial number', table: 'serial_numbers', keyCol: 'serial_number', module: 'serial_numbers', searchCol: 'model_name', orderCol: 'created_at' },
   spare_part:      { label: 'spare part', table: 'spare_parts', keyCol: 'part_no', module: 'spare_parts', searchCol: 'part_name', orderCol: 'part_name' },
-  purchase_order:  { label: 'purchase order', table: 'purchase_orders', keyCol: 'po_number', module: 'purchase_orders', searchCol: 'vendor_name', orderCol: 'po_number' },
+  purchase_order:  { label: 'purchase order', table: 'purchase_orders', keyCol: 'po_number', module: 'purchase_orders', searchCol: 'vendor_name', orderCol: 'po_number', itemTable: 'purchase_order_items', itemFk: 'po_id' },
 };
 const ENTITY_NAMES = Object.keys(ENTITIES).join(', ');
 const getEntity = (name: unknown): EntityDef => {
@@ -763,6 +765,21 @@ const getEntity = (name: unknown): EntityDef => {
   if (!e) throw new Error(`Unknown entity "${str(name)}". Valid: ${ENTITY_NAMES}`);
   return e;
 };
+
+/** Next key from a sample with a trailing number, e.g. PO-2026-014 → PO-2026-015. */
+async function nextByPrefix(supabase: SupabaseClient, table: string, col: string, sample: string): Promise<string> {
+  const m = String(sample).match(/^(.*?)(\d+)$/);
+  if (!m) return `${sample}-copy`;
+  const prefix = m[1], width = m[2].length;
+  const { data } = await supabase.from(table).select(`"${col}"`).ilike(col, `${prefix}%`);
+  const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
+  let max = 0;
+  for (const r of data ?? []) {
+    const mm = String((r as any)[col] ?? '').match(re);
+    if (mm) max = Math.max(max, parseInt(mm[1], 10));
+  }
+  return `${prefix}${String(max + 1).padStart(width, '0')}`;
+}
 
 const dataTools: AgentTool[] = [
   {
@@ -824,6 +841,42 @@ const dataTools: AgentTool[] = [
       const { error } = await supabase.from(e.table).delete().eq(e.keyCol, str(key));
       if (error) throw new Error(error.message);
       return { deleted: str(key) };
+    },
+  },
+  {
+    name: 'duplicate_record',
+    description: `Duplicate an operational record into a new copy (fresh key/number; line items are copied too for purchase orders, inquiries, and PDI records). entity ∈ {${ENTITY_NAMES}}. Use for "duplicate/copy this PO/ticket/...".`,
+    kind: 'write',
+    parameters: { type: 'object', properties: { entity: { type: 'string' }, key: { type: 'string', description: 'the record to copy' } }, required: ['entity', 'key'] },
+    resolvePermission: (a) => { const e = ENTITIES[str(a.entity)]; return e ? { module: e.module, action: 'create' } : null; },
+    summarize: ({ entity, key }) => { const e = ENTITIES[str(entity)]; return `Duplicate ${e?.label ?? str(entity)} ${str(key)} → new copy`; },
+    run: async ({ entity, key }, { supabase, userName }) => {
+      const e = getEntity(entity);
+      if (!str(key)) throw new Error('key is required');
+      const { data: src, error } = await supabase.from(e.table).select('*').eq(e.keyCol, str(key)).single();
+      if (error || !src) throw new Error(`${e.label} ${str(key)} not found`);
+
+      const copy: Record<string, any> = { ...src };
+      const oldId = (src as any).id;
+      delete copy.id; delete copy.created_at;
+      if ('updated_at' in src) copy.updated_at = new Date().toISOString();
+      if (e.keyCol !== 'id') copy[e.keyCol] = await nextByPrefix(supabase, e.table, e.keyCol, str(key));
+      if ('Created By' in src && userName) copy['Created By'] = userName;
+
+      const { data: newRow, error: e2 } = await supabase.from(e.table).insert(copy).select().single();
+      if (e2) throw new Error(e2.message);
+
+      // Copy line items (separate table) onto the new parent id.
+      let itemsCopied = 0;
+      if (e.itemTable && e.itemFk && oldId && (newRow as any)?.id) {
+        const { data: items } = await supabase.from(e.itemTable).select('*').eq(e.itemFk, oldId);
+        if (items?.length) {
+          const rows = items.map((it: any) => { const c = { ...it }; delete c.id; delete c.created_at; c[e.itemFk!] = (newRow as any).id; return c; });
+          const { error: e3 } = await supabase.from(e.itemTable).insert(rows);
+          if (!e3) itemsCopied = rows.length;
+        }
+      }
+      return { new_key: e.keyCol === 'id' ? (newRow as any).id : copy[e.keyCol], source: str(key), items_copied: itemsCopied, row: newRow };
     },
   },
 ];

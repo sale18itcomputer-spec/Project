@@ -98,12 +98,23 @@ export function useAssistantChat({ persist }: { persist: boolean }) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
   const modelsLoadedRef = useRef(false);
+  const agentPrefRef = useRef(false);
   const modelSupportsTools = !model || toolModels.length === 0 ? false : toolModels.includes(model);
 
   const setModel = useCallback((m: string) => {
     setModelState(m);
     try { localStorage.setItem(MODEL_KEY, m); } catch { /* ignore */ }
   }, []);
+
+  // Agent mode is sharpest on qwen3 (best reasoning + tools). When it's turned
+  // on, switch to a qwen3 model automatically — but respect a later manual pick.
+  useEffect(() => {
+    if (!agent) { agentPrefRef.current = false; return; }
+    if (agentPrefRef.current || toolModels.length === 0) return;
+    agentPrefRef.current = true;
+    const pref = toolModels.find(m => /qwen3/i.test(m));
+    if (pref && !/qwen3/i.test(model)) setModel(pref);
+  }, [agent, toolModels, model, setModel]);
 
   const loadModels = useCallback(async () => {
     setModelsLoading(true);

@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser, getServiceClient } from '@/lib/agentServer';
 import { chat as gatewayChat, getProxyConfig, type ChatMessage } from '@/lib/aiProxy';
 import { AGENT_TOOLS, getTool, type ToolContext, type AgentTool } from '@/lib/agentTools';
-import { parseInvokes, stripInvokes, buildToolInstructions, type ParsedInvoke } from '@/lib/agentXml';
+import { parseInvokes, stripInvokes, stripThinking, buildToolInstructions, type ParsedInvoke } from '@/lib/agentXml';
 import { recallMemories } from '@/lib/agentMemory';
 import { mcpConfigured, inferMcpKind } from '@/lib/agentMcp';
 
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
-      const text = await gatewayChat(model, msgs);
+      const text = stripThinking(await gatewayChat(model, msgs));
       const invokes = parseInvokes(text);
 
       if (invokes.length === 0) {
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
       role: 'user',
       content: 'Summarise what you found for me now in plain text, without calling any more tools.',
     }]);
-    return NextResponse.json({ ok: true, type: 'message', reply: stripInvokes(final), activity });
+    return NextResponse.json({ ok: true, type: 'message', reply: stripInvokes(stripThinking(final)), activity });
   } catch (err: any) {
     console.error('[ai-chat/agent]', err?.message || err);
     return NextResponse.json({ ok: false, error: err?.message || 'Agent request failed' }, { status: 502 });

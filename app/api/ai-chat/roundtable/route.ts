@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/agentServer';
 import { chat as gatewayChat, getProxyConfig, type ChatMessage } from '@/lib/aiProxy';
+import { stripThinking } from '@/lib/agentXml';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const messages = buildMessages({ kind, model, topic, side: body.side, transcript, participants: body.participants });
-    const content = await gatewayChat(model, messages);
+    const content = stripThinking(await gatewayChat(model, messages));
     return NextResponse.json({ ok: true, content });
   } catch (err: any) {
     console.error('[ai-chat/roundtable]', err?.message || err);
