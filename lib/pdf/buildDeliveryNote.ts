@@ -14,8 +14,21 @@ export function buildDeliveryNote(
     labelPadding?: number,
     columnWidths?: number[], // accepted for API consistency; DO schema is fixed 5-col
 ): string {
-    const doNo      = esc(hd['Inv No.'] || hd['Inv No'] || hd['DO No'] || hd['Delivery No'] || '');
-    const doDate    = esc(fmtDate(hd['Inv Date'] || hd['Invoice Date'] || hd['DO Date'] || hd['Delivery Date'] || ''));
+    // The "Delivery Nº" field is this document's OWN number — must prefer DO No
+    // over the linked invoice's number, which is a different document entirely.
+    const doNo      = esc(hd['DO No'] || hd['Delivery No'] || hd['Inv No.'] || hd['Inv No'] || '');
+    const doDate    = esc(fmtDate(hd['DO Date'] || hd['Delivery Date'] || hd['Inv Date'] || hd['Invoice Date'] || ''));
+    // Cross-reference the linked invoice separately — only when the DO actually
+    // has its own number AND a linked invoice, so a DO with no invoice yet
+    // doesn't print a blank "Invoice Nº" row.
+    const linkedInvNo = esc(hd['Inv No.'] || hd['Inv No'] || '');
+    const invNoRow = (hd['DO No'] || hd['Delivery No']) && linkedInvNo
+        ? `<tr>
+             <td class="font-bold border-none py-1 whitespace-nowrap" style="width:90px;">Invoice N&#186;</td>
+             <td class="border-none py-1 text-center" style="width:10px;">:</td>
+             <td class="border-none py-1 align-middle">${linkedInvNo}</td>
+           </tr>`
+        : '';
     const customer  = esc(hd['Company Name'] || hd['Customer'] || '');
     const address   = esc(hd['Company Address'] || hd['Address'] || '');
     const contact   = esc(hd['Contact Name'] || hd['Contact Person'] || '');
@@ -178,6 +191,7 @@ export function buildDeliveryNote(
             <td class="border-none py-1 text-center" style="width:10px;">:</td>
             <td class="border-none py-1 align-middle">${doDate}</td>
           </tr>
+          ${invNoRow}
         </tbody>
       </table>
     </div>

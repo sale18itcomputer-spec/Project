@@ -52,10 +52,18 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signatureP
         return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    const doNo = headerData['Inv No.'] || headerData['Inv No']
-        ? (headerData['Inv No.'] || headerData['Inv No']).replace('INV', 'DO')
-        : (headerData['DO No'] || '');
-    const doDate = fmtDate(headerData['Inv Date'] || headerData['DO Date'] || '');
+    // The "Delivery Nº" field is this document's OWN number — must prefer DO No
+    // over the linked invoice's number, which is a different document entirely.
+    // (Previously derived from the invoice number via a fragile 'INV'->'DO'
+    // string replace, which silently did nothing for non-"INV"-prefixed
+    // numbers like B2C "SJ..." invoices — exactly the case that surfaced this.)
+    const doNo = headerData['DO No'] || headerData['Delivery No'] || headerData['Inv No.'] || headerData['Inv No'] || '';
+    const doDate = fmtDate(headerData['DO Date'] || headerData['Delivery Date'] || headerData['Inv Date'] || '');
+    // Cross-reference the linked invoice separately — only when the DO
+    // actually has its own number AND a linked invoice, so a DO with no
+    // invoice yet doesn't print a blank "Invoice Nº" row.
+    const linkedInvNo = headerData['Inv No.'] || headerData['Inv No'] || '';
+    const showInvNoRow = !!((headerData['DO No'] || headerData['Delivery No']) && linkedInvNo);
     const vatTin = headerData['Tin No.'] || headerData['Tin No'] || headerData['VAT TIN'] || '';
 
     const tdBorder: React.CSSProperties = { border: '1px solid #000', padding: '4px 8px' };
@@ -180,6 +188,13 @@ const PrintableDO: React.FC<PrintableDOProps> = ({ headerData, items, signatureP
                                     <td style={infoSep}>:</td>
                                     <td style={{ ...infoVal, fontWeight: 'bold' }}>{doDate}</td>
                                 </tr>
+                                {showInvNoRow && (
+                                    <tr>
+                                        <td style={{ ...infoLbl, width: '45%' }}>Invoice N°</td>
+                                        <td style={infoSep}>:</td>
+                                        <td style={{ ...infoVal, fontWeight: 'bold' }}>{linkedInvNo}</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
