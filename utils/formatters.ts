@@ -207,3 +207,22 @@ export const stripHtml = (html: string): string => {
     return html.replace(/<[^>]+>/ig, '').trim();
   }
 };
+
+/**
+ * Turns a raw Supabase/Postgres error into a message safe to show staff.
+ * The common one in our document editors is a duplicate primary-key (23505)
+ * when two people save the same auto-generated number at the same instant —
+ * the raw text ("duplicate key value violates unique constraint …") means
+ * nothing to staff, so we replace it with an actionable instruction. Anything
+ * else falls through to the original message.
+ *
+ * @param thing  What the number is, e.g. "invoice number" — used in the message.
+ */
+export const friendlyDbError = (err: any, thing = 'number'): string => {
+  const code = err?.code ?? err?.details?.code;
+  const msg = String(err?.message ?? err ?? '');
+  if (code === '23505' || /duplicate key value|already exists/i.test(msg)) {
+    return `That ${thing} was just used by someone else. Please reload the page and save again to get a fresh number.`;
+  }
+  return msg || 'Something went wrong. Please try again.';
+};

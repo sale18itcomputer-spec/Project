@@ -6,6 +6,7 @@ import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createRecord, updateRecord, uploadFile } from '../../../services/api';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
+import { friendlyDbError } from '../../../utils/formatters';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
 import { ScrollArea } from '../../ui/scroll-area';
@@ -99,11 +100,11 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         const year = new Date().getFullYear().toString();
         const prefix = `OR${year}-`;
         const thisYear = (receipts || []).filter(r => r['RV No']?.startsWith(prefix));
-        if (thisYear.length === 0) return `${prefix}00002`;
+        if (thisYear.length === 0) return `${prefix}00001`;
         const maxNum = thisYear.reduce((max, r) => {
             const n = parseInt(r['RV No'].slice(prefix.length), 10);
             return isNaN(n) ? max : Math.max(max, n);
-        }, 1);
+        }, 0);
         return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
     }, [receipts]);
 
@@ -353,7 +354,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             setHasDraftState(false);
             setSuccessInfo({ rvNo: doc['RV No']! });
         } catch (err: any) {
-            addToast(err.message || 'Failed to save Receipt', 'error');
+            addToast(friendlyDbError(err, 'receipt number') || 'Failed to save Receipt', 'error');
         } finally { setIsSubmitting(false); }
     };
 
