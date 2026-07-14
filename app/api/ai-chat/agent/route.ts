@@ -30,7 +30,17 @@ function effectiveKind(inv: ParsedInvoke): 'read' | 'write' | 'auto' {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_STEPS = 6;
+const MAX_STEPS = 12;               // let it chain multi-step tasks (Odysseus uses ~20)
+const CTX_BUDGET = 24_000;          // ~chars of transcript to keep the model within context
+
+/** Drop the oldest non-system turns so long chats + tool results don't overflow the model. */
+function trimBudget(msgs: ChatMessage[]): void {
+  let total = msgs.reduce((n, m) => n + (m.content?.length ?? 0), 0);
+  while (total > CTX_BUDGET && msgs.length > 2) {
+    total -= msgs[1].content?.length ?? 0;
+    msgs.splice(1, 1);
+  }
+}
 
 const rl = new Map<string, { count: number; resetAt: number }>();
 function allow(key: string): boolean {
@@ -49,7 +59,8 @@ function baseSystemPrompt(userName: string, memory: string): string {
     ``,
     `If the user's message contains "Attached data" blocks, that data is already provided — answer directly from it and do NOT call a tool to re-fetch it. When several items are attached, address every one of them.`,
     `Otherwise, use a search/get tool to look up REAL live data before answering questions about specific records — never invent data.`,
-    `To create or edit something, call the matching write tool with complete arguments. Do NOT claim it is done — the staff will see a confirmation card and the change only applies after they approve it.`,
+    `When the staff asks you to create, update, delete, or duplicate something, immediately CALL the matching tool with complete arguments. Never reply in prose asking "should I proceed?" or "let me know if you'd like me to" — the system turns your tool call into a confirmation card, and THAT card is how the staff approves. Never say a change is done unless a tool call actually succeeded.`,
+    `If a tool returns an error, do NOT stop or go silent: retry with corrected arguments, try another tool, or tell the staff exactly what failed and what you'll try next. A failed tool is not a stopping point — only a finished task is.`,
     `Present results in clean prose or Markdown tables for staff — never mention internal field names like ItemsJSON or raw record ids.`,
     `You can format richly: Markdown tables, fenced code, task lists ("- [ ]"), and callouts ("> [!NOTE]", "> [!TIP]", "> [!WARNING]"). To draw a chart, output a fenced code block tagged "chart" containing JSON like {"type":"bar"|"line"|"pie","title":"…","data":[{"label":"Q-95","value":621.5}, …]}. Use a chart when comparing numbers is clearer visually.`,
     memory ? `\nWhat you remember about this user:\n${memory}` : ``,
@@ -105,6 +116,7 @@ export async function POST(req: NextRequest) {
 
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
+      trimBudget(msgs);
       const text = stripThinking(await gatewayChat(model, msgs));
       const invokes = parseInvokes(text);
 
