@@ -293,8 +293,18 @@ export const readQuotationSheetData = async (
 
     if (error) throw error;
 
-    // Parse items from JSON if stored
-    const items = data?.['ItemsJSON'] ? JSON.parse(data['ItemsJSON']) : [];
+    // Parse items, tolerating both storage formats: quotations historically
+    // store ItemsJSON double-encoded (a JSON string inside the jsonb column),
+    // but other documents in this DB store a raw jsonb array — so never assume.
+    // A malformed value yields an empty list instead of throwing and blanking
+    // the whole quotation editor.
+    let items: any[] = [];
+    try {
+        const raw = data?.['ItemsJSON'];
+        items = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+    } catch {
+        items = [];
+    }
 
     return {
         header: data,
