@@ -8,6 +8,7 @@ import { useB2B } from "../../../contexts/B2BContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { createQuotationSheet, readQuotationSheetData } from "../../../services/b2bDb";
+import { generateQuoteNo } from "../../../services/api";
 import { formatToInputDate } from "../../../utils/time";
 import Spinner from "../../common/Spinner";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../common/FormControls";
@@ -612,8 +613,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setIsSubmitting(true);
         setError('');
         try {
+            // For a NEW quote, pull the number fresh from the DB at save time so two
+            // salespeople can't collide on a stale max+1 and silently overwrite each other.
+            const quoteNo = existingQuotation
+                ? (existingQuotation['Quote No'] || quote['Quote No'] || nextQuotationNumber)
+                : await generateQuoteNo(isB2B);
             const masterSheetData: Quotation = {
-                'Quote No': quote['Quote No'] || nextQuotationNumber,
+                'Quote No': quoteNo,
                 'File': '', // No external file link anymore
                 'Quote Date': quote['Quote Date'] || null,
                 'Validity Date': quote['Validity Date'] || null,
@@ -652,19 +658,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             // Clear the module cache so the dashboard re-fetches fresh data on next visit
             refetchModule('Quotations');
 
-            // Optimistic update: Add quotation to list immediately
+            // Optimistic update: keep ItemsJSON so reopening the quote before the
+            // dashboard refetches still shows its line items (not a blank quote).
+            const optimisticRow = sheetGenerationData as unknown as Quotation;
             setQuotations(current => {
-                if (!current) return [masterSheetData as Quotation];
-                // Check if already exists (update case)
-                const exists = current.some(q => q['Quote No'] === masterSheetData['Quote No']);
+                if (!current) return [optimisticRow];
+                const exists = current.some(q => q['Quote No'] === quoteNo);
                 if (exists) {
-                    // Update existing
-                    return current.map(q =>
-                        q['Quote No'] === masterSheetData['Quote No'] ? masterSheetData as Quotation : q
-                    );
+                    return current.map(q => q['Quote No'] === quoteNo ? optimisticRow : q);
                 } else {
-                    // Add new
-                    return [masterSheetData as Quotation, ...current];
+                    return [optimisticRow, ...current];
                 }
             });
 

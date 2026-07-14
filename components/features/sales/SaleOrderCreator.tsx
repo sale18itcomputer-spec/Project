@@ -7,7 +7,7 @@ import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useB2B } from "../../../contexts/B2BContext";
-import { createSaleOrderSheet, readQuotationSheetData, uploadFile } from "../../../services/api";
+import { createSaleOrderSheet, readQuotationSheetData, uploadFile, generateSaleOrderNo } from "../../../services/api";
 import { formatToInputDate } from "../../../utils/time";
 import { FormSection, FormInput, FormSelect } from "../../common/FormControls";
 import PrintableSaleOrder from "../../pdf/PrintableSaleOrder";
@@ -694,8 +694,12 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     const handleSave = async () => {
         setIsSubmitting(true);
         try {
+            // Fresh number for a NEW sale order (avoids concurrent stale-max collisions).
+            const soNo = existingSaleOrder
+                ? (existingSaleOrder['SO No'] || saleOrder['SO No'] || nextSaleOrderNumber)
+                : await generateSaleOrderNo(isB2B);
             const masterSheetData: SaleOrder = {
-                'SO No': saleOrder['SO No'] || nextSaleOrderNumber,
+                'SO No': soNo,
                 'SO Date': saleOrder['SO Date'] || null,
                 'File': '',
                 'Quote No': saleOrder['Quote No'] || null,
@@ -725,15 +729,20 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             const payload = { ...masterSheetData, 'ItemsJSON': items };
             await createSaleOrderSheet(masterSheetData['SO No'], payload);
             refetchModule('Sale Orders');
+            // Keep ItemsJSON in the optimistic row so reopening shows the items.
+            const optimisticRow = payload as unknown as SaleOrder;
             if (existingSaleOrder && existingSaleOrder['SO No']) {
-                setSaleOrders(current => current ? current.map(so => so['SO No'] === masterSheetData['SO No'] ? masterSheetData : so) : [masterSheetData]);
+                setSaleOrders(current => current ? current.map(so => so['SO No'] === soNo ? optimisticRow : so) : [optimisticRow]);
             } else {
-                setSaleOrders(current => current ? [masterSheetData, ...current] : [masterSheetData]);
+                setSaleOrders(current => current ? [optimisticRow, ...current] : [optimisticRow]);
             }
             submitted.current = true;
             clearDraft();
             setHasDraftState(false);
-            setSuccessInfo({ soNo: masterSheetData['SO No'] });
+            setSuccessInfo({ soNo });
+        } catch (err: any) {
+            // Was missing entirely — a save failure used to be swallowed silently.
+            addToast(err?.message || 'Failed to save the sale order. Please try again.', 'error');
         } finally {
             setIsSubmitting(false);
         }
