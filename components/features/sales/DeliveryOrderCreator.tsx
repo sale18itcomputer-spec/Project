@@ -334,14 +334,14 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         let invRows: any[] | null = null;
                         if (code) {
                             const { data } = await supabase
-                                .from('inventory').select('id, qty, unit_price, brand')
+                                .from('inventory').select('id, qty, unit_price, brand, warranty_months')
                                 .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
                                 .order('created_at', { ascending: true }).limit(1);
                             invRows = data;
                         }
                         if ((!invRows || invRows.length === 0) && model) {
                             const { data } = await supabase
-                                .from('inventory').select('id, qty, unit_price, brand')
+                                .from('inventory').select('id, qty, unit_price, brand, warranty_months')
                                 .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
                                 .order('created_at', { ascending: true }).limit(1);
                             invRows = data;
@@ -353,17 +353,21 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                             qty: newQty,
                             status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
                         }).eq('id', inv.id);
-                        return { id: inv.id as string, brand: (inv.brand?.trim() || null) as string | null, unitCost: Number(inv.unit_price) || 0 };
+                        return {
+                            id: inv.id as string,
+                            brand: (inv.brand?.trim() || null) as string | null,
+                            unitCost: Number(inv.unit_price) || 0,
+                            warrantyMonths: (inv.warranty_months ?? null) as number | null,
+                        };
                     };
 
                     // Creates or updates the serial_numbers row for a delivered unit.
                     // Shared by normal line items and PC-build components (each
                     // component keeps its own warranty length, not a flat 12 months).
                     const syncSerial = async (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
-                        const thisWarrantyEnd = addMonths(warrantyStart, opts.warrantyMonths);
                         const { data: existingSN } = await supabase
                             .from('serial_numbers')
-                            .select('id, stock_status, so_no')
+                            .select('id, stock_status, so_no, warranty_period_months')
                             .eq('serial_number', sn)
                             .limit(1);
 
@@ -377,6 +381,11 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
                                 return;
                             }
+
+                            // Preserve a real duration already recorded at PO intake —
+                            // never clobber it with the caller's fallback guess.
+                            const effectiveMonths = existingRow.warranty_period_months ?? opts.warrantyMonths;
+                            const warrantyEndForRow = addMonths(warrantyStart, effectiveMonths);
 
                             // Row already exists (e.g. seeded at PO intake) — update it
                             // with this sale's customer/warranty info instead of skipping,
@@ -392,8 +401,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                     company_name: doc['Company Name'] || '',
                                     contact_name: doc['Contact Name'] || '',
                                     warranty_start_date: warrantyStart,
-                                    warranty_period_months: opts.warrantyMonths,
-                                    warranty_end_date: thisWarrantyEnd,
+                                    warranty_period_months: effectiveMonths,
+                                    warranty_end_date: warrantyEndForRow,
                                     status: 'Active',
                                     stock_status: 'Sold',
                                 })
@@ -408,6 +417,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                             return;
                         }
 
+                        // Genuinely new serial, no prior record — use the caller's value as-is.
                         const { data: newSN, error: snErr } = await supabase
                             .from('serial_numbers')
                             .insert({
@@ -421,7 +431,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 contact_name: doc['Contact Name'] || '',
                                 warranty_start_date: warrantyStart,
                                 warranty_period_months: opts.warrantyMonths,
-                                warranty_end_date: thisWarrantyEnd,
+                                warranty_end_date: addMonths(warrantyStart, opts.warrantyMonths),
                                 status: 'Active',
                                 stock_status: 'Sold',
                                 created_by: currentUser?.Name || '',
@@ -488,7 +498,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 modelName: item.modelName || '',
                                 description: item.description || '',
                                 inventoryId: matched?.id ?? null,
-                                warrantyMonths: 12,
+                                warrantyMonths: matched?.warrantyMonths ?? 12,
                             });
                         }
                     }
@@ -555,6 +565,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             unitPrice: 0,
             amount: 0,
             isPromotion: item.isPromotion,
+            isPCBuild: item.isPCBuild,
+            buildComponents: item.buildComponents,
         })),
         totals: { subTotal: 0, tax: 0, grandTotal: 0 },
         currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
@@ -666,6 +678,8 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                 unitPrice: 0,
                                 amount: 0,
                                 isPromotion: item.isPromotion,
+                                isPCBuild: item.isPCBuild,
+                                buildComponents: item.buildComponents,
                             })),
                             totals: { subTotal: 0, tax: 0, grandTotal: 0 },
                             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',

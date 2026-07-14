@@ -419,7 +419,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
     };
 
     const addItem = () => {
-        setItems(prev => [...prev, { line_number: prev.length + 1, item_number: '', description: '', qty: 1, unit_price: 0 }]);
+        setItems(prev => [...prev, { line_number: prev.length + 1, item_number: '', description: '', qty: 1, unit_price: 0, warranty_months: null }]);
     };
 
     const removeItem = (index: number) => {
@@ -483,6 +483,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 brand: item.brand ?? '',
                 category: item.category ?? '',
                 serial_number: item.serial_number ?? '',
+                warranty_months: item.warranty_months ?? null,
                 is_promotion: item.is_promotion ?? false,
             }));
 
@@ -666,6 +667,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                 <th className="px-4 py-3 w-28">Category</th>
                                 <th className="px-4 py-3 min-w-[200px]">Description</th>
                                 <th className="px-4 py-3 min-w-[160px]">Serial Numbers</th>
+                                <th className="px-4 py-3 w-24">Warranty (mo)</th>
                                 <th className="px-4 py-3 w-20">Qty</th>
                                 <th className="px-4 py-3 w-28">Unit Price</th>
                                 <th className="px-4 py-3 w-28">Total</th>
@@ -679,8 +681,8 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                     <td className="px-4 py-3 text-center">
                                         <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400 block leading-tight">PROMO</span>
                                     </td>
-                                    {/* Item# / Model / Brand / Category / Description / Serial Numbers — colSpan 6 */}
-                                    <td colSpan={6} className="px-2 py-3">
+                                    {/* Item# / Model / Brand / Category / Description / Serial Numbers / Warranty — colSpan 7 */}
+                                    <td colSpan={7} className="px-2 py-3">
                                         <div className="flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                                             <input
@@ -783,6 +785,17 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                             onChange={(e) => handleItemChange(index, 'serial_number', e.target.value)}
                                             placeholder={'SN001\nSN002\nSN003...'}
                                             rows={2}
+                                        />
+                                    </td>
+
+                                    {/* ── Warranty (months) — real vendor-stated term, recorded at purchase time ── */}
+                                    <td className="px-2 py-3">
+                                        <input
+                                            className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm text-center"
+                                            type="number" min={0} step={1}
+                                            value={item.warranty_months ?? ''}
+                                            onChange={e => handleItemChange(index, 'warranty_months', e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                                            placeholder="e.g. 12"
                                         />
                                     </td>
 

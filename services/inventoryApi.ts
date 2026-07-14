@@ -144,6 +144,7 @@ export const convertPurchaseOrderToInventory = async (
                 model_name:  resolvedModel,
                 description: resolvedDesc,
                 serial_number: normalizeSerials(item.serial_number),
+                warranty_months: item.warranty_months ?? null,
                 qty:         item.qty,
                 unit_price:  item.unit_price ?? 0,
                 currency:    po.currency ?? 'USD',
@@ -167,18 +168,22 @@ export const convertPurchaseOrderToInventory = async (
     // Seed serial_numbers rows for any serials captured at PO intake, linked to
     // the newly-created inventory row. Sale-time sync (Invoice/Delivery Order)
     // later finds these by serial_number and updates them with customer/warranty
-    // info instead of inserting a duplicate.
+    // info instead of inserting a duplicate. warranty_period_months uses the
+    // real vendor-stated term recorded on the PO line, not a guess — falls
+    // back to 12 only when the PO item didn't record one.
     const serialPayload = (insertedRows ?? []).flatMap((invRow, i) => {
         const serials = (filteredItems[i]?.serial_number ?? '')
             .split('\n')
             .map(s => s.trim())
             .filter(s => s.length > 0);
+        const warrantyMonths = filteredItems[i]?.warranty_months ?? 12;
         return serials.map(sn => ({
             serial_number: sn,
             brand: invRow.brand ?? '',
             model_name: invRow.model_name ?? '',
             description: invRow.description ?? '',
             inventory_id: invRow.id,
+            warranty_period_months: warrantyMonths,
             status: 'Active',
             stock_status: 'In Stock',
             created_by: createdBy ?? 'System',

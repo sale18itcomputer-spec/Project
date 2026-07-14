@@ -469,6 +469,8 @@ export interface PurchaseOrderItem {
   category?: string;
   /** Serial numbers received for this line item, one per line (newline-separated) */
   serial_number?: string;
+  /** Real vendor-stated warranty length in months, recorded at purchase time — flows into inventory.warranty_months and serial_numbers.warranty_period_months at conversion. */
+  warranty_months?: number | null;
   /** True when this row is a cashback/promotion deduction (no item code, negative total) */
   is_promotion?: boolean;
 }

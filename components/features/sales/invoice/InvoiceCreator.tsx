@@ -469,23 +469,13 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         }]));
     };
 
-    // The customer sees one price for the whole build, but still needs to know
-    // what's inside it — mirrors how quotations already spell out each part
-    // with its own warranty (e.g. Q-0000099's "-MB: ... (3Years)" bullet list).
-    const formatBuildDescription = (components: BuildComponent[]): string =>
-        components
-            .filter(c => c.modelName || c.itemCode)
-            .map(c => {
-                const qtyPart = c.qty > 1 ? ` x${c.qty}` : '';
-                const warrantyPart = c.warrantyMonths ? ` (${c.warrantyMonths} months warranty)` : ' (no warranty)';
-                return `- ${c.modelName || c.itemCode}${qtyPart}${warrantyPart}`;
-            })
-            .join('\n');
-
+    // Each component now prints as its own row (itemCode, qty, warranty,
+    // serial) on the Invoice/SO/DO — see PrintableInvoice/PrintableSaleOrder/
+    // PrintableDO and their matching lib/pdf/build*.ts builders. The
+    // description field is no longer auto-generated from components; it's a
+    // free, optional note the rep can type (or leave blank).
     const handleBuildComponentsChange = (id: string, components: BuildComponent[]) => {
-        setItems(prev => prev.map(item => item.id === id
-            ? { ...item, buildComponents: components, description: formatBuildDescription(components) }
-            : item));
+        setItems(prev => prev.map(item => item.id === id ? { ...item, buildComponents: components } : item));
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -650,14 +640,14 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     let invRows: any[] | null = null;
                     if (code) {
                         const { data } = await supabase
-                            .from('inventory').select('id, qty, unit_price, brand')
+                            .from('inventory').select('id, qty, unit_price, brand, warranty_months')
                             .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
                             .order('created_at', { ascending: true }).limit(1);
                         invRows = data;
                     }
                     if ((!invRows || invRows.length === 0) && model) {
                         const { data } = await supabase
-                            .from('inventory').select('id, qty, unit_price, brand')
+                            .from('inventory').select('id, qty, unit_price, brand, warranty_months')
                             .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
                             .order('created_at', { ascending: true }).limit(1);
                         invRows = data;
@@ -670,17 +660,21 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         status: newQty <= 0 ? 'Out of Stock' : 'In Stock',
                     }).eq('id', inv.id);
                     deductedInventory = true;
-                    return { id: inv.id as string, brand: (inv.brand?.trim() || null) as string | null, unitCost: Number(inv.unit_price) || 0 };
+                    return {
+                        id: inv.id as string,
+                        brand: (inv.brand?.trim() || null) as string | null,
+                        unitCost: Number(inv.unit_price) || 0,
+                        warrantyMonths: (inv.warranty_months ?? null) as number | null,
+                    };
                 };
 
                 // Creates or updates the serial_numbers row for a sold unit. Shared by
                 // normal line items and PC-build components (each component keeps its
                 // own warranty length instead of the flat 12-month default).
                 const syncSerial = async (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
-                    const warrantyEnd = addMonths(warrantyStart, opts.warrantyMonths);
                     const { data: existingSN } = await supabase
                         .from('serial_numbers')
-                        .select('id, stock_status, so_no')
+                        .select('id, stock_status, so_no, warranty_period_months')
                         .eq('serial_number', sn)
                         .limit(1);
 
@@ -694,6 +688,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
                             return;
                         }
+
+                        // Preserve a real duration already recorded at PO intake — never
+                        // clobber it with the caller's fallback guess. Only fall back to
+                        // the passed-in value if this row genuinely has none on file.
+                        const effectiveMonths = existingRow.warranty_period_months ?? opts.warrantyMonths;
+                        const warrantyEndForRow = addMonths(warrantyStart, effectiveMonths);
 
                         // Row already exists (e.g. seeded at PO intake) — update it
                         // with this sale's customer/warranty info instead of skipping,
@@ -709,8 +709,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 company_name: invoice['Company Name'] || '',
                                 contact_name: invoice['Contact Name'] || '',
                                 warranty_start_date: warrantyStart,
-                                warranty_period_months: opts.warrantyMonths,
-                                warranty_end_date: warrantyEnd,
+                                warranty_period_months: effectiveMonths,
+                                warranty_end_date: warrantyEndForRow,
                                 status: 'Active',
                                 stock_status: 'Sold',
                             })
@@ -725,6 +725,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         return;
                     }
 
+                    // Genuinely new serial, no prior record — use the caller's value as-is.
                     const { data: newSN, error: snErr } = await supabase
                         .from('serial_numbers')
                         .insert({
@@ -738,7 +739,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             contact_name: invoice['Contact Name'] || '',
                             warranty_start_date: warrantyStart,
                             warranty_period_months: opts.warrantyMonths,
-                            warranty_end_date: warrantyEnd,
+                            warranty_end_date: addMonths(warrantyStart, opts.warrantyMonths),
                             status: 'Active',
                             stock_status: 'Sold',
                             created_by: currentUser?.Name || '',
@@ -827,7 +828,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 modelName: item.modelName || '',
                                 description: item.description || '',
                                 inventoryId: matched?.id ?? null,
-                                warrantyMonths: 12,
+                                warrantyMonths: matched?.warrantyMonths ?? 12,
                             });
                         }
                     }
@@ -952,6 +953,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 unitPrice: item.unitPrice,
                 amount: item.amount,
                 isPromotion: item.isPromotion,
+                isPCBuild: item.isPCBuild,
+                buildComponents: item.buildComponents,
             })),
             totals: {
                 subTotal: totals.subTotal,
