@@ -686,75 +686,56 @@ export const generatePosRvNo = async (): Promise<string> => {
  * Previously each mode only looked at its own table, causing duplicate numbers
  * (e.g. TI2026-00003 could exist in both tables simultaneously).
  */
+/**
+ * Numbers are issued from document_sequences via next_document_seq — a
+ * persistent, monotonic counter per key. Never derive the next number from
+ * MAX(existing rows): renaming or deleting a document frees its number for
+ * reissue to an unrelated future one (see 20260715_document_sequences.sql —
+ * this is exactly how the ICTECH SOLUTIONS invoice briefly carried a VAT
+ * sequence number, "TI2026-00003", that had already been used and abandoned
+ * once before).
+ */
 export const generateInvNo = async (taxableType: string): Promise<string> => {
     const year = new Date().getFullYear();
     let prefix = `INV${year}-`;
     if (taxableType === 'VAT') prefix = `TI${year}-`;
     else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
 
-    const [{ data: b2c }, { data: b2b }] = await Promise.all([
-        supabase.from('invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
-        supabase.from('b2b_invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
-    ]);
-
-    const parseSeq = (invNo: string | undefined | null): number => {
-        if (!invNo) return 1;
-        const n = parseInt(invNo.slice(prefix.length), 10);
-        return isNaN(n) ? 1 : n;
-    };
-
-    const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
-    return `${prefix}${String(max + 1).padStart(5, '0')}`;
+    const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
+    if (error) throw error;
+    return `${prefix}${String(data as number).padStart(5, '0')}`;
 };
 
 /**
  * Generates the next service invoice number — its own SI{year}- series,
- * fully separate from the sales TI/INV/CI sequences. Queries both invoice
- * tables like generateInvNo so the series stays unique across modes.
+ * fully separate from the sales TI/INV/CI sequences.
  */
 export const generateServiceInvNo = async (): Promise<string> => {
     const year = new Date().getFullYear();
     const prefix = `SI${year}-`;
 
-    const [{ data: b2c }, { data: b2b }] = await Promise.all([
-        supabase.from('invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
-        supabase.from('b2b_invoices').select('"Inv No"').ilike('"Inv No"', `${prefix}%`).order('"Inv No"', { ascending: false }).limit(1),
-    ]);
-
-    const parseSeq = (invNo: string | undefined | null): number => {
-        if (!invNo) return 0;
-        const n = parseInt(invNo.slice(prefix.length), 10);
-        return isNaN(n) ? 0 : n;
-    };
-
-    const max = Math.max(parseSeq(b2c?.[0]?.['Inv No']), parseSeq(b2b?.[0]?.['Inv No']));
-    return `${prefix}${String(max + 1).padStart(5, '0')}`;
+    const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
+    if (error) throw error;
+    return `${prefix}${String(data as number).padStart(5, '0')}`;
 };
 
 /**
- * Next quotation number read from the LIVE table (not a stale client-side list),
- * so two salespeople creating quotes at the same time can't land on the same
- * number and silently overwrite each other. B2C = Q-, B2B = BQ-, 7 digits.
+ * Next quotation number. B2C = Q-, B2B = BQ-, 7 digits.
  */
 export const generateQuoteNo = async (isB2B = false): Promise<string> => {
-    const table = isB2B ? 'b2b_quotations' : 'quotations';
     const prefix = isB2B ? 'BQ-' : 'Q-';
-    const { data } = await supabase
-        .from(table).select('"Quote No"').ilike('"Quote No"', `${prefix}%`)
-        .order('"Quote No"', { ascending: false }).limit(1);
-    const last = data?.[0]?.['Quote No'] as string | undefined;
-    const seq = last ? (parseInt(last.slice(prefix.length), 10) || 0) : 0;
-    return `${prefix}${String(seq + 1).padStart(7, '0')}`;
+    const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
+    if (error) throw error;
+    return `${prefix}${String(data as number).padStart(7, '0')}`;
 };
 
-/** Next sale-order number read from the LIVE table (avoids concurrent collisions). */
+/** Next sale-order number. B2C and B2B share the "SO-" display prefix but
+ *  keep independent counters (SO-b2c / SO-b2b), matching the two tables'
+ *  historically-separate numbering. */
 export const generateSaleOrderNo = async (isB2B = false): Promise<string> => {
-    const table = isB2B ? 'b2b_sale_orders' : 'sale_orders';
     const prefix = 'SO-';
-    const { data } = await supabase
-        .from(table).select('"SO No"').ilike('"SO No"', `${prefix}%`)
-        .order('"SO No"', { ascending: false }).limit(1);
-    const last = data?.[0]?.['SO No'] as string | undefined;
-    const seq = last ? (parseInt(last.slice(prefix.length), 10) || 0) : 0;
-    return `${prefix}${String(seq + 1).padStart(7, '0')}`;
+    const key = isB2B ? 'SO-b2b' : 'SO-b2c';
+    const { data, error } = await supabase.rpc('next_document_seq', { p_key: key });
+    if (error) throw error;
+    return `${prefix}${String(data as number).padStart(7, '0')}`;
 };
