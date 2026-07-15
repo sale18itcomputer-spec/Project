@@ -537,7 +537,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             // committed to inventory (no re-convert needed), so a serial added to
             // the PO after conversion flows through to the existing stock rows.
             try {
-                await syncPurchaseOrderSerialsToInventory(savedPoId, items);
+                await syncPurchaseOrderSerialsToInventory(savedPoId, items, currentUser?.Name || 'System');
             } catch { /* non-fatal — the PO itself is already saved */ }
 
             addToast('Purchase Order saved successfully!', 'success');

@@ -239,10 +239,11 @@ export const convertPurchaseOrderToInventory = async (
 export const syncPurchaseOrderSerialsToInventory = async (
     poId: string,
     items: PurchaseOrderItem[],
+    createdBy = 'System',
 ): Promise<number> => {
     const { data: invRows, error } = await supabase
         .from('inventory')
-        .select('id, code, model_name')
+        .select('id, code, model_name, brand, description')
         .eq('po_id', poId)
         .order('created_at', { ascending: true });
     if (error) throw new Error(error.message);
@@ -254,6 +255,12 @@ export const syncPurchaseOrderSerialsToInventory = async (
         const idx = remaining.findIndex(predicate);
         return idx === -1 ? null : remaining.splice(idx, 1)[0];
     };
+
+    // Serials to seed into the structured serial_numbers table. Without this, the
+    // common "save the PO first, add serial numbers later" flow leaves the later
+    // serials ONLY on the inventory row's text field — never as serial_numbers
+    // rows — so they never appear as In-Stock units to pick/track at sale time.
+    const serialSeed: any[] = [];
 
     let count = 0;
     for (const it of filtered) {
@@ -271,7 +278,48 @@ export const syncPurchaseOrderSerialsToInventory = async (
             .update({ serial_number: serial, updated_at: new Date().toISOString() })
             .eq('id', row.id);
         if (!uErr) count++;
+
+        // normalizeSerials joins with ", " — split back to individual units.
+        for (const sn of serial.split(/[\n,]/).map(s => s.trim()).filter(Boolean)) {
+            serialSeed.push({
+                serial_number: sn,
+                brand: row.brand ?? '',
+                model_name: row.model_name ?? '',
+                description: row.description ?? '',
+                inventory_id: row.id,
+                warranty_period_months: it.warranty_months ?? 12,
+                created_by: createdBy,
+                // so_no / company_name / contact_name / status / stock_status fall
+                // to their DB defaults ('', 'Active', 'In Stock') — a fresh unit.
+            });
+        }
     }
+
+    // Seed only serials that don't already have a row, so a unit already sold (or
+    // seeded at intake) is never overwritten or flipped back to In Stock. Dedupe
+    // within this PO and use ignoreDuplicates so a concurrent insert can't fail
+    // the batch. Non-fatal to the PO save — log rather than throw.
+    if (serialSeed.length > 0) {
+        const seen = new Set<string>();
+        const unique = serialSeed.filter(s => {
+            if (seen.has(s.serial_number)) return false;
+            seen.add(s.serial_number);
+            return true;
+        });
+        const { data: existing } = await supabase
+            .from('serial_numbers')
+            .select('serial_number')
+            .in('serial_number', unique.map(s => s.serial_number));
+        const existingSet = new Set((existing ?? []).map(e => e.serial_number));
+        const toSeed = unique.filter(s => !existingSet.has(s.serial_number));
+        if (toSeed.length > 0) {
+            const { error: seedErr } = await supabase
+                .from('serial_numbers')
+                .upsert(toSeed, { onConflict: 'serial_number', ignoreDuplicates: true });
+            if (seedErr) console.error('[syncPurchaseOrderSerialsToInventory] serial seed failed:', seedErr.message);
+        }
+    }
+
     return count;
 };
 
