@@ -300,13 +300,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     }, [quotations, existingQuotation, isB2B]);
 
     const [quote, setQuote] = useState<Partial<Quotation & { [key: string]: any }>>(() => {
+        // Sreyneang Mon signs quotations as "Sreyneang Mon (Mrs)" by default.
+        const isSreyneang = currentUser?.Name?.toLowerCase().includes('sreyneang') ?? false;
+        const preparedByName = isSreyneang ? 'Sreyneang Mon (Mrs)' : (currentUser?.Name || '');
         if (draft?.quote) return draft.quote;
         if (existingQuotation) {
             return {
                 ...existingQuotation,
                 'Quote Date': existingQuotation['Quote Date'] ? formatToInputDate(existingQuotation['Quote Date']) : getTodayDateString(),
                 'Validity Date': existingQuotation['Validity Date'] ? formatToInputDate(existingQuotation['Validity Date']) : getTodayDateString(),
-                'Prepared By': existingQuotation['Prepared By'] || currentUser?.Name || '',
+                'Prepared By': existingQuotation['Prepared By'] || preparedByName,
                 'Prepared By Position': existingQuotation['Prepared By Position'] || (currentUser ? (
                     currentUser.Name?.toLowerCase().includes('sreyneang') 
                         ? '017 594 524 | 010 345 994'
@@ -329,7 +332,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             'Status': 'Open',
             'Currency': 'USD',
             'Created By': currentUser?.Name || '',
-            'Prepared By': currentUser?.Name || '',
+            'Prepared By': preparedByName,
             'Prepared By Position': currentUser ? (
                 currentUser.Name?.toLowerCase().includes('sreyneang') 
                     ? '017 594 524 | 010 345 994'
@@ -1376,9 +1379,10 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             datalistOptions={contactOptions}
                                             placeholder="Type or select a contact..."
                                         />
-                                        <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} />
-                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} />
-                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} />
+                                        {/* Read-only — loaded from the selected Company/Contact. Edit these in the Companies & Contacts dashboards. */}
+                                        <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} readOnly />
+                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} readOnly />
+                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} readOnly />
                                     </FormSection>
 
                                     <FormSection title="Quotation Info">
@@ -1392,7 +1396,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         {quote.Status !== 'Open' && <FormTextarea name="Reason" label="Reason" value={quote.Reason} onChange={handleHeaderChange} rows={2} />}
                                     </FormSection>
 
-                                    <FormSection title="Signatures & Remarks">
+                                    <FormSection title="Signatures & Remarks" collapsible defaultCollapsed>
                                         <FormInput name="Prepared By" label="Prepared By" value={quote['Prepared By']} onChange={handleHeaderChange} />
                                         <FormInput name="Approved By" label="Approved By" value={quote['Approved By']} onChange={handleHeaderChange} />
                                         <FormInput name="Prepared By Position" label="Position" value={quote['Prepared By Position']} onChange={handleHeaderChange} />

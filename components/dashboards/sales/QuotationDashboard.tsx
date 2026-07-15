@@ -6,8 +6,6 @@ import { useB2BData } from "../../../hooks/useB2BData";
 import DataTable, { ColumnDef } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { useWindowManager } from "../../../contexts/WindowManagerContext";
-import QuotationWindowContent from "../../windows/content/QuotationWindowContent";
 import { formatCurrencySmartly } from "../../../utils/formatters";
 import { ShoppingCart, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
@@ -73,7 +71,6 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>('Quote Pending');
   const { handleNavigation, navigation } = useNavigation();
-  const { openWindow } = useWindowManager();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
@@ -94,18 +91,27 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   }, [navigation.action]);
 
   const openQuotationWindow = (quoteNo: string | null, initialData?: Partial<Quotation>) => {
-    const id = quoteNo ? `quotation-${quoteNo}` : `quotation-new-${Date.now()}`;
-    openWindow({
-      id,
-      title: quoteNo ? `Quotation: ${quoteNo}` : 'New Quotation',
-      content: <QuotationWindowContent windowId={id} quoteNo={quoteNo} initialData={initialData} />,
-      noPadding: true,
-      initialWidth: 1200,
-      initialHeight: 820,
-      minWidth: 900,
-      minHeight: 600,
-      detachUrl: quoteNo ? `/standalone/quotation/${encodeURIComponent(quoteNo)}` : undefined,
-    });
+    // Create/edit a quotation opens in its own browser tab (the standalone route),
+    // not an in-app window.
+    const base = quoteNo
+      ? `/standalone/quotation/${encodeURIComponent(quoteNo)}`
+      : '/standalone/quotation/new';
+    let url = base;
+    // Prefill/duplicate data is handed to the new tab via localStorage (shared
+    // across same-origin tabs, unlike sessionStorage), under a one-time key the
+    // tab reads and clears. handleDuplicateQuotation set the items in
+    // sessionStorage just before calling us — fold those in too.
+    if (!quoteNo && initialData) {
+      let dupItems: unknown;
+      try { const s = sessionStorage.getItem('duplicate_quotation_items'); if (s) dupItems = JSON.parse(s); } catch { /* ignore */ }
+      const key = `quote-draft-${Date.now()}`;
+      try {
+        localStorage.setItem(key, JSON.stringify({ initialData, items: dupItems }));
+        sessionStorage.removeItem('duplicate_quotation_items');
+        url = `${base}?draft=${encodeURIComponent(key)}`;
+      } catch { /* fall back to a plain new tab without prefill */ }
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Auto-open window when navigated from another page with create/edit action
