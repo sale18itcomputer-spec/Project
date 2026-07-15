@@ -10,7 +10,7 @@ import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from ".
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
-import { friendlyDbError } from "../../../../utils/formatters";
+import { friendlyDbError, hasLineItemContent } from "../../../../utils/formatters";
 import PrintableInvoice from "../../../pdf/PrintableInvoice";
 import SuccessModal from "../../../modals/SuccessModal";
 import Spinner from "../../../common/Spinner";
@@ -504,6 +504,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         const emptyBuild = items.find(i => i.isPCBuild && (!i.buildComponents || i.buildComponents.length === 0));
         if (emptyBuild) {
             addToast(`PC Build line "${emptyBuild.modelName || 'Untitled'}" has no components — add at least one part.`, 'error');
+            return;
+        }
+
+        if (!hasLineItemContent(items)) {
+            addToast('Add at least one line item before saving.', 'error');
             return;
         }
 

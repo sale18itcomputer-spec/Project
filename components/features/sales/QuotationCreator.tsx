@@ -20,7 +20,7 @@ import { ColumnWidthPopover } from "./ColumnWidthPopover";
 import { getUserTelegramChatId } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
-import { parseSheetValue } from "../../../utils/formatters";
+import { parseSheetValue, hasLineItemContent } from "../../../utils/formatters";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useToast } from "../../../contexts/ToastContext";
 import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
@@ -610,6 +610,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
 
     const handleSave = async () => {
+        if (!(quote['Company Name'] || '').trim()) { addToast('Please enter a Company Name before saving.', 'error'); return; }
+        if (!hasLineItemContent(items)) { addToast('Add at least one line item before saving.', 'error'); return; }
         setIsSubmitting(true);
         setError('');
         try {

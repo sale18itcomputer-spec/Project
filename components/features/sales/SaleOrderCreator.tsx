@@ -18,6 +18,7 @@ import Spinner from "../../common/Spinner";
 import SuccessModal from "../../modals/SuccessModal";
 import { generatePDF } from "@/lib/pdfClient";
 import { useToast } from "../../../contexts/ToastContext";
+import { hasLineItemContent } from "../../../utils/formatters";
 import SearchableSelect from "../../common/SearchableSelect";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useColumnWidths } from "../../../hooks/useColumnWidths";
@@ -695,6 +696,8 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
     };
 
     const handleSave = async () => {
+        if (!(saleOrder['Company Name'] || '').trim()) { addToast('Please enter a Company Name before saving.', 'error'); return; }
+        if (!hasLineItemContent(items)) { addToast('Add at least one line item before saving.', 'error'); return; }
         setIsSubmitting(true);
         try {
             // Fresh number for a NEW sale order (avoids concurrent stale-max collisions).

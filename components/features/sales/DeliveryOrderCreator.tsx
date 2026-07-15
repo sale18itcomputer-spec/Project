@@ -8,7 +8,7 @@ import { createRecord, updateRecord, uploadFile } from '../../../services/api';
 import type { BuildComponent } from './invoice/types';
 import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
-import { friendlyDbError } from '../../../utils/formatters';
+import { friendlyDbError, hasLineItemContent } from '../../../utils/formatters';
 import { FormSection, FormInput, FormSelect, FormTextarea } from '../../common/FormControls';
 import SearchableSelect from '../../common/SearchableSelect';
 import { SerialNumberPicker } from '../../common/SerialNumberPicker';
@@ -272,6 +272,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     const handleSave = async () => {
         if (!doc['DO No']?.trim()) { addToast('DO No. is required', 'error'); return; }
         if (!doc['Company Name']?.trim()) { addToast('Company Name is required', 'error'); return; }
+        if (!hasLineItemContent(items)) { addToast('Add at least one line item before saving.', 'error'); return; }
 
         setIsSubmitting(true);
         try {
