@@ -226,3 +226,16 @@ export const friendlyDbError = (err: any, thing = 'number'): string => {
   }
   return msg || 'Something went wrong. Please try again.';
 };
+
+/**
+ * True when at least one line item carries real content — a description, item
+ * code, or model name — i.e. the document isn't just empty placeholder rows.
+ * Used by the sales document editors to block accidental saves of a blank form.
+ * Deliberately lenient (content in ANY of the three fields counts) so it never
+ * blocks a legitimate goods, service, or description-only line.
+ */
+export const hasLineItemContent = (items: any[] | null | undefined): boolean =>
+  Array.isArray(items) && items.some(i =>
+    (String(i?.description ?? '') + String(i?.itemCode ?? '') + String(i?.modelName ?? '')).trim() !== ''
+    || Number(i?.amount) > 0   // amount-only service lines still count; the default empty row (amount 0) does not
+  );

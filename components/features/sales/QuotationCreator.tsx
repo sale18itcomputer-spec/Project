@@ -20,7 +20,7 @@ import { ColumnWidthPopover } from "./ColumnWidthPopover";
 import { getUserTelegramChatId } from "../../../utils/telegram";
 import SuccessModal from "../../modals/SuccessModal";
 import DocumentEditorContainer from "../../layout/DocumentEditorContainer";
-import { parseSheetValue } from "../../../utils/formatters";
+import { parseSheetValue, hasLineItemContent } from "../../../utils/formatters";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useToast } from "../../../contexts/ToastContext";
 import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
@@ -231,7 +231,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [previewScale, setPreviewScale] = useState(1);
     const containerRef = useRef<HTMLDivElement>(null);
     const [showRightPanel, setShowRightPanel] = useState(true);
-    const [showPdfPreview, setShowPdfPreview] = useState(false);
+    // PDF preview visible by default — the A4 document sits beside the (larger) form.
+    const [showPdfPreview, setShowPdfPreview] = useState(true);
     const [pricelistSearch, setPricelistSearch] = useState('');
     const [brandFilter, setBrandFilter] = useState('All');
     const [categoryFilter, setCategoryFilter] = useState('All');
@@ -300,13 +301,16 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     }, [quotations, existingQuotation, isB2B]);
 
     const [quote, setQuote] = useState<Partial<Quotation & { [key: string]: any }>>(() => {
+        // Sreyneang Mon signs quotations as "Sreyneang Mon (Mrs)" by default.
+        const isSreyneang = currentUser?.Name?.toLowerCase().includes('sreyneang') ?? false;
+        const preparedByName = isSreyneang ? 'Sreyneang Mon (Mrs)' : (currentUser?.Name || '');
         if (draft?.quote) return draft.quote;
         if (existingQuotation) {
             return {
                 ...existingQuotation,
                 'Quote Date': existingQuotation['Quote Date'] ? formatToInputDate(existingQuotation['Quote Date']) : getTodayDateString(),
                 'Validity Date': existingQuotation['Validity Date'] ? formatToInputDate(existingQuotation['Validity Date']) : getTodayDateString(),
-                'Prepared By': existingQuotation['Prepared By'] || currentUser?.Name || '',
+                'Prepared By': existingQuotation['Prepared By'] || preparedByName,
                 'Prepared By Position': existingQuotation['Prepared By Position'] || (currentUser ? (
                     currentUser.Name?.toLowerCase().includes('sreyneang') 
                         ? '017 594 524 | 010 345 994'
@@ -329,7 +333,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             'Status': 'Open',
             'Currency': 'USD',
             'Created By': currentUser?.Name || '',
-            'Prepared By': currentUser?.Name || '',
+            'Prepared By': preparedByName,
             'Prepared By Position': currentUser ? (
                 currentUser.Name?.toLowerCase().includes('sreyneang') 
                     ? '017 594 524 | 010 345 994'
@@ -610,6 +614,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
 
 
     const handleSave = async () => {
+        if (!(quote['Company Name'] || '').trim()) { addToast('Please enter a Company Name before saving.', 'error'); return; }
+        if (!hasLineItemContent(items)) { addToast('Add at least one line item before saving.', 'error'); return; }
         setIsSubmitting(true);
         setError('');
         try {
@@ -1016,7 +1022,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 {/* Three-Panel Layout */}
                 <div className="screen-only h-full flex relative overflow-hidden">
                     {/* Center: PDF Layout Configuration Container */}
-                    <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview) ? 'hidden' : ''}`}>
+                    <div className={`flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview) ? 'hidden' : ''} ${(showPdfPreview && !isB2B) ? 'flex-shrink-0 w-full max-w-[840px]' : 'flex-1'}`}>
 
                         {/* Center: PDF Preview OR Pricelist (B2B Only) */}
                         {showPdfPreview || !isB2B ? (
@@ -1332,11 +1338,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     {/* Right: Quotation Form Panel (Side-by-Side) */}
                     <div
                         className={`relative h-full bg-background shadow-xl transition-all duration-300 ease-in-out z-20 ${showRightPanel ? 'translate-x-0 opacity-100' : 'translate-x-[20px] opacity-0 overflow-hidden'
-                            } ${showPdfPreview ? 'border-l-2 border-border flex-shrink-0' : 'flex-1 max-w-4xl mx-auto'
+                            } ${showPdfPreview ? 'border-l-2 border-border flex-1 min-w-0' : 'flex-1 max-w-4xl mx-auto'
                             }`}
-                        style={{ width: showRightPanel ? (showPdfPreview ? '500px' : 'auto') : '0px' }}
+                        style={{ width: showRightPanel ? 'auto' : '0px' }}
                     >
-                        <div className={`h-full flex flex-col ${showPdfPreview ? 'w-[500px]' : 'w-full'}`}>
+                        <div className="h-full flex flex-col w-full">
                             <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-card">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
@@ -1374,9 +1380,10 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             datalistOptions={contactOptions}
                                             placeholder="Type or select a contact..."
                                         />
-                                        <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} />
-                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} />
-                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} />
+                                        {/* Read-only — loaded from the selected Company/Contact. Edit these in the Companies & Contacts dashboards. */}
+                                        <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} readOnly />
+                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} readOnly />
+                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} readOnly />
                                     </FormSection>
 
                                     <FormSection title="Quotation Info">
@@ -1390,7 +1397,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         {quote.Status !== 'Open' && <FormTextarea name="Reason" label="Reason" value={quote.Reason} onChange={handleHeaderChange} rows={2} />}
                                     </FormSection>
 
-                                    <FormSection title="Signatures & Remarks">
+                                    <FormSection title="Signatures & Remarks" collapsible defaultCollapsed>
                                         <FormInput name="Prepared By" label="Prepared By" value={quote['Prepared By']} onChange={handleHeaderChange} />
                                         <FormInput name="Approved By" label="Approved By" value={quote['Approved By']} onChange={handleHeaderChange} />
                                         <FormInput name="Prepared By Position" label="Position" value={quote['Prepared By Position']} onChange={handleHeaderChange} />

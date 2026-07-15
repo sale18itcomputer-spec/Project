@@ -8,14 +8,31 @@ import { ScrollArea } from '../ui/scroll-area';
 // A more professional, modern card-based section for forms.
 // Increased padding, uses a clean white background with a subtle shadow.
 // The title is now a styled uppercase header for better visual hierarchy.
-export const FormSection: React.FC<{ title?: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-card p-4 rounded-xl border border-border shadow-sm dark:shadow-none dark:border-border/80">
-        {title && <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-4">{title}</h3>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
-            {children}
+export const FormSection: React.FC<{ title?: string; children: React.ReactNode; collapsible?: boolean; defaultCollapsed?: boolean }> = ({ title, children, collapsible = false, defaultCollapsed = false }) => {
+    const [open, setOpen] = useState(!defaultCollapsed);
+    const bodyVisible = !collapsible || open;
+    return (
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm dark:shadow-none dark:border-border/80">
+            {title && (collapsible ? (
+                <button
+                    type="button"
+                    onClick={() => setOpen(o => !o)}
+                    className={`w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground/70 ${bodyVisible ? 'mb-4' : ''}`}
+                >
+                    <span>{title}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${open ? '' : '-rotate-90'}`} />
+                </button>
+            ) : (
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-4">{title}</h3>
+            ))}
+            {bodyVisible && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+                    {children}
+                </div>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 // Updated input with a cleaner, more professional look.
 // Features a light gray background, subtle borders, and an elegant focus state with a soft glow.
