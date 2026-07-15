@@ -191,14 +191,30 @@ export const convertPurchaseOrderToInventory = async (
     });
 
     if (serialPayload.length > 0) {
+        // Dedupe within this PO first — the same serial typed on two lines would
+        // otherwise make the whole batch insert fail on the UNIQUE(serial_number)
+        // constraint and silently seed no serials at all.
+        const seen = new Set<string>();
+        const uniqueSerials = serialPayload.filter(s => {
+            if (seen.has(s.serial_number)) return false;
+            seen.add(s.serial_number);
+            return true;
+        });
         const { data: existing } = await supabase
             .from('serial_numbers')
             .select('serial_number')
-            .in('serial_number', serialPayload.map(s => s.serial_number));
+            .in('serial_number', uniqueSerials.map(s => s.serial_number));
         const existingSet = new Set((existing ?? []).map(e => e.serial_number));
-        const newSerials = serialPayload.filter(s => !existingSet.has(s.serial_number));
+        const newSerials = uniqueSerials.filter(s => !existingSet.has(s.serial_number));
         if (newSerials.length > 0) {
-            await supabase.from('serial_numbers').insert(newSerials);
+            // ignoreDuplicates → ON CONFLICT DO NOTHING: a serial inserted
+            // concurrently between the select above and here is skipped instead
+            // of failing (and rolling back) the entire batch. Non-fatal to the
+            // conversion — log rather than throw so the inventory rows still stand.
+            const { error: snErr } = await supabase
+                .from('serial_numbers')
+                .upsert(newSerials, { onConflict: 'serial_number', ignoreDuplicates: true });
+            if (snErr) console.error('[convertPOToInventory] serial seed failed:', snErr.message);
         }
     }
 
