@@ -231,7 +231,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     const [previewScale, setPreviewScale] = useState(1);
     const containerRef = useRef<HTMLDivElement>(null);
     const [showRightPanel, setShowRightPanel] = useState(true);
-    const [showPdfPreview, setShowPdfPreview] = useState(false);
+    // PDF preview visible by default — the A4 document sits beside the (larger) form.
+    const [showPdfPreview, setShowPdfPreview] = useState(true);
     const [pricelistSearch, setPricelistSearch] = useState('');
     const [brandFilter, setBrandFilter] = useState('All');
     const [categoryFilter, setCategoryFilter] = useState('All');
@@ -1021,7 +1022,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 {/* Three-Panel Layout */}
                 <div className="screen-only h-full flex relative overflow-hidden">
                     {/* Center: PDF Layout Configuration Container */}
-                    <div className={`flex-1 flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview) ? 'hidden' : ''}`}>
+                    <div className={`flex flex-col relative overflow-hidden ${(!isB2B && !showPdfPreview) ? 'hidden' : ''} ${(showPdfPreview && !isB2B) ? 'flex-shrink-0 w-full max-w-[840px]' : 'flex-1'}`}>
 
                         {/* Center: PDF Preview OR Pricelist (B2B Only) */}
                         {showPdfPreview || !isB2B ? (
@@ -1337,11 +1338,11 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     {/* Right: Quotation Form Panel (Side-by-Side) */}
                     <div
                         className={`relative h-full bg-background shadow-xl transition-all duration-300 ease-in-out z-20 ${showRightPanel ? 'translate-x-0 opacity-100' : 'translate-x-[20px] opacity-0 overflow-hidden'
-                            } ${showPdfPreview ? 'border-l-2 border-border flex-shrink-0' : 'flex-1 max-w-4xl mx-auto'
+                            } ${showPdfPreview ? 'border-l-2 border-border flex-1 min-w-0' : 'flex-1 max-w-4xl mx-auto'
                             }`}
-                        style={{ width: showRightPanel ? (showPdfPreview ? '500px' : 'auto') : '0px' }}
+                        style={{ width: showRightPanel ? 'auto' : '0px' }}
                     >
-                        <div className={`h-full flex flex-col ${showPdfPreview ? 'w-[500px]' : 'w-full'}`}>
+                        <div className="h-full flex flex-col w-full">
                             <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-card">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
