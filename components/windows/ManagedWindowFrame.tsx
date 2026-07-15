@@ -122,9 +122,15 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
         if (!isDragging || !dragStartRef.current) return;
         const dx = e.clientX - dragStartRef.current.startX;
         const dy = e.clientY - dragStartRef.current.startY;
-        updateWindow(win.id, {
-            rect: { ...win.rect, x: dragStartRef.current.startLeft + dx, y: dragStartRef.current.startTop + dy },
-        });
+        // Clamp so the title bar always stays on-screen and grabbable — never let
+        // a window be dragged fully off the bottom/right edge (a classic "my form
+        // vanished and I can't get it back" trap for non-technical staff).
+        const EDGE = 48;
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+        const x = Math.min(Math.max(dragStartRef.current.startLeft + dx, EDGE - win.rect.width), vw - EDGE);
+        const y = Math.min(Math.max(dragStartRef.current.startTop + dy, 0), vh - EDGE);
+        updateWindow(win.id, { rect: { ...win.rect, x, y } });
 
         let zone: SnapZone = null;
         if (e.clientY <= SNAP_MARGIN) zone = 'maximize';
