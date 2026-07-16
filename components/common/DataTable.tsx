@@ -811,7 +811,13 @@ function DataTable<T extends object>({
         onScroll={handleScroll}
         className="responsive-table flex-1 w-full overflow-auto horizontal-scroll min-h-0 relative"
       >
-        {isMobile ? renderMobileCards() : (
+        {isMobile ? renderMobileCards() : (loading && paginatedData.length === 0) ? (
+          // Cold load: show a skeleton table instead of the real table — whose
+          // empty body would otherwise flash a misleading "No records found".
+          // Guarded on empty so a background revalidation (data already cached)
+          // keeps showing the real rows instead of flashing the skeleton.
+          <DesktopTableSkeleton columns={columns.length + (enableRowSelection ? 1 : 0)} rows={12} />
+        ) : (
           <table ref={tableRef} className="w-full text-sm text-left text-muted-foreground min-w-full table-auto md:border-l md:border-t md:border-border" aria-busy={loading}>
             <colgroup>
               {enableRowSelection && <col style={{ width: '40px' }} />}
