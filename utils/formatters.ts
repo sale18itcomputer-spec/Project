@@ -236,6 +236,10 @@ export const friendlyDbError = (err: any, thing = 'number'): string => {
  */
 export const hasLineItemContent = (items: any[] | null | undefined): boolean =>
   Array.isArray(items) && items.some(i =>
-    (String(i?.description ?? '') + String(i?.itemCode ?? '') + String(i?.modelName ?? '')).trim() !== ''
-    || Number(i?.amount) > 0   // amount-only service lines still count; the default empty row (amount 0) does not
+    // Covers both the sales naming (itemCode/modelName) and procurement naming
+    // (item_number/model_name) so the same guard works for quotes/invoices/DOs
+    // and purchase orders.
+    (String(i?.description ?? '') + String(i?.itemCode ?? '') + String(i?.modelName ?? '')
+      + String(i?.item_number ?? '') + String(i?.model_name ?? '')).trim() !== ''
+    || Number(i?.amount) > 0 || Number(i?.unit_price) > 0   // amount/price-only lines still count; a default empty row (0) does not
   );
