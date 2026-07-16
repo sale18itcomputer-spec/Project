@@ -209,7 +209,7 @@ export function buildSaleOrderClient(
   table { width:100%; border-collapse:collapse; }
   th, td { padding:4px 8px; }
   .items-table th, .items-table td { border:1px solid #000 !important; }
-  .items-table td { overflow-wrap: anywhere; word-break: break-word; }
+  .items-table td { overflow-wrap: break-word; }
   .items-table thead { break-after:avoid; page-break-after:avoid; }
   .items-table tbody tr:first-child { break-before:avoid; page-break-before:avoid; }
   .addr-clamp { white-space:normal; word-break:break-word; }

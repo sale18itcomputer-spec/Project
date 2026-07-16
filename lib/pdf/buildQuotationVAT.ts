@@ -173,7 +173,7 @@ export function buildQuotationVAT(
   /* Break long unbroken strings (e.g. a pasted code with no spaces) so a
      description can never overflow its fixed-width column and spill across the
      table. */
-  .items-table td { overflow-wrap: anywhere; word-break: break-word; }
+  .items-table td { overflow-wrap: break-word; }
   .items-table thead { break-after: avoid; page-break-after: avoid; }
   .items-table tbody:first-of-type tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }

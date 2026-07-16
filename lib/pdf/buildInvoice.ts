@@ -61,7 +61,7 @@ function baseStyle(khmerB64: string, timesB64: string, timesBoldB64: string): st
       /* ── Items table ── */
       .items-table { width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:0; }
       .items-table th { background:${BRAND_BLUE}; color:#fff; border:2px solid #000; padding:5px 4px; text-align:center; font-size:8pt; line-height:1.3; }
-      .items-table td { border:2px solid #000; padding:4px 6px; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; }
+      .items-table td { border:2px solid #000; padding:4px 6px; vertical-align:top; overflow-wrap:break-word; }
       .items-table td.center { text-align:center; }
       .items-table .money { display:flex; justify-content:space-between; white-space:nowrap; }
 
