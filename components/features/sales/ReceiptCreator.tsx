@@ -477,8 +477,8 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                             </div>
                         )}
 
-                        <ScrollArea className={`flex-1 px-5 py-4 ${isReadOnly ? 'pointer-events-none select-none' : ''}`}>
-                            <div className="space-y-6">
+                        <ScrollArea className="flex-1 px-5 py-4">
+                            <div className={`space-y-6 ${isReadOnly ? 'pointer-events-none select-none' : ''}`}>
                                 <FormSection title="Header Details">
                                     <FormInput label="RV No." name="RV No" value={doc['RV No']} onChange={handleInputChange} required />
                                     <FormInput label="RV Date" name="RV Date" type="date" value={doc['RV Date']} onChange={handleInputChange} />
