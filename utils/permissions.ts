@@ -235,6 +235,7 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
       { key: 'trial',     label: 'Trial Balance' },
       { key: 'recurring', label: 'Recurring' },
       { key: 'bankrec',   label: 'Bank Reconciliation' },
+      { key: 'chequedeposit', label: 'Deposit Cheque' },
       { key: 'balance',   label: 'Balance Sheet' },
       { key: 'cashflow',  label: 'Cash Flow' },
       { key: 'pl',        label: 'Profit & Loss' },

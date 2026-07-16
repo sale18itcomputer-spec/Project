@@ -25,6 +25,7 @@ import AccountingVendorsTab from './AccountingVendorsTab';
 import TrialBalanceTab from './TrialBalanceTab';
 import RecurringTab from './RecurringTab';
 import BankReconciliationTab from './BankReconciliationTab';
+import DepositChequeTab from './DepositChequeTab';
 import {
     exportCoA, exportJournalEntries, exportGeneralLedger,
     exportBalanceSheet, exportBSCompare,
@@ -1140,8 +1141,8 @@ const BSCompareTab: React.FC<{ data: BSMultiItem[] }> = ({ data: cols }) => {
 
 // ── AccountingDashboard ───────────────────────────────────────────────────────
 
-type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'trial' | 'recurring' | 'bankrec' | 'balance' | 'cashflow' | 'pl';
-const TAB_ORDER: Tab[] = ['coa', 'ledger', 'journal', 'bills', 'vendors', 'trial', 'recurring', 'bankrec', 'balance', 'cashflow', 'pl'];
+type Tab = 'coa' | 'ledger' | 'journal' | 'bills' | 'vendors' | 'trial' | 'recurring' | 'bankrec' | 'chequedeposit' | 'balance' | 'cashflow' | 'pl';
+const TAB_ORDER: Tab[] = ['coa', 'ledger', 'journal', 'bills', 'vendors', 'trial', 'recurring', 'bankrec', 'chequedeposit', 'balance', 'cashflow', 'pl'];
 type CashFlowData = Awaited<ReturnType<typeof computeCashFlow>>;
 type PLData = Awaited<ReturnType<typeof computeProfitLoss>>;
 
@@ -1852,6 +1853,7 @@ export default function AccountingDashboard() {
                 <TabBtn id="trial"    label="Trial Balance"     icon={<ListChecks size={15} />} />
                 <TabBtn id="recurring" label="Recurring"        icon={<Repeat size={15} />} />
                 <TabBtn id="bankrec"  label="Bank Reconciliation" icon={<Banknote size={15} />} />
+                <TabBtn id="chequedeposit" label="Deposit Cheque" icon={<Banknote size={15} />} />
                 <TabBtn id="balance"  label="Balance Sheet"     icon={<Scale size={15} />} />
                 <TabBtn id="cashflow" label="Cash Flow"         icon={<Activity size={15} />} />
                 <TabBtn id="pl"       label="Profit & Loss"     icon={<BarChart2 size={15} />} />
@@ -3073,6 +3075,11 @@ export default function AccountingDashboard() {
             {/* ── TAB: Bank Reconciliation ───────────────────────────────── */}
             {activeTab === 'bankrec' && (
                 <BankReconciliationTab accounts={accounts} />
+            )}
+
+            {/* ── TAB: Deposit Cheque ────────────────────────────────────── */}
+            {activeTab === 'chequedeposit' && (
+                <DepositChequeTab accounts={accounts} />
             )}
 
             {/* ── TAB: Balance Sheet ─────────────────────────────────────────── */}
