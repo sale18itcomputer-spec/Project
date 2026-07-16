@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { convertPurchaseOrderToInventory, syncPurchaseOrderSerialsToInventory } from '@/services/inventoryApi';
 import { Plus, Trash2, Save, ShoppingCart, Download, Loader2, Eye } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from '@/components/common/FormControls';
-import { formatCurrencySmartly, stripHtml } from '@/utils/formatters';
+import { formatCurrencySmartly, stripHtml, hasLineItemContent, friendlyDbError } from '@/utils/formatters';
 import { formatToInputDate } from '@/utils/time';
 import { generatePDF } from '@/lib/pdfClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -445,6 +445,10 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             addToast('Please select a vendor', 'error');
             return;
         }
+        if (!hasLineItemContent(items)) {
+            addToast('Add at least one line item before saving the PO.', 'error');
+            return;
+        }
         setIsSaving(true);
         try {
             const { items: _, id: __, created_at: ___, updated_at: ____, ...cleanFormData } = formData as any;
@@ -509,9 +513,21 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                         }));
 
                     if (pricelistPayload.length > 0) {
-                        const { error: priceError } = await supabase.from('vendor_pricelist').insert(pricelistPayload);
-                        if (priceError) throw priceError;
-                        addToast('Items automatically added to Vendor Pricelist!', 'success');
+                        // Skip models already on this vendor's pricelist, so re-saving a
+                        // Completed PO can't append the same items over and over.
+                        const models = pricelistPayload.map(p => p.model_name);
+                        const { data: existingVpl } = await supabase
+                            .from('vendor_pricelist')
+                            .select('model_name')
+                            .eq('vendor_id', formData.vendor_id)
+                            .in('model_name', models);
+                        const existingModels = new Set((existingVpl ?? []).map(v => v.model_name));
+                        const toInsert = pricelistPayload.filter(p => !existingModels.has(p.model_name));
+                        if (toInsert.length > 0) {
+                            const { error: priceError } = await supabase.from('vendor_pricelist').insert(toInsert);
+                            if (priceError) throw priceError;
+                            addToast(`${toInsert.length} item(s) added to Vendor Pricelist!`, 'success');
+                        }
                     }
                 } catch (pe: any) {
                     addToast(`PO saved, but pricelist sync failed: ${pe.message}`, 'info');
@@ -545,7 +561,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             closeWindow(previewWindowId);
             closeWindow(windowId);
         } catch (err: any) {
-            addToast(`Error saving PO: ${err.message}`, 'error');
+            addToast(friendlyDbError(err, 'PO number'), 'error');
         } finally {
             setIsSaving(false);
         }
