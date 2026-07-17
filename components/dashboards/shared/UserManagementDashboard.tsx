@@ -79,7 +79,21 @@ const UserManagementDashboard: React.FC = () => {
     }
   }, [isAuthLoading, authUsers]);
 
-  const allUsers = authUsers ?? localUsers;
+  // Set after any create/update/delete so the table reflects the change
+  // without a full page reload (see handleSave/handleDeleteUser) — takes
+  // priority over the AuthContext snapshot once populated, since that
+  // snapshot has no setter this component can call into.
+  const [freshUsers, setFreshUsers] = useState<UserType[] | null>(null);
+  const refreshUsers = async () => {
+    try {
+      setFreshUsers(await readRecords<UserType>('Users'));
+    } catch {
+      // Non-fatal — the action itself already succeeded; the list just
+      // won't reflect it until the next natural refresh.
+    }
+  };
+
+  const allUsers = freshUsers ?? authUsers ?? localUsers;
   const loading = isAuthLoading || localLoading;
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -219,7 +233,7 @@ const UserManagementDashboard: React.FC = () => {
         await updateRecord('Users', isEditingUser.UserID, payload);
         addToast('User updated successfully', 'success');
       }
-      window.location.reload();
+      await refreshUsers();
       handleCloseModal();
     } catch {
       addToast('Failed to save user', 'error');
@@ -267,7 +281,7 @@ const UserManagementDashboard: React.FC = () => {
     try {
       await deleteRecord('Users', isDeleting.UserID);
       addToast('User deleted successfully', 'success');
-      window.location.reload();
+      await refreshUsers();
       setIsDeleting(null);
     } catch {
       addToast('Failed to delete user', 'error');
