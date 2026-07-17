@@ -136,12 +136,13 @@ export function buildQuotationNonVAT(
         return rows;
     };
 
-    // Items flow across page boundaries so a tall product that can't fit in the
-    // remaining space doesn't leave a big gap at the bottom of the page. The
-    // per-<tr> break-inside-avoid still keeps any single spec row intact, so a
-    // page break only falls cleanly BETWEEN spec lines, never through one.
+    // Each product stays whole on one page (its own <tbody break-inside-avoid>)
+    // so its spec lines can never be orphaned onto the next page without the
+    // part number/name above them. A product too tall for the remaining space
+    // moves cleanly to the next page — the rows are kept compact (see the
+    // items-table font-size below) so short quotes still fit on a single page.
     const itemRows = dataItems
-        .map(item => `<tbody>${makeItemRow(item)}</tbody>`)
+        .map(item => `<tbody class="break-inside-avoid">${makeItemRow(item)}</tbody>`)
         .join('');
 
     const moneyCellUsd = (v: number | null) =>
@@ -168,7 +169,10 @@ export function buildQuotationNonVAT(
   /* Break long unbroken strings (e.g. a pasted code with no spaces) so a
      description can never overflow its fixed-width column and spill across the
      table. */
-  .items-table td { overflow-wrap: break-word; }
+  /* Break long unbroken strings AND keep item rows compact (spec text matches
+     the 11px body size, tighter leading) so more products fit per page and a
+     short quote stays on one page. */
+  .items-table td { overflow-wrap: break-word; font-size: 11px; line-height: 1.2; }
   .items-table thead { break-after: avoid; page-break-after: avoid; }
   .items-table tbody:first-of-type tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
