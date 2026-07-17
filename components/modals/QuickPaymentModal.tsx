@@ -38,7 +38,7 @@ interface Props {
 }
 
 const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
-    const { receipts, setReceipts, deliveryOrders, companies, setInvoices, setServiceTickets } = useData();
+    const { setReceipts, deliveryOrders, companies, setInvoices, setServiceTickets } = useData();
     const { currentUser } = useAuth();
     const { handleNavigation } = useNavigation();
     const { addToast } = useToast();
@@ -55,6 +55,21 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
     const [rvDate, setRvDate] = useState<string>(getTodayDateString());
     const [remark, setRemark] = useState<string>('');
 
+    // Next RV No via the persistent document_sequences counter. Previously
+    // computed from the client-side `receipts` array (B2C-only, stale) via
+    // MAX+1 — that let a number already used in b2b_receipts get reissued
+    // here (OR2026-00003 collided with an existing B2B cheque receipt).
+    // next_document_seq is atomic and checked across both tables at seed
+    // time, so it can't hand out an already-used number.
+    const [nextRVNo, setNextRVNo] = useState('');
+    useEffect(() => {
+        const prefix = `OR${new Date().getFullYear()}-`;
+        supabase.rpc('next_document_seq', { p_key: prefix }).then(({ data, error }) => {
+            if (error || data == null) return; // leave blank — submit stays disabled
+            setNextRVNo(`${prefix}${String(data).padStart(5, '0')}`);
+        });
+    }, []);
+
     const amount = useMemo(() => {
         const n = parseFloat(amountStr);
         return isFinite(n) ? n : 0;
@@ -62,7 +77,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
 
     const isPartial = amount > 0 && amount < ar.outstanding;
     const overpayment = amount > ar.outstanding;
-    const isValid = amount > 0 && !overpayment;
+    const isValid = amount > 0 && !overpayment && !!nextRVNo;
 
     // ── Animate in ────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -82,19 +97,6 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
         setIsShowing(false);
         setTimeout(onClose, 200);
     };
-
-    // ── Generate next RV No (same pattern as ReceiptCreator) ──────────────────
-    const nextRVNo = useMemo(() => {
-        const year = new Date().getFullYear().toString();
-        const prefix = `OR${year}-`;
-        const thisYear = (receipts || []).filter(r => r['RV No']?.startsWith(prefix));
-        if (thisYear.length === 0) return `${prefix}00002`;
-        const maxNum = thisYear.reduce((max, r) => {
-            const n = parseInt(r['RV No'].slice(prefix.length), 10);
-            return isNaN(n) ? max : Math.max(max, n);
-        }, 1);
-        return `${prefix}${String(maxNum + 1).padStart(5, '0')}`;
-    }, [receipts]);
 
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
@@ -409,7 +411,9 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                             </div>
                         )}
                         <div className="text-[11px] text-muted-foreground">
-                            Receipt <span className="font-mono font-semibold text-foreground">{nextRVNo}</span> will be created with status <span className="font-semibold text-foreground">Issued</span>.
+                            {nextRVNo
+                                ? <>Receipt <span className="font-mono font-semibold text-foreground">{nextRVNo}</span> will be created with status <span className="font-semibold text-foreground">Issued</span>.</>
+                                : 'Reserving the next receipt number…'}
                         </div>
                     </div>
                 </div>
