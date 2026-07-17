@@ -141,10 +141,11 @@ export function buildQuotationVAT(
         return rows;
     };
 
-    // Each item gets its own <tbody class="break-inside-avoid"> so a page
-    // break can only fall BETWEEN items — every item's last row carries the
-    // closing bottom border, so the table is never left open at a page cut
-    // (Chromium does not reliably paint the repeated-tfoot collapsed border).
+    // Each product stays whole on one page (its own <tbody break-inside-avoid>)
+    // so its spec lines can never be orphaned onto the next page without the
+    // part number/name above them. A product too tall for the remaining space
+    // moves cleanly to the next page — the rows are kept compact (see the
+    // items-table font-size below) so short quotes still fit on a single page.
     const itemRows = dataItems
         .map(item => `<tbody class="break-inside-avoid">${makeItemRow(item)}</tbody>`)
         .join('');
@@ -170,6 +171,13 @@ export function buildQuotationVAT(
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 4px 8px; }
   .items-table th, .items-table td { border: 1px solid #000 !important; }
+  /* Break long unbroken strings (e.g. a pasted code with no spaces) so a
+     description can never overflow its fixed-width column and spill across the
+     table. */
+  /* Break long unbroken strings AND keep item rows compact (spec text matches
+     the 11px body size, tighter leading) so more products fit per page and a
+     short quote stays on one page. */
+  .items-table td { overflow-wrap: break-word; font-size: 11px; line-height: 1.2; }
   .items-table thead { break-after: avoid; page-break-after: avoid; }
   .items-table tbody:first-of-type tr:first-child { break-before: avoid; page-break-before: avoid; }
   .header-info p { margin-bottom: 2px; }
