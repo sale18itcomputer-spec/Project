@@ -160,7 +160,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
 
   <!-- Footer -->
   <div style="text-align:center;font-size:11px;">
-    <div style="color:#6b7280;margin-bottom:2px;">Payment: <strong style="color:#111827;">${session.paymentMethod}</strong></div>
+    <div style="color:#6b7280;margin-bottom:2px;">Payment: <strong style="color:#111827;">${entries.map(e => e.method).join(' + ')}</strong></div>
     <div style="font-weight:800;font-size:13px;letter-spacing:0.3px;margin-top:6px;">Thank you for your purchase!</div>
   </div>
 
