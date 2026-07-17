@@ -141,12 +141,12 @@ export function buildQuotationVAT(
         return rows;
     };
 
-    // Each item gets its own <tbody class="break-inside-avoid"> so a page
-    // break can only fall BETWEEN items — every item's last row carries the
-    // closing bottom border, so the table is never left open at a page cut
-    // (Chromium does not reliably paint the repeated-tfoot collapsed border).
+    // Items flow across page boundaries so a tall product that can't fit in the
+    // remaining space doesn't leave a big gap at the bottom of the page. The
+    // per-<tr> break-inside-avoid still keeps any single spec row intact, so a
+    // page break only falls cleanly BETWEEN spec lines, never through one.
     const itemRows = dataItems
-        .map(item => `<tbody class="break-inside-avoid">${makeItemRow(item)}</tbody>`)
+        .map(item => `<tbody>${makeItemRow(item)}</tbody>`)
         .join('');
 
     const moneyCellUsd = (v: number | null) =>
