@@ -804,9 +804,21 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         const code  = item.itemCode?.trim();
                         const model = item.modelName?.trim();
 
-                        const matched = (code || model) ? await deductInventoryFIFO(code, model, qty) : null;
+                        // Service lines never come from inventory — route revenue to
+                        // Service Income and, if a vendor cost was entered (job was
+                        // outsourced), book it as COGS against Accounts Payable
+                        // instead of matching against product stock. Serial-number
+                        // syncing below still runs unchanged (a repaired device may
+                        // carry a serial the user wants logged against the ticket).
+                        const matched = (!isService && (code || model)) ? await deductInventoryFIFO(code, model, qty) : null;
 
-                        if (matched) {
+                        if (isService) {
+                            brandTotals['Service'] = (brandTotals['Service'] ?? 0) + (Number(item.amount) || 0);
+                            const vendorCost = Number(item.vendorCost) || 0;
+                            if (vendorCost > 0) {
+                                costItems.push({ brand: 'Service', qty: 1, unit_price: vendorCost, cogsBrand: 'Service' });
+                            }
+                        } else if (matched) {
                             // Brand resolved with inventory fallback — used for BOTH COGS and revenue
                             const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || matched.brand || 'Other Accessories');
                             if (matched.unitCost > 0) {

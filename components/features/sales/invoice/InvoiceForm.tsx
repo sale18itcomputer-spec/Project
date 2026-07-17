@@ -227,6 +227,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Unit Price</label>
                                                             <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-input border border-border rounded-lg text-foreground" />
                                                         </div>
+                                                        {isService && (
+                                                            <div className="w-28">
+                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block" title="What the outsource vendor charges us for this job — posts as COGS against Accounts Payable">Vendor Cost</label>
+                                                                <input type="number" value={item.vendorCost ?? ''} placeholder="0.00" onChange={(e) => handleItemChange(item.id, 'vendorCost', e.target.value)} className="w-full h-9 px-3 text-right text-sm bg-input border border-border rounded-lg text-foreground" />
+                                                            </div>
+                                                        )}
                                                         {!isPCBuildRow && (
                                                             <div className="w-full">
                                                                 <SerialNumberPicker

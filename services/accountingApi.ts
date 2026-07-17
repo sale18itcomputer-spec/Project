@@ -725,7 +725,7 @@ export const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
 
 // Mirrors the brand_account_mapping table seeded in 20260529_accounting_security.sql.
 // Kept here as a cache so auto-post functions don't need an extra DB round-trip.
-export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; inventory?: string }> = {
+export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; inventory?: string; payable?: string }> = {
     'ASUS':                  { revenue: '40100', cogs: '50100', inventory: '12100' },
     'DELL':                  { revenue: '40200', cogs: '50200', inventory: '12200' },
     'MSI':                   { revenue: '40300', cogs: '50300', inventory: '12300' },
@@ -739,6 +739,9 @@ export const BRAND_ACCOUNT_MAP: Record<string, { revenue: string; cogs: string; 
     // brand's inventory account (12100/12300/12600/etc.), only revenue and COGS
     // consolidate here.
     'PC Build':              { revenue: '40900', cogs: '50900' },
+    // Service: outsourced-job cost has no inventory to relieve — it credits
+    // Accounts Payable instead (we owe the vendor, settled later via Bills).
+    'Service':               { revenue: '40950', cogs: '50950', payable: '20000' },
 };
 
 /**
@@ -957,10 +960,13 @@ export const autoPostInvoiceJournal = async (params: {
             const brand      = normalizeBrand(rawBrand);
             const brandEntry = BRAND_ACCOUNT_MAP[brand];
             const cogsEntry  = rawCogsBrand ? BRAND_ACCOUNT_MAP[normalizeBrand(rawCogsBrand)] : brandEntry;
-            const cogsAcct   = cogsEntry?.cogs       ?? '50600';
-            const invAcct    = brandEntry?.inventory ?? '12600';
-            lines.push({ account_number: cogsAcct, description: `COGS ${brand} — ${params.invNo}`,          debit: cost, credit: 0 });
-            lines.push({ account_number: invAcct,  description: `Inventory out ${brand} — ${params.invNo}`, debit: 0,    credit: cost });
+            const cogsAcct   = cogsEntry?.cogs ?? '50600';
+            // A brand with no inventory of its own (e.g. Service) credits its
+            // payable account instead — nothing physical is being relieved.
+            const creditAcct = brandEntry?.payable ?? brandEntry?.inventory ?? '12600';
+            const creditDesc = brandEntry?.payable ? 'Payable' : 'Inventory out';
+            lines.push({ account_number: cogsAcct,   description: `COGS ${brand} — ${params.invNo}`,              debit: cost, credit: 0 });
+            lines.push({ account_number: creditAcct, description: `${creditDesc} ${brand} — ${params.invNo}`,     debit: 0,    credit: cost });
         }
     }
 
