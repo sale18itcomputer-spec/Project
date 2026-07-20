@@ -23,27 +23,12 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
+import { StatusBadge } from "../../ui/status-badge";
 
 
 interface SaleOrderDashboardProps {
     initialPayload?: any; // Can be Quotation or a pipeline data object
 }
-
-const StatusBadge: React.FC<{ status: SaleOrder['Status'] }> = ({ status }) => {
-    const statusConfig: { [key in SaleOrder['Status'] | string]: { bg: string; text: string } } = {
-        'Pending': { bg: 'bg-amber-500/10', text: 'text-amber-500' },
-        'Completed': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
-        'Cancel': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
-    };
-
-    const config = statusConfig[status] || { bg: 'bg-muted', text: 'text-muted-foreground' };
-
-    return (
-        <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${config.bg} ${config.text}`}>
-            {status}
-        </span>
-    );
-};
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
     if (!value || (typeof value === 'string' && !value.trim())) return null;

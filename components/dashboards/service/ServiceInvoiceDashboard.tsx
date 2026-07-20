@@ -15,6 +15,7 @@ import { PermissionGate } from '../../common/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
 import { DropdownMenuItem } from '../../ui/dropdown-menu';
+import { StatusBadge } from '../../ui/status-badge';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import InvoiceWindowContent from '../../windows/content/InvoiceWindowContent';
 import ServiceTicketWindowContent from '../../windows/content/ServiceTicketWindowContent';
@@ -28,19 +29,6 @@ import { formatCurrencySmartly } from '../../../utils/formatters';
 import { isServiceInvoice, SERVICE_REMARK_PREFIX } from '../../../utils/serviceInvoice';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-service-invoices-columns-visibility';
-
-const STATUS_STYLES: Record<string, string> = {
-    'Draft':      'bg-sky-500/10 text-sky-500',
-    'Processing': 'bg-amber-500/10 text-amber-500',
-    'Completed':  'bg-emerald-500/10 text-emerald-500',
-    'Cancel':     'bg-rose-500/10 text-rose-500',
-};
-
-const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${STATUS_STYLES[value] ?? 'bg-muted text-muted-foreground'}`}>
-        {value}
-    </span>
-);
 
 const ServiceInvoiceDashboard: React.FC = () => {
     const { invoices, setInvoices, receipts, companies, serviceTickets, fetchModule, loading } = useData();
@@ -284,7 +272,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
             accessorKey: 'Status',
             header: 'Status',
             isSortable: true,
-            cell: (v: any) => <StatusBadge value={v} />,
+            cell: (v: any) => <StatusBadge status={v} />,
         },
         {
             accessorKey: 'Due Date',

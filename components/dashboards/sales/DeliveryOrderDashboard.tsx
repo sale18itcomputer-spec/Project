@@ -19,23 +19,10 @@ import { useToast } from '../../../contexts/ToastContext';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
+import { StatusBadge } from '../../ui/status-badge';
 
 const DO_COLUMNS_KEY = 'limperial-do-columns-visibility';
 type ViewMode = 'table' | 'detail';
-
-const StatusBadge: React.FC<{ status: DeliveryOrder['Status'] }> = ({ status }) => {
-    const cfg: Record<string, { bg: string; text: string }> = {
-        'Pending':   { bg: 'bg-amber-500/10',   text: 'text-amber-500' },
-        'Delivered': { bg: 'bg-emerald-500/10',  text: 'text-emerald-500' },
-        'Cancelled': { bg: 'bg-rose-500/10',     text: 'text-rose-500' },
-    };
-    const { bg, text } = cfg[status] ?? { bg: 'bg-muted', text: 'text-muted-foreground' };
-    return (
-        <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${bg} ${text}`}>
-            {status}
-        </span>
-    );
-};
 
 interface Props { initialPayload?: any; }
 
