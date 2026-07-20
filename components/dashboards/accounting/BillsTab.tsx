@@ -168,8 +168,20 @@ const BillFormModal: React.FC<{
     });
 
     const billLineAccounts = useMemo(() => {
+        // Debit-side accounts a bill can post to. Expenses + assets are the
+        // usual vendor-bill targets; the liability types are for Inter-Bills
+        // that settle an already-accrued liability (e.g. DR 26000 NSSF Payable
+        // / CR 20000 AP for the NSSF settlement, DR 22000 Taxes Liabilities,
+        // DR 24000 Payroll Liabilities). Accounts Payable (20000) is included
+        // per accounting authority — note it's also the auto-generated credit
+        // offset in postBill(), so a 20000 line self-cancels against that and
+        // is only meaningful for AP-to-AP reclassification.
         const base = accounts
-            .filter(a => ['Expense', 'Other Expense', 'Cost of Goods Sold', 'Other Current Asset', 'Fixed Asset'].includes(a.account_type))
+            .filter(a => [
+                'Expense', 'Other Expense', 'Cost of Goods Sold',
+                'Other Current Asset', 'Fixed Asset',
+                'Accounts Payable', 'Other Current Liability',
+            ].includes(a.account_type))
             .sort((a, b) => a.account_number.localeCompare(b.account_number));
         // Always expose 70200 Purchase Discount for vendor bills (it's income, not expense)
         const disc = accounts.find(a => a.account_number === '70200');
