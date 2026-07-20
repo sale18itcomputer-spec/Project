@@ -143,6 +143,86 @@ const err = (msg: string) => ({
   content: [{ type: 'text' as const, text: `Error: ${msg}` }],
 });
 
+// ── Marketing analytics helpers ─────────────────────────────────────────────────
+// Shared plumbing for the db_marketing_* insight tools. Line items live in the
+// jsonb "ItemsJSON" column on invoices / sale_orders / quotations (and their
+// b2b_* mirrors), so these helpers flatten and aggregate that in JS — same
+// pattern as db_run_digest / db_get_inventory_valuation.
+
+// Tolerant number parser: handles numeric, "1,234.50" strings, null/undefined.
+const num = (v: unknown): number => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const n = parseFloat(v.replace(/[, ]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+};
+
+type LineItem = {
+  itemCode?: unknown;
+  modelName?: unknown;
+  qty?: unknown;
+  amount?: unknown;
+  unitPrice?: unknown;
+  isPCBuild?: boolean;
+  buildComponents?: Array<{ itemCode?: unknown; modelName?: unknown; qty?: unknown }>;
+  [k: string]: unknown;
+};
+
+// A stable identity for a sold product: prefer itemCode, fall back to modelName.
+function productKey(it: LineItem): { key: string; label: string } | null {
+  const code = String(it.itemCode ?? '').trim();
+  const model = String(it.modelName ?? '').trim();
+  if (!code && !model) return null;
+  return {
+    key: code ? `code:${code.toLowerCase()}` : `model:${model.toLowerCase()}`,
+    label: model || code,
+  };
+}
+
+// Revenue attributed to a single line: line total if present, else qty * unitPrice.
+const lineRevenue = (it: LineItem): number =>
+  num(it.amount) || (num(it.qty) || 1) * num(it.unitPrice);
+
+const isCancelled = (status: string): boolean => /cancel|void|reject/i.test(status || '');
+
+type SalesSource = 'invoices' | 'sale_orders' | 'quotations';
+
+const SALES_SOURCES: Record<SalesSource, { b2c: string; b2b: string; dateCol: string; noCol: string }> = {
+  invoices:    { b2c: 'invoices',     b2b: 'b2b_invoices',     dateCol: 'Inv Date',   noCol: 'Inv No' },
+  sale_orders: { b2c: 'sale_orders',  b2b: 'b2b_sale_orders',  dateCol: 'SO Date',    noCol: 'SO No' },
+  quotations:  { b2c: 'quotations',   b2b: 'b2b_quotations',   dateCol: 'Quote Date', noCol: 'Quote No' },
+};
+
+type SalesDoc = { no: string; date: string | null; company: string; status: string; items: LineItem[] };
+
+// Fetch sales documents with their flattened line items for a given source/segment.
+async function fetchSalesDocs(
+  source: SalesSource,
+  type: 'b2c' | 'b2b',
+  dateFrom?: string,
+  dateTo?: string,
+  limit = 2000,
+): Promise<SalesDoc[]> {
+  const cfg = SALES_SOURCES[source];
+  const table = type === 'b2b' ? cfg.b2b : cfg.b2c;
+  let q = supabase
+    .from(table)
+    .select(`"${cfg.noCol}","${cfg.dateCol}","Company Name",Status,"ItemsJSON"`);
+  if (dateFrom) q = q.gte(cfg.dateCol, dateFrom);
+  if (dateTo) q = q.lte(cfg.dateCol, dateTo);
+  const { data, error } = await q.limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: any) => ({
+    no: String(r[cfg.noCol] ?? ''),
+    date: r[cfg.dateCol] ?? null,
+    company: r['Company Name'] ?? '',
+    status: r['Status'] ?? '',
+    items: Array.isArray(r['ItemsJSON']) ? (r['ItemsJSON'] as LineItem[]) : [],
+  }));
+}
+
 // ── Role-based access control ─────────────────────────────────────────────────
 
 type Role = 'admin' | 'marketing';
@@ -161,6 +241,12 @@ const MARKETING_TOOLS = [
   'db_get_pipelines',
   'db_get_contact_logs',
   'db_get_product_inquiries',
+  // Marketing insights (aggregated, read-only)
+  'db_marketing_top_products',
+  'db_marketing_dead_stock',
+  'db_marketing_frequently_bought_together',
+  'db_marketing_customer_segments',
+  'db_marketing_margin_analysis',
 ];
 
 function resolveRole(authHeader: string): { role: Role; authorized: boolean } {
@@ -2266,6 +2352,339 @@ reg(
           item_count: v.count,
           total_usd: Math.round(v.total_usd * 100) / 100,
         })).sort((a, b) => b.total_usd - a.total_usd),
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MARKETING INSIGHTS — aggregated analytics (read-only)
+// Available to the marketing role. These return computed answers, not raw rows.
+// ══════════════════════════════════════════════════════════════════════════════
+
+reg(
+  'db_marketing_top_products',
+  'Best-sellers / top movers. Aggregates line items across invoices (default), sale_orders, or quotations to rank products by revenue or units over a period. Use for "what should we push/restock" and campaign focus. Returns computed totals, not raw rows.',
+  {
+    source: z.enum(['invoices', 'sale_orders', 'quotations']).optional().describe('Data source (default invoices = realized sales; quotations = demand)'),
+    type: z.enum(['b2c', 'b2b']).optional().describe('b2c (default) or b2b'),
+    dateFrom: z.string().optional().describe('ISO date — document date >='),
+    dateTo: z.string().optional().describe('ISO date — document date <='),
+    keyword: z.string().optional().describe('Only include products whose code/model contains this'),
+    sortBy: z.enum(['revenue', 'qty']).optional().describe('Ranking metric (default revenue)'),
+    limit: z.number().optional().describe('Top N products (default 15)'),
+  },
+  async ({ source, type, dateFrom, dateTo, keyword, sortBy, limit }) => {
+    try {
+      const src = source ?? 'invoices';
+      const docs = await fetchSalesDocs(src, type ?? 'b2c', dateFrom, dateTo);
+      const kw = (keyword ?? '').toLowerCase();
+      const agg: Record<string, { label: string; qty: number; revenue: number; orders: Set<string> }> = {};
+      let docCount = 0;
+      for (const d of docs) {
+        if (isCancelled(d.status)) continue;
+        docCount++;
+        for (const it of d.items) {
+          const pk = productKey(it);
+          if (!pk) continue;
+          if (kw && !pk.label.toLowerCase().includes(kw) && !String(it.itemCode ?? '').toLowerCase().includes(kw)) continue;
+          if (!agg[pk.key]) agg[pk.key] = { label: pk.label, qty: 0, revenue: 0, orders: new Set() };
+          agg[pk.key].qty += num(it.qty) || 1;
+          agg[pk.key].revenue += lineRevenue(it);
+          agg[pk.key].orders.add(d.no);
+        }
+      }
+      const rows = Object.values(agg)
+        .map(v => ({
+          product: v.label,
+          units_sold: v.qty,
+          revenue_usd: Math.round(v.revenue * 100) / 100,
+          order_count: v.orders.size,
+        }))
+        .sort((a, b) => (sortBy === 'qty' ? b.units_sold - a.units_sold : b.revenue_usd - a.revenue_usd));
+      return ok({
+        source: src,
+        type: type ?? 'b2c',
+        period: { from: dateFrom ?? 'all', to: dateTo ?? 'all' },
+        documents_analyzed: docCount,
+        distinct_products: rows.length,
+        top_products: rows.slice(0, limit ?? 15),
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_marketing_dead_stock',
+  'Slow-moving / dead stock: inventory items in stock (qty>0) that have NOT sold within the window, ranked by capital tied up. Use to pick what to discount or promote. Cross-references invoice line items (incl. PC-build components) for the "sold" signal.',
+  {
+    days: z.number().optional().describe('Lookback window in days for "recently sold" (default 90)'),
+    category: z.string().optional().describe('Filter inventory category (contains)'),
+    brand: z.string().optional().describe('Filter inventory brand (contains)'),
+    limit: z.number().optional().describe('Max items (default 30)'),
+  },
+  async ({ days, category, brand, limit }) => {
+    try {
+      const windowDays = days ?? 90;
+      const since = new Date(Date.now() - windowDays * 86400_000).toISOString().slice(0, 10);
+      const [b2c, b2b] = await Promise.all([
+        fetchSalesDocs('invoices', 'b2c', since),
+        fetchSalesDocs('invoices', 'b2b', since),
+      ]);
+      const soldCodes = new Set<string>();
+      for (const d of [...b2c, ...b2b]) {
+        if (isCancelled(d.status)) continue;
+        for (const it of d.items) {
+          const c = String(it.itemCode ?? '').trim().toLowerCase();
+          if (c) soldCodes.add(c);
+          if (Array.isArray(it.buildComponents)) {
+            for (const bc of it.buildComponents) {
+              const cc = String(bc.itemCode ?? '').trim().toLowerCase();
+              if (cc) soldCodes.add(cc);
+            }
+          }
+        }
+      }
+      let q = supabase
+        .from('inventory')
+        .select('code, brand, model_name, category, qty, unit_price, currency, status, created_at')
+        .gt('qty', 0);
+      if (category) q = q.ilike('category', `%${category}%`);
+      if (brand) q = q.ilike('brand', `%${brand}%`);
+      const { data, error } = await q.limit(2000);
+      if (error) return err(error.message);
+      const dead = (data ?? [])
+        .filter((r: any) => !soldCodes.has(String(r.code ?? '').trim().toLowerCase()))
+        .map((r: any) => {
+          const qty = num(r.qty);
+          const price = num(r.unit_price);
+          const ageDays = r.created_at
+            ? Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400_000)
+            : null;
+          return {
+            code: r.code,
+            brand: r.brand,
+            model: r.model_name,
+            category: r.category,
+            qty,
+            unit_price: price,
+            stock_value_usd: Math.round(qty * price * 100) / 100,
+            days_in_stock: ageDays,
+            status: r.status,
+          };
+        })
+        .sort((a, b) => b.stock_value_usd - a.stock_value_usd);
+      const totalTied = dead.reduce((s, d) => s + d.stock_value_usd, 0);
+      return ok({
+        not_sold_since: since,
+        window_days: windowDays,
+        dead_stock_items: dead.length,
+        capital_tied_up_usd: Math.round(totalTied * 100) / 100,
+        items: dead.slice(0, limit ?? 30),
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_marketing_frequently_bought_together',
+  'Cross-sell finder: given a product code or model keyword, returns the other products that most often appear on the same invoices/sale orders — bundle and upsell ideas — ranked by co-occurrence.',
+  {
+    product: z.string().describe('Item code (exact) or model keyword to anchor on'),
+    source: z.enum(['invoices', 'sale_orders']).optional().describe('Default invoices'),
+    limit: z.number().optional().describe('Max related products (default 10)'),
+  },
+  async ({ product, source, limit }) => {
+    try {
+      const src = source ?? 'invoices';
+      const [b2c, b2b] = await Promise.all([
+        fetchSalesDocs(src, 'b2c'),
+        fetchSalesDocs(src, 'b2b'),
+      ]);
+      const needle = product.trim().toLowerCase();
+      const matchesAnchor = (it: LineItem) => {
+        const code = String(it.itemCode ?? '').toLowerCase();
+        const model = String(it.modelName ?? '').toLowerCase();
+        return code === needle || code.includes(needle) || model.includes(needle);
+      };
+      const co: Record<string, { label: string; count: number }> = {};
+      let anchorDocs = 0;
+      for (const d of [...b2c, ...b2b]) {
+        if (isCancelled(d.status)) continue;
+        if (!d.items.some(matchesAnchor)) continue;
+        anchorDocs++;
+        for (const it of d.items) {
+          if (matchesAnchor(it)) continue; // skip the anchor product itself
+          const pk = productKey(it);
+          if (!pk) continue;
+          if (!co[pk.key]) co[pk.key] = { label: pk.label, count: 0 };
+          co[pk.key].count++;
+        }
+      }
+      const related = Object.values(co)
+        .map(v => ({ product: v.label, bought_together_count: v.count }))
+        .sort((a, b) => b.bought_together_count - a.bought_together_count);
+      return ok({
+        anchor: product,
+        source: src,
+        orders_with_anchor: anchorDocs,
+        related_products: related.slice(0, limit ?? 10),
+        ...(anchorDocs === 0 ? { note: 'No orders found containing that product.' } : {}),
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_marketing_customer_segments',
+  'Customer segmentation from invoice history: per-company total spend, order count, last purchase and recency, bucketed into tiers (VIP / Loyal / Regular / At-Risk / Dormant / New). Use for targeting, re-engagement and VIP outreach lists. Returns segment counts + per-company rows.',
+  {
+    type: z.enum(['b2c', 'b2b']).optional().describe('b2c (default) or b2b'),
+    segment: z.enum(['VIP', 'Loyal', 'Regular', 'At-Risk', 'Dormant', 'New']).optional().describe('Filter to a single tier'),
+    limit: z.number().optional().describe('Max companies returned (default 50)'),
+  },
+  async ({ type, segment, limit }) => {
+    try {
+      const docs = await fetchSalesDocs('invoices', type ?? 'b2c');
+      const byCo: Record<string, { spend: number; orders: number; last: number | null; first: number | null }> = {};
+      for (const d of docs) {
+        if (isCancelled(d.status)) continue;
+        const co = d.company || 'Unknown';
+        const amount = d.items.reduce((s, it) => s + lineRevenue(it), 0);
+        const t = d.date ? new Date(d.date).getTime() : null;
+        if (!byCo[co]) byCo[co] = { spend: 0, orders: 0, last: null, first: null };
+        byCo[co].spend += amount;
+        byCo[co].orders += 1;
+        if (t !== null && !Number.isNaN(t)) {
+          byCo[co].last = Math.max(byCo[co].last ?? 0, t);
+          byCo[co].first = Math.min(byCo[co].first ?? t, t);
+        }
+      }
+      const now = Date.now();
+      // VIP threshold = spend level at the top 20th percentile.
+      const spends = Object.values(byCo).map(v => v.spend).sort((a, b) => b - a);
+      const vipThreshold = spends.length ? spends[Math.floor((spends.length - 1) * 0.2)] : 0;
+      const classify = (v: { spend: number; orders: number; last: number | null }): string => {
+        const recencyDays = v.last ? Math.floor((now - v.last) / 86400_000) : 99999;
+        if (recencyDays > 365) return 'Dormant';
+        if (recencyDays > 180) return 'At-Risk';
+        if (v.orders <= 1 && recencyDays <= 90) return 'New';
+        if (vipThreshold > 0 && v.spend >= vipThreshold) return 'VIP';
+        if (v.orders >= 3) return 'Loyal';
+        return 'Regular';
+      };
+      const rows = Object.entries(byCo).map(([company, v]) => {
+        const recencyDays = v.last ? Math.floor((now - v.last) / 86400_000) : null;
+        return {
+          company,
+          total_spend_usd: Math.round(v.spend * 100) / 100,
+          order_count: v.orders,
+          last_purchase: v.last ? new Date(v.last).toISOString().slice(0, 10) : null,
+          days_since_last: recencyDays,
+          segment: classify(v),
+        };
+      });
+      const counts: Record<string, number> = {};
+      for (const r of rows) counts[r.segment] = (counts[r.segment] ?? 0) + 1;
+      let out = rows.sort((a, b) => b.total_spend_usd - a.total_spend_usd);
+      if (segment) out = out.filter(r => r.segment === segment);
+      return ok({
+        type: type ?? 'b2c',
+        total_customers: rows.length,
+        segment_counts: counts,
+        vip_spend_threshold_usd: Math.round(vipThreshold * 100) / 100,
+        customers: out.slice(0, limit ?? 50),
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+reg(
+  'db_marketing_margin_analysis',
+  'Margin insight over the pricelist: computes gross margin (End User Price vs Dealer Price) per item, flags loss-making / thin / high-margin products, and summarises average margin by category. Use to decide what to promote (high margin) or reprice (thin/negative). Returns per-item rows + category summary.',
+  {
+    category: z.string().optional().describe('Filter category (contains)'),
+    brand: z.string().optional().describe('Filter brand (contains)'),
+    status: z.string().optional().describe('Pricelist Status filter (default Available)'),
+    flag: z.enum(['loss', 'thin', 'high', 'all']).optional().describe('loss (<=0%), thin (<10%), high (>=30%), all (default all)'),
+    limit: z.number().optional().describe('Max items (default 40)'),
+  },
+  async ({ category, brand, status, flag, limit }) => {
+    try {
+      let q = supabase
+        .from('pricelist')
+        .select('"Code","Brand","Model","Category","End User Price","Dealer Price","Status","Promotion","Qty"');
+      if (category) q = q.ilike('Category', `%${category}%`);
+      if (brand) q = q.ilike('Brand', `%${brand}%`);
+      q = q.eq('Status', status ?? 'Available');
+      const { data, error } = await q.limit(2000);
+      if (error) return err(error.message);
+      const rows = (data ?? [])
+        .map((r: any) => {
+          const sell = num(r['End User Price']);
+          const cost = num(r['Dealer Price']);
+          const marginUsd = sell - cost;
+          const marginPct = sell > 0 ? (marginUsd / sell) * 100 : null;
+          return {
+            code: r['Code'],
+            brand: r['Brand'],
+            model: r['Model'],
+            category: r['Category'],
+            sell_price: sell,
+            dealer_cost: cost,
+            margin_usd: Math.round(marginUsd * 100) / 100,
+            margin_pct: marginPct === null ? null : Math.round(marginPct * 10) / 10,
+            qty_on_hand: num(r['Qty']),
+            promotion: r['Promotion'] || null,
+          };
+        })
+        .filter(r => r.sell_price > 0 || r.dealer_cost > 0);
+      const selected = rows.filter(r => {
+        const m = r.margin_pct;
+        if (flag === 'loss') return m !== null && m <= 0;
+        if (flag === 'thin') return m !== null && m < 10;
+        if (flag === 'high') return m !== null && m >= 30;
+        return true;
+      });
+      // Worst-margin first, except when explicitly asking for high margin.
+      selected.sort((a, b) =>
+        flag === 'high'
+          ? (b.margin_pct ?? -999) - (a.margin_pct ?? -999)
+          : (a.margin_pct ?? 999) - (b.margin_pct ?? 999),
+      );
+      const cat: Record<string, { items: number; sumPct: number; withPct: number }> = {};
+      for (const r of rows) {
+        const c = r.category || 'Uncategorized';
+        if (!cat[c]) cat[c] = { items: 0, sumPct: 0, withPct: 0 };
+        cat[c].items++;
+        if (r.margin_pct !== null) {
+          cat[c].sumPct += r.margin_pct;
+          cat[c].withPct++;
+        }
+      }
+      const byCategory = Object.entries(cat)
+        .map(([category, v]) => ({
+          category,
+          items: v.items,
+          avg_margin_pct: v.withPct ? Math.round((v.sumPct / v.withPct) * 10) / 10 : null,
+        }))
+        .sort((a, b) => (a.avg_margin_pct ?? 999) - (b.avg_margin_pct ?? 999));
+      return ok({
+        items_analyzed: rows.length,
+        flag: flag ?? 'all',
+        loss_making: rows.filter(r => r.margin_pct !== null && r.margin_pct <= 0).length,
+        by_category: byCategory,
+        items: selected.slice(0, limit ?? 40),
       });
     } catch (e) {
       return err((e as Error).message);
