@@ -5,6 +5,7 @@ import { Bill, BillLine, BillVendor, ChartOfAccount, PurchaseOrder } from '../..
 import {
     fetchBills, createBill, updateBill, deleteBill,
     postBill, unpostBill, markBillPaid, getNextBillNumber,
+    fetchOrphanedBills,
 } from '../../../services/billsApi';
 import { fetchBillVendors } from '../../../services/billVendorsApi';
 import { BRAND_ACCOUNT_MAP, normalizeBrand } from '../../../services/accountingApi';
@@ -509,18 +510,21 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const [nextNumber, setNextNumber] = useState('BILL-0001');
     const [payTarget, setPayTarget] = useState<Bill | null>(null);
     const [busy, setBusy] = useState<Record<string, boolean>>({});
+    const [orphanedBills, setOrphanedBills] = useState<{ bill_number: string; total_amount: number }[]>([]);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [data, pos, bvs] = await Promise.all([
+            const [data, pos, bvs, orphans] = await Promise.all([
                 fetchBills(),
                 readRecords<PurchaseOrder>('Purchase Orders'),
                 fetchBillVendors(),
+                fetchOrphanedBills(),
             ]);
             setBills(data);
             setPurchaseOrders(pos);
             setBillVendors(bvs);
+            setOrphanedBills(orphans);
         } catch (e: unknown) {
             addToast((e as Error).message, 'error');
         } finally {
@@ -677,6 +681,23 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                     </div>
                 ))}
             </div>
+
+            {/* GL-integrity warning: posted/paid bills whose journal entry is missing.
+                Their AP is absent from the ledger, so Awaiting Payment above won't
+                reconcile to the Balance Sheet. Unpost then re-post each to repair. */}
+            {orphanedBills.length > 0 && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-800 dark:text-amber-200">
+                        <span className="font-semibold">
+                            {orphanedBills.length} bill{orphanedBills.length > 1 ? 's are' : ' is'} posted without a journal entry
+                        </span>{' '}
+                        — {orphanedBills.map(b => b.bill_number).join(', ')}. Their Accounts Payable
+                        (${fmt(orphanedBills.reduce((s, b) => s + b.total_amount, 0))}) isn&apos;t in the General Ledger, so
+                        &ldquo;Awaiting Payment&rdquo; won&apos;t match the Balance Sheet. Unpost then re-post each one to book it.
+                    </div>
+                </div>
+            )}
 
             {/* Toolbar */}
             <div className="flex items-center gap-2 flex-wrap">

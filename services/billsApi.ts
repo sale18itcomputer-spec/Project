@@ -18,6 +18,21 @@ export const getNextBillNumber = async (): Promise<string> => {
     return `BILL-${String(max + 1).padStart(4, '0')}`;
 };
 
+/** Posted/paid bills whose AP is genuinely absent from the GL — a real
+ *  integrity drift (BILL-0010/0011 before repair). Reads the precise
+ *  bills_missing_journal_entry view (20260720_guard_bill_je_deletion.sql),
+ *  which excludes bills that still have a journal entry referencing them by
+ *  bill_number even if their link column was nulled — so a stale link on an
+ *  already-booked bill (e.g. a paid QB import) does NOT false-alarm. The DB
+ *  trigger prevents new drift; this surfaces any legacy case so it can't hide. */
+export const fetchOrphanedBills = async (): Promise<{ bill_number: string; total_amount: number }[]> => {
+    const { data, error } = await supabase
+        .from('bills_missing_journal_entry')
+        .select('bill_number, total_amount');
+    if (error) return []; // view may not exist yet on an un-migrated env — fail quiet, don't block the tab
+    return (data ?? []) as { bill_number: string; total_amount: number }[];
+};
+
 export const fetchBills = async (): Promise<Bill[]> => {
     const { data: bills, error } = await supabase
         .from('bills')
