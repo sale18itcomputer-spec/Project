@@ -24,23 +24,7 @@ import { sendPdfToTelegramChat } from '../../../lib/pdfClient';
 import { useAuth } from '../../../contexts/AuthContext';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
-
-const StatusBadge: React.FC<{ status: Quotation['Status'] }> = ({ status }) => {
-  const statusConfig: { [key in Quotation['Status'] | string]: { bg: string; text: string } } = {
-    'Open': { bg: 'bg-sky-500/10', text: 'text-sky-500' },
-    'Close (Win)': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
-    'Close (Lose)': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
-    'Cancel': { bg: 'bg-violet-500/10', text: 'text-violet-500' },
-  };
-
-  const config = statusConfig[status] || { bg: 'bg-muted', text: 'text-muted-foreground' };
-
-  return (
-    <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${config.bg} ${config.text}`}>
-      {status}
-    </span>
-  );
-};
+import { StatusBadge } from "../../ui/status-badge";
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
   if (!value || (typeof value === 'string' && !value.trim())) return null;

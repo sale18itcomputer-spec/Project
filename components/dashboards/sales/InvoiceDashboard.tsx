@@ -24,6 +24,7 @@ import { useToast } from "../../../contexts/ToastContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
+import { StatusBadge } from "../../ui/status-badge";
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import QuickPaymentModal from "../../modals/QuickPaymentModal";
 import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
@@ -33,23 +34,6 @@ import { getUserTelegramChatId } from "../../../utils/telegram";
 interface InvoiceDashboardProps {
     initialPayload?: any;
 }
-
-const StatusBadge: React.FC<{ status: Invoice['Status'] }> = ({ status }) => {
-    const statusConfig: { [key in Invoice['Status'] | string]: { bg: string; text: string } } = {
-        'Draft': { bg: 'bg-sky-500/10', text: 'text-sky-500' },
-        'Processing': { bg: 'bg-amber-500/10', text: 'text-amber-500' },
-        'Completed': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
-        'Cancel': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
-    };
-
-    const config = statusConfig[status] || { bg: 'bg-muted', text: 'text-muted-foreground' };
-
-    return (
-        <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${config.bg} ${config.text}`}>
-            {status}
-        </span>
-    );
-};
 
 const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'detail';

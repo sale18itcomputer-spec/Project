@@ -15,23 +15,10 @@ import { useWindowSize } from '../../../hooks/useWindowSize';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { Wallet, ArrowRight } from 'lucide-react';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
+import { StatusBadge } from '../../ui/status-badge';
 
 const RV_COLUMNS_KEY = 'limperial-rv-columns-visibility';
 type ViewMode = 'table' | 'detail';
-
-const StatusBadge: React.FC<{ status: Receipt['Status'] }> = ({ status }) => {
-    const cfg: Record<string, { bg: string; text: string }> = {
-        'Draft':     { bg: 'bg-sky-500/10',     text: 'text-sky-500' },
-        'Issued':    { bg: 'bg-emerald-500/10',  text: 'text-emerald-500' },
-        'Cancelled': { bg: 'bg-rose-500/10',     text: 'text-rose-500' },
-    };
-    const { bg, text } = cfg[status] ?? { bg: 'bg-muted', text: 'text-muted-foreground' };
-    return (
-        <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md ${bg} ${text}`}>
-            {status}
-        </span>
-    );
-};
 
 interface Props { initialPayload?: any; }
 

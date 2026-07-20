@@ -159,7 +159,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
 
   const headerClasses = isMobile
     ? "mobile-nav"
-    : `flex-shrink-0 bg-background/80 backdrop-blur-sm h-12 px-4 sm:px-5 flex justify-between items-center z-[200] transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
+    : `flex-shrink-0 bg-background/80 backdrop-blur-sm h-14 px-4 sm:px-6 flex justify-between items-center z-[200] transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
 
   return (
     <header className={headerClasses}>
@@ -198,7 +198,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
 
         {!isOnline && <OfflineIndicator />}
       </div>
-      <div className="flex items-center space-x-3 sm:space-x-5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {!isMobile && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-global-search'))}
@@ -225,7 +225,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
           <Lock className="w-5 h-5" />
         </Button>
 
-        <div className={`flex items-center space-x-2 sm:space-x-4 ${!isMobile && isDashboard ? 'border-l pl-3 sm:pl-5' : ''}`}>
+        <div className={`flex items-center gap-1 sm:gap-2 ${!isMobile && isDashboard ? 'border-l pl-3 sm:pl-4' : ''}`}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label={`View notifications (${unreadCount} unread)`}>
