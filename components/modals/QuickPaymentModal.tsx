@@ -9,7 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '../../contexts/NavigationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createRecord, updateRecord } from '../../services/api';
-import { autoPostReceiptJournal } from '../../services/accountingApi';
+import { autoPostReceiptJournal, PAYMENT_METHOD_TO_ACCOUNT, fetchChartOfAccounts } from '../../services/accountingApi';
+import { ChartOfAccount } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { SERVICE_REMARK_PREFIX } from '../../utils/serviceInvoice';
 import { formatCurrencySmartly } from '../../utils/formatters';
@@ -55,6 +56,37 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
     const [rvDate, setRvDate] = useState<string>(getTodayDateString());
     const [remark, setRemark] = useState<string>('');
 
+    // Deposit account: which cash/bank COA account the money actually landed in.
+    // The payment method only picks a *default* (ABA → 11100), but a business
+    // has several bank accounts — this lets the user post to the right one so
+    // the receipt JE debits the correct account, not just the method default.
+    const [bankAccounts, setBankAccounts] = useState<ChartOfAccount[]>([]);
+    const [depositAccount, setDepositAccount] = useState<string>('');
+    // Tracks whether the user has manually overridden the account, so switching
+    // payment method doesn't clobber a deliberate choice.
+    const [accountTouched, setAccountTouched] = useState(false);
+
+    useEffect(() => {
+        fetchChartOfAccounts()
+            .then(accts => {
+                // Leaf cash/bank accounts only — exclude summary parents (10000,
+                // 11000) you must never post directly to.
+                const parents = new Set(accts.map(a => a.parent_account_number).filter(Boolean) as string[]);
+                setBankAccounts(
+                    accts
+                        .filter(a => a.account_type === 'Bank' && !parents.has(a.account_number) && !a.is_hidden)
+                        .sort((a, b) => a.account_number.localeCompare(b.account_number)),
+                );
+            })
+            .catch(() => {/* leave empty — falls back to method-default account on post */});
+    }, []);
+
+    // Default the account to the payment method's mapped account until the user
+    // picks one explicitly.
+    useEffect(() => {
+        if (!accountTouched) setDepositAccount(PAYMENT_METHOD_TO_ACCOUNT[paymentMethod] ?? '11100');
+    }, [paymentMethod, accountTouched]);
+
     // Next RV No via the persistent document_sequences counter. Previously
     // computed from the client-side `receipts` array (B2C-only, stale) via
     // MAX+1 — that let a number already used in b2b_receipts get reissued
@@ -77,7 +109,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
 
     const isPartial = amount > 0 && amount < ar.outstanding;
     const overpayment = amount > ar.outstanding;
-    const isValid = amount > 0 && !overpayment && !!nextRVNo;
+    const isValid = amount > 0 && !overpayment && !!nextRVNo && !!depositAccount;
 
     // ── Animate in ────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -202,6 +234,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                 entryDate: rvDate,
                 amount,
                 paymentMethod,
+                bankAccount: depositAccount || undefined,
                 createdBy: currentUser?.Name || 'system',
             }).catch(err => {
                 console.warn('[QuickPaymentModal] auto-post failed:', err);
@@ -340,6 +373,28 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                             >
                                 {PAYMENT_METHOD_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">
+                                Deposit To (Account) <span className="text-rose-500">*</span>
+                            </label>
+                            <select
+                                value={depositAccount}
+                                onChange={e => { setDepositAccount(e.target.value); setAccountTouched(true); }}
+                                disabled={isSubmitting || bankAccounts.length === 0}
+                                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 transition"
+                            >
+                                {bankAccounts.length === 0 && <option value="">Loading accounts…</option>}
+                                {bankAccounts.map(a => (
+                                    <option key={a.account_number} value={a.account_number}>
+                                        {a.account_number} · {a.account_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                                Which cash/bank account the money landed in — the receipt&apos;s journal entry debits this account.
+                            </p>
                         </div>
 
                         <div>

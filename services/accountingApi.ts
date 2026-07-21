@@ -1003,15 +1003,21 @@ export const autoPostReceiptJournal = async (params: {
     amount: number;
     paymentMethod: string;
     createdBy: string;
-    /** Split payments (POS): one DR bank line per method. Overrides paymentMethod/amount. */
-    payments?: { method: string; amount: number }[];
+    /** Explicit COA account to debit (which cash/bank the money landed in).
+     *  Overrides the PAYMENT_METHOD_TO_ACCOUNT default for the single-payment
+     *  case — e.g. "ABA" defaults to 11100 but the money may have hit 11200. */
+    bankAccount?: string;
+    /** Split payments (POS): one DR bank line per method. Overrides paymentMethod/amount.
+     *  Each may carry its own accountNumber; otherwise falls back to bankAccount
+     *  then the payment-method default. */
+    payments?: { method: string; amount: number; accountNumber?: string }[];
 }): Promise<void> => {
     // Round each payment to 2dp so line debits always sum exactly to the AR credit
     const payments = (params.payments?.length
         ? params.payments
-        : [{ method: params.paymentMethod, amount: params.amount }]
+        : [{ method: params.paymentMethod, amount: params.amount, accountNumber: params.bankAccount }]
     )
-        .map(p => ({ method: p.method, amount: Math.round(p.amount * 100) / 100 }))
+        .map(p => ({ method: p.method, amount: Math.round(p.amount * 100) / 100, accountNumber: p.accountNumber }))
         .filter(p => p.amount > 0.005);
     const cashTotal = Math.round(payments.reduce((s, p) => s + p.amount * 100, 0)) / 100;
     if (cashTotal <= 0.005) return;
@@ -1043,7 +1049,7 @@ export const autoPostReceiptJournal = async (params: {
 
     const lines: { account_number: string; description: string; debit: number; credit: number }[] =
         payments.map(p => ({
-            account_number: PAYMENT_METHOD_TO_ACCOUNT[p.method] ?? '11100',
+            account_number: p.accountNumber || PAYMENT_METHOD_TO_ACCOUNT[p.method] || '11100',
             description: `${p.method} — ${params.rvNo}`,
             debit: p.amount,
             credit: 0,
