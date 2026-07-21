@@ -40,3 +40,8 @@ dist-mcp/
 mcp-test-*.txt
 .claude/
 .cloudflared-url
+
+# Generated reports & scratch (regenerable — not source)
+audit_report.json
+knip_output.txt
+scratch/
