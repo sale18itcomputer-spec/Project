@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Minus, X, ExternalLink } from 'lucide-react';
 import { ManagedWindow, SnapZone, useWindowManager } from '../../contexts/WindowManagerContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
 
 const SNAP_MARGIN = 24;
 
@@ -14,6 +15,12 @@ const SNAP_MARGIN = 24;
  */
 const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> = React.memo(({ win, isFocused }) => {
     const { updateWindow, closeWindow, removeWindow, minimizeWindow, focusWindow } = useWindowManager();
+
+    // Below the app-shell breakpoint the desktop floating-window model (drag,
+    // resize, snap, cascade, pop-out) is unusable on touch, so windows render as
+    // full-screen sheets instead. Kept in sync with AppShell / DataTable (<1024).
+    const { width } = useWindowSize();
+    const isMobile = width < 1024;
 
     const [isShowing, setIsShowing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -29,6 +36,22 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
     useEffect(() => {
         const timer = setTimeout(() => setIsShowing(true), 10);
         return () => clearTimeout(timer);
+    }, []);
+
+    // Dialog focus management: move keyboard focus into the window on open (unless
+    // its content already claimed focus via autofocus), and restore focus to the
+    // element that opened it on close — standard dialog behaviour that was missing.
+    useEffect(() => {
+        const opener = document.activeElement as HTMLElement | null;
+        const timer = setTimeout(() => {
+            if (frameRef.current && !frameRef.current.contains(document.activeElement)) {
+                frameRef.current.focus({ preventScroll: true });
+            }
+        }, 20);
+        return () => {
+            clearTimeout(timer);
+            if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+        };
     }, []);
 
     // Play the same fade/scale transition in reverse, then unmount once it finishes.
@@ -163,10 +186,23 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
     }, [isDragging, handleDragMove, handleDragEnd]);
 
     const frameStyle: React.CSSProperties =
-        win.snapped === 'maximize' ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }
+        isMobile ? {
+            // Full-screen sheet: fill the viewport, honouring notch/home-bar safe
+            // areas. rect / snapped are ignored entirely on mobile.
+            position: 'fixed', inset: 0,
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+        }
+        : win.snapped === 'maximize' ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }
         : win.snapped === 'left' ? { position: 'fixed', top: 0, left: 0, width: '50vw', height: '100vh' }
         : win.snapped === 'right' ? { position: 'fixed', top: 0, left: '50vw', width: '50vw', height: '100vh' }
         : { position: 'fixed', top: win.rect.y, left: win.rect.x, width: win.rect.width, height: win.rect.height };
+
+    // Sheet slides up on mobile; scales in on desktop.
+    const shapeClass = isMobile ? 'rounded-none shadow-none' : 'rounded-xl shadow-2xl';
+    const animClass = isMobile
+        ? (isShowing ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full')
+        : (isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95');
 
     const snapPreviewRect: React.CSSProperties | null =
         snapPreview === 'maximize' ? { top: 0, left: 0, width: '100vw', height: '100vh' }
@@ -186,17 +222,21 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                 ref={frameRef}
                 style={{ ...frameStyle, zIndex: win.zIndex, display: win.isMinimized ? 'none' : undefined }}
                 onMouseDown={() => focusWindow(win.id)}
-                className={`window-frame-glow ${isFocused ? 'window-focused' : ''} bg-card rounded-xl shadow-2xl flex flex-col ${isShowing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-200'}`}
+                className={`window-frame-glow ${isFocused ? 'window-focused' : ''} bg-card ${shapeClass} flex flex-col ${animClass} ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-200'}`}
                 aria-labelledby={titleId}
                 role="dialog"
+                aria-modal={isMobile || undefined}
+                tabIndex={-1}
             >
                 <div
-                    onMouseDown={handleDragStart}
-                    className={`flex-shrink-0 bg-card/80 backdrop-blur-sm p-4 flex justify-between items-center rounded-t-xl border-b border-border ${win.draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+                    onMouseDown={isMobile ? undefined : handleDragStart}
+                    className={`flex-shrink-0 bg-card/80 backdrop-blur-sm p-4 flex justify-between items-center rounded-t-xl border-b border-border ${win.draggable && !isMobile ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
                 >
                     <h2 id={titleId} className="text-base font-bold text-foreground truncate">{win.title}</h2>
                     <div className="flex items-center gap-1">
-                        {win.detachUrl && (
+                        {/* Pop-out (window.open) and minimize are desktop-only —
+                            on a full-screen mobile sheet, Close is the sole control. */}
+                        {win.detachUrl && !isMobile && (
                             <button
                                 onClick={() => {
                                     const rect = frameRef.current?.getBoundingClientRect();
@@ -217,19 +257,21 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                                 <ExternalLink size={14} />
                             </button>
                         )}
-                        <button
-                            onClick={() => {
-                                const r = frameRef.current?.getBoundingClientRect();
-                                minimizeWindow(win.id, r
-                                    ? { x: r.left, y: r.top, width: r.width, height: r.height }
-                                    : { x: win.rect.x, y: win.rect.y, width: win.rect.width, height: win.rect.height });
-                            }}
-                            className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Minimize" title="Minimize"
-                        >
-                            <Minus size={16} />
-                        </button>
-                        <button onClick={() => { win.onClose(); closeWindow(win.id); }} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close" title="Close">
-                            <X size={18} />
+                        {!isMobile && (
+                            <button
+                                onClick={() => {
+                                    const r = frameRef.current?.getBoundingClientRect();
+                                    minimizeWindow(win.id, r
+                                        ? { x: r.left, y: r.top, width: r.width, height: r.height }
+                                        : { x: win.rect.x, y: win.rect.y, width: win.rect.width, height: win.rect.height });
+                                }}
+                                className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Minimize" title="Minimize"
+                            >
+                                <Minus size={16} />
+                            </button>
+                        )}
+                        <button onClick={() => { win.onClose(); closeWindow(win.id); }} className={`${isMobile ? 'p-2.5' : 'p-1.5'} rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors`} aria-label="Close" title="Close">
+                            <X size={isMobile ? 22 : 18} />
                         </button>
                     </div>
                 </div>
@@ -244,7 +286,7 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
                     </div>
                 )}
 
-                {!win.snapped && (
+                {!win.snapped && !isMobile && (
                     <>
                         {/* Edge handles */}
                         <div onMouseDown={handleResizeStart('n')}  className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />

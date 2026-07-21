@@ -1246,6 +1246,11 @@ html {
     /* Horizontal padding for content breathing room */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    /* Guard: never let a single overflowing child scroll the whole page
+       sideways on mobile — content that needs to scroll horizontally (tables,
+       code, wide rows) must do so inside its own overflow container. */
+    max-width: 100vw;
+    overflow-x: hidden;
 }
 
 .mobile-card {

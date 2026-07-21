@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Download, Replace } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Download, Replace } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import EmptyState from "./EmptyState";
 import RowContextMenu from "./RowContextMenu";
@@ -217,7 +217,12 @@ function DataTable<T extends object>({
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { width } = useWindowSize();
-  const isMobile = width < 768; // Tailwind's `md` breakpoint
+  // Switch to the touch-friendly card list at the same width the app shell
+  // switches to its mobile layout (<1024, AppShell's isMobile / the
+  // `.secondary-cell` CSS breakpoint). Below this the table lives inside the
+  // mobile chrome (top bar + bottom tab nav), so a cramped horizontally-
+  // scrolling desktop table on tablets is replaced by cards.
+  const isMobile = width < 1024;
 
   // ── Inline edit / selection / find-replace state ──────────────────────────
   type CellEditState = {
@@ -387,8 +392,49 @@ function DataTable<T extends object>({
         <EmptyState illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />} />
       </div>
     );
+    const sortableColumns = columns.filter(c => c.isSortable);
     return (
-      <ul className="divide-y divide-border">
+      <>
+        {/* Mobile sort control — the card layout has no column headers to click,
+            so without this there's no way to re-sort on a phone. Wired to the
+            same sortConfig the desktop headers drive. */}
+        {sortableColumns.length > 0 && (
+          <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-2 bg-card/95 backdrop-blur-sm border-b border-border">
+            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <label htmlFor="mobile-sort" className="sr-only">Sort by</label>
+            <select
+              id="mobile-sort"
+              value={sortConfig.key ? String(sortConfig.key) : ''}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setSortConfig({ key: e.target.value as keyof T, direction: 'ascending' });
+                setCurrentPage(1);
+              }}
+              className="flex-1 min-w-0 bg-muted border border-border rounded-md text-sm py-1.5 px-2 text-foreground focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option value="" disabled>Sort by…</option>
+              {sortableColumns.map((c) => (
+                <option key={String(c.accessorKey)} value={String(c.accessorKey)}>{c.header}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setSortConfig(prev => ({
+                  key: prev.key ?? sortableColumns[0].accessorKey,
+                  direction: prev.direction === 'ascending' ? 'descending' : 'ascending',
+                }));
+                setCurrentPage(1);
+              }}
+              className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={`Sort direction: ${sortConfig.direction}`}
+            >
+              {sortConfig.direction === 'ascending' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+              {sortConfig.direction === 'ascending' ? 'Asc' : 'Desc'}
+            </button>
+          </div>
+        )}
+        <ul className="divide-y divide-border">
         {paginatedData.map((item, index) => {
           const globalIndex = startIndex + index;
           const rowId = getRowKey(item, globalIndex);
@@ -475,7 +521,8 @@ function DataTable<T extends object>({
             </li>
           );
         })}
-      </ul>
+        </ul>
+      </>
     );
   };
 
@@ -483,6 +530,14 @@ function DataTable<T extends object>({
   useEffect(() => {
     setCurrentPage(1);
   }, [data.length, itemsPerPage]);
+
+  // Reset vertical scroll to the top when the user changes page, sort, or page
+  // size, so a fresh set of rows starts from the first one. Horizontal scroll
+  // is intentionally preserved (keeps the user's column context). Keyed only on
+  // user-driven state — a silent background data refresh won't yank the scroll.
+  useEffect(() => {
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+  }, [currentPage, sortConfig, itemsPerPage]);
 
   const sortedData = useMemo(() => {
     let sortableItems = [...data];
@@ -1003,6 +1058,17 @@ function DataTable<T extends object>({
         )}
       </div>
 
+      {/* Horizontal-scroll affordance — pinned to the card (not the scroll
+          container, so it stays put) and surfaced only when the table is wider
+          than its viewport with more content to the right. Cleared by
+          handleScroll once the user reaches the end. */}
+      {showScrollHint && !isMobile && paginatedData.length > 0 && (
+        <div className="scroll-hint-indicator gap-1" aria-hidden="true">
+          <span>Scroll</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </div>
+      )}
+
       {!loading && sortedData.length > 0 && (
         <div className="flex-shrink-0 p-4 sm:px-6 sm:py-3 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 border-t border-border bg-card z-20">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -1033,10 +1099,11 @@ function DataTable<T extends object>({
           </div>
 
           <nav className="flex items-center gap-1" aria-label="Table navigation">
-            <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page" className="p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-muted-foreground" /></button>
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page" className="p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-muted-foreground" /></button>
+            <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page" className="p-2.5 sm:p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsLeft className="w-5 h-5 text-muted-foreground" /></button>
+            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page" className="p-2.5 sm:p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-5 h-5 text-muted-foreground" /></button>
 
-            <div className="flex items-center gap-1 px-2">
+            {/* Full numeric range — larger screens only */}
+            <div className="hidden sm:flex items-center gap-1 px-2">
               {paginationRange.map((page, index) => {
                 if (page === DOTS) {
                   return <span key={index} className="px-2 py-1 text-sm text-muted-foreground" aria-hidden="true">...</span>
@@ -1056,8 +1123,13 @@ function DataTable<T extends object>({
               })}
             </div>
 
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page" className="p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-muted-foreground" /></button>
-            <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-muted-foreground" /></button>
+            {/* Compact indicator — phones (the full range overflows narrow widths) */}
+            <span className="sm:hidden px-3 text-sm font-medium text-muted-foreground whitespace-nowrap" aria-current="page">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page" className="p-2.5 sm:p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-5 h-5 text-muted-foreground" /></button>
+            <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="p-2.5 sm:p-2 rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronsRight className="w-5 h-5 text-muted-foreground" /></button>
           </nav>
         </div>
       )}
