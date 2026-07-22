@@ -131,6 +131,7 @@ export interface Company {
   'Company Name (Khmer)': string;
   'Phone Number': string;
   'Patent': string;
+  'Tin No'?: string;
   'Payment Term': string;
   'Field': string;
   'Address (English)': string;

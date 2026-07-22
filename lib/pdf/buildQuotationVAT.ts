@@ -227,11 +227,11 @@ export function buildQuotationVAT(
             <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;vertical-align:top;">:</td>
             <td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td>
           </tr>
-          <tr>
+          ${vatTin ? `<tr>
             <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">VAT TIN</td>
             <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
             <td class="border-none py-1">${vatTin}</td>
-          </tr>
+          </tr>` : ''}
           <tr>
             <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">Contact Person</td>
             <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>

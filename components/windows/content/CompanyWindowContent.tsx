@@ -240,6 +240,7 @@ const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, c
                 </FormSection>
                 <FormSection title="Legal & Financial">
                     <FormInput name="Patent" label="Patent Number" value={formData.Patent} onChange={handleChange} />
+                    <FormInput name="Tin No" label="VAT TIN" value={formData['Tin No']} onChange={handleChange} />
                     <div className="flex flex-col">
                         <label htmlFor={`payment-term-${windowId}`} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1.5">Payment Term</label>
                         <input

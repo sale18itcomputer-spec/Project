@@ -39,6 +39,7 @@ export const COMPANY_HEADERS = [
   'Company Name (Khmer)',
   'Phone Number',
   'Patent',
+  'Tin No',
   'Payment Term',
   'Field',
   'Address (English)',

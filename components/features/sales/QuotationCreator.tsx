@@ -366,9 +366,14 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         setHasDraftState(true);
     }, [quote, items, saveDraft]);
 
-    // Auto-fill customer details from companies/contacts when coming from initialData (+Create)
+    // Auto-fill customer details from companies/contacts when coming from initialData (+Create).
+    // Runs ONCE: this is a one-time initialisation from the +Create/duplicate payload, but
+    // companies/contacts from context can change identity across renders — without this guard
+    // the setQuote below would re-run every render, making `quote` unstable and looping the
+    // autosave effect ("Maximum update depth exceeded").
+    const autofilledRef = useRef(false);
     useEffect(() => {
-        if (hasDraft.current) return;
+        if (hasDraft.current || autofilledRef.current) return;
         if (!existingQuotation && initialData && companies && contacts) {
             const companyName = initialData['Company Name'];
             const contactName = initialData['Contact Name'];
@@ -380,11 +385,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 setQuote(prev => ({
                     ...prev,
                     'Company Address': company?.['Address (English)'] || prev['Company Address'] || '',
+                    'Tin No': company?.['Tin No'] || company?.['Patent'] || prev['Tin No'] || '',
                     'Payment Term': company?.['Payment Term'] || prev['Payment Term'] || '',
                     'Contact Number': contact?.['Tel (1)'] || prev['Contact Number'] || '',
                     'Contact Email': contact?.Email || prev['Contact Email'] || '',
                 }));
             }
+            // Data was available and processed — don't run again even if the
+            // companies/contacts array references change on later renders.
+            autofilledRef.current = true;
         }
     }, [initialData, companies, contacts, existingQuotation]);
 
@@ -486,6 +495,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 ...prev,
                 'Company Name': companyName,
                 'Company Address': company['Address (English)'] || '',
+                'Tin No': company['Tin No'] || company['Patent'] || '',
                 'Contact Name': '',
                 'Contact Number': '',
                 'Contact Email': '',
@@ -864,7 +874,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         headerData: {
             'Quotation ID': quote['Quote No'], 'Quote Date': quote['Quote Date'], 'Validity Date': quote['Validity Date'],
             'Company Name': quote['Company Name'], 'Company Address': quote['Company Address'], 'Contact Person': quote['Contact Name'],
-            'Contact Tel': quote['Contact Number'], 'Contact Email': quote['Contact Email'], 'Payment Term': quote['Payment Term'],
+            'Tin No': quote['Tin No'], 'Contact Tel': quote['Contact Number'], 'Contact Email': quote['Contact Email'], 'Payment Term': quote['Payment Term'],
             'Stock Status': quote['Stock Status'], 'Created By': quote['Created By'], 'Prepared By': quote['Prepared By'],
             'Prepared By Position': quote['Prepared By Position'], 'Approved By': quote['Approved By'], 'Approved By Position': quote['Approved By Position'],
             'Remark': quote.Remark, 'Terms and Conditions': quote['Terms and Conditions'],
@@ -1038,6 +1048,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             'Validity Date': quote['Validity Date'],
                                             'Company Name': quote['Company Name'],
                                             'Company Address': quote['Company Address'],
+                                            'Tin No': quote['Tin No'],
                                             'Contact Person': quote['Contact Name'],
                                             'Contact Tel': quote['Contact Number'],
                                             'Contact Email': quote['Contact Email'],
@@ -1382,6 +1393,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                         />
                                         {/* Read-only — loaded from the selected Company/Contact. Edit these in the Companies & Contacts dashboards. */}
                                         <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} readOnly />
+                                        <FormInput name="Tin No" label="VAT TIN" value={quote['Tin No'] || ''} onChange={handleHeaderChange} placeholder="Auto-filled from company — editable per quote" />
                                         <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} readOnly />
                                         <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} readOnly />
                                     </FormSection>
