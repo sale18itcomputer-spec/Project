@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { resolvePermissions, checkBusinessAccess } from '../utils/permissions';
 
 type BusinessMode = 'B2C' | 'B2B';
 
@@ -30,7 +31,14 @@ const THEME_STORAGE_KEY = 'limperial-b2b-theme';
 
 export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { currentUser, isAuthLoading } = useAuth();
-    const isAdmin = currentUser?.Role === 'Admin';
+    // B2B access is now permission-driven (Admin/Manager/Finance by preset,
+    // grantable to any user via the permissions editor) instead of hardcoded
+    // to the Admin role. Admins are always allowed as a safety net.
+    const canAccessB2B = useMemo(
+        () => currentUser?.Role === 'Admin'
+            || checkBusinessAccess(resolvePermissions(currentUser), 'b2b'),
+        [currentUser],
+    );
 
     // ── Initialise mode from localStorage immediately (no admin check here) ──
     // Reading from localStorage in the lazy initialiser means the FIRST render
@@ -70,12 +78,12 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Defensive: if the localStorage value is B2B but the user is not an admin
     // (e.g. account was downgraded between sessions), this resets to B2C silently.
     useEffect(() => {
-        if (isAuthLoading) return; // wait for auth before enforcing the admin gate
-        if (!isAdmin && mode === 'B2B') {
+        if (isAuthLoading) return; // wait for auth before enforcing the access gate
+        if (!canAccessB2B && mode === 'B2B') {
             setModeState('B2C');
             try { localStorage.setItem(STORAGE_KEY, 'B2C'); } catch { }
         }
-    }, [isAdmin, isAuthLoading, mode]);
+    }, [canAccessB2B, isAuthLoading, mode]);
 
     // NOTE: The async "restore B2B after auth" effect that previously lived here
     // is intentionally removed. Mode is now read from localStorage synchronously
@@ -84,8 +92,8 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // it immediately and avoids the B2C-then-B2B race entirely.
 
     const setMode = (newMode: BusinessMode) => {
-        if (newMode === 'B2B' && !isAdmin) {
-            console.warn('Only admin users can access B2B mode');
+        if (newMode === 'B2B' && !canAccessB2B) {
+            console.warn('This user does not have B2B access');
             return;
         }
         setModeState(newMode);
@@ -93,7 +101,7 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const toggleMode = () => {
-        if (!isAdmin) return;
+        if (!canAccessB2B) return;
         setMode(mode === 'B2C' ? 'B2B' : 'B2C');
     };
 
@@ -111,7 +119,7 @@ export const B2BProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     return (
         <B2BContext.Provider value={{
-            mode, setMode, toggleMode, isB2B, canAccessB2B: isAdmin,
+            mode, setMode, toggleMode, isB2B, canAccessB2B,
             b2bTheme, toggleB2BTheme,
         }}>
             {children}

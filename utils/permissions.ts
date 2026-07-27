@@ -312,6 +312,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       showPurchaseCosts: true,
       showRevenueData:   true,
     },
+    businessAccess: { b2c: true, b2b: true },
   },
 
   Manager: {
@@ -355,6 +356,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       showPurchaseCosts: true,
       showRevenueData:   true,
     },
+    businessAccess: { b2c: true, b2b: true },
   },
 
   Sales: {
@@ -398,6 +400,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       showPurchaseCosts: false,
       showRevenueData:   true,
     },
+    businessAccess: { b2c: true, b2b: true },
   },
 
   Finance: {
@@ -441,6 +444,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       showPurchaseCosts: true,
       showRevenueData:   true,
     },
+    businessAccess: { b2c: true, b2b: true },
   },
 
   User: {
@@ -484,6 +488,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       showPurchaseCosts: false,
       showRevenueData:   false,
     },
+    businessAccess: { b2c: true, b2b: false },
   },
 };
 
@@ -504,7 +509,22 @@ export function resolvePermissions(user: User | null): UserPermissions {
     modules: { ...preset.modules, ...user.permissions.modules },
     subModules: { ...preset.subModules, ...user.permissions.subModules },
     dataVisibility: user.permissions.dataVisibility ?? preset.dataVisibility,
+    businessAccess: user.permissions.businessAccess ?? preset.businessAccess,
   };
+}
+
+/**
+ * Whether a user may switch into a given business mode via the header toggle.
+ * B2C defaults to allowed (everyone sells retail); B2B is opt-in — only granted
+ * when a preset or per-user override explicitly sets it true.
+ */
+export function checkBusinessAccess(
+  permissions: UserPermissions,
+  mode: 'b2c' | 'b2b',
+): boolean {
+  const val = permissions.businessAccess?.[mode];
+  if (val !== undefined) return val === true;
+  return mode === 'b2c'; // default: B2C allowed, B2B denied
 }
 
 /**

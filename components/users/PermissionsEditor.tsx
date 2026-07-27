@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff, ShoppingCart, Package, BookOpen, CheckCircle2, CornerDownRight, Undo2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, RotateCcw, Info, Eye, EyeOff, ShoppingCart, Package, BookOpen, CheckCircle2, CornerDownRight, Undo2, Users2, Building2 } from 'lucide-react';
 import {
   PERMISSION_MODULES,
   SECTION_ORDER,
@@ -257,6 +257,19 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
       onChange({
         ...permissions,
         dataVisibility: { ...permissions.dataVisibility, [field]: !current },
+      });
+    },
+    [permissions, onChange],
+  );
+
+  // ── Business mode access (B2C / B2B) toggle ───────────────────────────────
+  const toggleBusinessAccess = useCallback(
+    (mode: 'b2c' | 'b2b') => {
+      // B2C defaults true, B2B defaults false when unset.
+      const current = permissions.businessAccess?.[mode] ?? (mode === 'b2c');
+      onChange({
+        ...permissions,
+        businessAccess: { ...permissions.businessAccess, [mode]: !current },
       });
     },
     [permissions, onChange],
@@ -549,6 +562,55 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
           </div>
         );
       })}
+
+      {/* ── Business Mode Access (B2C / B2B) ── */}
+      <div className="border border-border/70 rounded-xl overflow-hidden">
+        <div className="px-3 py-2.5 bg-muted/40 border-b border-border/40">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Business Mode Access
+          </p>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+            Which modes the header B2C ⇄ B2B toggle lets this user switch into.
+          </p>
+        </div>
+
+        <div className="divide-y divide-border/30">
+          {(
+            [
+              { mode: 'b2c' as const, label: 'B2C Mode', description: 'Retail / walk-in customer sales', icon: <Users2 size={14} />, def: true },
+              { mode: 'b2b' as const, label: 'B2B Mode', description: 'Corporate / dealer sales (separate table set)', icon: <Building2 size={14} />, def: false },
+            ]
+          ).map(({ mode, label, description, icon, def }, idx) => {
+            const isOn = permissions.businessAccess?.[mode] ?? def;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => toggleBusinessAccess(mode)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 ${
+                  idx % 2 === 0 ? 'bg-card' : 'bg-muted/10'
+                }`}
+              >
+                <div className={`shrink-0 w-9 h-5 rounded-full border-2 flex items-center transition-all ${
+                  isOn ? 'bg-brand-600 border-brand-600 justify-end' : 'bg-muted border-border justify-start'
+                }`}>
+                  <div className="w-3.5 h-3.5 rounded-full bg-white mx-0.5 shadow-sm" />
+                </div>
+                <span className={`shrink-0 ${isOn ? 'text-brand-500' : 'text-muted-foreground/40'}`}>{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[13px] font-medium leading-tight ${isOn ? 'text-foreground' : 'text-muted-foreground/60'}`}>{label}</p>
+                  <p className="text-[11px] text-muted-foreground/50 leading-snug">{description}</p>
+                </div>
+                <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                  isOn ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-muted text-muted-foreground/50'
+                }`}>
+                  {isOn ? 'Allowed' : 'Blocked'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── Data Visibility ── */}
       <div className="border border-border/70 rounded-xl overflow-hidden">
