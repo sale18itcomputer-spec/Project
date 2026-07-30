@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo } from "../../../../services/api";
+import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo } from "../../../../services/api";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
@@ -102,7 +102,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     useEffect(() => {
         if (existingInvoice) return;
         const taxable: string = initialData?.soData?.['Bill Invoice'] || initialData?.duplicateOf?.['Taxable'] || 'VAT';
-        const gen = isService ? generateServiceInvNo() : generateInvNo(taxable);
+        // PEEK (non-consuming): show a provisional number while editing. The real
+        // number is minted at save time from the final taxable (see handleSave),
+        // so opening the form / toggling VAT never burns a number or creates gaps.
+        const gen = isService ? peekServiceInvNo() : peekInvNo(taxable);
         gen.then(setNextInvNo).catch(() => {
             // Fallback: derive from current-mode cache if the DB query fails
             const year = new Date().getFullYear().toString();
@@ -304,11 +307,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             }
             return updated;
         });
-        // When Taxable type changes on a new invoice, re-fetch the global next number
-        // so the prefix (TI / INV / CI) stays unique across B2C and B2B.
-        // Service invoices keep their SI number — the series does not depend on tax type.
+        // When Taxable type changes on a new invoice, refresh the PROVISIONAL
+        // number so the displayed prefix (TI / INV / CI) tracks the choice.
+        // Non-consuming peek — the real number is minted at save. Service
+        // invoices keep their SI number — the series doesn't depend on tax type.
         if (name === 'Taxable' && !existingInvoice && !isService) {
-            generateInvNo(value)
+            peekInvNo(value)
                 .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
                 .catch(() => {/* keep current number if query fails */});
         }
@@ -404,6 +408,15 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     ...item,
                     id: item.id || `item-${Math.random()}`
                 })));
+            }
+            // Attaching an SO copies its VAT/Non-VAT type into Taxable, so refresh
+            // the provisional number's prefix to match (this is what was missing
+            // when a Non-VAT SO produced a "TI" invoice number). Non-consuming;
+            // the authoritative number is minted at save from the final taxable.
+            if (!existingInvoice && !isService) {
+                peekInvNo(so['Bill Invoice'] || 'NON-VAT')
+                    .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
+                    .catch(() => {/* keep current provisional number */});
             }
             addToast(`Loaded information from SO ${soNo}`, 'success');
         } else {
@@ -614,14 +627,25 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 }
             }
 
+            // Mint the AUTHORITATIVE invoice number now, from the FINAL taxable
+            // type. The number shown while editing was a non-consuming peek, so
+            // this is the single point a real number is consumed — guaranteeing
+            // the prefix matches the invoice's actual VAT status (no more Non-VAT
+            // invoices with a "TI" number) and no gaps from abandoned drafts.
+            // Placed after all validation/confirms so a cancelled save burns none.
+            const finalInvNo = existingInvoice
+                ? (invoice['Inv No'] as string)
+                : (isService ? await generateServiceInvNo() : await generateInvNo(invoice['Taxable'] || 'NON-VAT'));
+            payload['Inv No'] = finalInvNo;
+
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
                 setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as unknown as Invoice) : inv) : [payload as unknown as Invoice]);
             } else {
                 await createRecord('Invoices', payload);
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
-
-                // JE is posted below (line 632) with full COGS — do not post here.
+                // Reflect the minted number in form state (success screen, PDF, title).
+                setInvoice(prev => ({ ...prev, 'Inv No': finalInvNo }));
             }
 
             if (wasDraft && isNowIssued) {
@@ -864,7 +888,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const depositAmt = toNum(invoice['Deposit']);
                 if (depositAmt > 0.005) {
                     autoPostDepositReceiptJournal({
-                        invNo:         invoice['Inv No']!,
+                        invNo:         finalInvNo,
                         depositAmount: depositAmt,
                         entryDate:     invoice['Inv Date'] || getTodayDateString(),
                         createdBy:     currentUser?.Name || 'system',
@@ -877,7 +901,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // Auto-post invoice journal with COGS after inventory loop
                 // (idempotent — safe for both new invoices and Draft → Issued updates)
                 autoPostInvoiceJournal({
-                    invNo:         invoice['Inv No']!,
+                    invNo:         finalInvNo,
                     entryDate:     invoice['Inv Date'] || getTodayDateString(),
                     grandTotal:    totals.grandTotal,
                     taxAmount:     totals.tax,
@@ -900,7 +924,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             submitted.current = true;
             clearDraft();
             setHasDraftState(false);
-            setSuccessInfo({ invNo: invoice['Inv No'] });
+            setSuccessInfo({ invNo: finalInvNo });
         } catch (err: any) {
             addToast(friendlyDbError(err, 'invoice number') || 'Failed to save invoice', 'error');
         } finally {

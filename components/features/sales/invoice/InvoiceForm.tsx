@@ -76,7 +76,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                         <ScrollArea className="flex-1 px-5 py-4">
                             <div className="space-y-6">
                                 <FormSection title="Header Details">
-                                    <FormInput label="Invoice No." name="Inv No" value={invoice['Inv No']} onChange={handleInputChange} required />
+                                    {/* Auto-managed & read-only: the number is minted at save from the
+                                        Taxable type (TI = VAT, INV = Non-VAT, CI = Commercial). Making it
+                                        editable is what let staff hand-type the bare "2026-000XX" format and
+                                        created the mixed numbering — the prefix now follows the Taxable choice
+                                        below, and can't be overwritten. */}
+                                    <FormInput label="Invoice No." name="Inv No" value={invoice['Inv No']} onChange={handleInputChange} required readOnly />
                                     <FormInput label="Invoice Date" name="Inv Date" type="date" value={invoice['Inv Date']} onChange={handleInputChange} />
                                     <FormInput label="Due Date" name="Due Date" type="date" value={invoice['Due Date']} onChange={handleInputChange} />
                                     {isService ? (

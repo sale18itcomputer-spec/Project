@@ -695,15 +695,34 @@ export const generatePosRvNo = async (): Promise<string> => {
  * sequence number, "TI2026-00003", that had already been used and abandoned
  * once before).
  */
-export const generateInvNo = async (taxableType: string): Promise<string> => {
+const invPrefixFor = (taxableType: string): string => {
     const year = new Date().getFullYear();
-    let prefix = `INV${year}-`;
-    if (taxableType === 'VAT') prefix = `TI${year}-`;
-    else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
+    if (taxableType === 'VAT') return `TI${year}-`;
+    if (taxableType === 'Commercial Invoice') return `CI${year}-`;
+    return `INV${year}-`;
+};
 
+export const generateInvNo = async (taxableType: string): Promise<string> => {
+    const prefix = invPrefixFor(taxableType);
     const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
     if (error) throw error;
     return `${prefix}${String(data as number).padStart(5, '0')}`;
+};
+
+/**
+ * Provisional invoice number for DISPLAY only — reads the document_sequences
+ * counter WITHOUT consuming it. Editors show this while the user works so
+ * opening a form (or toggling VAT/Non-VAT, attaching an SO) never burns a
+ * real number and never creates gaps. The authoritative number is minted by
+ * generateInvNo at SAVE time, from the final taxable type — so the stored
+ * number's prefix always matches the invoice's actual VAT status. Falls back
+ * to prefix-00001 if the counter row doesn't exist yet.
+ */
+export const peekInvNo = async (taxableType: string): Promise<string> => {
+    const prefix = invPrefixFor(taxableType);
+    const { data } = await supabase.from('document_sequences').select('last_seq').eq('prefix', prefix).maybeSingle();
+    const next = ((data?.last_seq as number) ?? 0) + 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
 };
 
 /**
@@ -717,6 +736,14 @@ export const generateServiceInvNo = async (): Promise<string> => {
     const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
     if (error) throw error;
     return `${prefix}${String(data as number).padStart(5, '0')}`;
+};
+
+/** Provisional service-invoice number for display (non-consuming). See peekInvNo. */
+export const peekServiceInvNo = async (): Promise<string> => {
+    const prefix = `SI${new Date().getFullYear()}-`;
+    const { data } = await supabase.from('document_sequences').select('last_seq').eq('prefix', prefix).maybeSingle();
+    const next = ((data?.last_seq as number) ?? 0) + 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
 };
 
 /**
