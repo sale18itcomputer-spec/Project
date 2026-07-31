@@ -997,6 +997,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 isPromotion: item.isPromotion,
                 isPCBuild: item.isPCBuild,
                 buildComponents: item.buildComponents,
+                serialNumber: item.serialNumber,
+                serialNumbers: item.serialNumbers,
             })),
             totals: {
                 subTotal: totals.subTotal,

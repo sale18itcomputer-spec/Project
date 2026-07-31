@@ -21,6 +21,8 @@ interface LineItem {
     isPromotion?: boolean;
     isPCBuild?: boolean;
     buildComponents?: BuildComponent[];
+    serialNumber?: string;
+    serialNumbers?: string[];
 }
 
 interface PrintableInvoiceProps {
@@ -383,6 +385,17 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                                             {item.description}
                                         </div>
                                     )}
+                                    {(() => {
+                                        const serials = (item.serialNumbers && item.serialNumbers.length > 0
+                                            ? item.serialNumbers
+                                            : (item.serialNumber || '').split('\n'))
+                                            .map(s => s.trim()).filter(Boolean);
+                                        return serials.length > 0 ? (
+                                            <div style={{ fontSize: 7.5, color: '#555', whiteSpace: 'pre-wrap', marginTop: 3, fontWeight: 'normal' }}>
+                                                {serials.map((s, i) => <div key={i}>S/N: {s}</div>)}
+                                            </div>
+                                        ) : null;
+                                    })()}
                                 </td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.qty || ''}</td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>
