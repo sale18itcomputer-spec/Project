@@ -20,6 +20,7 @@ export function buildTaxInvoice(
     columnWidths?: number[],
     hideKhmer = false,
     docTitle?: { en: string; km: string },
+    hideSerials = false,
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
@@ -148,7 +149,7 @@ export function buildTaxInvoice(
                 const isLast = idx === comps.length - 1;
                 const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
                 const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
-                const sn = c.serialNumber?.trim();
+                const sn = hideSerials ? '' : c.serialNumber?.trim();
                 const warranty = c.warrantyMonths ? `${c.warrantyMonths} months warranty` : '';
                 const subLine = [warranty, sn ? `S/N: ${sn}` : ''].filter(Boolean).join(' · ');
                 rows += `
@@ -165,7 +166,9 @@ export function buildTaxInvoice(
         }
 
         // Serial numbers to list under the item (multi-line string or array).
-        const serials = (item.serialNumbers && item.serialNumbers.length > 0
+        // Suppressed entirely when hideSerials is on (cleaner PDF for orders
+        // with many serials).
+        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
             ? item.serialNumbers
             : (item.serialNumber || '').split('\n'))
             .map(s => s.trim()).filter(Boolean);

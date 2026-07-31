@@ -85,6 +85,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
     const [hideKhmer, setHideKhmer] = useState(false);
+    const [hideSerials, setHideSerials] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
     // Service invoices are a separate document series (SI numbers, own PDF
@@ -1009,6 +1010,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             signaturePadding,
             labelPadding,
             hideKhmer,
+            hideSerials,
             previewMode: false,
             filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
             columnWidths: colWidths,
@@ -1030,6 +1032,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         signaturePadding,
         labelPadding,
         hideKhmer,
+        hideSerials,
     };
 
     const headerLeft = (
@@ -1118,6 +1121,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             onLabelPaddingChange={setLabelPadding}
                             hideKhmer={hideKhmer}
                             onHideKhmerChange={setHideKhmer}
+                            hideSerials={hideSerials}
+                            onHideSerialsChange={setHideSerials}
                             columnWidths={colWidths}
                         />
                     </div>

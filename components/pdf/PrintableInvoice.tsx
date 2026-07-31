@@ -35,6 +35,7 @@ interface PrintableInvoiceProps {
     };
     currency: 'USD' | 'KHR';
     signaturePadding?: number;
+    hideSerials?: boolean;
 }
 
 const LOGO_URL = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png';
@@ -43,7 +44,7 @@ const BRAND_BLUE = '#0056b3';
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string =>
     currency === 'KHR' ? '៛' : '$';
 
-const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100 }) => {
+const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100, hideSerials = false }) => {
     const sym = getCurrencySymbol(currency);
     const isTaxInvoice = headerData['Taxable'] === 'VAT';
     const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';
@@ -386,7 +387,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                                         </div>
                                     )}
                                     {(() => {
-                                        const serials = (item.serialNumbers && item.serialNumbers.length > 0
+                                        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
                                             ? item.serialNumbers
                                             : (item.serialNumber || '').split('\n'))
                                             .map(s => s.trim()).filter(Boolean);

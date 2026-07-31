@@ -33,6 +33,8 @@ export interface PdfClientOptions {
     labelPadding?: number;
     /** When true, NON-VAT Invoice PDFs omit Khmer text (English-only). Ignored for VAT/Tax Invoices. */
     hideKhmer?: boolean;
+    /** When true, serial numbers are omitted from item rows (cleaner PDF for many-serial orders). */
+    hideSerials?: boolean;
     filename?: string;
     /** If true, returns a blob URL instead of auto-downloading */
     previewMode?: boolean;
@@ -74,6 +76,7 @@ function buildBody(opts: PdfClientOptions): string {
         signaturePadding: opts.signaturePadding,
         labelPadding:     opts.labelPadding,
         hideKhmer:        opts.hideKhmer,
+        hideSerials:      opts.hideSerials,
         columnWidths:     opts.columnWidths,
         previewMode:      opts.previewMode,
     });

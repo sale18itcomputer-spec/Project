@@ -20,6 +20,7 @@ export function buildCommercialInvoice(
     signaturePadding = 0,
     labelPadding?: number,
     columnWidths?: number[],
+    hideSerials = false,
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
@@ -62,7 +63,7 @@ export function buildCommercialInvoice(
             ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>`
             : '';
 
-        const serials = (item.serialNumbers && item.serialNumbers.length > 0
+        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
             ? item.serialNumbers
             : (item.serialNumber || '').split('\n'))
             .map(s => s.trim()).filter(Boolean);
