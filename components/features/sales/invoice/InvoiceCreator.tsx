@@ -6,6 +6,7 @@ import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo } from "../../../../services/api";
+import { reconcileIssuedInvoiceEdit } from "../../../../services/reconcileInvoiceEdit";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
@@ -916,6 +917,37 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     console.warn('[InvoiceCreator] auto-post journal failed:', err);
                     addToast(`Invoice saved, but its journal entry failed: ${err.message}`, 'error');
                 });
+            } else if (existingInvoice && isNowIssued) {
+                // Editing an ALREADY-ISSUED invoice: the block above intentionally
+                // skips (so the originals aren't deducted twice). Reconcile only the
+                // DELTA vs the last saved items, so lines/serials/qty added or removed
+                // on this edit are reflected in stock, the serial register and the GL.
+                try {
+                    const parseItems = (raw: any) => {
+                        try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; }
+                    };
+                    const brandByCode = new Map<string, string>((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+                    const res = await reconcileIssuedInvoiceEdit({
+                        invNo: finalInvNo,
+                        invoiceDate: (invoice['Inv Date'] as string) || getTodayDateString(),
+                        isVAT: invoice['Taxable'] === 'VAT',
+                        soNo: (invoice['SO No'] as string) || '',
+                        companyName: (invoice['Company Name'] as string) || '',
+                        contactName: (invoice['Contact Name'] as string) || '',
+                        createdBy: currentUser?.Name || 'system',
+                        oldItems: parseItems(existingInvoice.ItemsJSON),
+                        newItems: items,
+                        brandByCode,
+                    });
+                    if (res.inventoryChanged) refetchModule('Inventory');
+                    if (res.serialsChanged) refetchModule('Serial Numbers');
+                    if (res.inventoryChanged || res.serialsChanged || res.glAdjusted) {
+                        addToast(`Edit reconciled: ${res.summary}.`, 'success');
+                    }
+                } catch (reconErr: any) {
+                    console.warn('[InvoiceCreator] edit reconciliation failed:', reconErr.message);
+                    addToast(`Invoice saved, but edit reconciliation failed: ${reconErr.message}`, 'error');
+                }
             }
 
             refetchModule('Invoices');
