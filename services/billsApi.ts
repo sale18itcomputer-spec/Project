@@ -116,17 +116,6 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     if (billErr) throw new Error(billErr.message);
     if (bill.status !== 'draft') throw new Error('Bill is already posted.');
 
-    // Idempotency guard: catch duplicate posts even if status update failed previously
-    const { data: existingJes } = await supabase
-        .from('journal_entries')
-        .select('id, entry_number')
-        .eq('source', 'bill')
-        .eq('reference', bill.bill_number)
-        .limit(1);
-    if (existingJes?.[0]?.id) throw new Error(
-        `${bill.bill_number} already has a journal entry (${existingJes[0].entry_number}). Refresh the page — the bill may already be posted.`
-    );
-
     const { data: lines, error: linesErr } = await supabase
         .from('bill_lines').select('*').eq('bill_id', id);
     if (linesErr) throw new Error(linesErr.message);
@@ -138,6 +127,45 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
     const discountTotal = discountLines.reduce((s: number, l: BillLine) => s + Number(l.amount), 0);
     const netTotal      = grossTotal - discountTotal;
     if (netTotal <= 0) throw new Error('Net bill amount must be greater than zero.');
+
+    // Self-healing idempotency: a bill JE for this reference may already exist —
+    // e.g. a prior post whose status update failed, or an unpost that stranded the
+    // JE (a JE update that silently no-op'd, or one re-toggled to posted from the
+    // Journal Entries tab). Rather than dead-ending "already has a journal entry",
+    // RECONCILE: if the existing JE's AP total matches this bill, re-link and mark
+    // posted (flipping is_posted back on if it was an unpost leftover). Only refuse
+    // when the amounts disagree — that means the JE is stale and needs a manual
+    // look — so we never silently double-book. This is what stranded BILL-0015.
+    const { data: existingJe } = await supabase
+        .from('journal_entries')
+        .select('id, entry_number, is_posted')
+        .eq('source', 'bill')
+        .eq('reference', bill.bill_number)
+        .maybeSingle();
+    if (existingJe?.id) {
+        const { data: apLines } = await supabase
+            .from('journal_entry_lines')
+            .select('debit, credit')
+            .eq('journal_entry_id', existingJe.id)
+            .eq('account_number', '20000');
+        const apNet = (apLines ?? []).reduce((s, l) => s + (Number(l.credit) || 0) - (Number(l.debit) || 0), 0);
+        if (Math.abs(apNet - netTotal) > 0.01) {
+            throw new Error(
+                `${bill.bill_number} already has ${existingJe.entry_number}, but its AP total ($${apNet.toFixed(2)}) doesn't match this bill ($${netTotal.toFixed(2)}). The entry is stale — reconcile ${existingJe.entry_number} before posting.`
+            );
+        }
+        if (!existingJe.is_posted) {
+            await supabase.from('journal_entries').update({ is_posted: true }).eq('id', existingJe.id);
+        }
+        const { data: healed, error: healErr } = await supabase
+            .from('bills')
+            .update({ status: 'posted', journal_entry_id: existingJe.id, total_amount: netTotal })
+            .eq('id', id)
+            .select()
+            .single();
+        if (healErr) throw new Error(healErr.message);
+        return { ...healed, lines };
+    }
 
     // If this bill references a PO that already has a purchase_order JE
     // (draft OR posted), reuse it — creating a bill JE too would double-book
@@ -223,10 +251,23 @@ export const unpostBill = async (id: string): Promise<Bill> => {
             .eq('id', bill.journal_entry_id)
             .maybeSingle();
         if (je?.source === 'bill') {
-            await supabase
+            const { error: unpostErr } = await supabase
                 .from('journal_entries')
                 .update({ is_posted: false })
                 .eq('id', bill.journal_entry_id);
+            if (unpostErr) throw new Error(`Could not unpost ${bill.bill_number}'s journal entry: ${unpostErr.message}`);
+            // Verify it actually flipped. A silent no-op (RLS on posted entries, a
+            // 0-row match) must NOT leave a posted JE behind while the bill reverts
+            // to draft — that draft+live-JE mismatch is exactly what stranded
+            // BILL-0015. Abort before touching the bill if the JE is still posted.
+            const { data: check } = await supabase
+                .from('journal_entries')
+                .select('is_posted')
+                .eq('id', bill.journal_entry_id)
+                .maybeSingle();
+            if (check?.is_posted) throw new Error(
+                `${bill.bill_number}'s journal entry could not be unposted (still posted). Aborting so the bill isn't left as a draft with a live journal entry.`
+            );
         }
     }
 
