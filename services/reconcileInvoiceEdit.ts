@@ -350,3 +350,103 @@ export async function reconcileIssuedInvoiceEdit(params: {
     const summary = parts.length ? parts.join(' + ') + ' updated' : 'no changes needed';
     return { inventoryChanged, serialsChanged, glAdjusted, summary };
 }
+
+/**
+ * Void an issued invoice: the accounting-correct alternative to hard-deleting it.
+ * Deleting an invoice row (deleteRecord) left its journal entry orphaned in the
+ * GL, its inventory relieved, and its serials Sold — plus a permanent gap in the
+ * monotonic number sequence (see INV2026-00005 / INV2026-00006). Voiding instead:
+ *   1. restores inventory qty for every line and reverts its serials to In Stock
+ *      (via the tested computeInvoiceEditDelta, diffing current items → empty),
+ *   2. posts an EXACT contra of the original invoice JE (every line's debit/credit
+ *      swapped) so the GL nets to zero regardless of any lot-cost drift — the
+ *      original entry is preserved, the reversal sits beside it, fully auditable,
+ *   3. leaves the caller to set the invoice row's status to 'Cancel' and KEEP it,
+ *      so the number stays in sequence (gapless) and shows as a voided record.
+ */
+export interface VoidResult { restocked: boolean; serialsReverted: boolean; jeReversed: string | null; }
+
+export async function voidInvoice(params: {
+    invNo: string;
+    entryDate: string;
+    createdBy: string;
+    currentItems: any[];
+    brandByCode: Map<string, string>;
+}): Promise<VoidResult> {
+    const entryDate = (params.entryDate || new Date().toISOString()).slice(0, 10);
+    const delta = computeInvoiceEditDelta(params.currentItems, [], params.brandByCode);
+
+    let restocked = false;
+    // 1a. Restore inventory qty for every line (all deltas are removals → d < 0).
+    for (const { code, model, delta: d } of delta.qtyDeltas) {
+        if (d >= 0) continue;
+        const qty = -d;
+        let rows: any[] | null = null;
+        if (code) {
+            const { data } = await supabase.from('inventory')
+                .select('id, qty').eq('code', code)
+                .order('created_at', { ascending: true }).limit(1);
+            rows = data;
+        }
+        if ((!rows || !rows.length) && model) {
+            const { data } = await supabase.from('inventory')
+                .select('id, qty').ilike('model_name', `%${model}%`)
+                .order('created_at', { ascending: true }).limit(1);
+            rows = data;
+        }
+        if (!rows || !rows.length) continue;
+        const lot = rows[0];
+        const newQty = Number(lot.qty) + qty;
+        await supabase.from('inventory').update({ qty: newQty, status: newQty > 0 ? 'In Stock' : 'Out of Stock' }).eq('id', lot.id);
+        restocked = true;
+    }
+
+    // 1b. Revert every serial to In Stock — but only units still linked to THIS
+    //     invoice's number/SO, never one already reassigned elsewhere.
+    let serialsReverted = false;
+    for (const sn of delta.removedSerials) {
+        const { data: existing } = await supabase.from('serial_numbers')
+            .select('id, stock_status, so_no').eq('serial_number', sn).limit(1);
+        if (!existing || !existing.length) continue;
+        const row = existing[0];
+        if (row.stock_status === 'Sold' && row.so_no && params.invNo && row.so_no !== params.invNo && !String(row.so_no).startsWith('SO-')) continue;
+        await supabase.from('serial_numbers').update({
+            so_no: '', company_name: '', contact_name: '',
+            warranty_start_date: null, warranty_end_date: null, stock_status: 'In Stock',
+        }).eq('id', row.id);
+        serialsReverted = true;
+    }
+
+    // 2. Exact contra of the original invoice JE (net GL impact → zero).
+    let jeReversed: string | null = null;
+    const { data: je } = await supabase.from('journal_entries')
+        .select('id, entry_number').eq('reference', params.invNo).eq('source', 'invoice').maybeSingle();
+    if (je?.id) {
+        const { data: lines } = await supabase.from('journal_entry_lines')
+            .select('account_number, description, debit, credit').eq('journal_entry_id', je.id);
+        const revLines = (lines ?? []).map((l: any) => ({
+            account_number: l.account_number,
+            description: `Void ${params.invNo} — reverse ${je.entry_number}`,
+            debit: Number(l.credit) || 0,
+            credit: Number(l.debit) || 0,
+        }));
+        if (revLines.length) {
+            const entryNumber = await getNextEntryNumber();
+            await createJournalEntry(
+                {
+                    entry_number: entryNumber,
+                    entry_date: entryDate,
+                    description: `Void: Invoice ${params.invNo} (reverse ${je.entry_number})`,
+                    reference: params.invNo,
+                    created_by: params.createdBy,
+                    is_posted: true,
+                    source: 'invoice-void',
+                } as any,
+                revLines,
+            );
+            jeReversed = je.entry_number;
+        }
+    }
+
+    return { restocked, serialsReverted, jeReversed };
+}
