@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo } from "../../../../services/api";
+import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo, releaseInvNoIfUnused } from "../../../../services/api";
 import { reconcileIssuedInvoiceEdit } from "../../../../services/reconcileInvoiceEdit";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
@@ -644,7 +644,16 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
                 setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as unknown as Invoice) : inv) : [payload as unknown as Invoice]);
             } else {
-                await createRecord('Invoices', payload);
+                try {
+                    await createRecord('Invoices', payload);
+                } catch (insErr) {
+                    // generateInvNo already consumed finalInvNo above; the row did
+                    // NOT persist, so release the number instead of leaving a
+                    // permanent gap in the invoice sequence (mint-before-persist).
+                    // Best-effort — never let a release error mask the real failure.
+                    await releaseInvNoIfUnused(finalInvNo).catch(() => {});
+                    throw insErr;
+                }
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
                 // Reflect the minted number in form state (success screen, PDF, title).
                 setInvoice(prev => ({ ...prev, 'Inv No': finalInvNo }));
