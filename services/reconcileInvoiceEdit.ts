@@ -450,3 +450,61 @@ export async function voidInvoice(params: {
 
     return { restocked, serialsReverted, jeReversed };
 }
+
+/**
+ * Reserve/free serial numbers for a DRAFT (not-yet-issued) invoice, so a serial
+ * placed on one document can't be picked on another before its invoice is issued.
+ *
+ * Serials are only marked 'Sold' at issue time (InvoiceCreator issue-path). Until
+ * then they'd stay 'In Stock' and the SerialNumberPicker (which offers In-Stock
+ * serials) would show them on other documents — the double-appearance the picker
+ * bug showed. This reserves them at save:
+ *   - serials ADDED to the doc and currently 'In Stock' → 'Reserved' (+ linkage)
+ *   - serials REMOVED from the doc that are 'Reserved' → back to 'In Stock'
+ * The picker already hides anything that isn't 'In Stock', so Reserved auto-hides.
+ * At issue the Sold-sync upgrades Reserved → Sold; void/delete frees them.
+ * Never touches a 'Sold' serial. Pass newItems: [] to free ALL of a doc's serials
+ * (used when a draft is deleted).
+ */
+export async function reserveInvoiceSerials(params: {
+    soNo?: string;
+    companyName?: string;
+    contactName?: string;
+    oldItems: any[];
+    newItems: any[];
+    brandByCode: Map<string, string>;
+}): Promise<{ changed: boolean }> {
+    const delta = computeInvoiceEditDelta(params.oldItems, params.newItems, params.brandByCode);
+    let changed = false;
+
+    for (const { serial } of delta.addedSerials) {
+        const { data } = await supabase.from('serial_numbers')
+            .select('id, stock_status').eq('serial_number', serial).limit(1);
+        const row = data?.[0];
+        if (row && row.stock_status === 'In Stock') {
+            await supabase.from('serial_numbers').update({
+                stock_status: 'Reserved',
+                so_no: params.soNo || '',
+                company_name: params.companyName || '',
+                contact_name: params.contactName || '',
+            }).eq('id', row.id);
+            changed = true;
+        }
+    }
+
+    for (const serial of delta.removedSerials) {
+        const { data } = await supabase.from('serial_numbers')
+            .select('id, stock_status').eq('serial_number', serial).limit(1);
+        const row = data?.[0];
+        // Only free units WE reserved — never disturb a 'Sold' unit or one another
+        // document reserved (which the picker's In-Stock filter already prevented).
+        if (row && row.stock_status === 'Reserved') {
+            await supabase.from('serial_numbers').update({
+                stock_status: 'In Stock', so_no: '', company_name: '', contact_name: '',
+            }).eq('id', row.id);
+            changed = true;
+        }
+    }
+
+    return { changed };
+}

@@ -6,7 +6,7 @@ import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo, releaseInvNoIfUnused } from "../../../../services/api";
-import { reconcileIssuedInvoiceEdit } from "../../../../services/reconcileInvoiceEdit";
+import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../services/reconcileInvoiceEdit";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
@@ -353,6 +353,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         if (isService) fetchModule('Service Tickets');
     }, [isService, fetchModule]);
 
+    // Inventory is a lazy sheet — load it so the line-item search can offer
+    // in-stock items that aren't in the pricelist catalog (e.g. LAC00050).
+    useEffect(() => { fetchModule('Inventory'); }, [fetchModule]);
+
     const serviceTicketOptions = useMemo(
         () => serviceTickets
             ? [...new Set(serviceTickets.map(t => t.ticket_no).filter(Boolean))].sort().reverse() as string[]
@@ -427,14 +431,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     };
 
     const handlePricelistItemSelect = (item: LineItem, p: any) => {
+        // p is the combobox's normalized pick { Code, Model, Description, Brand,
+        // unitPrice }; fall back to raw pricelist column names for safety. The
+        // pricelist's real price column is 'End User Price' (NOT the old
+        // 'Selling Price (Include VAT)', which never existed → Unit Price 0).
+        const unit = Number(p.unitPrice ?? p['End User Price'] ?? p['Selling Price (Include VAT)'] ?? 0) || 0;
         setItems(prev => prev.map(i => i.id === item.id ? {
             ...i,
-            itemCode: p['Code'] || p['Item Code'] || '',
-            modelName: p.Model || '',
-            description: p['Description'] || p.Specification || '',
-            unitPrice: p['Selling Price (Include VAT)'] || 0,
-            amount: (Number(p['Selling Price (Include VAT)']) || 0) * (Number(i.qty) || 0),
-            brand: p.Brand || '',
+            itemCode: p.Code || p['Code'] || p['Item Code'] || '',
+            modelName: p.Model || p.model || '',
+            description: p.Description || p['Description'] || p.Specification || '',
+            unitPrice: unit,
+            amount: unit * (Number(i.qty) || 0),
+            brand: p.Brand || p.brand || '',
         } : i));
     };
 
@@ -956,6 +965,25 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 } catch (reconErr: any) {
                     console.warn('[InvoiceCreator] edit reconciliation failed:', reconErr.message);
                     addToast(`Invoice saved, but edit reconciliation failed: ${reconErr.message}`, 'error');
+                }
+            } else if (!isNowIssued) {
+                // Draft (not issued): reserve its serials so they can't be picked on
+                // another document, and free any removed from the draft. Serials
+                // become 'Sold' later, at issue. See reserveInvoiceSerials.
+                try {
+                    const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+                    const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+                    const res = await reserveInvoiceSerials({
+                        soNo: (invoice['SO No'] as string) || (finalInvNo as string),
+                        companyName: (invoice['Company Name'] as string) || '',
+                        contactName: (invoice['Contact Name'] as string) || '',
+                        oldItems: parseItems(existingInvoice?.ItemsJSON),
+                        newItems: items,
+                        brandByCode,
+                    });
+                    if (res.changed) refetchModule('Serial Numbers');
+                } catch (resErr: any) {
+                    console.warn('[InvoiceCreator] serial reservation failed:', resErr.message);
                 }
             }
 

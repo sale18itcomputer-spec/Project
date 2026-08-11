@@ -15,7 +15,7 @@ import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { deleteRecord, updateRecord } from "../../../services/api";
-import { voidInvoice } from "../../../services/reconcileInvoiceEdit";
+import { voidInvoice, reserveInvoiceSerials } from "../../../services/reconcileInvoiceEdit";
 import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -125,7 +125,18 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         setInvoiceToDelete(null);
         try {
             if (isDraft) {
-                // A draft never posted a JE or relieved stock — safe to remove outright.
+                // A draft never posted a JE or relieved stock — safe to remove. But
+                // first free any serials it had RESERVED, so they return to stock and
+                // can be picked again (draft never marked them Sold).
+                try {
+                    const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+                    const items = parseItems(inv.ItemsJSON);
+                    if (JSON.stringify(items).includes('serialNumber')) {
+                        const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+                        const res = await reserveInvoiceSerials({ oldItems: items, newItems: [], brandByCode });
+                        if (res.changed) refetchModule?.('Serial Numbers');
+                    }
+                } catch (e: any) { console.warn('[InvoiceDashboard] freeing draft serials failed:', e.message); }
                 setInvoices(prev => prev ? prev.filter(i => i['Inv No'] !== invoiceId) : null);
                 await deleteRecord('Invoices', invoiceId);
                 addToast('Draft invoice deleted.', 'success');
