@@ -89,6 +89,11 @@ interface DataContextProps {
   setSaleOrders: React.Dispatch<React.SetStateAction<SaleOrder[] | null>>;
   pricelist: PricelistItem[] | null;
   setPricelist: React.Dispatch<React.SetStateAction<PricelistItem[] | null>>;
+  /** Mode-independent item catalog — ALWAYS the shared b2c `pricelist` (the
+   *  populated 677-item list), loaded once regardless of B2B/B2C mode. Item
+   *  search (Quote/Invoice/SO) reads this so it keeps working in B2B, where the
+   *  mode-resolved `pricelist` points at the (empty) b2b_pricelist table. */
+  catalogPricelist: PricelistItem[] | null;
   invoices: Invoice[] | null;
   setInvoices: React.Dispatch<React.SetStateAction<Invoice[] | null>>;
   deliveryOrders: DeliveryOrder[] | null;
@@ -264,6 +269,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [quotations,     setQuotations]     = useState<Quotation[] | null>(null);
   const [saleOrders,     setSaleOrders]     = useState<SaleOrder[] | null>(null);
   const [pricelist,      setPricelist]      = useState<PricelistItem[] | null>(null);
+  const [catalogPricelist, setCatalogPricelist] = useState<PricelistItem[] | null>(null);
   const [invoices,       setInvoices]       = useState<Invoice[] | null>(null);
   const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrder[] | null>(null);
   const [receipts,       setReceipts]       = useState<Receipt[] | null>(null);
@@ -278,6 +284,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [spareParts,        setSpareParts]        = useState<SparePart[] | null>(null);
   const [loading,           setLoading]           = useState(true);
   const [error,          setError]          = useState<string | null>(null);
+
+  // Load the shared b2c item catalog ONCE, independent of B2B/B2C mode, so item
+  // search (Quote/Invoice/SO comboboxes) keeps working in B2B — where the
+  // mode-resolved `pricelist` points at the empty b2b_pricelist table.
+  useEffect(() => {
+    let cancelled = false;
+    batchReadRecords(['Raw'], false)
+      .then(res => { if (!cancelled) setCatalogPricelist((res['Raw'] as PricelistItem[]) ?? []); })
+      .catch(() => { if (!cancelled) setCatalogPricelist([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   const stateSetters = useMemo<Record<db.StoreName, React.Dispatch<React.SetStateAction<any>>>>(() => ({
     projects:       setProjects,
@@ -751,6 +768,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     quotations,     setQuotations,
     saleOrders,     setSaleOrders,
     pricelist,      setPricelist,
+    catalogPricelist,
     invoices,       setInvoices,
     deliveryOrders, setDeliveryOrders,
     receipts,       setReceipts,

@@ -98,7 +98,7 @@ const PricelistCombobox: React.FC<{
     onPricelistItemSelect: (item: LineItem, pricelistItem: any) => void;
     disabled?: boolean;
 }> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
-    const { pricelist, inventoryItems } = useData();
+    const { pricelist, catalogPricelist, inventoryItems } = useData();
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +116,13 @@ const PricelistCombobox: React.FC<{
     const mergedResults = useMemo((): PickerResult[] => {
         if (!isOpen) return [];
         const query = (item.itemCode ?? '').toLowerCase().trim();
+
+        // Code → SELLING price from the catalog. inventory.unit_price is the
+        // purchase COST and must NEVER be shown/used as the customer price, so an
+        // inventory pick's price comes from the catalog (or blank for the user to
+        // fill) — never the cost. (This previously leaked cost into SO prices.)
+        const catalogForPrice = (((catalogPricelist && catalogPricelist.length > 0) ? catalogPricelist : pricelist) ?? []);
+        const sellByCode = new Map<string, number>((catalogForPrice as any[]).map(p => [(p.Code ?? '').toLowerCase(), Number(p['End User Price']) || 0]));
 
         // ── Inventory items ────────────────────────────────────────────────────
         const invResults: PickerResult[] = (inventoryItems ?? [])
@@ -137,14 +144,14 @@ const PricelistCombobox: React.FC<{
                 model: inv.model_name ?? '',
                 brand: inv.brand ?? '',
                 description: inv.description ?? '',
-                price: inv.unit_price,
+                price: sellByCode.get((inv.code ?? '').toLowerCase()) ?? '', // SELLING price, never cost
                 statusLabel: `Qty: ${inv.qty}`,
                 currency: inv.currency,
                 qty: inv.qty,
             }));
 
-        // ── Pricelist items ────────────────────────────────────────────────────
-        const plResults: PickerResult[] = (pricelist ?? [])
+        // ── Pricelist items (shared b2c catalog, so it works in B2B too) ────────
+        const plResults: PickerResult[] = (((catalogPricelist && catalogPricelist.length > 0) ? catalogPricelist : pricelist) ?? [])
             .filter(p => {
                 if (!query) return true;
                 return (
@@ -172,7 +179,7 @@ const PricelistCombobox: React.FC<{
         const dedupedPl = plResults.filter(r => !r.code || !invCodes.has(r.code.toLowerCase()));
 
         return [...invResults, ...dedupedPl].slice(0, 60);
-    }, [pricelist, inventoryItems, item.itemCode, isOpen]);
+    }, [pricelist, catalogPricelist, inventoryItems, item.itemCode, isOpen]);
 
     const handleBlur = () => {
         setTimeout(() => {
@@ -279,7 +286,10 @@ const PricelistCombobox: React.FC<{
 
 
 const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSaleOrder, initialData }) => {
-    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist, inventoryItems, refetchModule } = useData();
+    const { saleOrders, setSaleOrders, companies, contacts, quotations, pricelist, inventoryItems, refetchModule, fetchModule } = useData();
+    // Inventory is a lazy sheet — load it so item search can offer in-stock items
+    // that aren't in the pricelist catalog.
+    useEffect(() => { fetchModule('Inventory'); }, [fetchModule]);
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { handleNavigation } = useNavigation();
