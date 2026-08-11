@@ -83,7 +83,7 @@ const PricelistCombobox: React.FC<{
     onPricelistItemSelect: (item: LineItem, pricelistItem: PricelistItem) => void;
     disabled?: boolean;
 }> = ({ item, onItemChange, onPricelistItemSelect, disabled = false }) => {
-    const { pricelist } = useB2BData();
+    const { pricelist, catalogPricelist, inventoryItems } = useB2BData();
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -97,23 +97,55 @@ const PricelistCombobox: React.FC<{
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
+    // Item search = shared b2c catalog (works in B2B, where `pricelist` is the
+    // empty b2b_pricelist) MERGED with in-stock inventory. Inventory rows are
+    // normalized to the same field names the dropdown + select handler expect.
+    const catalog = useMemo(
+        () => ((catalogPricelist && catalogPricelist.length > 0) ? catalogPricelist : (pricelist ?? [])),
+        [catalogPricelist, pricelist],
+    );
+    const stockAsPricelist = useMemo(() => {
+        // Resolve each in-stock item's SELLING price from the catalog by code.
+        // inventory.unit_price is the purchase COST and must never be shown/used as
+        // the price — leave 0 (user enters) when the item isn't in the catalog.
+        const sellByCode = new Map<string, number>((catalog as any[]).map(p => [(p.Code ?? '').toLowerCase(), Number(p['End User Price']) || 0]));
+        const byCode = new Map<string, any>();
+        for (const inv of (inventoryItems ?? []) as any[]) {
+            if ((Number(inv.qty) || 0) <= 0) continue;
+            const code = inv.code ?? '';
+            const existing = byCode.get(code.toLowerCase());
+            if (existing) { existing._qty += Number(inv.qty) || 0; existing.Status = `In stock: ${existing._qty}`; continue; }
+            byCode.set(code.toLowerCase(), {
+                Code: code, Model: inv.model_name ?? '', Brand: inv.brand ?? '',
+                Description: inv.description ?? '', 'End User Price': sellByCode.get(code.toLowerCase()) ?? 0,
+                Status: `In stock: ${inv.qty}`, Category: 'IN STOCK', _qty: Number(inv.qty) || 0,
+            });
+        }
+        return [...byCode.values()];
+    }, [inventoryItems, catalog]);
+
     const filteredPricelist = useMemo(() => {
-        if (!pricelist || !isOpen) return [];
-        const query = item.itemCode?.toLowerCase() || '';
-        if (query === '') return pricelist.slice(0, 50);
-        return pricelist.filter(p =>
-            p.Code?.toLowerCase().includes(query) ||
-            p.Model?.toLowerCase().includes(query) ||
-            p.Brand?.toLowerCase().includes(query) ||
-            p.Category?.toLowerCase().includes(query)
-        ).slice(0, 50);
-    }, [pricelist, item.itemCode, isOpen]);
+        if (!isOpen) return [];
+        const query = item.itemCode?.toLowerCase().trim() || '';
+        const match = (p: any) => !query
+            || p.Code?.toLowerCase().includes(query)
+            || p.Model?.toLowerCase().includes(query)
+            || p.Brand?.toLowerCase().includes(query)
+            || p.Category?.toLowerCase().includes(query)
+            || p.Description?.toLowerCase().includes(query);
+        const inStock = stockAsPricelist.filter(match).slice(0, 30);
+        const seen = new Set(inStock.map(p => (p.Code || '').toLowerCase()).filter(Boolean));
+        const cat = catalog.filter(match).filter(p => !seen.has((p.Code || '').toLowerCase())).slice(0, 50);
+        return [...inStock, ...cat].slice(0, 60);
+    }, [catalog, stockAsPricelist, item.itemCode, isOpen]);
 
     const handleBlur = () => {
         setTimeout(() => {
             if (!document.body.contains(wrapperRef.current)) return;
             setIsOpen(false);
-            const exactMatch = pricelist?.find(p => p.Code?.toLowerCase() === (item.itemCode || '').toLowerCase().trim());
+            const code = (item.itemCode || '').toLowerCase().trim();
+            const exactMatch = stockAsPricelist.find(p => p.Code?.toLowerCase() === code)
+                || catalog.find((p: any) => p.Code?.toLowerCase() === code);
             if (exactMatch && !item.modelName) {
                 onPricelistItemSelect(item, exactMatch);
             }
@@ -184,7 +216,10 @@ const PricelistCombobox: React.FC<{
 
 
 const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuotation, initialData }) => {
-    const { quotations, setQuotations, companies, contacts, pricelist, refetchModule } = useB2BData();
+    const { quotations, setQuotations, companies, contacts, pricelist, refetchModule, fetchModule } = useB2BData();
+    // Inventory is a lazy sheet — load it so item search can offer in-stock items
+    // that aren't in the pricelist catalog.
+    useEffect(() => { fetchModule('Inventory'); }, [fetchModule]);
     const { isB2B } = useB2B();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
@@ -1380,10 +1415,12 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             datalistOptions={contactOptions}
                                             placeholder="Type or select a contact..."
                                         />
-                                        {/* Read-only — loaded from the selected Company/Contact. Edit these in the Companies & Contacts dashboards. */}
+                                        {/* Address stays read-only (loaded from the selected Company). Tel/Email
+                                            auto-populate from the Company/Contact but remain EDITABLE so a per-quote
+                                            override is possible without changing the master Contact record. */}
                                         <FormTextarea name="Company Address" label="Address" value={quote['Company Address']} onChange={handleHeaderChange} rows={3} readOnly />
-                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} readOnly />
-                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} readOnly />
+                                        <FormInput name="Contact Number" label="Tel" value={quote['Contact Number']} onChange={handleHeaderChange} />
+                                        <FormInput name="Contact Email" label="Email" value={quote['Contact Email']} onChange={handleHeaderChange} />
                                     </FormSection>
 
                                     <FormSection title="Quotation Info">
