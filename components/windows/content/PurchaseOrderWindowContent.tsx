@@ -15,6 +15,7 @@ import { formatToInputDate } from '@/utils/time';
 import { generatePDF } from '@/lib/pdfClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfPreviewPane from '@/components/pdf/PdfPreviewPane';
+import NumericInput from '../../common/NumericInput';
 
 // ── POItemCombobox ────────────────────────────────────────────────────────────
 // Searches vendor_pricelist (dealer items) + main pricelist (B2C items) so
@@ -816,20 +817,22 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                     </td>
 
                                     <td className="px-2 py-3">
-                                        <input
+                                        <NumericInput
                                             className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm text-center"
-                                            type="number"
                                             value={item.qty}
-                                            onChange={(e) => handleItemChange(index, 'qty', parseFloat(e.target.value) || 0)}
+                                            blankZero={false}
+                                            aria-label="Quantity"
+                                            onValueChange={(v) => handleItemChange(index, 'qty', v)}
                                         />
                                     </td>
                                     <td className="px-2 py-3">
-                                        <input
+                                        <NumericInput
                                             className="w-full bg-transparent border-b border-transparent focus:border-brand-500 py-1.5 focus:outline-none transition text-sm text-right"
-                                            type="number"
-                                            step="0.01"
                                             value={item.unit_price}
-                                            onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                                            blankZero={false}
+                                            precision={2}
+                                            aria-label="Unit price"
+                                            onValueChange={(v) => handleItemChange(index, 'unit_price', v)}
                                         />
                                     </td>
                                     <td className="px-4 py-3 text-sm font-semibold text-right">

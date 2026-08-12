@@ -18,6 +18,7 @@ import {
   ShoppingBag, ShoppingCart, RotateCcw, Search, Loader2,
   Banknote, CreditCard, QrCode, ArrowLeftRight, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import NumericInput from '../common/NumericInput';
 
 const PAYMENT_METHODS: PosPaymentMethod[] = ['Cash', 'ABA', 'KHQR', 'Card', 'Bank Transfer'];
 
@@ -710,11 +711,12 @@ const PosTerminal: React.FC = () => {
                       <span className="text-muted-foreground">{PAYMENT_ICONS[entry.method]}</span>
                       {entry.method}
                     </div>
-                    <input
-                      type="number"
-                      value={entry.amount || ''}
-                      onChange={e => updateEntryAmount(entry.method, parseFloat(e.target.value) || 0)}
+                    <NumericInput
+                      value={entry.amount}
+                      onValueChange={v => updateEntryAmount(entry.method, v)}
+                      precision={2}
                       placeholder="0.00"
+                      aria-label={`${entry.method} amount`}
                       className="flex-1 text-right text-sm font-bold bg-muted border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30"
                     />
                   </div>

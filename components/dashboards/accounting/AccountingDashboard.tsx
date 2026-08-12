@@ -38,6 +38,7 @@ import {
     printPLPdf, printPLComparePdf,
 } from '../../../utils/exportAccountingPdf';
 import SearchInput from '../../common/SearchInput';
+import NumericInput from '../../common/NumericInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -2460,22 +2461,20 @@ export default function AccountingDashboard() {
                                                     />
                                                 </td>
                                                 <td className="py-1.5 pr-2">
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={line.debit || ''}
-                                                        onChange={e => updateLine(i, 'debit', parseFloat(e.target.value) || 0)}
+                                                    <NumericInput
+                                                        value={line.debit}
+                                                        onValueChange={v => updateLine(i, 'debit', v)}
+                                                        precision={2}
+                                                        aria-label="Debit amount"
                                                         className="w-full h-8 px-2 text-sm text-right rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
                                                     />
                                                 </td>
                                                 <td className="py-1.5 pr-2">
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={line.credit || ''}
-                                                        onChange={e => updateLine(i, 'credit', parseFloat(e.target.value) || 0)}
+                                                    <NumericInput
+                                                        value={line.credit}
+                                                        onValueChange={v => updateLine(i, 'credit', v)}
+                                                        precision={2}
+                                                        aria-label="Credit amount"
                                                         className="w-full h-8 px-2 text-sm text-right rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
                                                     />
                                                 </td>

@@ -13,6 +13,7 @@ import {
     MobileFormHeader, MobileFormSection, MobileField,
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,
 } from './MobileFormBase';
+import NumericInput from '../../common/NumericInput';
 // Accent follows the active theme (and the user's accent picker) instead
 // of the per-form hardcoded hex this file used to declare.
 const ACCENT = 'hsl(var(--primary))';
@@ -285,8 +286,9 @@ export default function MobilePurchaseOrderForm({ onBack, existingPO, initialDat
                                     <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl flex-1"
                                         style={{ background: 'hsl(var(--muted) / 0.4)' }}>
                                         <span className="text-[10px] text-muted-foreground">Qty</span>
-                                        <input type="number" value={it.qty}
-                                            onChange={e => setItemField(idx, 'qty', parseFloat(e.target.value) || 0)}
+                                        <NumericInput value={it.qty} blankZero={false}
+                                            onValueChange={v => setItemField(idx, 'qty', v)}
+                                            aria-label="Quantity"
                                             className="w-12 text-[12px] font-bold text-foreground bg-transparent outline-none text-center"
                                         />
                                     </div>
@@ -294,8 +296,9 @@ export default function MobilePurchaseOrderForm({ onBack, existingPO, initialDat
                                     <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl flex-1"
                                         style={{ background: 'hsl(var(--muted) / 0.4)' }}>
                                         <span className="text-[10px] text-muted-foreground">{currSym}</span>
-                                        <input type="number" step="0.01" value={it.unit_price}
-                                            onChange={e => setItemField(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                        <NumericInput value={it.unit_price} blankZero={false} precision={2}
+                                            onValueChange={v => setItemField(idx, 'unit_price', v)}
+                                            aria-label="Unit price"
                                             className="flex-1 text-[12px] font-bold text-foreground bg-transparent outline-none text-right"
                                         />
                                     </div>
