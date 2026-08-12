@@ -4,13 +4,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SaleOrder, Quotation } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import SaleOrderWindowContent from "../../windows/content/SaleOrderWindowContent";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, FileText, Copy } from 'lucide-react';
+import { Table, Columns, Info, Pencil, Plus, Trash2, FileText, Copy } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import SaleOrderListContainer from "../lists/SaleOrderListContainer";
 import Spinner from "../../common/Spinner";
@@ -24,6 +24,15 @@ import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
 import { StatusBadge } from "../../ui/status-badge";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import ViewToggle from "../../common/ViewToggle";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import StatusFilterBar from "../../common/StatusFilterBar";
+import IconButton from "../../ui/icon-button";
+import { Button } from "../../ui/button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 
 interface SaleOrderDashboardProps {
@@ -53,9 +62,10 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     const { handleNavigation, navigation } = useNavigation();
     const { openWindow } = useWindowManager();
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
 
     const selectedSaleOrderId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
@@ -215,14 +225,14 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
             });
         }
 
-        if (!searchQuery) return dataToFilter;
+        if (!debouncedSearch) return dataToFilter;
 
         return dataToFilter.filter(item =>
             ['SO No', 'Company Name', 'Contact Name', 'Status', 'Quote No'].some(key =>
-                String(item[key as keyof SaleOrder] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+                String(item[key as keyof SaleOrder] ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
             )
         );
-    }, [saleOrders, searchQuery, statusFilter]);
+    }, [saleOrders, debouncedSearch, statusFilter]);
 
     const selectedSaleOrder = useMemo(() => {
         let targetId = selectedSaleOrderId;
@@ -301,7 +311,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                     <select
                         value={value}
                         onChange={e => handleStatusChange(row, e.target.value as SaleOrder['Status'])}
-                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer
+                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer
                             ${value === 'Pending' ? 'text-amber-500 bg-amber-500/10' : value === 'Completed' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
                     >
                         <option className="text-foreground bg-card" value="Pending">Pending</option>
@@ -364,14 +374,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
     ];
 
     if (error) {
-        return (
-            <div className="p-6 md:p-8">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>Could not load sale orders data: {error}</p>
-                </div>
-            </div>
-        );
+        return <ErrorState title="Could not load sale orders" message={error} />;
     }
 
     const renderDetailView = () => (
@@ -393,42 +396,48 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                     <h1 className="text-2xl font-bold text-foreground">{selectedSaleOrder['Company Name']}</h1>
                                     <p className="text-muted-foreground font-mono mt-1">{selectedSaleOrder['SO No']}</p>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
                                     {selectedSaleOrder.Status === 'Completed' && (
-                                        <button
+                                        <Button
+                                            size="sm"
                                             onClick={() => handleConvertToInvoice(selectedSaleOrder)}
-                                            className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm"
                                         >
-                                            <FileText className="w-4 h-4" />
+                                            <FileText className="h-4 w-4" aria-hidden="true" />
                                             Create Invoice & DO
-                                        </button>
+                                        </Button>
                                     )}
-                                    <button
+                                    <Button
+                                        variant="link"
+                                        size="sm"
                                         onClick={() => handleEditSaleOrder(selectedSaleOrder)}
-                                        className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
+                                        className="font-semibold"
                                     >
-                                        <Pencil className="w-4 h-4" /> Edit
-                                    </button>
-                                    <button
+                                        <Pencil className="h-4 w-4" aria-hidden="true" /> Edit
+                                    </Button>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
                                         onClick={() => handleDuplicateSaleOrder(selectedSaleOrder)}
-                                        className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5"
+                                        className="font-semibold text-violet-500"
                                     >
-                                        <Copy className="w-4 h-4" />
+                                        <Copy className="h-4 w-4" aria-hidden="true" />
                                         Duplicate
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
                                         onClick={() => handleDeleteRequest(selectedSaleOrder)}
-                                        className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
+                                        className="font-semibold text-rose-500"
                                     >
-                                        <Trash2 className="w-4 h-4" /> Delete
-                                    </button>
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete
+                                    </Button>
                                 </div>
                             </div>
 
                             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="bg-muted/50 p-4 rounded-lg">
                                     <dt className="text-sm font-medium text-muted-foreground/60">Total Amount</dt>
-                                    <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedSaleOrder['Total Amount'], selectedSaleOrder.Currency)}</dd>
+                                    <dd className="mt-1 text-xl font-semibold text-primary">{formatCurrencySmartly(selectedSaleOrder['Total Amount'], selectedSaleOrder.Currency)}</dd>
                                 </div>
                                 <div className="bg-muted/50 p-4 rounded-lg">
                                     <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
@@ -461,79 +470,41 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
 
     return (
         <div className="h-full flex flex-col">
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-foreground">Sale Order Record</h1>
-                </div>
+            <DashboardHeader title="Sale Order Record">
+                {/* Search Box */}
+                <SearchInput
+                    id="sale-order-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search sale orders..."
+                    label="Search sale orders"
+                />
 
-                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
-                    {/* Search Box */}
-                    <div className="relative w-full lg:w-64 flex-shrink-0">
-                        <input
-                            type="text"
-                            placeholder="Search sale orders..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
-                        />
-                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
+                {/* View Mode Toggle */}
+                <ViewToggle<ViewMode>
+                    views={VIEW_OPTIONS}
+                    activeView={viewMode}
+                    onViewChange={setViewMode}
+                />
 
-                    <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-                        {/* View Mode Toggle */}
-                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
-                            {VIEW_OPTIONS.map(view => (
-                                <button
-                                    key={view.id}
-                                    onClick={() => setViewMode(view.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    {view.icon}
-                                    <span className="hidden xl:inline">{view.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                {/* Alignment/Wrap Icons */}
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-                        {/* Alignment/Wrap Icons */}
-                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                                <ArrowRightToLine className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                                <WrapText className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                                <Scissors className="w-4 h-4" />
-                            </button>
-                        </div>
+                {/* Column Toggle / View Options */}
+                <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                />
 
-                        {/* Column Toggle / View Options */}
-                        <div className="flex-shrink-0">
-                            <DataTableColumnToggle
-                                allColumns={allColumns}
-                                visibleColumns={visibleColumns}
-                                onColumnToggle={handleColumnToggle}
-                                trigger={
-                                    <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
-                                        <LayoutGrid className="w-4 h-4" />
-                                        View
-                                    </button>
-                                }
-                            />
-                        </div>
-
-                        {/* New Sale Order Button */}
-                        <PermissionGate module="sale_orders" action="create">
-                          <button
-                            onClick={handleNewSaleOrder}
-                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                          >
-                            <span className="text-xl leading-none">+</span> New SO
-                          </button>
-                        </PermissionGate>
-                    </div>
-                </div>
-            </header>
+                {/* New Sale Order Button */}
+                <PermissionGate module="sale_orders" action="create">
+                  <Button onClick={handleNewSaleOrder} aria-label="New sale order">
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">New SO</span>
+                  </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {viewMode === 'table' ? (
@@ -546,50 +517,54 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                         initialSort={{ key: 'SO Date', direction: 'descending' }}
                         mobilePrimaryColumns={['SO No', 'Company Name', 'Total Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
+                        emptyState={{
+                            title: 'No sale orders yet',
+                            description: 'Sale orders you create will appear here.',
+                        }}
                         renderRowActions={(row) => (
-                            <div className="flex items-center justify-center gap-3">
+                            <div className="flex items-center justify-center gap-1">
                                 {row.Status === 'Completed' && (
-                                    <button
+                                    <IconButton
+                                        label="Create Invoice & DO"
+                                        tone="primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleConvertToInvoice(row);
                                         }}
-                                        className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                        title="Create Invoice & DO"
                                     >
-                                        <FileText size={16} />
-                                    </button>
+                                        <FileText size={16} aria-hidden="true" />
+                                    </IconButton>
                                 )}
-                                <button
+                                <IconButton
+                                    label="Edit sale order"
+                                    tone="primary"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleEditSaleOrder(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                    title="Edit"
                                 >
-                                    <Pencil size={16} />
-                                </button>
-                                <button
+                                    <Pencil size={16} aria-hidden="true" />
+                                </IconButton>
+                                <IconButton
+                                    label="Duplicate sale order"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleDuplicateSaleOrder(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full"
-                                    title="Duplicate"
+                                    className="hover:bg-violet-500/10 hover:text-violet-500"
                                 >
-                                    <Copy size={16} />
-                                </button>
-                                <button
+                                    <Copy size={16} aria-hidden="true" />
+                                </IconButton>
+                                <IconButton
+                                    label="Delete sale order"
+                                    tone="danger"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteRequest(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                                    title="Delete"
                                 >
-                                    <Trash2 size={16} />
-                                </button>
+                                    <Trash2 size={16} aria-hidden="true" />
+                                </IconButton>
                             </div>
                         )}
                         renderRowContextMenu={(row) => (
@@ -615,30 +590,13 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                 )}
             </div>
 
-            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
+            <StatusFilterBar
+                options={['Pending', 'Completed', 'Cancel']}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} records`}
+            />
 
-
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Pending' ? null : 'Pending')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Pending
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Completed
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </footer>
             <ConfirmationModal
                 isOpen={!!saleOrderToDelete}
                 onClose={() => setSaleOrderToDelete(null)}

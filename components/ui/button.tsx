@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
+  "inline-flex flex-shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
   {
     variants: {
       variant: {
@@ -19,6 +19,14 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         success: "bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-md hover:shadow-emerald-600/20",
+        // Icon-only tones. Base state is muted so a row of these reads as
+        // secondary until hovered; the hover colour signals what it does.
+        ghostPrimary:
+          "text-muted-foreground hover:bg-primary/10 hover:text-primary",
+        ghostDanger:
+          "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+        ghostMuted:
+          "text-muted-foreground hover:bg-accent hover:text-foreground",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -26,6 +34,10 @@ const buttonVariants = cva(
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
         xs: "h-8 rounded-md px-2.5 text-xs",
+        // Touch-first icon sizes: 44px on a phone (the accessibility floor),
+        // tightening from `lg` up where a mouse makes 36px comfortable.
+        iconTouch: "h-11 w-11 lg:h-9 lg:w-9",
+        iconTouchSm: "h-9 w-9 lg:h-8 lg:w-8",
       },
     },
     defaultVariants: {

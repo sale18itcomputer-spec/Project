@@ -619,7 +619,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
             <button
                 type="button"
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-card text-primary border border-primary/30 rounded-md hover:bg-primary/10 shadow-sm transition-all"
             >
                 <Download className="w-4 h-4" /> Download PDF
             </button>
@@ -627,9 +627,9 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                 type="button"
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+                className="bg-primary hover:brightness-110 text-primary-foreground font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
             >
-                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Delivery Order'}
+                {isSubmitting ? <Spinner size="sm" color="current" /> : 'Save Delivery Order'}
             </button>
         </div>
     );
@@ -696,7 +696,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
+                                <div className="w-1 h-5 bg-primary rounded-full" />
                                 <h3 className="text-sm font-bold text-foreground">Delivery Order Information</h3>
                             </div>
                             <button type="button" onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md"><X className="w-4 h-4" /></button>
@@ -819,7 +819,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                                 <input
                                                                     type="text" value={item.itemCode}
                                                                     onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
-                                                                    className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                                                    className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all"
                                                                 />
                                                             )}
                                                         </div>
@@ -828,7 +828,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                             <input
                                                                 type="text" value={item.modelName}
                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all"
                                                             />
                                                         </div>
                                                     </div>
@@ -838,7 +838,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                         <textarea
                                                             value={item.description}
                                                             onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                            className="w-full text-sm p-3 rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-none"
+                                                            className="w-full text-sm p-3 rounded-lg border border-border bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 resize-none"
                                                             rows={2}
                                                         />
                                                     </div>
@@ -849,7 +849,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                             <input
                                                                 type="number" value={item.qty}
                                                                 onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
-                                                                className="w-full h-9 px-2 text-center text-sm bg-input border border-border rounded-lg text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                                                                className="w-full h-9 px-2 text-center text-sm bg-input border border-border rounded-lg text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20"
                                                             />
                                                         </div>
                                                         <div className="flex-1">
@@ -882,7 +882,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                         <button
                                             type="button"
                                             onClick={addItem}
-                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-primary bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
                                         >
                                             <Plus className="w-4 h-4" /> Add Item
                                         </button>

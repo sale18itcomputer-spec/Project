@@ -37,6 +37,7 @@ import {
     printCFPdf, printCFComparePdf,
     printPLPdf, printPLComparePdf,
 } from '../../../utils/exportAccountingPdf';
+import SearchInput from '../../common/SearchInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ const TYPE_COLORS: Record<string, string> = {
     'Expense':                 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700',
     'Other Income':            'bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-900/40 dark:text-teal-200 dark:border-teal-700',
     'Other Expense':           'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700',
-    'Non-Posting':             'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
+    'Non-Posting':             'bg-muted text-muted-foreground border border-border',
 };
 
 const fmt = (n: number) =>
@@ -1864,12 +1865,12 @@ export default function AccountingDashboard() {
                 <div className="space-y-4">
                     {/* Toolbar */}
                     <div className="flex items-center gap-3 flex-wrap">
-                        <input
-                            type="text"
-                            placeholder="Search accounts…"
+                        <SearchInput
                             value={coaSearch}
-                            onChange={e => setCoaSearch(e.target.value)}
-                            className="flex-1 min-w-[200px] h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-600/40"
+                            onValueChange={setCoaSearch}
+                            placeholder="Search accounts…"
+                            label="Search chart of accounts"
+                            containerClassName="flex-1 min-w-[200px] lg:w-auto"
                         />
                         <button
                             onClick={() => setShowHidden(v => !v)}
@@ -2004,7 +2005,7 @@ export default function AccountingDashboard() {
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-3.5 hidden md:table-cell">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${TYPE_COLORS[account.account_type] || 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${TYPE_COLORS[account.account_type] || 'bg-muted text-muted-foreground border border-border'}`}>
                                                         {account.account_type}
                                                     </span>
                                                 </td>
@@ -2159,7 +2160,7 @@ export default function AccountingDashboard() {
                         />
                         <button
                             onClick={() => setGlPostedOnly(p => !p)}
-                            className={`h-8 px-3 text-xs font-semibold rounded border transition-colors ${glPostedOnly ? 'bg-brand-600 text-white border-brand-600' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
+                            className={`h-8 px-3 text-xs font-semibold rounded border transition-colors ${glPostedOnly ? 'bg-primary text-primary-foreground border-brand-600' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
                         >
                             {glPostedOnly ? 'Posted only' : 'All entries'}
                         </button>
@@ -2198,7 +2199,7 @@ export default function AccountingDashboard() {
                                         >
                                             <div className="flex items-center gap-3">
                                                 {isCollapsed ? <ChevronRight size={14} className="text-muted-foreground shrink-0" /> : <ChevronDown size={14} className="text-muted-foreground shrink-0" />}
-                                                <span className={`text-[10px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded ${TYPE_COLORS[acctGroup.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                                                <span className={`text-[10px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded ${TYPE_COLORS[acctGroup.account_type] ?? 'bg-muted text-muted-foreground'}`}>
                                                     {acctGroup.account_type}
                                                 </span>
                                                 <span className="text-sm font-semibold text-foreground">{acctGroup.account_number} · {acctGroup.account_name}</span>
@@ -2286,7 +2287,7 @@ export default function AccountingDashboard() {
                                         onClick={() => setJournalFilter(f)}
                                         className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
                                             journalFilter === f
-                                                ? 'bg-brand-600 text-white'
+                                                ? 'bg-primary text-primary-foreground'
                                                 : 'bg-muted text-muted-foreground hover:text-foreground'
                                         }`}
                                     >
@@ -2325,21 +2326,13 @@ export default function AccountingDashboard() {
                                 )}
                             </div>
                             {/* Search */}
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={journalSearch}
-                                    onChange={e => setJournalSearch(e.target.value)}
-                                    placeholder="Search entries…"
-                                    className="h-8 pl-8 pr-8 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 w-48"
-                                />
-                                <svg className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                                {journalSearch && (
-                                    <button onClick={() => setJournalSearch('')} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
-                                        <X size={14} />
-                                    </button>
-                                )}
-                            </div>
+                            <SearchInput
+                                value={journalSearch}
+                                onValueChange={setJournalSearch}
+                                placeholder="Search entries…"
+                                label="Search journal entries"
+                                containerClassName="w-48 lg:w-48"
+                            />
                         </div>
                         {/* Actions */}
                         <div className="flex items-center gap-2">

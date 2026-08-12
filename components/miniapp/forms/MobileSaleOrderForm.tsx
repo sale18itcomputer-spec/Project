@@ -13,7 +13,6 @@ import {
     MobileLineItemCard, MobileAddItemBtn, MobileTotals, MiniLineItem,
 } from './MobileFormBase';
 
-const ACCENT = '#34d399';
 const STATUS_OPTIONS = ['Pending', 'Completed', 'Cancel'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
 const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT'];
@@ -226,7 +225,6 @@ export default function MobileSaleOrderForm({ onBack, existingSaleOrder, initial
                 onSave={handleSave}
                 isSaving={isSaving}
                 saveLabel="Save"
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -294,15 +292,14 @@ export default function MobileSaleOrderForm({ onBack, existingSaleOrder, initial
                         {items.map(it => (
                             <MobileLineItemCard
                                 key={it.id} item={it}
-                                onChange={handleItemChange} onRemove={removeItem}
-                                accentColor={ACCENT} currency={currSym}
+                                onChange={handleItemChange} onRemove={removeItem} currency={currSym}
                             />
                         ))}
-                        <MobileAddItemBtn onAdd={addItem} accentColor={ACCENT} />
+                        <MobileAddItemBtn onAdd={addItem} />
                     </div>
                 </div>
 
-                <MobileTotals subTotal={totals.subTotal} tax={totals.tax} grandTotal={totals.grandTotal} currency={currSym} accentColor={ACCENT} />
+                <MobileTotals subTotal={totals.subTotal} tax={totals.tax} grandTotal={totals.grandTotal} currency={currSym} />
 
                 <MobileFormSection title="Preparation">
                     <MobileField label="Prepared By" last={false}>

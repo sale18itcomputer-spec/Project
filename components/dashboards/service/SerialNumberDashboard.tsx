@@ -3,9 +3,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SerialNumber } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef, runBatched, BatchResult, BulkActionConfig } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle, runBatched, BatchResult, BulkActionConfig } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { Hash, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors, Plus, Package } from 'lucide-react';
+import { Hash, Pencil, Trash2, Plus, Package } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { supabase } from '../../../lib/supabase';
@@ -16,6 +16,14 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import SerialNumberWindowContent from '../../windows/content/SerialNumberWindowContent';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-serial-number-columns-visibility';
 
@@ -23,7 +31,7 @@ const STATUS_STYLES: Record<string, string> = {
   'Active':      'bg-emerald-500/10 text-emerald-500',
   'In Service':  'bg-blue-500/10 text-blue-500',
   'Returned':    'bg-amber-500/10 text-amber-500',
-  'Written Off': 'bg-slate-500/10 text-slate-500',
+  'Written Off': 'bg-muted text-muted-foreground',
   'Retired':     'bg-rose-500/10 text-rose-500',
 };
 
@@ -35,7 +43,7 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
 
 const STOCK_STATUS_STYLES: Record<string, string> = {
   'In Stock': 'bg-emerald-500/10 text-emerald-500',
-  'Sold':     'bg-slate-500/10 text-slate-500',
+  'Sold':     'bg-muted text-muted-foreground',
 };
 
 const StockStatusBadge: React.FC<{ value: string }> = ({ value }) => (
@@ -64,16 +72,19 @@ interface SoldItem {
 type ActiveTab = 'registered' | 'from-invoices';
 
 const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
-  const { serialNumbers, setSerialNumbers, invoices, pricelist, fetchModule, loading } = useData();
+  const { serialNumbers, setSerialNumbers, invoices, pricelist, fetchModule, loading, error } = useData();
   const { addToast } = useToast();
   const { can } = usePermissions();
   const { openWindow } = useWindowManager();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('registered');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
+  const debouncedSearch = useDebouncedValue(searchQuery);
+  // `null` is what StatusFilterBar writes when the active chip is cleared — it
+  // means the same thing the 'All' chip always meant here: no status filter.
+  const [statusFilter, setStatusFilter] = useState<string | null>(initialFilter ?? null);
   const [stockStatusFilter, setStockStatusFilter] = useState('All');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [snToDelete, setSnToDelete] = useState<SerialNumber | null>(null);
 
   useEffect(() => {
@@ -234,8 +245,8 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
 
   // Filtered sold items
   const filteredSoldItems = useMemo(() => {
-    if (!searchQuery) return soldItems;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearch) return soldItems;
+    const q = debouncedSearch.toLowerCase();
     return soldItems.filter(item =>
       item.invNo.toLowerCase().includes(q) ||
       item.modelName.toLowerCase().includes(q) ||
@@ -243,16 +254,16 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       item.soNo.toLowerCase().includes(q) ||
       item.itemCode.toLowerCase().includes(q)
     );
-  }, [soldItems, searchQuery]);
+  }, [soldItems, debouncedSearch]);
 
   // ── Registered tab data ──────────────────────────────────────────────────────
 
   const filteredData = useMemo(() => {
     let data = serialNumbers ?? [];
-    if (statusFilter !== 'All') data = data.filter(s => s.status === statusFilter);
+    if (statusFilter && statusFilter !== 'All') data = data.filter(s => s.status === statusFilter);
     if (stockStatusFilter !== 'All') data = data.filter(s => (s.stock_status || 'In Stock') === stockStatusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       data = data.filter(s =>
         s.serial_number?.toLowerCase().includes(q) ||
         s.brand?.toLowerCase().includes(q) ||
@@ -262,7 +273,7 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
       );
     }
     return data;
-  }, [serialNumbers, statusFilter, stockStatusFilter, searchQuery]);
+  }, [serialNumbers, statusFilter, stockStatusFilter, debouncedSearch]);
 
   const allColumns = useMemo<ColumnDef<SerialNumber>[]>(() => [
     {
@@ -321,124 +332,101 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
     [allColumns, visibleColumns]
   );
 
+  if (error) {
+    return <ErrorState title="Could not load serial numbers" message={error} />;
+  }
+
   return (
     <div className="h-full flex flex-col">
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Hash className="text-brand-500" size={20} />
-              Serial Numbers
-            </h2>
-            <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {activeTab === 'registered' ? `${filteredData.length} registered` : `${filteredSoldItems.length} sold items`}
-            </span>
-          </div>
+      <DashboardHeader
+        title="Serial Numbers"
+        icon={<Hash />}
+        subtitle={activeTab === 'registered' ? `${filteredData.length} registered` : `${filteredSoldItems.length} sold items`}
+      >
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder={activeTab === 'registered' ? 'Search serial numbers...' : 'Search sold items...'}
+          label={activeTab === 'registered' ? 'Search serial numbers' : 'Search sold items'}
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-            <div className="relative w-full lg:w-64">
-              <input
-                type="text"
-                placeholder={activeTab === 'registered' ? 'Search serial numbers...' : 'Search sold items...'}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-            </div>
-
-            <div className="flex items-center gap-2">
-              {activeTab === 'registered' && (
-                <>
-                  <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-                    <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                    <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                    <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                  </div>
-                  <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-                </>
-              )}
-              <PermissionGate module="serial_numbers" action="create">
-                <button
-                  onClick={handleOpenNew}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm"
-                >
-                  <Plus size={16} /> Add Serial
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex gap-1 border-b border-border -mb-4 pb-0">
-          <button
-            onClick={() => { setActiveTab('registered'); setSearchQuery(''); }}
-            className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
-              activeTab === 'registered'
-                ? 'border-brand-500 text-brand-500'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Registered
-            <span className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded-full">
-              {(serialNumbers ?? []).length}
-            </span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('from-invoices'); setSearchQuery(''); setStatusFilter('All'); }}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition ${
-              activeTab === 'from-invoices'
-                ? 'border-brand-500 text-brand-500'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Package size={14} />
-            From Invoices
-            <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
-              {soldItems.length}
-            </span>
-          </button>
-        </div>
-
-        {/* Status filters — only for registered tab */}
         {activeTab === 'registered' && (
-          <div className="flex flex-wrap items-center gap-3 pt-3">
-            <div className="flex gap-1 flex-wrap">
-              {STATUS_FILTERS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                    statusFilter === s
-                      ? 'bg-brand-600 text-white border-brand-600'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1 flex-wrap border-l border-border pl-3">
-              {STOCK_STATUS_FILTERS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setStockStatusFilter(s)}
-                  className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                    stockStatusFilter === s
-                      ? 'bg-brand-600 text-white border-brand-600'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+          <>
+            <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+            <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
+          </>
         )}
-      </header>
 
-      <div className="flex-1 overflow-hidden p-4">
+        <PermissionGate module="serial_numbers" action="create">
+          <Button variant="success" onClick={handleOpenNew} aria-label="Add serial">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Add Serial</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
+
+      {/* Tab switcher */}
+      <div role="tablist" aria-label="Serial number source" className="flex flex-shrink-0 gap-1 border-b border-border bg-card px-4 lg:px-6">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'registered'}
+          aria-controls="serial-numbers-tabpanel"
+          onClick={() => { setActiveTab('registered'); setSearchQuery(''); }}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+            activeTab === 'registered'
+              ? 'border-brand-500 text-brand-500'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Registered
+          <span className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+            {(serialNumbers ?? []).length}
+          </span>
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'from-invoices'}
+          aria-controls="serial-numbers-tabpanel"
+          onClick={() => { setActiveTab('from-invoices'); setSearchQuery(''); setStatusFilter(null); }}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition ${
+            activeTab === 'from-invoices'
+              ? 'border-brand-500 text-brand-500'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Package size={14} aria-hidden="true" />
+          From Invoices
+          <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+            {soldItems.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Stock filters — only for registered tab. The status chips that used to
+          sit beside these now live in the footer StatusFilterBar. */}
+      {activeTab === 'registered' && (
+        <div
+          role="group"
+          aria-label="Filter by stock status"
+          className="no-scrollbar flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-card px-4 py-2 lg:px-6"
+        >
+          <span className="flex-shrink-0 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Stock</span>
+          {STOCK_STATUS_FILTERS.map(s => (
+            <Button
+              key={s}
+              variant={stockStatusFilter === s ? 'default' : 'outline'}
+              size="sm"
+              aria-pressed={stockStatusFilter === s}
+              onClick={() => setStockStatusFilter(s)}
+              className={stockStatusFilter === s ? 'font-semibold' : 'font-semibold text-muted-foreground'}
+            >
+              {s}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div id="serial-numbers-tabpanel" role="tabpanel" className="flex-1 overflow-hidden p-4">
         {activeTab === 'registered' ? (
           <DataTable
             tableId="serial-number-table"
@@ -455,25 +443,29 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
             enableRowSelection
             bulkActions={bulkActions}
             enableFindReplace
+            emptyState={{
+              title: 'No serial numbers yet',
+              description: 'Serials registered against stock, sales and service jobs will appear here.',
+            }}
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
                 <PermissionGate module="serial_numbers" action="edit">
-                  <button
+                  <IconButton
+                    label="Edit serial number"
+                    tone="primary"
                     onClick={e => { e.stopPropagation(); handleEdit(row); }}
-                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                    title="Edit"
                   >
-                    <Pencil size={15} />
-                  </button>
+                    <Pencil size={15} aria-hidden="true" />
+                  </IconButton>
                 </PermissionGate>
                 <PermissionGate module="serial_numbers" action="delete">
-                  <button
+                  <IconButton
+                    label="Delete serial number"
+                    tone="danger"
                     onClick={e => { e.stopPropagation(); setSnToDelete(row); }}
-                    className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                    title="Delete"
                   >
-                    <Trash2 size={15} />
-                  </button>
+                    <Trash2 size={15} aria-hidden="true" />
+                  </IconButton>
                 </PermissionGate>
               </div>
             )}
@@ -494,6 +486,16 @@ const SerialNumberDashboard: React.FC<{ initialFilter?: string }> = ({ initialFi
           />
         )}
       </div>
+
+      {/* Status filter tabs — only for registered tab */}
+      {activeTab === 'registered' && (
+        <StatusFilterBar
+          options={[{ value: null, label: 'All' }, ...STATUS_FILTERS.slice(1)]}
+          active={statusFilter}
+          onChange={setStatusFilter}
+          summary={`${filteredData.length} registered`}
+        />
+      )}
 
       <ConfirmationModal
         isOpen={!!snToDelete}
@@ -576,12 +578,14 @@ const FromInvoicesTab: React.FC<{
                 </td>
                 <td className="px-3 py-2.5 text-right">
                   <PermissionGate module="serial_numbers" action="create">
-                    <button
+                    <Button
+                      size="xs"
                       onClick={() => onRegister(item)}
-                      className="text-xs font-semibold text-brand-500 hover:text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 px-3 py-1 rounded transition whitespace-nowrap"
+                      aria-label={`Register a serial for ${item.modelName || item.itemCode}`}
                     >
-                      + Register
-                    </button>
+                      <Plus className="h-3 w-3" aria-hidden="true" />
+                      Register
+                    </Button>
                   </PermissionGate>
                 </td>
               </tr>

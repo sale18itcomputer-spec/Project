@@ -13,7 +13,6 @@ import {
     MobileLineItemCard, MobileAddItemBtn, MobileTotals, MiniLineItem,
 } from './MobileFormBase';
 
-const ACCENT = '#38bdf8';
 const STATUS_OPTIONS = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
 const TAX_OPTIONS = ['VAT', 'NON-VAT'];
@@ -183,7 +182,6 @@ export default function MobileQuotationForm({ onBack, existingQuotation, initial
                 onSave={handleSave}
                 isSaving={isSaving}
                 saveLabel="Save"
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -250,11 +248,10 @@ export default function MobileQuotationForm({ onBack, existingQuotation, initial
                                 item={it}
                                 onChange={handleItemChange}
                                 onRemove={removeItem}
-                                accentColor={ACCENT}
                                 currency={currSym}
                             />
                         ))}
-                        <MobileAddItemBtn onAdd={addItem} accentColor={ACCENT} />
+                        <MobileAddItemBtn onAdd={addItem} />
                     </div>
                 </div>
 
@@ -264,7 +261,6 @@ export default function MobileQuotationForm({ onBack, existingQuotation, initial
                     tax={totals.tax}
                     grandTotal={totals.grandTotal}
                     currency={currSym}
-                    accentColor={ACCENT}
                 />
 
                 {/* ─ Signatures ─ */}

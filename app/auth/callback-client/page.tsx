@@ -233,14 +233,14 @@ export default function AuthCallbackClientPage() {
     // ─── Auto-sending OTP (cached email detected) ───────────────────────────────
     if (stage === 'pkce-sending') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-                <div className="w-full max-w-lg flex flex-col items-center justify-center gap-4 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl">
-                    <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+                <div className="w-full max-w-lg flex flex-col items-center justify-center gap-4 text-center p-8 bg-card rounded-3xl border border-border shadow-xl">
+                    <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                    <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mt-2">Sending Sign-In Code</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-                        Sending a code to <span className="font-medium text-slate-700 dark:text-slate-300">{pkceEmail}</span>…
+                    <h2 className="text-xl font-semibold text-foreground mt-2">Sending Sign-In Code</h2>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                        Sending a code to <span className="font-medium text-foreground">{pkceEmail}</span>…
                     </p>
                 </div>
             </div>
@@ -250,13 +250,13 @@ export default function AuthCallbackClientPage() {
     // ─── Loading ────────────────────────────────────────────────────────────────
     if (stage === 'loading') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-                <div className="w-full max-w-lg flex flex-col items-center justify-center gap-4 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl">
-                    <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+                <div className="w-full max-w-lg flex flex-col items-center justify-center gap-4 text-center p-8 bg-card rounded-3xl border border-border shadow-xl">
+                    <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                    <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mt-2">Completing Sign-In</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+                    <h2 className="text-xl font-semibold text-foreground mt-2">Completing Sign-In</h2>
+                    <p className="text-sm text-muted-foreground max-w-xs">
                         Establishing a secure session, please wait a moment…
                     </p>
                 </div>
@@ -267,17 +267,17 @@ export default function AuthCallbackClientPage() {
     // ─── PKCE fallback — email input ────────────────────────────────────────────
     if (stage === 'pkce-email') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-                <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl p-8 flex flex-col gap-5">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+                <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-xl p-8 flex flex-col gap-5">
                     <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-amber-500 mx-auto">
                         <ShieldAlert className="h-7 w-7" />
                     </div>
 
                     <div className="text-center">
-                        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-foreground">
                             Sign-In Couldn't Complete
                         </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                             Google sign-in was blocked by your browser's security sandbox.
                             Enter your work email to receive a sign-in code instead.
                         </p>
@@ -297,12 +297,12 @@ export default function AuthCallbackClientPage() {
                             disabled={busy}
                             autoFocus
                             autoComplete="email"
-                            className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:opacity-50 placeholder:text-slate-400"
+                            className="w-full h-11 px-4 rounded-xl border border-border bg-transparent text-sm text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition disabled:opacity-50 placeholder:text-muted-foreground/60"
                         />
                         <button
                             onClick={handleSendOtp}
                             disabled={busy || !pkceEmail.trim()}
-                            className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-indigo-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full h-11 bg-primary hover:brightness-110 active:brightness-95 text-primary-foreground font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {busy
                                 ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -311,7 +311,7 @@ export default function AuthCallbackClientPage() {
                         </button>
                         <button
                             onClick={() => router.replace('/login')}
-                            className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition"
+                            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition"
                         >
                             Back to Login
                         </button>
@@ -324,19 +324,19 @@ export default function AuthCallbackClientPage() {
     // ─── PKCE fallback — OTP code input ─────────────────────────────────────────
     if (stage === 'pkce-otp') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-                <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl p-8 flex flex-col gap-5">
-                    <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 mx-auto">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+                <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-xl p-8 flex flex-col gap-5">
+                    <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/10 text-primary mx-auto">
                         <Mail className="h-7 w-7" />
                     </div>
 
                     <div className="text-center">
-                        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-foreground">
                             Check Your Email
                         </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                             We sent a 6-digit code to{' '}
-                            <span className="font-medium text-slate-700 dark:text-slate-300">{pkceEmail}</span>.
+                            <span className="font-medium text-foreground">{pkceEmail}</span>.
                         </p>
                     </div>
 
@@ -361,12 +361,12 @@ export default function AuthCallbackClientPage() {
                                 if (v.length === 6) setTimeout(() => handleVerifyOtp(v), 0);
                             }}
                             onKeyDown={e => e.key === 'Enter' && otpToken.length === 6 && handleVerifyOtp(otpToken)}
-                            className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent text-center text-2xl tracking-[0.5em] font-mono text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:opacity-50 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                            className="w-full h-12 px-4 rounded-xl border border-border bg-transparent text-center text-2xl tracking-[0.5em] font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition disabled:opacity-50 placeholder:text-muted-foreground/50"
                         />
                         <button
                             onClick={() => handleVerifyOtp(otpToken)}
                             disabled={busy || otpToken.length < 6}
-                            className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-indigo-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full h-11 bg-primary hover:brightness-110 active:brightness-95 text-primary-foreground font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {busy
                                 ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -376,7 +376,7 @@ export default function AuthCallbackClientPage() {
                         <button
                             onClick={() => { setOtpToken(''); setErrorMsg(''); handleSendOtp(); }}
                             disabled={busy}
-                            className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition flex items-center justify-center gap-1.5 disabled:opacity-40"
+                            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition flex items-center justify-center gap-1.5 disabled:opacity-40"
                         >
                             <RefreshCw className="h-3.5 w-3.5" /> Resend Code
                         </button>
@@ -388,16 +388,16 @@ export default function AuthCallbackClientPage() {
 
     // ─── Generic error ───────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-            <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xl p-8 flex flex-col items-center text-center gap-4">
+        <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+            <div className="w-full max-w-sm bg-card rounded-3xl border border-border shadow-xl p-8 flex flex-col items-center text-center gap-4">
                 <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400">
                     <ShieldAlert className="h-7 w-7" />
                 </div>
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Authentication Failed</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">{errorMsg}</p>
+                <h2 className="text-xl font-semibold text-foreground">Authentication Failed</h2>
+                <p className="text-sm text-muted-foreground max-w-xs">{errorMsg}</p>
                 <button
                     onClick={() => router.replace('/login')}
-                    className="mt-2 h-11 px-6 bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-white font-medium text-sm rounded-xl transition"
+                    className="mt-2 h-11 px-6 bg-secondary text-secondary-foreground hover:bg-accent font-medium text-sm rounded-xl transition"
                 >
                     Return to Login
                 </button>

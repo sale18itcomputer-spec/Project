@@ -134,7 +134,7 @@ const MeetingWindowContent: React.FC<MeetingWindowContentProps> = ({
                 </button>
                 <div className="flex items-center gap-3">
                     <button type="button" onClick={() => closeWindow(windowId)} className="font-semibold py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted text-sm">Close</button>
-                    <button type="submit" form={`meeting-window-form-${windowId}`} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
+                    <button type="submit" form={`meeting-window-form-${windowId}`} disabled={isSubmitting} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-1.5" />}
                         Save Changes
                     </button>
@@ -143,7 +143,7 @@ const MeetingWindowContent: React.FC<MeetingWindowContentProps> = ({
         ) : (
             <div className="flex justify-end gap-3 w-full">
                 <button type="button" onClick={() => closeWindow(windowId)} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition text-sm">Cancel</button>
-                <button type="submit" form={`meeting-window-form-${windowId}`} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
+                <button type="submit" form={`meeting-window-form-${windowId}`} disabled={isSubmitting} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-1.5" />}
                     Save Meeting
                 </button>

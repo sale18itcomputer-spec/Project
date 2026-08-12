@@ -4,9 +4,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SiteSurveyLog } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { deleteRecord } from "../../../services/api";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY } from "../../../utils/time";
-import { Table, CalendarDays, MapPin, Clock, ArrowRightToLine, WrapText, Scissors, Pencil, Trash2 } from 'lucide-react';
+import { Table, CalendarDays, MapPin, Clock, Pencil, Trash2, Plus, Map as MapIcon } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
@@ -18,6 +18,14 @@ import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import { useToast } from '../../../contexts/ToastContext';
 import SiteSurveyWindowContent from '../../windows/content/SiteSurveyWindowContent';
 import ConfirmationModal from '../../modals/ConfirmationModal';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import ErrorState from '../../common/ErrorState';
+import { IconButton } from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 interface SiteSurveyDashboardProps {
   initialFilter?: string;
@@ -36,8 +44,9 @@ const SITE_SURVEY_COLUMNS_VISIBILITY_KEY = 'limperial-site-survey-columns-visibi
 const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter }) => {
   const { siteSurveys: surveyData, setSiteSurveys, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('wrap');
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('wrap');
   const { openWindow } = useWindowManager();
   const { addToast } = useToast();
   const { can } = usePermissions();
@@ -78,14 +87,14 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
   const filteredData = useMemo(() => {
     let dataToFilter = surveyData ?? [];
-    if (!searchQuery) return dataToFilter;
+    if (!debouncedSearch) return dataToFilter;
 
     return dataToFilter.filter(item =>
       ['Location', 'Responsible By', 'Remark', 'Site ID'].some(key =>
-        String(item[key as keyof SiteSurveyLog] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+        String(item[key as keyof SiteSurveyLog] ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
       )
     );
-  }, [surveyData, searchQuery]);
+  }, [surveyData, debouncedSearch]);
 
   const agendaItems = useMemo<AgendaItem<SiteSurveyLog>[]>(() => {
     return filteredData.map(survey => ({
@@ -196,14 +205,7 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
 
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load site survey logs: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load site survey logs" message={error} />;
   }
 
   const renderAgendaCard = (survey: SiteSurveyLog) => (
@@ -225,62 +227,36 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">surveys</span>
-          </div>
+      <DashboardHeader title="Site Surveys" icon={<MapIcon />}>
+        <SearchInput
+          id="survey-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search surveys..."
+          label="Search surveys"
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-            <div className="relative w-full lg:w-64 flex-shrink-0">
-              <label htmlFor="survey-search" className="sr-only">Search</label>
-              <input
-                id="survey-search"
-                type="text"
-                placeholder="Search surveys..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
+        <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
 
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-              {viewMode === 'table' && (
-                <>
-                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                      <ArrowRightToLine className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                      <WrapText className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                      <Scissors className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <DataTableColumnToggle
-                    allColumns={allColumns}
-                    visibleColumns={visibleColumns}
-                    onColumnToggle={handleColumnToggle}
-                  />
-                </>
-              )}
-              <PermissionGate module="site_surveys" action="create">
-                <button
-                  onClick={handleOpenNewSurvey}
-                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                >
-                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-      </div>
+        {viewMode === 'table' && (
+          <>
+            <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+            <DataTableColumnToggle
+              allColumns={allColumns}
+              visibleColumns={visibleColumns}
+              onColumnToggle={handleColumnToggle}
+            />
+          </>
+        )}
+
+        <PermissionGate module="site_surveys" action="create">
+          <Button onClick={handleOpenNewSurvey} aria-label="New site survey">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 min-h-0 overflow-hidden p-4">
         {viewMode === 'table' ? (
@@ -294,31 +270,35 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
               initialSort={{ key: 'Date', direction: 'descending' }}
               mobilePrimaryColumns={['Date', 'Location', 'Responsible By']}
               cellWrapStyle={cellWrapStyle}
+              emptyState={{
+                title: 'No site surveys yet',
+                description: 'Site visits you log will appear here.',
+              }}
               renderRowActions={(row) => (
                 <div className="flex items-center gap-1">
                   <PermissionGate module="site_surveys" action="edit">
-                    <button
+                    <IconButton
+                      label="Edit survey"
+                      tone="primary"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditSurvey(row);
                       }}
-                      className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                      title="Edit"
                     >
-                      <Pencil size={15} />
-                    </button>
+                      <Pencil size={15} aria-hidden="true" />
+                    </IconButton>
                   </PermissionGate>
                   <PermissionGate module="site_surveys" action="delete">
-                    <button
+                    <IconButton
+                      label="Delete survey"
+                      tone="danger"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteRequest(row);
                       }}
-                      className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                      title="Delete"
                     >
-                      <Trash2 size={15} />
-                    </button>
+                      <Trash2 size={15} aria-hidden="true" />
+                    </IconButton>
                   </PermissionGate>
                 </div>
               )}
@@ -342,15 +322,14 @@ const SiteSurveyDashboard: React.FC<SiteSurveyDashboardProps> = ({ initialFilter
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
-          <button
-            className="flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition bg-brand-600 text-white border-brand-600 shadow-sm"
-          >
-            All Surveys
-          </button>
-        </div>
-      </footer>
+      {/* This module has no status filter — the single chip is a label for the
+          full set, so its value stays null and selecting it is a no-op. */}
+      <StatusFilterBar
+        options={[{ value: null, label: 'All Surveys' }]}
+        active={null}
+        onChange={() => { }}
+        summary={`${filteredData.length} surveys`}
+      />
 
       <ConfirmationModal
         isOpen={!!surveyToDelete}

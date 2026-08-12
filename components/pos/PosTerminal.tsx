@@ -12,6 +12,8 @@ import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
 import PosSalesModal from './PosSalesModal';
+import SearchInput from '../common/SearchInput';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import {
   ShoppingBag, ShoppingCart, RotateCcw, Search, Loader2,
   Banknote, CreditCard, QrCode, ArrowLeftRight, ChevronDown, ChevronUp,
@@ -63,6 +65,7 @@ const PosTerminal: React.FC = () => {
 
   const [cart, setCart] = useState<PosCartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [activeCategory, setActiveCategory] = useState('All');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCustomer, setShowCustomer] = useState(false);
@@ -153,8 +156,8 @@ const PosTerminal: React.FC = () => {
   const filteredProducts = useMemo(() => {
     let products = (pricelist ?? []).filter(p => p.Status !== 'Discontinued');
     if (activeCategory !== 'All') products = products.filter(p => p.Category === activeCategory);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       products = products.filter(p =>
         p.Code?.toLowerCase().includes(q) ||
         p.Brand?.toLowerCase().includes(q) ||
@@ -163,7 +166,7 @@ const PosTerminal: React.FC = () => {
       );
     }
     return products;
-  }, [pricelist, activeCategory, searchQuery]);
+  }, [pricelist, activeCategory, debouncedSearch]);
 
   // Cart actions
   const addToCart = (item: PricelistItem) => {
@@ -418,18 +421,17 @@ const PosTerminal: React.FC = () => {
         <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
           {/* Search */}
           <div className="flex-shrink-0 p-3 border-b border-border">
-            <div className="relative">
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Search products by code, brand, model..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 pl-10 pr-4 py-2.5 transition"
-                autoFocus
-              />
-              <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-            </div>
+            {/* Touch monitor: keep the full 44px tap target the hand-rolled
+                input had — hence the h-11 override on the shared control. */}
+            <SearchInput
+              ref={searchRef}
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              placeholder="Search products by code, brand, model..."
+              containerClassName="lg:w-full"
+              className="h-11"
+              autoFocus
+            />
           </div>
 
           {/* Category tabs */}
@@ -440,7 +442,7 @@ const PosTerminal: React.FC = () => {
                 onClick={() => setActiveCategory(cat)}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition ${
                   activeCategory === cat
-                    ? 'bg-brand-600 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -472,7 +474,7 @@ const PosTerminal: React.FC = () => {
                     <div className="text-[10px] text-muted-foreground mt-1 truncate">{item.Category}</div>
                     <button
                       onClick={e => { e.stopPropagation(); addToCart(item); }}
-                      className="mt-2 w-full py-1.5 rounded-lg bg-brand-600/10 text-brand-600 hover:bg-brand-600 hover:text-white text-xs font-bold transition group-hover:bg-brand-600 group-hover:text-white"
+                      className="mt-2 w-full py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-bold transition group-hover:bg-primary group-hover:text-primary-foreground"
                     >
                       + Add
                     </button>
@@ -641,13 +643,13 @@ const PosTerminal: React.FC = () => {
               <div className="flex rounded-lg overflow-hidden border border-border">
                 <button
                   onClick={() => setSession(p => ({ ...p, taxType: 'NON-VAT' }))}
-                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.taxType === 'NON-VAT' ? 'bg-brand-600 text-white' : 'bg-muted text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.taxType === 'NON-VAT' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
                 >
                   NON-VAT
                 </button>
                 <button
                   onClick={() => setSession(p => ({ ...p, taxType: 'VAT' }))}
-                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.taxType === 'VAT' ? 'bg-brand-600 text-white' : 'bg-muted text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.taxType === 'VAT' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
                 >
                   VAT
                 </button>
@@ -655,13 +657,13 @@ const PosTerminal: React.FC = () => {
               <div className="flex rounded-lg overflow-hidden border border-border">
                 <button
                   onClick={() => setSession(p => ({ ...p, currency: 'USD' }))}
-                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.currency === 'USD' ? 'bg-brand-600 text-white' : 'bg-muted text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.currency === 'USD' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
                 >
                   USD
                 </button>
                 <button
                   onClick={() => setSession(p => ({ ...p, currency: 'KHR' }))}
-                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.currency === 'KHR' ? 'bg-brand-600 text-white' : 'bg-muted text-muted-foreground'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold transition ${session.currency === 'KHR' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
                 >
                   KHR
                 </button>
@@ -689,7 +691,7 @@ const PosTerminal: React.FC = () => {
                     onClick={() => toggleMethod(method)}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
                       isSelected
-                        ? 'bg-brand-600 text-white border-brand-600'
+                        ? 'bg-primary text-primary-foreground border-brand-600'
                         : 'border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -775,7 +777,7 @@ const PosTerminal: React.FC = () => {
             <button
               onClick={handleCharge}
               disabled={isChargeDisabled}
-              className="w-full py-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-black text-lg transition shadow-lg disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="w-full py-4 rounded-xl bg-primary hover:brightness-110 text-primary-foreground font-black text-lg transition shadow-lg disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             >
               {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <ShoppingBag size={20} />}
               {isProcessing ? 'Processing...' : `Charge $${grandTotal.toFixed(2)}`}

@@ -393,7 +393,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         <div className="flex items-center gap-3">
             <button
                 onClick={() => setShowFormPanel(p => !p)}
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-slate-100 text-slate-900 border-slate-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all border ${showFormPanel ? 'bg-muted text-foreground border-border' : 'bg-card text-muted-foreground border-border hover:bg-accent'}`}
             >
                 <PanelRight className="w-4 h-4" />
                 <span className="hidden lg:inline">{showFormPanel ? 'Hide Form' : 'Form'}</span>
@@ -406,7 +406,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             />
             <button
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 shadow-sm transition-all"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-card text-primary border border-primary/30 rounded-md hover:bg-primary/10 shadow-sm transition-all"
             >
                 <Download className="w-4 h-4" /> Download PDF
             </button>
@@ -414,9 +414,9 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                 <button
                     onClick={handleSave}
                     disabled={isSubmitting}
-                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+                    className="bg-primary hover:brightness-110 text-primary-foreground font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
                 >
-                    {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Receipt'}
+                    {isSubmitting ? <Spinner size="sm" color="current" /> : 'Save Receipt'}
                 </button>
             )}
         </div>
@@ -462,13 +462,13 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                     />
 
                     {/* Form Sidebar */}
-                    <div className={`bg-white border-l border-gray-200 transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                    <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-gray-800">Receipt Information</h3>
+                                <div className="w-1 h-5 bg-primary rounded-full" />
+                                <h3 className="text-sm font-bold text-foreground">Receipt Information</h3>
                             </div>
-                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md"><X className="w-4 h-4" /></button>
+                            <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md"><X className="w-4 h-4" /></button>
                         </div>
 
                         {isReadOnly && (
@@ -521,15 +521,15 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                 </FormSection>
 
                                 {/* Line Items with pricing */}
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Line Items</h3>
+                                <div className="bg-background p-4 rounded-xl border border-border shadow-sm">
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Line Items</h3>
                                     <div className="space-y-3">
                                         {items.map(item => {
                                             const isPromoRow = !!item.isPromotion;
                                             return (
-                                            <div key={item.id} className={`relative p-4 rounded-xl border group transition-all ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-slate-50 border-slate-200 hover:border-brand-300'}`}>
+                                            <div key={item.id} className={`relative p-4 rounded-xl border group transition-all ${isPromoRow ? 'bg-amber-500/5 border-amber-500/30 hover:border-amber-500/60' : 'bg-muted/50 border-border hover:border-primary/50'}`}>
                                                 <button onClick={() => removeItem(item.id)}
-                                                    className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all">
+                                                    className="absolute top-3 right-3 text-muted-foreground/70 hover:text-destructive p-1.5 rounded-full hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                                 {isPromoRow ? (
@@ -540,18 +540,18 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                                         </div>
                                                         <div className="space-y-3">
                                                             <div>
-                                                                <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Promotion Terms</label>
+                                                                <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Promotion Terms</label>
                                                                 <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                    className="w-full text-sm p-3 rounded-lg border border-amber-500/30 bg-white" rows={2}
+                                                                    className="w-full text-sm p-3 rounded-lg border border-amber-500/30 bg-background" rows={2}
                                                                     placeholder="e.g. Buy 10-29pcs get cash back $40&#10;Period: 01st - 30th June 2026" />
                                                             </div>
                                                             <div className="flex items-center gap-3">
                                                                 <div>
-                                                                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Cashback Amount</label>
+                                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Cashback Amount</label>
                                                                     <input type="number" min={0} step="0.01"
                                                                         value={Math.abs(item.amount)}
                                                                         onChange={e => handlePromoAmountChange(item.id, e.target.value)}
-                                                                        className="w-32 h-9 px-3 text-right text-sm bg-white border border-amber-500/30 rounded-lg" />
+                                                                        className="w-32 h-9 px-3 text-right text-sm bg-background border border-amber-500/30 rounded-lg" />
                                                                 </div>
                                                                 <span className="text-xs font-semibold text-rose-500 pt-5">deducted from total</span>
                                                             </div>
@@ -561,50 +561,50 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                                     <>
                                                     <div className="flex gap-3 pr-8 mb-3">
                                                         <div className="w-10 flex flex-col items-center justify-center">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">No.</label>
-                                                            <div className="h-9 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 font-mono text-sm font-semibold text-slate-600">{item.no}</div>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block text-center">No.</label>
+                                                            <div className="h-9 w-full flex items-center justify-center bg-background rounded-lg border border-border font-mono text-sm font-semibold text-muted-foreground">{item.no}</div>
                                                         </div>
                                                         <div className="flex-1">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Item Code</label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Item Code</label>
                                                             <input type="text" value={item.itemCode} onChange={e => handleItemChange(item.id, 'itemCode', e.target.value)}
-                                                                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-ring transition-all" />
                                                         </div>
                                                         <div className="flex-[1.5]">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Model</label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Model</label>
                                                             <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all" />
+                                                                className="w-full h-9 px-3 text-sm border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-ring transition-all" />
                                                         </div>
                                                     </div>
                                                     <div className="mb-3">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Description</label>
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Description</label>
                                                         <textarea value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                            className="w-full text-sm p-3 rounded-lg border border-slate-200 bg-white" rows={2} />
+                                                            className="w-full text-sm p-3 rounded-lg border border-border bg-background" rows={2} />
                                                     </div>
                                                     <div className="flex flex-wrap gap-3">
                                                         <div className="w-20">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Qty</label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Qty</label>
                                                             <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)}
-                                                                className="w-full h-9 px-2 text-center text-sm bg-white border border-slate-200 rounded-lg" />
+                                                                className="w-full h-9 px-2 text-center text-sm bg-background border border-border rounded-lg" />
                                                         </div>
                                                         <div className="w-32">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Unit Price</label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Unit Price</label>
                                                             <input type="number" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)}
-                                                                className="w-full h-9 px-3 text-right text-sm bg-white border border-slate-200 rounded-lg" />
+                                                                className="w-full h-9 px-3 text-right text-sm bg-background border border-border rounded-lg" />
                                                         </div>
                                                         <div className="w-full">
-                                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Serial Numbers <span className="normal-case font-normal text-slate-300">(one per line)</span></label>
+                                                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Serial Numbers <span className="normal-case font-normal text-muted-foreground/70">(one per line)</span></label>
                                                             <textarea
                                                                 value={item.serialNumber || ''}
                                                                 onChange={e => handleItemChange(item.id, 'serialNumber', e.target.value)}
-                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-slate-200 bg-white resize-y min-h-[60px]"
+                                                                className="w-full text-xs p-2 font-mono rounded-lg border border-border bg-background resize-y min-h-[60px]"
                                                                 rows={3}
                                                                 placeholder={`SN001\nSN002\nSN003...`}
                                                             />
-                                                            <div className="text-[9px] text-slate-400 mt-0.5">{(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered</div>
+                                                            <div className="text-[9px] text-muted-foreground/70 mt-0.5">{(item.serialNumber || '').split('\n').filter((s: string) => s.trim()).length} S/N entered</div>
                                                         </div>
                                                         <div className="flex-1 text-right pt-4">
-                                                            <div className="text-[10px] font-bold text-slate-400 uppercase">Total</div>
-                                                            <div className="text-lg font-bold text-slate-700">
+                                                            <div className="text-[10px] font-bold text-muted-foreground/70 uppercase">Total</div>
+                                                            <div className="text-lg font-bold text-foreground">
                                                                 {getCurrencySymbol(doc['Currency'] as any)}{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                             </div>
                                                         </div>
@@ -616,7 +616,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                         })}
                                         <div className="flex gap-3">
                                         <button onClick={addItem}
-                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-300 text-brand-600 bg-brand-50/50 hover:bg-brand-50 font-bold text-sm flex items-center justify-center gap-2">
+                                            className="flex-1 py-2.5 rounded-lg border border-dashed border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 font-bold text-sm flex items-center justify-center gap-2">
                                             <Plus className="w-4 h-4" /> Add Item
                                         </button>
                                         <button type="button" onClick={addPromoRow}
@@ -626,18 +626,18 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                         </div>
 
                                         {/* Totals */}
-                                        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mt-4 space-y-3">
+                                        <div className="bg-muted/50 rounded-xl p-5 border border-border mt-4 space-y-3">
                                             <div className="flex justify-between text-sm">
-                                                <span className="text-slate-500 font-medium">Sub Total</span>
-                                                <span className="font-bold text-slate-700">{getCurrencySymbol(doc['Currency'] as any)}{totals.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-muted-foreground font-medium">Sub Total</span>
+                                                <span className="font-bold text-foreground">{getCurrencySymbol(doc['Currency'] as any)}{totals.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
                                             <div className="flex justify-between text-sm">
-                                                <span className="text-slate-500 font-medium">VAT (10%)</span>
-                                                <span className="font-bold text-slate-700">{getCurrencySymbol(doc['Currency'] as any)}{totals.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-muted-foreground font-medium">VAT (10%)</span>
+                                                <span className="font-bold text-foreground">{getCurrencySymbol(doc['Currency'] as any)}{totals.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
-                                            <div className="flex justify-between pt-3 border-t border-slate-300">
-                                                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Grand Total</span>
-                                                <span className="text-xl font-black text-brand-600">{getCurrencySymbol(doc['Currency'] as any)}{totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <div className="flex justify-between pt-3 border-t border-border">
+                                                <span className="text-xs font-black uppercase tracking-wider text-foreground">Grand Total</span>
+                                                <span className="text-xl font-black text-primary">{getCurrencySymbol(doc['Currency'] as any)}{totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -651,19 +651,19 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                 <FormSection title="Attachment">
                                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                                     {isUploading ? (
-                                        <div className="flex items-center gap-3 text-sm text-slate-600 p-4 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200">
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground p-4 rounded-xl bg-muted/50 border-2 border-dashed border-border">
                                             <Spinner size="sm" /><span className="font-bold">Uploading...</span>
                                         </div>
                                     ) : doc['File'] ? (
                                         <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                                             <a href={doc['File']} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-emerald-700 hover:underline truncate max-w-[200px]">View Uploaded File</a>
-                                            <button onClick={() => setDoc(prev => ({ ...prev, File: '' }))} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-full"><X className="w-4 h-4" /></button>
+                                            <button onClick={() => setDoc(prev => ({ ...prev, File: '' }))} className="p-1.5 text-muted-foreground/70 hover:text-rose-600 hover:bg-rose-100 rounded-full"><X className="w-4 h-4" /></button>
                                         </div>
                                     ) : (
                                         <button onClick={() => fileInputRef.current?.click()}
-                                            className="w-full text-center p-4 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-2">
-                                            <Upload className="w-5 h-5 text-slate-400" />
-                                            <span className="text-[10px] uppercase tracking-widest text-slate-400">Click to Upload File</span>
+                                            className="w-full text-center p-4 bg-muted/50 hover:bg-muted text-muted-foreground font-bold rounded-xl border-2 border-dashed border-border flex flex-col items-center gap-2">
+                                            <Upload className="w-5 h-5 text-muted-foreground/70" />
+                                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70">Click to Upload File</span>
                                         </button>
                                     )}
                                 </FormSection>

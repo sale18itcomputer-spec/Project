@@ -211,11 +211,11 @@
 
         0%,
         100% {
-            box-shadow: 0 0 8px rgba(0, 74, 173, 0.3);
+            box-shadow: 0 0 8px hsl(var(--primary) / 0.3);
         }
 
         50% {
-            box-shadow: 0 0 20px rgba(0, 74, 173, 0.5);
+            box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
         }
     }
 
@@ -275,16 +275,16 @@
         --bg-effect-size: 1;
 
         /* Brand blue ramp — exact HSL conversions of the original hex values */
-        --brand-50:  214.3 94.6% 92.7%;  /* #dbeafe */
-        --brand-100: 213.3 96.9% 87.3%;  /* #bfdbfe */
-        --brand-200: 211.7 96.4% 78.4%;  /* #93c5fd */
-        --brand-300: 213.1 93.9% 67.8%;  /* #60a5fa */
-        --brand-400: 213.4 76.0% 59.2%;  /* #488ee6 */
-        --brand-500: 213.9 64.9% 50.8%;  /* #3077d3 */
-        --brand-600: 214.3 100% 33.9%;   /* #004aad */
-        --brand-700: 215.3 100% 30.0%;   /* #003f99 */
-        --brand-800: 215.2 100% 25.1%;   /* #003580 */
-        --brand-900: 215.3 100% 20.0%;   /* #002a66 */
+        --brand-50:  var(--accent-h, 214.3) var(--accent-s, 94.6%) 92.7%;  /* #dbeafe */
+        --brand-100: var(--accent-h, 213.3) var(--accent-s, 96.9%) 87.3%;  /* #bfdbfe */
+        --brand-200: var(--accent-h, 211.7) var(--accent-s, 96.4%) 78.4%;  /* #93c5fd */
+        --brand-300: var(--accent-h, 213.1) var(--accent-s, 93.9%) 67.8%;  /* #60a5fa */
+        --brand-400: var(--accent-h, 213.4) var(--accent-s, 76.0%) 59.2%;  /* #488ee6 */
+        --brand-500: var(--accent-h, 213.9) var(--accent-s, 64.9%) 50.8%;  /* #3077d3 */
+        --brand-600: var(--accent-h, 214.3) var(--accent-s, 100%) 33.9%;   /* #004aad */
+        --brand-700: var(--accent-h, 215.3) var(--accent-s, 100%) 30.0%;   /* #003f99 */
+        --brand-800: var(--accent-h, 215.2) var(--accent-s, 100%) 25.1%;   /* #003580 */
+        --brand-900: var(--accent-h, 215.3) var(--accent-s, 100%) 20.0%;   /* #002a66 */
     }
 
     .dark {
@@ -357,16 +357,16 @@
         --ring:               var(--accent-h, 15) var(--accent-s, 54%) 51%;
 
         /* Terracotta brand ramp — replaces the blue ramp for this theme */
-        --brand-50:  15 60% 96%;
-        --brand-100: 15 58% 92%;
-        --brand-200: 15 56% 84%;
-        --brand-300: 15 55% 74%;
-        --brand-400: 15 54% 63%;
-        --brand-500: 15 54% 57%;
-        --brand-600: 15 54% 51%;  /* #c6613f — matches --primary */
-        --brand-700: 15 50% 44%;
-        --brand-800: 15 46% 36%;
-        --brand-900: 15 42% 28%;
+        --brand-50:  var(--accent-h, 15) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 15) var(--accent-s, 58%) 92%;
+        --brand-200: var(--accent-h, 15) var(--accent-s, 56%) 84%;
+        --brand-300: var(--accent-h, 15) var(--accent-s, 55%) 74%;
+        --brand-400: var(--accent-h, 15) var(--accent-s, 54%) 63%;
+        --brand-500: var(--accent-h, 15) var(--accent-s, 54%) 57%;
+        --brand-600: var(--accent-h, 15) var(--accent-s, 54%) 51%;  /* #c6613f — matches --primary */
+        --brand-700: var(--accent-h, 15) var(--accent-s, 50%) 44%;
+        --brand-800: var(--accent-h, 15) var(--accent-s, 46%) 36%;
+        --brand-900: var(--accent-h, 15) var(--accent-s, 42%) 28%;
     }
 
     /* ── Odysseus-derived theme palettes ── */
@@ -392,16 +392,16 @@
         --input: 212 11.9% 18.4%;
         --ring: var(--accent-h, 3) var(--accent-s, 92.6%) 62.9%;
 
-        --brand-50:  3 60% 96%;
-        --brand-100: 3 70% 91%;
-        --brand-200: 3 80% 82%;
-        --brand-300: 3 90% 72%;
-        --brand-400: 3 90% 70.9%;
-        --brand-500: 3 90% 64.9%;
-        --brand-600: 3 90% 62.9%;
-        --brand-700: 3 90% 54.9%;
-        --brand-800: 3 90% 46.9%;
-        --brand-900: 3 90% 38.9%;
+        --brand-50:  var(--accent-h, 3) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 3) var(--accent-s, 70%) 91%;
+        --brand-200: var(--accent-h, 3) var(--accent-s, 80%) 82%;
+        --brand-300: var(--accent-h, 3) var(--accent-s, 90%) 72%;
+        --brand-400: var(--accent-h, 3) var(--accent-s, 90%) 70.9%;
+        --brand-500: var(--accent-h, 3) var(--accent-s, 90%) 64.9%;
+        --brand-600: var(--accent-h, 3) var(--accent-s, 90%) 62.9%;
+        --brand-700: var(--accent-h, 3) var(--accent-s, 90%) 54.9%;
+        --brand-800: var(--accent-h, 3) var(--accent-s, 90%) 46.9%;
+        --brand-900: var(--accent-h, 3) var(--accent-s, 90%) 38.9%;
     }
 
     .theme-paper {
@@ -425,16 +425,16 @@
         --input: 37 13.4% 84%;
         --ring: var(--accent-h, 48) var(--accent-s, 51.5%) 53.1%;
 
-        --brand-50:  48 21.5% 96%;
-        --brand-100: 48 31.5% 91%;
-        --brand-200: 48 41.5% 82%;
-        --brand-300: 48 51.5% 72%;
-        --brand-400: 48 51.5% 61.1%;
-        --brand-500: 48 51.5% 55.1%;
-        --brand-600: 48 51.5% 53.1%;
-        --brand-700: 48 51.5% 45.1%;
-        --brand-800: 48 51.5% 37.1%;
-        --brand-900: 48 51.5% 29.1%;
+        --brand-50:  var(--accent-h, 48) var(--accent-s, 21.5%) 96%;
+        --brand-100: var(--accent-h, 48) var(--accent-s, 31.5%) 91%;
+        --brand-200: var(--accent-h, 48) var(--accent-s, 41.5%) 82%;
+        --brand-300: var(--accent-h, 48) var(--accent-s, 51.5%) 72%;
+        --brand-400: var(--accent-h, 48) var(--accent-s, 51.5%) 61.1%;
+        --brand-500: var(--accent-h, 48) var(--accent-s, 51.5%) 55.1%;
+        --brand-600: var(--accent-h, 48) var(--accent-s, 51.5%) 53.1%;
+        --brand-700: var(--accent-h, 48) var(--accent-s, 51.5%) 45.1%;
+        --brand-800: var(--accent-h, 48) var(--accent-s, 51.5%) 37.1%;
+        --brand-900: var(--accent-h, 48) var(--accent-s, 51.5%) 29.1%;
     }
 
     .theme-cyberpunk {
@@ -458,16 +458,16 @@
         --input: 271 100% 56.4%;
         --ring: var(--accent-h, 291) var(--accent-s, 95.9%) 61.8%;
 
-        --brand-50:  291 60% 96%;
-        --brand-100: 291 70% 91%;
-        --brand-200: 291 80% 82%;
-        --brand-300: 291 90% 72%;
-        --brand-400: 291 90% 69.8%;
-        --brand-500: 291 90% 63.8%;
-        --brand-600: 291 90% 61.8%;
-        --brand-700: 291 90% 53.8%;
-        --brand-800: 291 90% 45.8%;
-        --brand-900: 291 90% 37.8%;
+        --brand-50:  var(--accent-h, 291) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 291) var(--accent-s, 70%) 91%;
+        --brand-200: var(--accent-h, 291) var(--accent-s, 80%) 82%;
+        --brand-300: var(--accent-h, 291) var(--accent-s, 90%) 72%;
+        --brand-400: var(--accent-h, 291) var(--accent-s, 90%) 69.8%;
+        --brand-500: var(--accent-h, 291) var(--accent-s, 90%) 63.8%;
+        --brand-600: var(--accent-h, 291) var(--accent-s, 90%) 61.8%;
+        --brand-700: var(--accent-h, 291) var(--accent-s, 90%) 53.8%;
+        --brand-800: var(--accent-h, 291) var(--accent-s, 90%) 45.8%;
+        --brand-900: var(--accent-h, 291) var(--accent-s, 90%) 37.8%;
     }
 
     .theme-retrowave {
@@ -491,16 +491,16 @@
         --input: 264 43.2% 32.9%;
         --ring: var(--accent-h, 350) var(--accent-s, 78.8%) 59.2%;
 
-        --brand-50:  350 48.8% 96%;
-        --brand-100: 350 58.8% 91%;
-        --brand-200: 350 68.8% 82%;
-        --brand-300: 350 78.8% 72%;
-        --brand-400: 350 78.8% 67.2%;
-        --brand-500: 350 78.8% 61.2%;
-        --brand-600: 350 78.8% 59.2%;
-        --brand-700: 350 78.8% 51.2%;
-        --brand-800: 350 78.8% 43.2%;
-        --brand-900: 350 78.8% 35.2%;
+        --brand-50:  var(--accent-h, 350) var(--accent-s, 48.8%) 96%;
+        --brand-100: var(--accent-h, 350) var(--accent-s, 58.8%) 91%;
+        --brand-200: var(--accent-h, 350) var(--accent-s, 68.8%) 82%;
+        --brand-300: var(--accent-h, 350) var(--accent-s, 78.8%) 72%;
+        --brand-400: var(--accent-h, 350) var(--accent-s, 78.8%) 67.2%;
+        --brand-500: var(--accent-h, 350) var(--accent-s, 78.8%) 61.2%;
+        --brand-600: var(--accent-h, 350) var(--accent-s, 78.8%) 59.2%;
+        --brand-700: var(--accent-h, 350) var(--accent-s, 78.8%) 51.2%;
+        --brand-800: var(--accent-h, 350) var(--accent-s, 78.8%) 43.2%;
+        --brand-900: var(--accent-h, 350) var(--accent-s, 78.8%) 35.2%;
     }
 
     .theme-forest {
@@ -524,16 +524,16 @@
         --input: 120 27.4% 29.9%;
         --ring: var(--accent-h, 111) var(--accent-s, 33.3%) 58.2%;
 
-        --brand-50:  111 15% 96%;
-        --brand-100: 111 20% 91%;
-        --brand-200: 111 30% 82%;
-        --brand-300: 111 33.3% 72%;
-        --brand-400: 111 33.3% 66.2%;
-        --brand-500: 111 33.3% 60.2%;
-        --brand-600: 111 33.3% 58.2%;
-        --brand-700: 111 33.3% 50.2%;
-        --brand-800: 111 33.3% 42.2%;
-        --brand-900: 111 33.3% 34.2%;
+        --brand-50:  var(--accent-h, 111) var(--accent-s, 15%) 96%;
+        --brand-100: var(--accent-h, 111) var(--accent-s, 20%) 91%;
+        --brand-200: var(--accent-h, 111) var(--accent-s, 30%) 82%;
+        --brand-300: var(--accent-h, 111) var(--accent-s, 33.3%) 72%;
+        --brand-400: var(--accent-h, 111) var(--accent-s, 33.3%) 66.2%;
+        --brand-500: var(--accent-h, 111) var(--accent-s, 33.3%) 60.2%;
+        --brand-600: var(--accent-h, 111) var(--accent-s, 33.3%) 58.2%;
+        --brand-700: var(--accent-h, 111) var(--accent-s, 33.3%) 50.2%;
+        --brand-800: var(--accent-h, 111) var(--accent-s, 33.3%) 42.2%;
+        --brand-900: var(--accent-h, 111) var(--accent-s, 33.3%) 34.2%;
     }
 
     .theme-ocean {
@@ -557,16 +557,16 @@
         --input: 205 58.9% 25.6%;
         --ring: var(--accent-h, 208) var(--accent-s, 98.9%) 65.3%;
 
-        --brand-50:  208 60% 96%;
-        --brand-100: 208 70% 91%;
-        --brand-200: 208 80% 82%;
-        --brand-300: 208 90% 72%;
-        --brand-400: 208 90% 73.3%;
-        --brand-500: 208 90% 67.3%;
-        --brand-600: 208 90% 65.3%;
-        --brand-700: 208 90% 57.3%;
-        --brand-800: 208 90% 49.3%;
-        --brand-900: 208 90% 41.3%;
+        --brand-50:  var(--accent-h, 208) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 208) var(--accent-s, 70%) 91%;
+        --brand-200: var(--accent-h, 208) var(--accent-s, 80%) 82%;
+        --brand-300: var(--accent-h, 208) var(--accent-s, 90%) 72%;
+        --brand-400: var(--accent-h, 208) var(--accent-s, 90%) 73.3%;
+        --brand-500: var(--accent-h, 208) var(--accent-s, 90%) 67.3%;
+        --brand-600: var(--accent-h, 208) var(--accent-s, 90%) 65.3%;
+        --brand-700: var(--accent-h, 208) var(--accent-s, 90%) 57.3%;
+        --brand-800: var(--accent-h, 208) var(--accent-s, 90%) 49.3%;
+        --brand-900: var(--accent-h, 208) var(--accent-s, 90%) 41.3%;
     }
 
     .theme-ume {
@@ -590,16 +590,16 @@
         --input: 289 25.1% 33.7%;
         --ring: var(--accent-h, 337) var(--accent-s, 81%) 79.4%;
 
-        --brand-50:  337 51% 96%;
-        --brand-100: 337 61% 91%;
-        --brand-200: 337 71% 82%;
-        --brand-300: 337 81% 72%;
-        --brand-400: 337 81% 80%;
-        --brand-500: 337 81% 75%;
-        --brand-600: 337 81% 79.4%;
-        --brand-700: 337 81% 60%;
-        --brand-800: 337 81% 55%;
-        --brand-900: 337 81% 50%;
+        --brand-50:  var(--accent-h, 337) var(--accent-s, 51%) 96%;
+        --brand-100: var(--accent-h, 337) var(--accent-s, 61%) 91%;
+        --brand-200: var(--accent-h, 337) var(--accent-s, 71%) 82%;
+        --brand-300: var(--accent-h, 337) var(--accent-s, 81%) 72%;
+        --brand-400: var(--accent-h, 337) var(--accent-s, 81%) 80%;
+        --brand-500: var(--accent-h, 337) var(--accent-s, 81%) 75%;
+        --brand-600: var(--accent-h, 337) var(--accent-s, 81%) 79.4%;
+        --brand-700: var(--accent-h, 337) var(--accent-s, 81%) 60%;
+        --brand-800: var(--accent-h, 337) var(--accent-s, 81%) 55%;
+        --brand-900: var(--accent-h, 337) var(--accent-s, 81%) 50%;
     }
 
     .theme-copper {
@@ -623,16 +623,16 @@
         --input: 29 41% 30.9%;
         --ring: var(--accent-h, 18) var(--accent-s, 60.9%) 56.9%;
 
-        --brand-50:  18 30.9% 96%;
-        --brand-100: 18 40.9% 91%;
-        --brand-200: 18 50.9% 82%;
-        --brand-300: 18 60.9% 72%;
-        --brand-400: 18 60.9% 64.9%;
-        --brand-500: 18 60.9% 58.9%;
-        --brand-600: 18 60.9% 56.9%;
-        --brand-700: 18 60.9% 48.9%;
-        --brand-800: 18 60.9% 40.9%;
-        --brand-900: 18 60.9% 32.9%;
+        --brand-50:  var(--accent-h, 18) var(--accent-s, 30.9%) 96%;
+        --brand-100: var(--accent-h, 18) var(--accent-s, 40.9%) 91%;
+        --brand-200: var(--accent-h, 18) var(--accent-s, 50.9%) 82%;
+        --brand-300: var(--accent-h, 18) var(--accent-s, 60.9%) 72%;
+        --brand-400: var(--accent-h, 18) var(--accent-s, 60.9%) 64.9%;
+        --brand-500: var(--accent-h, 18) var(--accent-s, 60.9%) 58.9%;
+        --brand-600: var(--accent-h, 18) var(--accent-s, 60.9%) 56.9%;
+        --brand-700: var(--accent-h, 18) var(--accent-s, 60.9%) 48.9%;
+        --brand-800: var(--accent-h, 18) var(--accent-s, 60.9%) 40.9%;
+        --brand-900: var(--accent-h, 18) var(--accent-s, 60.9%) 32.9%;
     }
 
     .theme-terminal {
@@ -656,16 +656,16 @@
         --input: 120 100% 8.6%;
         --ring: var(--accent-h, 135) var(--accent-s, 100%) 50%;
 
-        --brand-50:  135 60% 96%;
-        --brand-100: 135 70% 91%;
-        --brand-200: 135 80% 82%;
-        --brand-300: 135 90% 72%;
-        --brand-400: 135 90% 60%;
-        --brand-500: 135 90% 52%;
-        --brand-600: 135 90% 50%;
-        --brand-700: 135 90% 42%;
-        --brand-800: 135 90% 34%;
-        --brand-900: 135 90% 26%;
+        --brand-50:  var(--accent-h, 135) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 135) var(--accent-s, 70%) 91%;
+        --brand-200: var(--accent-h, 135) var(--accent-s, 80%) 82%;
+        --brand-300: var(--accent-h, 135) var(--accent-s, 90%) 72%;
+        --brand-400: var(--accent-h, 135) var(--accent-s, 90%) 60%;
+        --brand-500: var(--accent-h, 135) var(--accent-s, 90%) 52%;
+        --brand-600: var(--accent-h, 135) var(--accent-s, 90%) 50%;
+        --brand-700: var(--accent-h, 135) var(--accent-s, 90%) 42%;
+        --brand-800: var(--accent-h, 135) var(--accent-s, 90%) 34%;
+        --brand-900: var(--accent-h, 135) var(--accent-s, 90%) 26%;
     }
 
     .theme-organs {
@@ -689,16 +689,16 @@
         --input: 354 46.8% 12.5%;
         --ring: var(--accent-h, 354) var(--accent-s, 60%) 49%;
 
-        --brand-50:  354 30% 96%;
-        --brand-100: 354 40% 91%;
-        --brand-200: 354 50% 82%;
-        --brand-300: 354 60% 72%;
-        --brand-400: 354 60% 60%;
-        --brand-500: 354 60% 51%;
-        --brand-600: 354 60% 49%;
-        --brand-700: 354 60% 41%;
-        --brand-800: 354 60% 33%;
-        --brand-900: 354 60% 25%;
+        --brand-50:  var(--accent-h, 354) var(--accent-s, 30%) 96%;
+        --brand-100: var(--accent-h, 354) var(--accent-s, 40%) 91%;
+        --brand-200: var(--accent-h, 354) var(--accent-s, 50%) 82%;
+        --brand-300: var(--accent-h, 354) var(--accent-s, 60%) 72%;
+        --brand-400: var(--accent-h, 354) var(--accent-s, 60%) 60%;
+        --brand-500: var(--accent-h, 354) var(--accent-s, 60%) 51%;
+        --brand-600: var(--accent-h, 354) var(--accent-s, 60%) 49%;
+        --brand-700: var(--accent-h, 354) var(--accent-s, 60%) 41%;
+        --brand-800: var(--accent-h, 354) var(--accent-s, 60%) 33%;
+        --brand-900: var(--accent-h, 354) var(--accent-s, 60%) 25%;
     }
 
     .theme-lavender {
@@ -722,16 +722,16 @@
         --input: 264 29% 84.8%;
         --ring: var(--accent-h, 269) var(--accent-s, 48.2%) 61.4%;
 
-        --brand-50:  269 18.2% 96%;
-        --brand-100: 269 28.2% 91%;
-        --brand-200: 269 38.2% 82%;
-        --brand-300: 269 48.2% 72%;
-        --brand-400: 269 48.2% 69.4%;
-        --brand-500: 269 48.2% 63.4%;
-        --brand-600: 269 48.2% 61.4%;
-        --brand-700: 269 48.2% 53.4%;
-        --brand-800: 269 48.2% 45.4%;
-        --brand-900: 269 48.2% 37.4%;
+        --brand-50:  var(--accent-h, 269) var(--accent-s, 18.2%) 96%;
+        --brand-100: var(--accent-h, 269) var(--accent-s, 28.2%) 91%;
+        --brand-200: var(--accent-h, 269) var(--accent-s, 38.2%) 82%;
+        --brand-300: var(--accent-h, 269) var(--accent-s, 48.2%) 72%;
+        --brand-400: var(--accent-h, 269) var(--accent-s, 48.2%) 69.4%;
+        --brand-500: var(--accent-h, 269) var(--accent-s, 48.2%) 63.4%;
+        --brand-600: var(--accent-h, 269) var(--accent-s, 48.2%) 61.4%;
+        --brand-700: var(--accent-h, 269) var(--accent-s, 48.2%) 53.4%;
+        --brand-800: var(--accent-h, 269) var(--accent-s, 48.2%) 45.4%;
+        --brand-900: var(--accent-h, 269) var(--accent-s, 48.2%) 37.4%;
     }
 
     .theme-gpt {
@@ -755,16 +755,16 @@
         --input: 0 0% 22.9%;
         --ring: var(--accent-h, 0) var(--accent-s, 0%) 58%;
 
-        --brand-50:  0 15% 96%;
-        --brand-100: 0 20% 91%;
-        --brand-200: 0 30% 82%;
-        --brand-300: 0 30% 72%;
-        --brand-400: 0 30% 66%;
-        --brand-500: 0 30% 60%;
-        --brand-600: 0 30% 58%;
-        --brand-700: 0 30% 50%;
-        --brand-800: 0 30% 42%;
-        --brand-900: 0 30% 34%;
+        --brand-50:  var(--accent-h, 0) var(--accent-s, 15%) 96%;
+        --brand-100: var(--accent-h, 0) var(--accent-s, 20%) 91%;
+        --brand-200: var(--accent-h, 0) var(--accent-s, 30%) 82%;
+        --brand-300: var(--accent-h, 0) var(--accent-s, 30%) 72%;
+        --brand-400: var(--accent-h, 0) var(--accent-s, 30%) 66%;
+        --brand-500: var(--accent-h, 0) var(--accent-s, 30%) 60%;
+        --brand-600: var(--accent-h, 0) var(--accent-s, 30%) 58%;
+        --brand-700: var(--accent-h, 0) var(--accent-s, 30%) 50%;
+        --brand-800: var(--accent-h, 0) var(--accent-s, 30%) 42%;
+        --brand-900: var(--accent-h, 0) var(--accent-s, 30%) 34%;
     }
 
     .theme-cute {
@@ -788,16 +788,16 @@
         --input: 340 61.5% 87.7%;
         --ring: var(--accent-h, 340) var(--accent-s, 100%) 71%;
 
-        --brand-50:  340 60% 96%;
-        --brand-100: 340 70% 91%;
-        --brand-200: 340 80% 82%;
-        --brand-300: 340 90% 72%;
-        --brand-400: 340 90% 79%;
-        --brand-500: 340 90% 73%;
-        --brand-600: 340 90% 71%;
-        --brand-700: 340 90% 60%;
-        --brand-800: 340 90% 55%;
-        --brand-900: 340 90% 47%;
+        --brand-50:  var(--accent-h, 340) var(--accent-s, 60%) 96%;
+        --brand-100: var(--accent-h, 340) var(--accent-s, 70%) 91%;
+        --brand-200: var(--accent-h, 340) var(--accent-s, 80%) 82%;
+        --brand-300: var(--accent-h, 340) var(--accent-s, 90%) 72%;
+        --brand-400: var(--accent-h, 340) var(--accent-s, 90%) 79%;
+        --brand-500: var(--accent-h, 340) var(--accent-s, 90%) 73%;
+        --brand-600: var(--accent-h, 340) var(--accent-s, 90%) 71%;
+        --brand-700: var(--accent-h, 340) var(--accent-s, 90%) 60%;
+        --brand-800: var(--accent-h, 340) var(--accent-s, 90%) 55%;
+        --brand-900: var(--accent-h, 340) var(--accent-s, 90%) 47%;
     }
 }
 
@@ -840,9 +840,15 @@
         }
     }
 
+    /* Desktop runs a slightly smaller root so this data-dense ERP fits more
+       rows per screen. It was 14px, which made `text-sm` render at 12.25px on
+       a large monitor while the same class rendered at 14px on a phone — text
+       was physically *smaller* on the bigger screen. 15px keeps the density
+       win without inverting the scale. This is the one dial to turn if the
+       desktop UI ever feels too tight or too loose. */
     @media (min-width: 1024px) {
         html {
-            font-size: 14px;
+            font-size: 15px;
         }
     }
 
@@ -891,7 +897,48 @@
     [role="button"] {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
+    /* ── Reduced motion ────────────────────────────────────────────────
+       Previously only the window glow and the canvas background honoured
+       this. The app also runs several *infinite* animations (the floating
+       empty-state illustration, pulse-soft, badge-pulse, skeleton shimmer,
+       the staggered row cascade), which is exactly what this media query
+       exists to stop. One-shot transitions are collapsed rather than
+       removed so focus/hover states still read as intentional. */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
 }
+
+/* `@property` must stay at the top level — registering a custom property
+   from inside a cascade layer is not reliably supported. */
+@property --border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+/* ============================================================
+   EVERYTHING BELOW LIVES IN @layer components.
+   Tailwind's layer order is: theme, base, components, utilities.
+   Keeping these rules layered is what lets a utility class
+   (border-rose-500, bg-accent, …) win over them. Before this,
+   the whole block was unlayered — in Tailwind v4 unlayered CSS
+   beats every layered utility regardless of specificity, so
+   rules like `.dark *` silently overrode utility classes app-wide.
+
+   The only deliberate exception is the Radix/Sonner portal
+   z-index block near the bottom, which must beat third-party
+   inline styles and therefore stays unlayered with !important.
+   ============================================================ */
+@layer components {
 
 /* ============================================
    CUSTOM SCROLLBARS
@@ -960,6 +1007,48 @@ html {
     background-color: hsl(var(--muted-foreground));
 }
 
+/* ── Scrollbar helper classes ──────────────────────────────────────────
+   `.no-scrollbar` / `.custom-scrollbar-hide` (hide the bar, keep the
+   scrolling) and `.custom-scrollbar` (slim themed bar) were referenced
+   from ~35 components but had never been defined — the class names were
+   simply inert. Defined here so the intent actually applies. */
+
+.no-scrollbar,
+.custom-scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.custom-scrollbar-hide::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+}
+
 /* ============================================
    SCROLL HINT
    ============================================ */
@@ -973,8 +1062,8 @@ html {
     right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    background: hsl(215 100% 34% / 0.9);
-    color: white;
+    background: hsl(var(--primary) / 0.9);
+    color: hsl(var(--primary-foreground));
     padding: 4px 8px;
     border-radius: 20px;
     font-size: 10px;
@@ -982,8 +1071,8 @@ html {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     pointer-events: none;
-    z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 100;   /* Z.HEADER — sits over its own card only */
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
     animation: bounceX 2s infinite;
     display: flex;
     align-items: center;
@@ -1041,6 +1130,20 @@ html {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+/* ── DataTable row states ──────────────────────────────────────────────
+   `.is-highlighted` used to be applied by DataTable's `highlightedCheck`
+   prop but was never defined in CSS, so highlighted rows had no background
+   in the scrolling columns while the frozen first/last columns did get
+   their amber tint — the row looked half-transparent. That is now handled
+   with utility classes directly in DataTable, where it can't drift out of
+   sync with the frozen-column background again.
+
+   Column currently being drag-resized — dims the cell so the resize guide
+   line reads clearly against the content. */
+.is-resizing-cell {
+    background-color: hsl(var(--muted) / 0.6);
 }
 
 /* ============================================
@@ -1146,7 +1249,7 @@ html {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid hsl(var(--border) / 0.8);
-    z-index: 80;
+    z-index: 200;   /* Z.NAV */
     display: flex;
     align-items: center;
     padding-left: 0.5rem;
@@ -1184,7 +1287,7 @@ html {
     justify-content: space-around;
     align-items: flex-start;
     padding-top: 6px;
-    z-index: 80;
+    z-index: 200;   /* Z.NAV */
 }
 
 /* ── Individual tab item ── */
@@ -1558,14 +1661,14 @@ input[type="range"]::-moz-range-track {
 }
 
 .hover-glow:hover {
-    box-shadow: 0 0 20px rgba(0, 74, 173, 0.15);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
 }
 
 .glass {
-    background: rgba(255, 255, 255, 0.7);
+    background: hsl(var(--card) / 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid hsl(var(--foreground) / 0.08);
 }
 
 .b2b-dark .glass {
@@ -1743,133 +1846,100 @@ tbody tr:hover {
     background-color: hsl(var(--muted) / 0.5);
 }
 
+} /* ── end @layer components ─────────────────────────────────── */
+
 /* ============================================
    PORTAL & OVERLAY Z-INDEX GUARANTEES
-   Radix UI portals render into document.body.
-   These rules ensure they always float above
-   any creator/modal/sticky headers.
+   Radix UI portals render into document.body and set their own
+   inline styles, so these must stay unlayered + !important.
+   Values mirror the scale in lib/zIndex.ts — keep them in sync.
    ============================================ */
 
 [data-radix-popper-content-wrapper] {
-    z-index: 9999 !important;
+    z-index: 1400 !important;   /* Z.POPOVER */
 }
 
 [data-radix-dialog-overlay],
 [data-radix-alert-dialog-overlay] {
-    z-index: 9998 !important;
+    z-index: 1290 !important;   /* Z.MODAL - 10 */
 }
 
 [data-radix-dialog-content],
 [data-radix-alert-dialog-content] {
-    z-index: 9999 !important;
+    z-index: 1300 !important;   /* Z.MODAL */
 }
 
-/* Sonner toast container */
+/* Sonner toast container — always the topmost surface */
 [data-sonner-toaster] {
-    z-index: 99999 !important;
+    z-index: 1600 !important;   /* Z.TOAST */
 }
+
+@layer components {
 
 /* ============================================
    DARK MODE POLISH
+
+   These rules used to hardcode the "Original" theme's warm-charcoal
+   values (hsl(40 4% 27%) etc.). Because `.dark` is added to <html> for
+   ALL eleven dark themes — midnight, cyberpunk, terminal, ocean, ume,
+   copper, organs, forest, retrowave, gpt, claude — every one of them
+   had its own --border / --card / --primary silently overwritten by
+   Original's palette. `.dark *` in particular overrode every single
+   border-color utility in the app.
+
+   Everything below now reads from the CSS variables, so each theme
+   keeps its own palette. Add nothing here that names a literal colour.
    ============================================ */
 
-/* Elevated card shadow in dark mode */
-.dark .bg-card,
-.dark [class*="bg-card"] {
-    box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+/* Depth: dark surfaces need a stronger drop shadow than light ones.
+   Scoped to real card elements — the old `[class*="bg-card"]` selector
+   was a substring match that also caught `md:bg-card`,
+   `group-hover:bg-card`, etc. and put a shadow on every table cell. */
+.dark .bg-card {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.25);
 }
 
-/* Borders are softer / less stark */
-.dark * {
-    border-color: hsl(40 4% 27% / 0.8);
-}
-
-/* Better text selection in dark mode */
-.dark ::selection {
-    background-color: hsl(215 85% 63% / 0.3);
-    color: hsl(40 10% 91%);
-}
-
-/* Header border in dark mode */
-.dark header {
-    border-color: hsl(40 4% 22%);
-    background-color: hsl(40 3% 15% / 0.85);
-}
-
-/* Sidebar in dark mode */
-.dark aside {
-    border-color: hsl(40 4% 22%);
-    background-color: hsl(40 4% 17%);
-}
-
-/* Dropdown menus get a subtle shadow and border */
+/* Dropdown menus get a deeper shadow on dark backgrounds. */
 .dark [role="menu"],
 .dark [data-radix-popper-content-wrapper] > * {
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
-    border-color: hsl(40 4% 27%);
+    box-shadow: 0 8px 32px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
 }
 
-/* Input fields in dark mode — use CSS var so Tailwind bg-input works correctly */
+/* Form controls inherit the active theme's tokens. Layered, so an
+   explicit utility (border-rose-500 on a validation error) still wins. */
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .dark textarea,
 .dark select {
     color: hsl(var(--foreground));
-    border-color: hsl(var(--border));
 }
 .dark input::placeholder,
 .dark textarea::placeholder {
     color: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Skeleton shimmer adapts to dark */
+/* Skeleton shimmer is subtler on dark surfaces. */
 .dark .skeleton::after {
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.05), transparent);
 }
 
-/* Table header dark */
-.dark thead tr th {
-    background-color: hsl(40 4% 19%);
-    border-color: hsl(40 4% 27%);
-}
-
-/* Glass effect in dark */
+/* Glass effect follows the theme's card colour. */
 .dark .glass {
-    background: rgba(38, 38, 36, 0.8);
-    border-color: rgba(255,255,255,0.06);
+    background: hsl(var(--card) / 0.8);
+    border-color: hsl(var(--foreground) / 0.06);
 }
 
-/* Mobile nav dark overrides — glassmorphism adjusts to dark bg */
-.dark .mobile-nav {
-    background: hsl(40 3% 15% / 0.88);
-    border-color: hsl(40 4% 22% / 0.8);
-}
-
-.dark .mobile-bottom-nav {
-    background: hsl(40 4% 17% / 0.92);
-    border-color: hsl(40 4% 22% / 0.7);
-}
-
-.dark .mobile-nav-pill.active {
-    background: hsl(215 85% 63% / 0.15);
-}
-
-/* Notification unread item background in dark */
-.dark .bg-brand-50\/30 {
-    background-color: hsl(215 85% 63% / 0.08);
-}
-
-/* Hover lift shadows in dark */
+/* Hover lift / glow shadows in dark. */
 .dark .hover-lift:hover {
-    box-shadow: 0 8px 25px -8px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 25px -8px rgb(0 0 0 / 0.5);
 }
 
 .dark .hover-glow:hover {
-    box-shadow: 0 0 20px rgba(60, 130, 246, 0.2);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.2);
 }
 
-/* Modal backdrop in dark */
+/* Modal backdrop in dark. */
 .dark .modal-backdrop {
-    background: rgba(0, 0, 0, 0.6);
+    background: rgb(0 0 0 / 0.6);
 }
 
 [data-state="delayed-open"][data-side="top"] {
@@ -1937,7 +2007,7 @@ tbody tr:hover {
 
 .fab:hover {
     transform: translateY(-2px) scale(1.04);
-    box-shadow: 0 12px 32px -6px rgba(0, 74, 173, 0.45), 0 4px 12px -2px rgba(0,0,0,0.15);
+    box-shadow: 0 12px 32px -6px hsl(var(--primary) / 0.45), 0 4px 12px -2px rgb(0 0 0 / 0.15);
 }
 
 .fab:active {
@@ -1966,11 +2036,7 @@ img {
    MANAGED WINDOW GLOW
    ============================================ */
 
-@property --border-angle {
-    syntax: '<angle>';
-    inherits: false;
-    initial-value: 0deg;
-}
+/* (--border-angle is registered at the top of this file, outside any layer.) */
 
 @keyframes border-spin {
     to { --border-angle: 360deg; }
@@ -2050,3 +2116,5 @@ img {
         display: none;
     }
 }
+
+} /* ── end @layer components ─────────────────────────────────── */

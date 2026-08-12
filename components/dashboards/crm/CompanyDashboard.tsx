@@ -5,15 +5,21 @@ import { Company } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import CompanyWindowContent from "../../windows/content/CompanyWindowContent";
-import { ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { Building2, Pencil, Plus } from 'lucide-react';
 import { parseSheetValue, formatMixedCurrency, determineCurrency } from "../../../utils/formatters";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { parseDate, formatDisplayDate } from "../../../utils/time";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 
 interface CompanyDashboardProps {
@@ -61,9 +67,9 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
   const { companies: companyData, saleOrders, loading, error } = useB2BData();
   const { openWindow } = useWindowManager();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const autoOpenedRef = useRef<string | null>(null);
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
-  const { width: _width } = useWindowSize();
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
 
   const validCompanies = useMemo(() => {
     if (!companyData) return [];
@@ -123,14 +129,14 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
   }, [validCompanies, saleOrders]);
 
   const filteredData = useMemo(() => {
-    if (!searchQuery) return processedData;
-    const lowercasedQuery = searchQuery.toLowerCase();
+    if (!debouncedSearch) return processedData;
+    const lowercasedQuery = debouncedSearch.toLowerCase();
     return processedData.filter(item =>
       ['Company Name', 'Company ID', 'Field', 'Phone Number'].some(key =>
         String(item[key as keyof Company] ?? '').toLowerCase().includes(lowercasedQuery)
       )
     );
-  }, [processedData, searchQuery]);
+  }, [processedData, debouncedSearch]);
 
   const openCompanyWindow = (companyId: string | null) => {
     const id = `company-${companyId ?? 'new'}`;
@@ -255,70 +261,40 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
 
 
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load company data: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load companies" message={error} />;
   }
 
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">companies</span>
-          </div>
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-            <div className="relative w-full lg:w-64 flex-shrink-0">
-              <label htmlFor="company-search" className="sr-only">Search</label>
-              <input
-                id="company-search"
-                type="text"
-                placeholder="Search companies..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
+      <DashboardHeader
+        title="Companies"
+        icon={<Building2 />}
+        subtitle={`${filteredData.length} companies`}
+      >
+        <SearchInput
+          id="company-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search companies..."
+          label="Search companies"
+        />
 
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                  <ArrowRightToLine className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                  <WrapText className="w-4 h-4" />
-                </button>
-                <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                  <Scissors className="w-4 h-4" />
-                </button>
-              </div>
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
+        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-              <PermissionGate module="companies" action="create">
-                <button
-                  onClick={() => openCompanyWindow(null)}
-                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                >
-                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-      </div>
+        <DataTableColumnToggle
+          allColumns={allColumns}
+          visibleColumns={visibleColumns}
+          onColumnToggle={handleColumnToggle}
+        />
+
+        <PermissionGate module="companies" action="create">
+          <Button onClick={() => openCompanyWindow(null)} aria-label="New company">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 min-h-0 overflow-hidden p-4">
         <div className="h-full">
@@ -331,16 +307,21 @@ const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ initialFilter }) =>
             initialSort={{ key: 'Company ID', direction: 'descending' }}
             mobilePrimaryColumns={['Company Name', 'Field', 'totalValueUSD', 'status']}
             cellWrapStyle={cellWrapStyle}
+            emptyState={{
+              title: 'No companies yet',
+              description: 'Companies you add will appear here.',
+            }}
             renderRowActions={(row) => (
-              <button
+              <IconButton
+                label="Open company"
+                tone="primary"
                 onClick={(e) => {
                   e.stopPropagation();
                   openCompanyWindow(row['Company ID']);
                 }}
-                className="p-2 text-muted-foreground hover:text-brand-500 transition"
               >
-                <Pencil size={16} />
-              </button>
+                <Pencil size={16} aria-hidden="true" />
+              </IconButton>
             )}
             renderRowContextMenu={(row) => (
               <RowActionMenuItems

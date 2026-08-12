@@ -3,14 +3,14 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { Square } from 'lucide-react';
 import { ManagedWindow, getWindowRect, useWindowManager } from '../../contexts/WindowManagerContext';
-import { useWindowSize } from '../../hooks/useWindowSize';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Z } from '../../lib/zIndex';
 
-const DOCK_Z_INDEX = 999999;
+const DOCK_Z_INDEX = Z.WINDOW_DOCK;
 
 const MinimizedDock: React.FC<{ windows: ManagedWindow[] }> = ({ windows }) => {
     const { restoreWindow, focusWindow, reportGhostTarget } = useWindowManager();
-    const { width } = useWindowSize();
-    const isMobile = width < 1024;
+    const isMobile = useIsMobile();
     const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
     useLayoutEffect(() => {

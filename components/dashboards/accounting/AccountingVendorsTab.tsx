@@ -14,6 +14,7 @@ import {
     CheckCircle2, AlertCircle, ChevronDown, Download,
 } from 'lucide-react';
 import { exportBillVendors } from '../../../utils/exportAccountingXlsx';
+import SearchInput from '../../common/SearchInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ const TYPE_COLOR: Record<string, string> = {
     Rental:       'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700',
     Subscription: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-700',
     Logistics:    'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-700',
-    Other:        'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
+    Other:        'bg-muted text-muted-foreground border-border dark:border-600',
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ const StatusBadge = ({ status }: { status: string }) => (
         ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700">
             <CheckCircle2 size={10} /> Active
           </span>
-        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600">
+        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground border border-border">
             <AlertCircle size={10} /> Inactive
           </span>
 );
@@ -306,7 +307,7 @@ const VendorForm: React.FC<FormProps> = ({ initial, onSave, onClose, saving }) =
                         <button
                             type="submit"
                             disabled={saving || !form.vendor_name.trim()}
-                            className="px-5 h-9 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-5 h-9 text-sm font-semibold rounded-lg bg-primary hover:brightness-110 text-primary-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? 'Saving…' : initial ? 'Save Changes' : 'Create Vendor'}
                         </button>
@@ -460,16 +461,13 @@ const AccountingVendorsTab: React.FC = () => {
 
             {/* ── Toolbar ────────────────────────────────────────────────── */}
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                <div className="relative flex-1 min-w-0">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                        type="text"
-                        placeholder="Search by name, contact, type, TIN…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-brand-600/40"
-                    />
-                </div>
+                <SearchInput
+                    value={search}
+                    onValueChange={setSearch}
+                    placeholder="Search by name, contact, type, TIN…"
+                    label="Search vendors"
+                    containerClassName="flex-1 min-w-0 lg:w-auto"
+                />
                 <div className="flex gap-2 flex-wrap items-center">
                     {/* Type filter */}
                     <select
@@ -499,7 +497,7 @@ const AccountingVendorsTab: React.FC = () => {
                     {canCreate && (
                         <button
                             onClick={openCreate}
-                            className="flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition"
+                            className="flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-lg bg-primary hover:brightness-110 text-primary-foreground transition"
                         >
                             <PlusCircle size={14} /> New Vendor
                         </button>

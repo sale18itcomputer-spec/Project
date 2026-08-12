@@ -13,6 +13,7 @@ import {
 } from '../../../utils/collection';
 import { parseDate } from '../../../utils/time';
 import { formatCurrencySmartly } from '../../../utils/formatters';
+import MetricCard from '../../common/MetricCard';
 
 const ACTIVE_TICKET_STATUSES = ['Open', 'In Progress', 'Pending Parts'];
 
@@ -21,37 +22,6 @@ const toNum = (v: unknown): number => {
     if (v == null) return 0;
     const n = parseFloat(String(v).replace(/,/g, ''));
     return isFinite(n) ? n : 0;
-};
-
-const KpiCard: React.FC<{
-    label: string;
-    value: string;
-    sub?: string;
-    icon: React.ReactNode;
-    tone?: 'default' | 'warn' | 'danger' | 'good';
-    onClick?: () => void;
-}> = ({ label, value, sub, icon, tone = 'default', onClick }) => {
-    const tones = {
-        default: 'text-foreground',
-        warn: 'text-amber-600 dark:text-amber-400',
-        danger: 'text-rose-600 dark:text-rose-400',
-        good: 'text-emerald-600 dark:text-emerald-400',
-    } as const;
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={!onClick}
-            className={`text-left bg-card border border-border rounded-xl p-4 transition-all ${onClick ? 'hover:border-brand-400 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
-        >
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">{label}</span>
-                <span className={tones[tone]}>{icon}</span>
-            </div>
-            <div className={`text-xl sm:text-2xl font-black ${tones[tone]}`}>{value}</div>
-            {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
-        </button>
-    );
 };
 
 /**
@@ -102,46 +72,48 @@ const FinancialKpiRow: React.FC = () => {
     if (!canSeeMoney && !canSeeTickets) return null;
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+        <div className="metric-cards-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
             {canSeeMoney && (
                 <>
-                    <KpiCard
-                        label="Invoiced (Month)"
+                    <MetricCard
+                        title="Invoiced (Month)"
                         value={formatCurrencySmartly(kpis.invoicedMonth, 'USD')}
-                        sub="This calendar month"
-                        icon={<TrendingUp className="w-4 h-4" />}
+                        subValue="This calendar month"
+                        icon={<TrendingUp />}
+                        accentColor="blue"
                     />
-                    <KpiCard
-                        label="Collected (Month)"
+                    <MetricCard
+                        title="Collected (Month)"
                         value={formatCurrencySmartly(kpis.collectedMonth, 'USD')}
-                        sub="Payments received"
-                        icon={<CheckCircle2 className="w-4 h-4" />}
-                        tone="good"
+                        subValue="Payments received"
+                        icon={<CheckCircle2 />}
+                        accentColor="teal"
                     />
-                    <KpiCard
-                        label="Outstanding AR"
+                    <MetricCard
+                        title="Outstanding AR"
                         value={formatCurrencySmartly(kpis.outstanding, 'USD')}
-                        sub={`${kpis.openInvoices} open invoices`}
-                        icon={<Wallet className="w-4 h-4" />}
+                        subValue={`${kpis.openInvoices} open invoices`}
+                        icon={<Wallet />}
+                        accentColor="purple"
                         onClick={() => router.push('/collection')}
                     />
-                    <KpiCard
-                        label="Overdue AR"
+                    <MetricCard
+                        title="Overdue AR"
                         value={formatCurrencySmartly(kpis.overdue, 'USD')}
-                        sub={kpis.overdueCount > 0 ? `${kpis.overdueCount} invoices past due` : 'All current'}
-                        icon={<AlertTriangle className="w-4 h-4" />}
-                        tone={kpis.overdue > 0.005 ? 'danger' : 'good'}
+                        subValue={kpis.overdueCount > 0 ? `${kpis.overdueCount} invoices past due` : 'All current'}
+                        icon={<AlertTriangle />}
+                        accentColor={kpis.overdue > 0.005 ? 'coral' : 'green'}
                         onClick={() => router.push('/collection')}
                     />
                 </>
             )}
             {canSeeTickets && (
-                <KpiCard
-                    label="Open Tickets"
+                <MetricCard
+                    title="Open Tickets"
                     value={String(kpis.openTickets)}
-                    sub="Awaiting resolution"
-                    icon={<Wrench className="w-4 h-4" />}
-                    tone={kpis.openTickets > 0 ? 'warn' : 'good'}
+                    subValue="Awaiting resolution"
+                    icon={<Wrench />}
+                    accentColor={kpis.openTickets > 0 ? 'amber' : 'green'}
                     onClick={() => router.push('/service-tickets')}
                 />
             )}

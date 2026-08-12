@@ -65,8 +65,8 @@ const LoginPage: React.FC = () => {
                     </div>
 
                     <div className="text-left mb-10">
-                        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Sign in</h1>
-                        <p className="mt-2 text-sm text-slate-500">to continue to Limperial Dashboard</p>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
+                        <p className="mt-2 text-sm text-muted-foreground">to continue to Limperial Dashboard</p>
                     </div>
 
                     {/* Error */}
@@ -97,7 +97,7 @@ const LoginPage: React.FC = () => {
                     {/* Google button */}
                     <Button
                         variant="outline"
-                        className="w-full h-12 flex items-center justify-center gap-3 font-medium border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-base shadow-sm"
+                        className="w-full h-12 flex items-center justify-center gap-3 font-medium border-border hover:bg-accent hover:border-muted-foreground/40 transition-all text-base shadow-sm"
                         onClick={handleGoogleSignIn}
                         disabled={isLoggingIn}
                     >
@@ -114,7 +114,7 @@ const LoginPage: React.FC = () => {
                         {isLoggingIn ? 'Redirecting...' : 'Continue with Google'}
                     </Button>
 
-                    <p className="mt-6 text-xs text-center text-slate-400">
+                    <p className="mt-6 text-xs text-center text-muted-foreground">
                         Only accounts registered by your administrator can sign in.
                     </p>
 
@@ -122,9 +122,9 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Right — Branding */}
-            <div className="hidden lg:flex flex-col justify-between bg-brand-800 p-8 xl:p-12 text-white relative overflow-hidden">
-                <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-96 h-96 bg-white/5 rounded-full" />
-                <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[500px] h-[500px] bg-white/5 rounded-full" />
+            <div className="hidden lg:flex flex-col justify-between bg-primary p-8 xl:p-12 text-primary-foreground relative overflow-hidden">
+                <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-96 h-96 bg-primary-foreground/10 rounded-full" />
+                <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[500px] h-[500px] bg-primary-foreground/10 rounded-full" />
                 <div className="relative flex items-center gap-3 z-10">
                     <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial Logo" className="h-12 w-auto brightness-0 invert" />
                 </div>
@@ -132,12 +132,12 @@ const LoginPage: React.FC = () => {
                     <h2 className="text-4xl xl:text-5xl font-bold leading-tight tracking-tight">
                         Empowering Your<br />Projects. Simplified.
                     </h2>
-                    <p className="mt-4 text-brand-200 text-lg max-w-xl">
+                    <p className="mt-4 text-primary-foreground/80 text-lg max-w-xl">
                         The command center for your tech initiatives, bringing clarity and control to every stage of your work.
                     </p>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-xs text-brand-300">&copy; {new Date().getFullYear()} Limperial Technology Co., Ltd.</p>
+                    <p className="text-xs text-primary-foreground/70">&copy; {new Date().getFullYear()} Limperial Technology Co., Ltd.</p>
                 </div>
             </div>
 

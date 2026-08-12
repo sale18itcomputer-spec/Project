@@ -116,7 +116,7 @@ const VendorPricelistWindowContent: React.FC<VendorPricelistWindowContentProps> 
                     <button
                         type="button"
                         onClick={() => setIsReadOnly(false)}
-                        className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
+                        className="bg-primary hover:brightness-110 text-primary-foreground py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
                     >
                         <Pencil size={16} /> Edit
                     </button>
@@ -129,7 +129,7 @@ const VendorPricelistWindowContent: React.FC<VendorPricelistWindowContentProps> 
                     type="submit"
                     form={`vendor-pricelist-window-form-${windowId}`}
                     disabled={saving}
-                    className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-600/20 transition"
+                    className="bg-primary hover:brightness-110 text-primary-foreground py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-600/20 transition"
                 >
                     <Check size={16} /> {saving ? 'Saving…' : (isEditMode ? 'Save Changes' : 'Save Item')}
                 </button>

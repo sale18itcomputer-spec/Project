@@ -92,7 +92,7 @@ const VendorWindowContent: React.FC<VendorWindowContentProps> = ({ windowId, ven
                         </button>
                         <div className="flex gap-3">
                             <button type="button" onClick={() => closeWindow(windowId)} className="py-2 px-4 border rounded-lg">Close</button>
-                            <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 text-white py-2 px-4 rounded-lg flex items-center gap-2">
+                            <button type="button" onClick={() => setIsReadOnly(false)} className="bg-primary text-primary-foreground py-2 px-4 rounded-lg flex items-center gap-2">
                                 <Pencil size={20} /> Edit
                             </button>
                         </div>
@@ -100,7 +100,7 @@ const VendorWindowContent: React.FC<VendorWindowContentProps> = ({ windowId, ven
                 ) : (
                     <div className="flex justify-end gap-3 w-full">
                         <button type="button" onClick={() => closeWindow(windowId)} className="py-2 px-4 border rounded-lg">Cancel</button>
-                        <button type="submit" form={`vendor-form-${windowId}`} className="bg-brand-600 text-white py-2 px-4 rounded-lg flex items-center gap-2">
+                        <button type="submit" form={`vendor-form-${windowId}`} className="bg-primary text-primary-foreground py-2 px-4 rounded-lg flex items-center gap-2">
                             <Check size={20} /> Save Vendor
                         </button>
                     </div>

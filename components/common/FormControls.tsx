@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { useSearchSelect } from '../../hooks/useSearchSelect';
 
 // A more professional, modern card-based section for forms.
 // Increased padding, uses a clean white background with a subtle shadow.
@@ -295,35 +296,14 @@ export const FormSearchSelect: React.FC<{
     options: readonly string[];
     required?: boolean;
     disabled?: boolean;
-}> = ({ name, label, value, onChange, options, required = false, disabled = false }) => {
-    const [query, setQuery] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // Close on outside click
-    useEffect(() => {
-        if (!isOpen) return;
-        const handler = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-                setQuery('');
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [isOpen]);
-
-    const filtered = query
-        ? options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
-        : options;
-
-    const displayValue = isOpen ? query : (value || '');
-
-    const handleSelect = (opt: string) => {
-        onChange(opt);
-        setQuery('');
-        setIsOpen(false);
-    };
+    /** Shown when nothing matches. Used to hard-code "No companies found",
+     *  which was wrong for every non-company select using this component. */
+    emptyMessage?: string;
+}> = ({ name, label, value, onChange, options, required = false, disabled = false, emptyMessage }) => {
+    // Open/query/filter/dismiss logic is shared with MobileSearchSelect.
+    const {
+        isOpen, query, setQuery, containerRef, filtered, open, select, displayValue,
+    } = useSearchSelect({ options, value, onChange });
 
     return (
         <div className="flex flex-col" ref={containerRef}>
@@ -336,8 +316,8 @@ export const FormSearchSelect: React.FC<{
                     id={name}
                     name={name}
                     value={displayValue}
-                    onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
-                    onFocus={() => { setQuery(''); setIsOpen(true); }}
+                    onChange={e => { setQuery(e.target.value); if (!isOpen) open(); }}
+                    onFocus={open}
                     placeholder={`Search ${label}…`}
                     disabled={disabled}
                     autoComplete="off"
@@ -346,7 +326,7 @@ export const FormSearchSelect: React.FC<{
                 <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} />
 
                 {isOpen && (
-                    <div className="absolute z-[200] w-full mt-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                    <div className="absolute z-[1400] w-full mt-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
                         {filtered.length > 0 && (
                             <div className="px-3.5 py-2 border-b border-border/60 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
                                 {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
@@ -359,14 +339,14 @@ export const FormSearchSelect: React.FC<{
                                     key={opt}
                                     type="button"
                                     onMouseDown={e => e.preventDefault()}
-                                    onClick={() => handleSelect(opt)}
+                                    onClick={() => select(opt)}
                                     className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent ${opt === value ? 'text-brand-600 font-medium bg-brand-50/40 dark:bg-brand-950/20' : 'text-foreground'}`}
                                 >
                                     <span>{opt}</span>
                                     {opt === value && <Check className="w-4 h-4 flex-shrink-0" />}
                                 </button>
                             )) : (
-                                <p className="px-3.5 py-3 text-sm text-muted-foreground italic">No companies found</p>
+                                <p className="px-3.5 py-3 text-sm text-muted-foreground italic">{emptyMessage ?? `No ${label.toLowerCase()} found`}</p>
                             )}
                         </div>
                     </div>

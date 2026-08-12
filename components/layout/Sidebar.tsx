@@ -17,6 +17,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useData } from '@/contexts/DataContext';
 import { useWindowManager } from '../../contexts/WindowManagerContext';
 import { localStorageGet, localStorageSet } from '../../utils/storage';
+import { Z } from '../../lib/zIndex';
+import { ROUTE_META } from '../../lib/routes';
 
 const PINS_KEY = 'limperial-sidebar-pins';
 const MAX_PINS = 6;
@@ -122,39 +124,51 @@ interface NavItemDef {
   badge?: string;
 }
 
-const NAV_ITEM_REGISTRY: NavItemDef[] = [
-  { key: 'dashboard',         label: 'Dashboard',        icon: <LayoutDashboard size={16} />, path: '/dashboard' },
-  { key: 'companies',         label: 'Companies',        icon: <Building size={16} />,        path: '/companies' },
-  { key: 'contacts',          label: 'Contacts',         icon: <Users size={16} />,           path: '/contacts' },
-  { key: 'users',             label: 'Users',            icon: <UserCog size={16} />,         path: '/users' },
-  { key: 'pos',               label: 'POS',              icon: <ShoppingBag size={16} />,     path: '/pos', badge: 'NEW' },
-  { key: 'quotations',        label: 'Quotations',       icon: <FileText size={16} />,        path: '/quotations' },
-  { key: 'sale_orders',       label: 'Sale Orders',      icon: <ShoppingCart size={16} />,    path: '/sale-orders' },
-  { key: 'invoices',          label: 'Invoices',         icon: <FileText size={16} />,        path: '/invoices' },
-  { key: 'delivery_orders',   label: 'Delivery Orders',  icon: <Truck size={16} />,           path: '/delivery-orders' },
-  { key: 'receipts',          label: 'Receipts',         icon: <Receipt size={16} />,         path: '/receipts' },
-  { key: 'collection',        label: 'Collection',       icon: <Wallet size={16} />,          path: '/collection' },
-  { key: 'weekly_report',     label: 'Weekly Report',    icon: <BarChart2 size={16} />,       path: '/weekly-report' },
-  { key: 'pricelist',         label: 'Pricelist',        icon: <Tags size={16} />,            path: '/pricelist' },
-  { key: 'b2b_pricelist',     label: 'B2B Pricelist',    icon: <Tags size={16} />,            path: '/b2b-pricelist' },
-  { key: 'vendor_pricelist',  label: 'Vendor Pricelist', icon: <Package size={16} />,         path: '/vendor-pricelist' },
-  { key: 'vendors',           label: 'Vendor Master',    icon: <Truck size={16} />,           path: '/vendors' },
-  { key: 'purchase_orders',   label: 'Purchase Orders',  icon: <ClipboardList size={16} />,   path: '/purchase-orders' },
-  { key: 'inventory',         label: 'Inventory',        icon: <Warehouse size={16} />,       path: '/inventory' },
-  { key: 'product_inquiries', label: 'Inquiries',        icon: <Search size={16} />,          path: '/inquiries' },
-  { key: 'consignment',       label: 'Consignment',      icon: <PackageCheck size={16} />,    path: '/consignment' },
-  { key: 'service_tickets',   label: 'Service Tickets',  icon: <Wrench size={16} />,          path: '/service-tickets' },
-  { key: 'service_invoices',  label: 'Service Invoices', icon: <Receipt size={16} />,          path: '/service-invoices' },
-  { key: 'pdi_records',       label: 'PDI Records',      icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
-  { key: 'serial_numbers',    label: 'Serial Numbers',   icon: <Hash size={16} />,            path: '/serial-numbers' },
-  { key: 'spare_parts',       label: 'Spare Parts',      icon: <Boxes size={16} />,           path: '/spare-parts' },
-  { key: 'pipelines',         label: 'Pipelines',        icon: <Filter size={16} />,          path: '/projects' },
-  { key: 'contact_logs',      label: 'Contact Logs',     icon: <MessageSquare size={16} />,   path: '/contact-logs' },
-  { key: 'site_surveys',      label: 'Site Surveys',     icon: <Map size={16} />,             path: '/site-surveys' },
-  { key: 'meetings',          label: 'Meetings',         icon: <Calendar size={16} />,        path: '/meetings' },
-  { key: 'accounting',        label: 'Accounting',       icon: <BookOpen size={16} />,        path: '/accounting' },
-  { key: 'pricing_calculator',label: 'Pricing Calculator',icon: <Calculator size={16} />,    path: '/pricing-calculator' },
+/**
+ * Sidebar nav. `label` is no longer written here — it comes from ROUTE_META in
+ * lib/routes.ts, which the header breadcrumb, the mobile title bar and the
+ * bottom tab bar also read. Those four maps used to be maintained separately
+ * and had already drifted ("Quotations" vs "Quotes", "Vendor Pricelist" vs
+ * "Vendor Price").
+ */
+const NAV_ITEM_SOURCE: { key: string; icon: React.ReactNode; path: string; badge?: string }[] = [
+  { key: 'dashboard',          icon: <LayoutDashboard size={16} />, path: '/dashboard' },
+  { key: 'companies',          icon: <Building size={16} />,        path: '/companies' },
+  { key: 'contacts',           icon: <Users size={16} />,           path: '/contacts' },
+  { key: 'users',              icon: <UserCog size={16} />,         path: '/users' },
+  { key: 'pos',                icon: <ShoppingBag size={16} />,     path: '/pos', badge: 'NEW' },
+  { key: 'quotations',         icon: <FileText size={16} />,        path: '/quotations' },
+  { key: 'sale_orders',        icon: <ShoppingCart size={16} />,    path: '/sale-orders' },
+  { key: 'invoices',           icon: <FileText size={16} />,        path: '/invoices' },
+  { key: 'delivery_orders',    icon: <Truck size={16} />,           path: '/delivery-orders' },
+  { key: 'receipts',           icon: <Receipt size={16} />,         path: '/receipts' },
+  { key: 'collection',         icon: <Wallet size={16} />,          path: '/collection' },
+  { key: 'weekly_report',      icon: <BarChart2 size={16} />,       path: '/weekly-report' },
+  { key: 'pricelist',          icon: <Tags size={16} />,            path: '/pricelist' },
+  { key: 'b2b_pricelist',      icon: <Tags size={16} />,            path: '/b2b-pricelist' },
+  { key: 'vendor_pricelist',   icon: <Package size={16} />,         path: '/vendor-pricelist' },
+  { key: 'vendors',            icon: <Truck size={16} />,           path: '/vendors' },
+  { key: 'purchase_orders',    icon: <ClipboardList size={16} />,   path: '/purchase-orders' },
+  { key: 'inventory',          icon: <Warehouse size={16} />,       path: '/inventory' },
+  { key: 'product_inquiries',  icon: <Search size={16} />,          path: '/inquiries' },
+  { key: 'consignment',        icon: <PackageCheck size={16} />,    path: '/consignment' },
+  { key: 'service_tickets',    icon: <Wrench size={16} />,          path: '/service-tickets' },
+  { key: 'service_invoices',   icon: <Receipt size={16} />,         path: '/service-invoices' },
+  { key: 'pdi_records',        icon: <ClipboardCheck size={16} />,  path: '/pdi-records' },
+  { key: 'serial_numbers',     icon: <Hash size={16} />,            path: '/serial-numbers' },
+  { key: 'spare_parts',        icon: <Boxes size={16} />,           path: '/spare-parts' },
+  { key: 'pipelines',          icon: <Filter size={16} />,          path: '/projects' },
+  { key: 'contact_logs',       icon: <MessageSquare size={16} />,   path: '/contact-logs' },
+  { key: 'site_surveys',       icon: <Map size={16} />,             path: '/site-surveys' },
+  { key: 'meetings',           icon: <Calendar size={16} />,        path: '/meetings' },
+  { key: 'accounting',         icon: <BookOpen size={16} />,        path: '/accounting' },
+  { key: 'pricing_calculator', icon: <Calculator size={16} />,      path: '/pricing-calculator' },
 ];
+
+const NAV_ITEM_REGISTRY: NavItemDef[] = NAV_ITEM_SOURCE.map(item => ({
+  ...item,
+  label: ROUTE_META[item.path]?.label ?? item.path,
+}));
 
 const NAV_ITEM_MAP = Object.fromEntries(NAV_ITEM_REGISTRY.map(d => [d.key, d]));
 
@@ -194,8 +208,8 @@ const NavItemContextMenu: React.FC<{
   return ReactDOM.createPortal(
     <div
       data-nav-ctx-menu="true"
-      className="fixed z-[300] bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[200px]"
-      style={{ left: x, top: y }}
+      className="fixed bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[200px]"
+      style={{ left: x, top: y, zIndex: Z.POPOVER }}
     >
       {onOpenWindow && (
         <button
@@ -279,22 +293,22 @@ const NavItem: React.FC<{
           }
           ${isActive
             ? isCollapsed
-              ? 'bg-brand-600/15 text-brand-600 dark:text-brand-400'
-              : 'text-brand-600 dark:text-brand-400 bg-brand-600/8'
+              ? 'bg-primary/15 text-primary'
+              : 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
           }
         `}
       >
         {/* Active indicator bar (expanded only) */}
         {isActive && !isCollapsed && (
-          <span className="absolute left-0 inset-y-1.5 w-[3px] rounded-full bg-brand-600 dark:bg-brand-400" />
+          <span className="absolute left-0 inset-y-1.5 w-[3px] rounded-full bg-primary" />
         )}
 
         {/* Icon */}
         <span className={`
           shrink-0
           ${isActive
-            ? 'text-brand-600 dark:text-brand-400'
+            ? 'text-primary'
             : 'text-muted-foreground/70 group-hover:text-foreground'
           }
         `}>
@@ -308,7 +322,7 @@ const NavItem: React.FC<{
               {label}
             </span>
             {badge && (
-              <span className="ml-2 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider rounded bg-brand-600/10 text-brand-600 dark:text-brand-400">
+              <span className="ml-2 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider rounded bg-primary/10 text-primary">
                 {badge}
               </span>
             )}
@@ -326,7 +340,7 @@ const NavItem: React.FC<{
             transition-all duration-150
           ">
             {label}
-            {badge && <span className="ml-1.5 text-brand-500 font-bold">{badge}</span>}
+            {badge && <span className="ml-1.5 text-primary font-bold">{badge}</span>}
           </span>
         )}
       </button>
@@ -362,7 +376,7 @@ const UserCard: React.FC<{ user: any; isCollapsed: boolean }> = ({ user, isColla
   if (isCollapsed) {
     return (
       <div className="flex justify-center" title={`${user?.Name} · ${user?.Role}`}>
-        <div className="w-8 h-8 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-brand-600/20">
+        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-primary/20">
           {initials}
         </div>
       </div>
@@ -371,7 +385,7 @@ const UserCard: React.FC<{ user: any; isCollapsed: boolean }> = ({ user, isColla
 
   return (
     <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-accent/60 transition-colors cursor-default">
-      <div className="w-7 h-7 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+      <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
         {initials}
       </div>
       <div className="flex-1 min-w-0">
@@ -534,9 +548,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      style={{ width: `${width}px` }}
+      style={{ width: `${width}px`, zIndex: Z.DRAWER }}
       className={`
-        fixed inset-y-0 left-0 flex h-full z-[100] overflow-hidden
+        fixed inset-y-0 left-0 flex h-full overflow-hidden
         bg-background
         transform transition-transform duration-300 ease-in-out lg:translate-x-0
         ${isCollapsed ? 'border-r-0' : 'border-r border-border/50'}
@@ -554,7 +568,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Dashboard"
           >
             {isCollapsed
-              ? <div className="w-8 h-8 rounded-xl bg-brand-600 text-white text-xs font-black flex items-center justify-center tracking-tight">L</div>
+              ? <div className="w-8 h-8 rounded-xl bg-primary text-primary-foreground text-xs font-black flex items-center justify-center tracking-tight">L</div>
               : <img src="https://i.imgur.com/Hur36Vc.png" alt="Limperial" className="h-7 w-auto" />
             }
           </button>
@@ -595,7 +609,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {/* Drop indicator */}
                     {dropTargetKey === def.key && draggingKey !== def.key && (
-                      <div className="absolute top-0 left-3 right-3 h-[2px] bg-brand-500 rounded-full -translate-y-px z-10 pointer-events-none" />
+                      <div className="absolute top-0 left-3 right-3 h-[2px] bg-primary rounded-full -translate-y-px z-10 pointer-events-none" />
                     )}
                     <NavItem
                       icon={def.icon}
@@ -829,7 +843,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         role="separator"
         aria-orientation="vertical"
       >
-        <div className={`w-px h-full mx-auto bg-transparent group-hover:bg-brand-500/30 transition-colors duration-200 ${isResizing ? '!bg-brand-500/60' : ''}`} />
+        <div className={`w-px h-full mx-auto bg-transparent group-hover:bg-primary/30 transition-colors duration-200 ${isResizing ? '!bg-primary/60' : ''}`} />
       </div>
     </aside>
   );

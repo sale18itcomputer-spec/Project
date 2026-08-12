@@ -4,9 +4,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Meeting } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { deleteRecord } from "../../../services/api";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, Table, CalendarDays, Clock, Users, ArrowRightToLine, WrapText, Scissors, Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, Table, CalendarDays, Clock, Users, Pencil, Trash2, Plus } from 'lucide-react';
 import { parseDate, formatDateAsMDY } from "../../../utils/time";
 import ViewToggle from "../../common/ViewToggle";
 import AgendaView, { AgendaItem } from "../views/AgendaView";
@@ -19,6 +19,14 @@ import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import { useToast } from '../../../contexts/ToastContext';
 import MeetingWindowContent from '../../windows/content/MeetingWindowContent';
 import ConfirmationModal from '../../modals/ConfirmationModal';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import ErrorState from '../../common/ErrorState';
+import { IconButton } from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusColors: { [key: string]: string } = {
@@ -65,8 +73,9 @@ const MEETING_COLUMNS_VISIBILITY_KEY = 'limperial-meeting-columns-visibility';
 const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) => {
   const { meetings: meetingData, setMeetings, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const { handleNavigation } = useNavigation();
   const { openWindow } = useWindowManager();
   const { addToast } = useToast();
@@ -115,16 +124,16 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
       filtered = filtered.filter(item => item.Status === statusFilter);
     }
 
-    if (searchQuery) {
+    if (debouncedSearch) {
       filtered = filtered.filter(item =>
         ['Company Name', 'Participants', 'Responsible By', 'Remarks', 'Pipeline_ID'].some(key =>
-          String(item[key as keyof Meeting] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+          String(item[key as keyof Meeting] ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
         )
       );
     }
 
     return filtered;
-  }, [meetingData, searchQuery, statusFilter]);
+  }, [meetingData, debouncedSearch, statusFilter]);
 
   const agendaItems = useMemo<AgendaItem<Meeting>[]>(() => {
     return filteredData.map(meeting => ({
@@ -156,7 +165,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
           aria-label={`View company: ${value}`}
         >
           {value}
-          <ExternalLink className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       )
     },
@@ -175,7 +184,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
             aria-label={`View project: ${value}`}
           >
             {value}
-            <ExternalLink className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         ) : null
       )
@@ -242,14 +251,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
 
 
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load meetings: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load meetings" message={error} />;
   }
 
   const renderAgendaCard = (meeting: Meeting) => (
@@ -275,62 +277,36 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">meetings</span>
-          </div>
+      <DashboardHeader title="Meetings" icon={<CalendarDays />}>
+        <SearchInput
+          id="meeting-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search meetings..."
+          label="Search meetings"
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-            <div className="relative w-full lg:w-64 flex-shrink-0">
-              <label htmlFor="meeting-search" className="sr-only">Search</label>
-              <input
-                id="meeting-search"
-                type="text"
-                placeholder="Search meetings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
+        <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
 
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-              {viewMode === 'table' && (
-                <>
-                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                      <ArrowRightToLine className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                      <WrapText className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                      <Scissors className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <DataTableColumnToggle
-                    allColumns={allColumns}
-                    visibleColumns={visibleColumns}
-                    onColumnToggle={handleColumnToggle}
-                  />
-                </>
-              )}
-              <PermissionGate module="meetings" action="create">
-                <button
-                  onClick={handleOpenNewMeeting}
-                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                >
-                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-      </div>
+        {viewMode === 'table' && (
+          <>
+            <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+            <DataTableColumnToggle
+              allColumns={allColumns}
+              visibleColumns={visibleColumns}
+              onColumnToggle={handleColumnToggle}
+            />
+          </>
+        )}
+
+        <PermissionGate module="meetings" action="create">
+          <Button onClick={handleOpenNewMeeting} aria-label="New meeting">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 min-h-0 overflow-hidden p-4">
         {viewMode === 'table' ? (
@@ -344,31 +320,35 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
               initialSort={{ key: 'Meeting Date', direction: 'descending' }}
               mobilePrimaryColumns={['Meeting Date', 'Company Name', 'Status']}
               cellWrapStyle={cellWrapStyle}
+              emptyState={{
+                title: 'No meetings yet',
+                description: 'Meetings you log will appear here.',
+              }}
               renderRowActions={(row) => (
                 <div className="flex items-center gap-1">
                   <PermissionGate module="meetings" action="edit">
-                    <button
+                    <IconButton
+                      label="Edit meeting"
+                      tone="primary"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditMeeting(row);
                       }}
-                      className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                      title="Edit"
                     >
-                      <Pencil size={15} />
-                    </button>
+                      <Pencil size={15} aria-hidden="true" />
+                    </IconButton>
                   </PermissionGate>
                   <PermissionGate module="meetings" action="delete">
-                    <button
+                    <IconButton
+                      label="Delete meeting"
+                      tone="danger"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteRequest(row);
                       }}
-                      className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                      title="Delete"
                     >
-                      <Trash2 size={15} />
-                    </button>
+                      <Trash2 size={15} aria-hidden="true" />
+                    </IconButton>
                   </PermissionGate>
                 </div>
               )}
@@ -392,28 +372,12 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ initialFilter }) =>
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Open' ? null : 'Open')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Open' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Open
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Close' ? null : 'Close')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Close' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Close
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Cancelled' ? null : 'Cancelled')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancelled' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Cancelled
-          </button>
-        </div>
-      </footer>
+      <StatusFilterBar
+        options={['Open', 'Close', 'Cancelled']}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} meetings`}
+      />
 
       <ConfirmationModal
         isOpen={!!meetingToDelete}

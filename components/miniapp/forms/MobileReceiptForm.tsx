@@ -13,7 +13,6 @@ import {
     MobileLineItemCard, MobileAddItemBtn, MobileTotals, MiniLineItem,
 } from './MobileFormBase';
 
-const ACCENT = '#f472b6';
 const STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
 const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Cheque', 'ABA', 'KHQR', 'Other'];
@@ -249,7 +248,6 @@ export default function MobileReceiptForm({ onBack, existingReceipt, initialData
                 onBack={onBack}
                 onSave={handleSave}
                 isSaving={isSaving}
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -333,11 +331,10 @@ export default function MobileReceiptForm({ onBack, existingReceipt, initialData
                                 item={it}
                                 onChange={handleItemChange}
                                 onRemove={removeItem}
-                                accentColor={ACCENT}
                                 currency={currSym}
                             />
                         ))}
-                        <MobileAddItemBtn onAdd={addItem} accentColor={ACCENT} />
+                        <MobileAddItemBtn onAdd={addItem} />
                     </div>
                 </div>
 
@@ -346,7 +343,6 @@ export default function MobileReceiptForm({ onBack, existingReceipt, initialData
                     tax={totals.tax}
                     grandTotal={totals.grandTotal}
                     currency={currSym}
-                    accentColor={ACCENT}
                 />
 
                 {/* ─ Signatures ─ */}

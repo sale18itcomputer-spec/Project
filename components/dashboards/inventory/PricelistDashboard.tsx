@@ -3,9 +3,9 @@
 import React, { useState, useMemo, useEffect, useId } from 'react';
 import { PricelistItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { parseSheetValue } from "../../../utils/formatters";
-import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { LayoutGrid, Table, ListTree, ChevronDown, Pencil, Plus, Tags } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import { PermissionGate } from '../../common/PermissionGate';
@@ -18,6 +18,14 @@ import { Badge } from "../../ui/badge";
 import PricelistFilterBar from "../components/PricelistFilterBar";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import RowActionMenuItems from "../../common/RowActionMenuItems";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import StatusFilterBar from "../../common/StatusFilterBar";
+import { Button } from "../../ui/button";
+import IconButton from "../../ui/icon-button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
@@ -185,11 +193,12 @@ const PricelistDashboard: React.FC = () => {
     const { openWindow } = useWindowManager();
     const [statusFilter, setStatusFilter] = useState<string | null>('Available');
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [renderStep, setRenderStep] = useState(0);
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip' | 'nowrap'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('wrap');
 
     useEffect(() => {
         if (!loading) {
@@ -262,8 +271,8 @@ const PricelistDashboard: React.FC = () => {
         if (brandFilter.length > 0) {
             data = data.filter(item => item.Brand && brandFilter.includes(item.Brand));
         }
-        if (searchQuery) {
-            const lowerQuery = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const lowerQuery = debouncedSearch.toLowerCase();
             data = data.filter(item =>
                 Object.values(item).some(val =>
                     String(val).toLowerCase().includes(lowerQuery)
@@ -271,7 +280,7 @@ const PricelistDashboard: React.FC = () => {
             );
         }
         return data;
-    }, [pricelist, searchQuery, categoryFilter, brandFilter, statusFilter]);
+    }, [pricelist, debouncedSearch, categoryFilter, brandFilter, statusFilter]);
 
     const processedFilteredData: ProcessedPricelistItem[] = useMemo(() => {
         return filteredData.map(item => {
@@ -371,14 +380,7 @@ const PricelistDashboard: React.FC = () => {
     ];
 
     if (error) {
-        return (
-            <div className="p-6 md:p-8">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>Could not load pricelist data: {error}</p>
-                </div>
-            </div>
-        );
+        return <ErrorState title="Could not load the pricelist" message={error} />;
     }
 
     const renderContent = () => {
@@ -395,16 +397,21 @@ const PricelistDashboard: React.FC = () => {
                             initialSort={{ key: 'Category', direction: 'ascending' }}
                             mobilePrimaryColumns={['Model', 'Brand', 'End User Price', 'Status']}
                             cellWrapStyle={cellWrapStyle}
+                            emptyState={{
+                                title: 'No pricelist items yet',
+                                description: 'Items you add to the pricelist will appear here.',
+                            }}
                             renderRowActions={(row) => (
-                                <button
+                                <IconButton
+                                    label="Edit item"
+                                    tone="primary"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleEditItem(row);
                                     }}
-                                    className="p-2 text-muted-foreground hover:text-brand-600 transition"
                                 >
-                                    <Pencil size={16} />
-                                </button>
+                                    <Pencil size={16} aria-hidden="true" />
+                                </IconButton>
                             )}
                             renderRowContextMenu={(row) => (
                                 <RowActionMenuItems
@@ -452,96 +459,35 @@ const PricelistDashboard: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <p className="text-base text-muted-foreground">
-                        <span className="font-bold text-foreground">{filteredData.length}</span> items found
-                    </p>
+            <DashboardHeader title="Pricelist" icon={<Tags />}>
+                <SearchInput
+                    id="pricelist-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search pricelist..."
+                    label="Search pricelist"
+                />
 
-                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-                        <div className="relative w-full lg:w-64 flex-shrink-0">
-                            <label htmlFor="pricelist-search" className="sr-only">Search</label>
-                            <input
-                                id="pricelist-search"
-                                type="text"
-                                placeholder="Search pricelist..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-muted border-transparent text-foreground placeholder:text-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                            />
-                            <svg className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
+                <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
 
-                        <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-                            <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                            {viewMode === 'table' && (
-                                <>
-                                    <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                                        <button
-                                            onClick={() => setCellWrapStyle('overflow')}
-                                            title="Overflow"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                                ? 'bg-background shadow-sm text-brand-700'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'overflow'}
-                                        >
-                                            <ArrowRightToLine className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('wrap')}
-                                            title="Wrap"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                                ? 'bg-background shadow-sm text-brand-700'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'wrap'}
-                                        >
-                                            <WrapText className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('clip')}
-                                            title="Clip"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                                ? 'bg-background shadow-sm text-brand-700'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'clip'}
-                                        >
-                                            <Scissors className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('nowrap')}
-                                            title="No Wrap (Horizontal)"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'nowrap'
-                                                ? 'bg-background shadow-sm text-brand-700'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'nowrap'}
-                                        >
-                                            <LayoutGrid className="w-4 h-4 rotate-90" />
-                                        </button>
-                                    </div>
-                                    <DataTableColumnToggle
-                                        allColumns={allColumns}
-                                        visibleColumns={visibleColumns}
-                                        onColumnToggle={handleColumnToggle}
-                                    />
-                                </>
-                            )}
-                            <PermissionGate module="pricelist" action="create">
-                              <button
-                                onClick={handleNewItem}
-                                className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                              >
-                                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                                <span className="hidden sm:inline">New Item</span>
-                              </button>
-                            </PermissionGate>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                {viewMode === 'table' && (
+                    <>
+                        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+                        <DataTableColumnToggle
+                            allColumns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onColumnToggle={handleColumnToggle}
+                        />
+                    </>
+                )}
+
+                <PermissionGate module="pricelist" action="create">
+                    <Button onClick={handleNewItem} aria-label="New pricelist item">
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">New Item</span>
+                    </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className={`flex-1 overflow-hidden bg-muted/30 transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
                 <div className="p-4 sm:p-6 space-y-4">
@@ -560,28 +506,12 @@ const PricelistDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Available' ? null : 'Available')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Available' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Available
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Out of Stock' ? null : 'Out of Stock')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Out of Stock' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Out of Stock
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(statusFilter === 'Pre-order' ? null : 'Pre-order')}
-                        className={`whitespace-nowrap px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Pre-order' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-                    >
-                        Pre-order
-                    </button>
-                </div>
-            </footer>
+            <StatusFilterBar
+                options={['Available', 'Out of Stock', 'Pre-order']}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} items found`}
+            />
         </div>
     );
 };

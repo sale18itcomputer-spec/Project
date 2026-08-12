@@ -7,6 +7,10 @@ import { X, ShoppingBag, TrendingUp, DollarSign, Receipt, Search, ChevronDown, C
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
 import { PosSessionForm, Invoice as InvoiceRow, Receipt as ReceiptRow } from '../../types';
 import { formatToInputDate } from '../../utils/time';
+import SearchInput from '../common/SearchInput';
+import { IconButton } from '../ui/icon-button';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { Z } from '../../lib/zIndex';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 
@@ -41,6 +45,7 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
   const [period, setPeriod] = useState<Period>('today');
   const [expandedInvNo, setExpandedInvNo] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [receiptSale, setReceiptSale] = useState<CompletedSale | null>(null);
   const [receiptSession, setReceiptSession] = useState<PosSessionForm | null>(null);
   const [receiptSubTotal, setReceiptSubTotal] = useState(0);
@@ -102,15 +107,15 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
   }, [posInvoices, period]);
 
   const filteredInvoices = useMemo(() => {
-    if (!search.trim()) return periodFiltered;
-    const q = search.toLowerCase();
+    if (!debouncedSearch.trim()) return periodFiltered;
+    const q = debouncedSearch.toLowerCase();
     return periodFiltered.filter(inv =>
       (inv['Inv No'] ?? '').toLowerCase().includes(q) ||
       (inv['Company Name'] ?? '').toLowerCase().includes(q) ||
       (inv['Contact Name'] ?? '').toLowerCase().includes(q) ||
       (inv['Phone Number'] ?? '').toLowerCase().includes(q)
     );
-  }, [periodFiltered, search]);
+  }, [periodFiltered, debouncedSearch]);
 
   const totalRevenue = periodFiltered.reduce((s, inv) => s + (Number(inv['Amount']) || 0), 0);
   const totalItems   = periodFiltered.reduce((s, inv) => {
@@ -183,8 +188,8 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-background rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col border border-border">
+      <div style={{ zIndex: Z.MODAL - 10 }} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+        <div style={{ zIndex: Z.MODAL }} className="bg-background rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col border border-border">
 
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b border-border">
@@ -192,9 +197,9 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
               <ShoppingBag className="text-brand-500" size={20} />
               <h2 className="text-lg font-bold">POS Sales</h2>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition">
+            <IconButton label="Close POS sales" onClick={onClose}>
               <X size={18} />
-            </button>
+            </IconButton>
           </div>
 
           {/* Period tabs + summary bar */}
@@ -206,7 +211,7 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
                   onClick={() => { setPeriod(p); setExpandedInvNo(null); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                     period === p
-                      ? 'bg-brand-600 text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -237,16 +242,12 @@ const PosSalesModal: React.FC<PosSalesModalProps> = ({ isOpen, onClose }) => {
 
           {/* Search */}
           <div className="flex-shrink-0 px-5 py-2.5 border-b border-border/50">
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by invoice, customer, phone…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 placeholder:text-muted-foreground/50"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Search by invoice, customer, phone…"
+              containerClassName="lg:w-full"
+            />
           </div>
 
           {/* Table */}

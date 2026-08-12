@@ -3,8 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import { SparePart } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
-import { Boxes, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors, Plus } from 'lucide-react';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
+import { Boxes, Pencil, Trash2, Plus } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { supabase } from '../../../lib/supabase';
@@ -15,6 +15,14 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import SparePartWindowContent from '../../windows/content/SparePartWindowContent';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-spare-part-columns-visibility';
 
@@ -22,7 +30,7 @@ const STATUS_STYLES: Record<string, string> = {
   'In Stock':     'bg-emerald-500/10 text-emerald-500',
   'Low Stock':    'bg-amber-500/10 text-amber-500',
   'Out of Stock': 'bg-rose-500/10 text-rose-500',
-  'Discontinued': 'bg-slate-500/10 text-slate-500',
+  'Discontinued': 'bg-muted text-muted-foreground',
 };
 
 const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
@@ -32,14 +40,15 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => (
 );
 
 const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
-  const { spareParts, setSpareParts, loading } = useData();
+  const { spareParts, setSpareParts, loading, error } = useData();
   const { addToast } = useToast();
   const { can } = usePermissions();
   const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const debouncedSearch = useDebouncedValue(searchQuery);
+  const [statusFilter, setStatusFilter] = useState<string | null>(initialFilter ?? 'All');
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [partToDelete, setPartToDelete] = useState<SparePart | null>(null);
 
   const openSparePartWindow = (id: string | null, initialReadOnly: boolean) => {
@@ -73,9 +82,11 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
 
   const filteredData = useMemo(() => {
     let data = spareParts ?? [];
-    if (statusFilter !== 'All') data = data.filter(p => p.status === statusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    // `null` is what StatusFilterBar writes when the active chip is cleared —
+    // it means the same thing as the 'All' chip: no status filter.
+    if (statusFilter && statusFilter !== 'All') data = data.filter(p => p.status === statusFilter);
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       data = data.filter(p =>
         p.part_no?.toLowerCase().includes(q) ||
         p.part_name?.toLowerCase().includes(q) ||
@@ -85,7 +96,7 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
       );
     }
     return data;
-  }, [spareParts, statusFilter, searchQuery]);
+  }, [spareParts, statusFilter, debouncedSearch]);
 
   const allColumns = useMemo<ColumnDef<SparePart>[]>(() => [
     {
@@ -144,67 +155,35 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
 
   const STATUS_FILTERS = ['All', 'In Stock', 'Low Stock', 'Out of Stock', 'Discontinued'];
 
+  if (error) {
+    return <ErrorState title="Could not load spare parts" message={error} />;
+  }
+
   return (
     <div className="h-full flex flex-col">
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Boxes className="text-brand-500" size={20} />
-              Spare Parts
-            </h2>
-            <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {filteredData.length} parts
-            </span>
-          </div>
+      <DashboardHeader
+        title="Spare Parts"
+        icon={<Boxes />}
+        subtitle={`${filteredData.length} parts`}
+      >
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search spare parts..."
+          label="Search spare parts"
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-            <div className="relative w-full lg:w-64">
-              <input
-                type="text"
-                placeholder="Search spare parts..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-            </div>
+        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-                <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-              </div>
-              <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-              <PermissionGate module="spare_parts" action="create">
-                <button
-                  onClick={handleOpenNew}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm"
-                >
-                  <Plus size={16} /> Add Part
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
+        <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
 
-        <div className="flex gap-1 flex-wrap">
-          {STATUS_FILTERS.map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                statusFilter === s
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </header>
+        <PermissionGate module="spare_parts" action="create">
+          <Button variant="success" onClick={handleOpenNew} aria-label="Add part">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Add Part</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 overflow-hidden p-4">
         <DataTable
@@ -216,25 +195,29 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
           initialSort={{ key: 'part_no', direction: 'ascending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['part_no', 'part_name', 'qty', 'status']}
+          emptyState={{
+            title: 'No spare parts yet',
+            description: 'Parts you stock for repairs and replacements will appear here.',
+          }}
           renderRowActions={(row) => (
             <div className="flex items-center gap-1">
               <PermissionGate module="spare_parts" action="edit">
-                <button
+                <IconButton
+                  label="Edit spare part"
+                  tone="primary"
                   onClick={e => { e.stopPropagation(); handleEdit(row); }}
-                  className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                  title="Edit"
                 >
-                  <Pencil size={15} />
-                </button>
+                  <Pencil size={15} aria-hidden="true" />
+                </IconButton>
               </PermissionGate>
               <PermissionGate module="spare_parts" action="delete">
-                <button
+                <IconButton
+                  label="Delete spare part"
+                  tone="danger"
                   onClick={e => { e.stopPropagation(); setPartToDelete(row); }}
-                  className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                  title="Delete"
                 >
-                  <Trash2 size={15} />
-                </button>
+                  <Trash2 size={15} aria-hidden="true" />
+                </IconButton>
               </PermissionGate>
             </div>
           )}
@@ -247,6 +230,14 @@ const SparePartDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilte
           )}
         />
       </div>
+
+      {/* Status filter tabs */}
+      <StatusFilterBar
+        options={STATUS_FILTERS}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} parts`}
+      />
 
       <ConfirmationModal
         isOpen={!!partToDelete}

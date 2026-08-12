@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Minus, X, ExternalLink } from 'lucide-react';
 import { ManagedWindow, SnapZone, useWindowManager } from '../../contexts/WindowManagerContext';
-import { useWindowSize } from '../../hooks/useWindowSize';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const SNAP_MARGIN = 24;
 
@@ -19,8 +19,7 @@ const ManagedWindowFrame: React.FC<{ win: ManagedWindow; isFocused: boolean }> =
     // Below the app-shell breakpoint the desktop floating-window model (drag,
     // resize, snap, cascade, pop-out) is unusable on touch, so windows render as
     // full-screen sheets instead. Kept in sync with AppShell / DataTable (<1024).
-    const { width } = useWindowSize();
-    const isMobile = width < 1024;
+    const isMobile = useIsMobile();
 
     const [isShowing, setIsShowing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);

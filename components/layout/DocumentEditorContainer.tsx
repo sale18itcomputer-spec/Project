@@ -41,7 +41,7 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
           <div className="flex items-center gap-6 min-w-0">
             <button
               onClick={onBack}
-              className="flex items-center gap-2 text-muted-foreground hover:text-brand-500 transition-colors group py-2"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group py-2"
             >
               <div className="p-1.5 rounded-lg bg-muted group-hover:bg-brand-500/10 transition-colors">
                 <ChevronLeft className="w-5 h-5 text-foreground" />
@@ -76,10 +76,10 @@ const DocumentEditorContainer: React.FC<DocumentEditorContainerProps> = ({
                 <button
                   onClick={onSave}
                   disabled={isSubmitting}
-                  className="bg-brand-600 hover:bg-brand-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all disabled:bg-muted shadow-lg shadow-brand-500/20 flex items-center gap-2 min-w-[120px] sm:min-w-[200px] justify-center active:scale-95"
+                  className="bg-brand-600 hover:bg-primary text-primary-foreground font-bold py-2.5 px-6 rounded-xl transition-all disabled:bg-muted shadow-lg shadow-primary/20 flex items-center gap-2 min-w-[120px] sm:min-w-[200px] justify-center active:scale-95"
                 >
                   {isSubmitting ? (
-                    <Spinner size="sm" color="white" />
+                    <Spinner size="sm" color="current" />
                   ) : (
                     <>
                       <Save className="w-4 h-4" />

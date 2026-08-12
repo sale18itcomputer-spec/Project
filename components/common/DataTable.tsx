@@ -13,7 +13,11 @@ import { Checkbox } from "../ui/checkbox";
 import { parseDate } from "../../utils/time";
 import { parseSheetValue } from "../../utils/formatters";
 import { useResizableColumns } from "../../hooks/useResizableColumns";
-import { useWindowSize } from "../../hooks/useWindowSize";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { Z } from "../../lib/zIndex";
+
+/** Canonical cell-overflow modes. Drives `CellWrapToggle`. */
+export type CellWrapStyle = 'overflow' | 'wrap' | 'clip' | 'nowrap';
 
 export interface ColumnDef<T> {
   accessorKey: keyof T;
@@ -67,7 +71,19 @@ interface DataTableProps<T extends object> {
   initialSort?: { key: keyof T; direction: 'ascending' | 'descending' };
   highlightedCheck?: (row: T) => boolean;
   mobilePrimaryColumns: (keyof T)[];
-  cellWrapStyle?: 'overflow' | 'wrap' | 'clip' | 'nowrap';
+  cellWrapStyle?: CellWrapStyle;
+  /**
+   * What to show when there are no rows. Without this every empty table in
+   * the app fell back to EmptyState's generic "No results found / Try
+   * adjusting your search or filter criteria" — wrong and dead-ended on a
+   * module that simply has no records yet, where the right answer is
+   * "No invoices yet" plus a way to create one.
+   */
+  emptyState?: {
+    title?: string;
+    description?: string;
+    action?: React.ReactNode;
+  };
   renderRowActions?: (row: T) => React.ReactNode;
   renderRowContextMenu?: (row: T) => React.ReactNode;
   stickyFirstColumn?: boolean;
@@ -156,11 +172,11 @@ const MobileTableSkeleton: React.FC<{ columns: number }> = ({ columns }) => (
 
 const DesktopTableSkeleton: React.FC<{ columns: number, rows: number }> = ({ columns, rows }) => (
   <table className="w-full">
-    <thead className="bg-brand-600">
+    <thead className="bg-primary">
       <tr>
         {[...Array(columns)].map((_, i) => (
-          <th key={i} className="px-4 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
-            <div className="h-4 bg-white/20 rounded w-3/4 animate-pulse"></div>
+          <th key={i} className="px-4 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-primary-foreground/80 uppercase tracking-wider">
+            <div className="h-4 bg-primary-foreground/20 rounded w-3/4 animate-pulse"></div>
           </th>
         ))}
       </tr>
@@ -179,13 +195,9 @@ const DesktopTableSkeleton: React.FC<{ columns: number, rows: number }> = ({ col
   </table>
 );
 
-const TableSkeleton: React.FC<{ columns: number, rows: number }> = ({ columns, rows }) => (
-  <>
-    <div className="hidden md:block"><DesktopTableSkeleton columns={columns} rows={rows} /></div>
-    <div className="md:hidden"><MobileTableSkeleton columns={columns} /></div>
-  </>
-);
-
+// (A combined responsive `TableSkeleton` used to live here. It was never
+// referenced — the mobile and desktop skeletons are each rendered directly
+// from the branch that needs them.)
 
 function DataTable<T extends object>({
   tableId,
@@ -197,6 +209,7 @@ function DataTable<T extends object>({
   highlightedCheck,
   mobilePrimaryColumns,
   cellWrapStyle = 'overflow',
+  emptyState,
   renderRowActions,
   renderRowContextMenu,
   stickyFirstColumn = true,
@@ -216,13 +229,12 @@ function DataTable<T extends object>({
   const [contextMenu, setContextMenu] = useState<{ row: T; x: number; y: number } | null>(null);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { width } = useWindowSize();
   // Switch to the touch-friendly card list at the same width the app shell
-  // switches to its mobile layout (<1024, AppShell's isMobile / the
-  // `.secondary-cell` CSS breakpoint). Below this the table lives inside the
-  // mobile chrome (top bar + bottom tab nav), so a cramped horizontally-
-  // scrolling desktop table on tablets is replaced by cards.
-  const isMobile = width < 1024;
+  // switches to its mobile layout (MOBILE_BREAKPOINT / the `.secondary-cell`
+  // CSS breakpoint). Below this the table lives inside the mobile chrome (top
+  // bar + bottom tab nav), so a cramped horizontally-scrolling desktop table
+  // on tablets is replaced by cards.
+  const isMobile = useIsMobile();
 
   // ── Inline edit / selection / find-replace state ──────────────────────────
   type CellEditState = {
@@ -389,7 +401,12 @@ function DataTable<T extends object>({
     if (loading) return <MobileTableSkeleton columns={columns.length} />;
     if (paginatedData.length === 0) return (
       <div className="p-8 flex items-center justify-center">
-        <EmptyState illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />} />
+        <EmptyState
+          illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />}
+          title={emptyState?.title}
+          description={emptyState?.description}
+          action={emptyState?.action}
+        />
       </div>
     );
     const sortableColumns = columns.filter(c => c.isSortable);
@@ -399,7 +416,7 @@ function DataTable<T extends object>({
             so without this there's no way to re-sort on a phone. Wired to the
             same sortConfig the desktop headers drive. */}
         {sortableColumns.length > 0 && (
-          <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-2 bg-card/95 backdrop-blur-sm border-b border-border">
+          <div style={{ zIndex: Z.STICKY }} className="sticky top-0 flex items-center gap-2 px-4 py-2 bg-card/95 backdrop-blur-sm border-b border-border">
             <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             <label htmlFor="mobile-sort" className="sr-only">Sort by</label>
             <select
@@ -410,7 +427,7 @@ function DataTable<T extends object>({
                 setSortConfig({ key: e.target.value as keyof T, direction: 'ascending' });
                 setCurrentPage(1);
               }}
-              className="flex-1 min-w-0 bg-muted border border-border rounded-md text-sm py-1.5 px-2 text-foreground focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
+              className="flex-1 min-w-0 bg-muted border border-border rounded-md text-sm py-1.5 px-2 text-foreground focus:ring-1 focus:ring-ring focus:border-primary"
             >
               <option value="" disabled>Sort by…</option>
               {sortableColumns.map((c) => (
@@ -462,7 +479,18 @@ function DataTable<T extends object>({
               key={globalIndex}
               onClick={() => handleRowClick(item, globalIndex)}
               onContextMenu={(e) => handleRowContextMenu(e, item)}
-              className={`px-4 py-3 flex items-start gap-3 active:bg-accent/60 transition-colors ${
+              // The desktop <tr> is focusable and Enter/Space-activated; the
+              // mobile card was click-only, so the whole list was unreachable
+              // by keyboard (and to switch-access / external-keyboard users).
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleRowClick(item, globalIndex);
+                }
+              }}
+              className={`px-4 py-3 flex items-start gap-3 active:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                 isHighlighted ? 'bg-amber-500/10' : 'bg-card'
               } ${onRowClick ? 'cursor-pointer' : ''}`}
             >
@@ -477,8 +505,8 @@ function DataTable<T extends object>({
                 </div>
               )}
 
-              {/* Left: brand-color accent bar */}
-              <div className="w-0.5 self-stretch rounded-full bg-brand-500/30 flex-shrink-0" />
+              {/* Left: accent bar */}
+              <div className="w-0.5 self-stretch rounded-full bg-primary/30 flex-shrink-0" />
 
               {/* Main content */}
               <div className="flex-1 min-w-0 space-y-0.5">
@@ -887,19 +915,26 @@ function DataTable<T extends object>({
                 <col style={{ width: '120px' }} />
               )}
             </colgroup>
-            <thead className="bg-brand-600 z-40">
+            {/* Header uses --primary / --primary-foreground rather than the raw
+                brand ramp. `bg-brand-600 + text-white` was fixed white text on
+                whatever brand-600 resolved to per theme — pale pink in Cute,
+                mustard in Paper, bright green in Terminal, all around 2:1
+                contrast. Every theme defines primary-foreground to contrast
+                with its own primary, and in the default themes the pairing is
+                byte-identical to the old blue-on-white look. */}
+            <thead className="bg-primary" style={{ zIndex: Z.STICKY }}>
               <tr>
                 {enableRowSelection && (
                   <th
                     scope="col"
-                    className={`sticky top-0 left-0 z-50 bg-brand-600 w-[40px] px-3 py-2.5 md:border-b-2 md:border-brand-500 ${isScrolled ? 'shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]' : ''}`}
-                    style={{ zIndex: 56 }}
+                    className={`sticky top-0 left-0 bg-primary w-[40px] px-3 py-2.5 md:border-b-2 md:border-primary-foreground/20 ${isScrolled ? 'shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]' : ''}`}
+                    style={{ zIndex: Z.STICKY + 6 }}
                   >
                     <Checkbox
                       checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
                       onCheckedChange={toggleSelectAllOnPage}
                       aria-label="Select all rows on this page"
-                      className="border-white/70 data-[state=checked]:bg-white data-[state=checked]:text-brand-600 data-[state=indeterminate]:bg-white data-[state=indeterminate]:text-brand-600"
+                      className="border-primary-foreground/70 data-[state=checked]:bg-primary-foreground data-[state=checked]:text-primary data-[state=indeterminate]:bg-primary-foreground data-[state=indeterminate]:text-primary"
                     />
                   </th>
                 )}
@@ -907,22 +942,27 @@ function DataTable<T extends object>({
                   <th
                     key={`${String(col.accessorKey)}-${i}`}
                     scope="col"
-                    className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-xs font-bold text-white tracking-wide whitespace-nowrap relative group md:border-b-2 md:border-brand-500 md:[&:not(:last-child)]:border-r md:border-brand-700/50 transition-colors
-                        sticky top-0
-                        ${resizingColumn === String(col.accessorKey) ? 'bg-brand-700' : ''}
-                        ${i === 0 && stickyFirstColumn && !enableRowSelection ? 'left-0 z-50 bg-brand-600' : 'z-40 bg-brand-600'}
+                    className={`pl-4 sm:pl-6 pr-3 sm:pr-4 py-2 sm:py-2.5 text-left text-xs font-bold text-primary-foreground tracking-wide whitespace-nowrap relative group md:border-b-2 md:border-primary-foreground/25 md:[&:not(:last-child)]:border-r md:border-primary-foreground/15 transition-colors
+                        sticky top-0 bg-primary
+                        ${resizingColumn === String(col.accessorKey) ? 'brightness-90' : ''}
+                        ${i === 0 && stickyFirstColumn && !enableRowSelection ? 'left-0' : ''}
                         ${i === 0 && stickyFirstColumn && !enableRowSelection && isScrolled ? 'shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]' : ''}
                         ${isMobile && !mobilePrimaryColumns.includes(col.accessorKey) ? 'secondary-cell' : ''}
                       `}
                     aria-sort={sortConfig.key === col.accessorKey ? sortConfig.direction : 'none'}
-                    style={{ zIndex: i === 0 && stickyFirstColumn && !enableRowSelection ? 55 : 40 }} // Explicit inline z-index to reinforce sticky layering
+                    // Frozen first column must out-stack its scrolling siblings.
+                    style={{ zIndex: i === 0 && stickyFirstColumn && !enableRowSelection ? Z.STICKY + 5 : Z.STICKY }}
                   >
                     <div className="truncate">
                       {col.isSortable ? (
-                        <button onClick={() => handleSort(col.accessorKey)} className={`group flex items-center transition-colors ${sortConfig.key === col.accessorKey ? 'text-white font-semibold' : 'hover:text-white'}`}>
+                        <button
+                          onClick={() => handleSort(col.accessorKey)}
+                          aria-label={`Sort by ${col.header}`}
+                          className={`group flex items-center transition-opacity ${sortConfig.key === col.accessorKey ? 'font-semibold' : 'opacity-90 hover:opacity-100'}`}
+                        >
                           {col.header}
                           <ArrowUpDown
-                            className={`w-4 h-4 ml-1.5 transition-colors ${sortConfig.key === col.accessorKey ? 'text-white' : 'text-white/50 group-hover:text-white'}`}
+                            className={`w-4 h-4 ml-1.5 transition-opacity ${sortConfig.key === col.accessorKey ? 'opacity-100' : 'opacity-50 group-hover:opacity-100'}`}
                           />
                         </button>
                       ) : (
@@ -932,20 +972,25 @@ function DataTable<T extends object>({
                     <div
                       onMouseDown={(e) => handleMouseDown(e, String(col.accessorKey))}
                       onDoubleClick={() => autoFitColumn(String(col.accessorKey))}
-                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize z-[60]"
+                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize"
+                      style={{ zIndex: Z.STICKY + 10 }}
                       title="Resize column (double-click to auto-fit)"
                     >
-                      <div className={`w-0.5 h-full mx-auto transition-colors duration-200 
+                      <div className={`w-0.5 h-full mx-auto transition-colors duration-200
                                 ${resizingColumn === String(col.accessorKey)
-                          ? 'bg-brand-300'
-                          : 'bg-transparent group-hover:bg-brand-400'
+                          ? 'bg-primary-foreground'
+                          : 'bg-transparent group-hover:bg-primary-foreground/60'
                         }`}
                       ></div>
                     </div>
                   </th>
                 ))}
                 {renderRowActions && (
-                  <th scope="col" className="sticky right-0 top-0 z-50 bg-brand-600 border-l border-brand-700/50 md:border-b-2 md:border-b-brand-500 w-[120px] px-4 py-2 text-xs font-bold text-white/80 tracking-wide text-center">
+                  <th
+                    scope="col"
+                    style={{ zIndex: Z.STICKY + 5 }}
+                    className="sticky right-0 top-0 bg-primary border-l border-primary-foreground/15 md:border-b-2 md:border-b-primary-foreground/25 w-[120px] px-4 py-2 text-xs font-bold text-primary-foreground/80 tracking-wide text-center"
+                  >
                     Actions
                   </th>
                 )}
@@ -962,8 +1007,12 @@ function DataTable<T extends object>({
                     return (
                       <tr
                         key={globalIndex}
+                        // `is-highlighted` was a CSS class that never existed, and it
+                        // replaced the row's background classes rather than adding to
+                        // them — so a highlighted row rendered transparent in the
+                        // scrolling columns while the frozen columns showed amber.
                         className={`${isHighlighted
-                          ? 'is-highlighted'
+                          ? 'bg-amber-500/10'
                           : 'md:even:bg-muted/20 bg-card'
                           } md:hover:bg-accent/50 group transition-colors duration-200 ${onRowClick || isMobile ? 'cursor-pointer' : ''} ${isExpanded ? 'is-expanded' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-backwards`}
                         style={{
@@ -978,7 +1027,8 @@ function DataTable<T extends object>({
                       >
                         {enableRowSelection && (
                           <td
-                            className={`sticky left-0 z-30 w-[40px] px-3 py-1.5 md:border-b md:border-border transition-colors duration-200 ${isHighlighted ? 'bg-amber-500/10' : 'bg-card'} md:group-hover:bg-accent group-hover:bg-accent ${isScrolled ? 'shadow-[4px_0_12px_-4px_rgba(0,0,0,0.25)]' : ''}`}
+                            style={{ zIndex: Z.BASE }}
+                            className={`sticky left-0 w-[40px] px-3 py-1.5 md:border-b md:border-border transition-colors duration-200 ${isHighlighted ? 'bg-amber-500/10' : 'bg-card'} md:group-hover:bg-accent group-hover:bg-accent ${isScrolled ? 'shadow-[4px_0_12px_-4px_rgba(0,0,0,0.25)]' : ''}`}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Checkbox
@@ -996,7 +1046,7 @@ function DataTable<T extends object>({
                             px-4 sm:px-6 py-1.5 sm:py-2 md:border-b md:[&:not(:last-child)]:border-r md:border-border
                             ${isSecondaryOnMobile ? 'secondary-cell' : ''}
                             ${resizingColumn === String(col.accessorKey) ? 'is-resizing-cell' : ''}
-                            ${isFirstColumn && stickyFirstColumn && !enableRowSelection ? 'sticky left-0 z-30 bg-card md:bg-card ' + (isHighlighted ? 'bg-amber-500/10 md:bg-amber-500/10' : 'group-hover:bg-accent md:group-hover:bg-accent md:group-even:bg-muted/20') : ''}
+                            ${isFirstColumn && stickyFirstColumn && !enableRowSelection ? 'sticky left-0 z-10 bg-card md:bg-card ' + (isHighlighted ? 'bg-amber-500/10 md:bg-amber-500/10' : 'group-hover:bg-accent md:group-hover:bg-accent md:group-even:bg-muted/20') : ''}
                             ${isFirstColumn && stickyFirstColumn && !enableRowSelection && isScrolled ? 'shadow-[4px_0_12px_-4px_rgba(0,0,0,0.25)] border-r-0' : ''}
                           `;
 
@@ -1030,8 +1080,9 @@ function DataTable<T extends object>({
                         })}
                         {renderRowActions && (
                           <td
+                            style={{ zIndex: Z.BASE }}
                             className={`
-                              sticky right-0 z-10 w-[120px] px-2 py-1.5 border-l border-border/60 md:border-b md:border-border transition-colors duration-200
+                              sticky right-0 w-[120px] px-2 py-1.5 border-l border-border/60 md:border-b md:border-border transition-colors duration-200
                               ${isHighlighted ? 'bg-amber-500/10' : 'bg-card md:bg-card'}
                               md:group-hover:bg-accent group-hover:bg-accent
                             `}
@@ -1048,8 +1099,15 @@ function DataTable<T extends object>({
                 </>
               ) : (
                 <tr>
-                  <td colSpan={columns.length}>
-                    <EmptyState illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />} />
+                  {/* colSpan must cover the selection and actions columns too,
+                      or the empty state renders inside a single narrow cell. */}
+                  <td colSpan={columns.length + (enableRowSelection ? 1 : 0) + (renderRowActions ? 1 : 0)}>
+                    <EmptyState
+                      illustration={<ClipboardList className="w-16 h-16 text-muted-foreground/20" />}
+                      title={emptyState?.title}
+                      description={emptyState?.description}
+                      action={emptyState?.action}
+                    />
                   </td>
                 </tr>
               )}
@@ -1070,7 +1128,7 @@ function DataTable<T extends object>({
       )}
 
       {!loading && sortedData.length > 0 && (
-        <div className="flex-shrink-0 p-4 sm:px-6 sm:py-3 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 border-t border-border bg-card z-20">
+        <div style={{ zIndex: Z.STICKY }} className="flex-shrink-0 p-4 sm:px-6 sm:py-3 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 border-t border-border bg-card">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <label htmlFor="rows-per-page" className="whitespace-nowrap font-medium text-foreground">Rows per page:</label>
@@ -1078,7 +1136,7 @@ function DataTable<T extends object>({
                 id="rows-per-page"
                 value={itemsPerPage}
                 onChange={handleItemsPerPageChange}
-                className="bg-muted border border-border rounded-md p-1.5 text-sm focus:ring-1 focus:ring-brand-500 focus:border-brand-500 text-foreground"
+                className="bg-muted border border-border rounded-md p-1.5 text-sm focus:ring-1 focus:ring-ring focus:border-primary text-foreground"
               >
                 {[10, 20, 50, 100].map(size => (
                   <option key={size} value={size}>{size}</option>
@@ -1114,8 +1172,9 @@ function DataTable<T extends object>({
                   <button
                     key={index}
                     onClick={() => handlePageChange(pageNumber)}
-                    className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-brand-600 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+                    className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                     aria-current={isActive ? 'page' : undefined}
+                    aria-label={`Page ${pageNumber}`}
                   >
                     {pageNumber}
                   </button>

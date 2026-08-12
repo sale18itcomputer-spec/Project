@@ -247,7 +247,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
                             </button>
                         )
                     )}
-                    <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
+                    <button type="button" onClick={() => setIsReadOnly(false)} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
                         <Pencil size={16} /> Edit
                     </button>
                 </div>
@@ -255,7 +255,7 @@ const ServiceTicketWindowContent: React.FC<ServiceTicketWindowContentProps> = ({
         ) : (
             <div className="flex justify-end gap-3 w-full">
                 <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition text-sm">Cancel</button>
-                <button type="submit" form={`service-ticket-window-form-${windowId}`} disabled={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
+                <button type="submit" form={`service-ticket-window-form-${windowId}`} disabled={isSaving} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-1.5" />}
                     {isEditMode ? 'Save Changes' : 'Save Ticket'}
                 </button>

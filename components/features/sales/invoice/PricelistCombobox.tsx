@@ -56,7 +56,7 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && filteredPricelist.length > 0 && (
-                <div className="absolute z-[9999] w-[400px] mt-1 bg-card border border-border rounded-md shadow-xl max-h-[300px] overflow-y-auto overflow-x-hidden">
+                <div className="absolute z-[1400] w-[400px] mt-1 bg-card border border-border rounded-md shadow-xl max-h-[300px] overflow-y-auto overflow-x-hidden">
                     {filteredPricelist.map((p, idx) => (
                         <button
                             key={idx}

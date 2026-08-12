@@ -88,7 +88,7 @@ export const ChatThread: React.FC<{
               </div>
             )}
             <div className={`rounded-2xl px-3.5 py-2 text-sm break-words ${
-              m.role === 'user' ? 'bg-brand-600 text-white rounded-br-sm whitespace-pre-wrap' : 'bg-muted text-foreground rounded-bl-sm'
+              m.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap' : 'bg-muted text-foreground rounded-bl-sm'
             }`}>
               {m.role === 'user' ? m.content : <ChatMarkdown content={m.content ?? ''} />}
             </div>
@@ -171,7 +171,7 @@ export const ProposalCard: React.FC<{ msg: UiMessage; onResolve: (id: string, co
             <XCircle size={14} /> Cancel
           </button>
           <button type="button" onClick={() => onResolve(msg.id, true)}
-            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition">
+            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary hover:brightness-110 text-primary-foreground transition">
             <Check size={14} /> Confirm
           </button>
         </div>
@@ -205,7 +205,7 @@ export const KnowledgePanel: React.FC<{
       <textarea value={textVal} onChange={e => onText(e.target.value)} rows={5} placeholder="Paste the document text here…"
         className="w-full resize-none text-sm bg-input-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
       <button type="button" onClick={onAdd} disabled={busy || !titleVal.trim() || !textVal.trim()}
-        className="w-full flex items-center justify-center gap-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg py-2 disabled:opacity-40">
+        className="w-full flex items-center justify-center gap-1.5 text-sm bg-primary hover:brightness-110 text-primary-foreground rounded-lg py-2 disabled:opacity-40">
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Add to knowledge base
       </button>
       {msg && <p className="text-[11px] text-muted-foreground">{msg}</p>}
@@ -245,7 +245,7 @@ export const SkillsPanel: React.FC<{ skills: any[]; onRun: (prompt: string) => v
         <div key={i} className="rounded-lg border border-border p-2.5">
           <div className="flex items-center gap-2">
             <span className="flex-1 text-sm font-medium text-foreground truncate">{s.name}</span>
-            <button type="button" onClick={() => onRun(s.prompt)} className="flex items-center gap-1 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-md px-2 py-1"><Play size={12} /> Run</button>
+            <button type="button" onClick={() => onRun(s.prompt)} className="flex items-center gap-1 text-xs bg-primary hover:brightness-110 text-primary-foreground rounded-md px-2 py-1"><Play size={12} /> Run</button>
           </div>
           {s.prompt && <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.prompt}</p>}
         </div>
@@ -287,7 +287,7 @@ export const RoundtablePanel: React.FC<{
         <div className="flex gap-1.5">
           {(Object.keys(MODE_INFO) as RoundtableMode[]).map(k => (
             <button key={k} type="button" onClick={() => setMode(k)}
-              className={`flex-1 text-xs rounded-lg px-2 py-1.5 border transition ${mode === k ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>
+              className={`flex-1 text-xs rounded-lg px-2 py-1.5 border transition ${mode === k ? 'bg-primary text-primary-foreground border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>
               {MODE_INFO[k].label}
             </button>
           ))}
@@ -305,7 +305,7 @@ export const RoundtablePanel: React.FC<{
               return (
                 <button key={m} type="button" onClick={() => toggle(m)}
                   className={`w-full flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 border transition ${idx >= 0 ? 'border-brand-600/50 bg-brand-600/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted'}`}>
-                  <span className={`h-4 w-4 rounded flex items-center justify-center text-[9px] font-bold ${idx >= 0 ? 'bg-brand-600 text-white' : 'border border-border'}`}>{idx >= 0 ? idx + 1 : ''}</span>
+                  <span className={`h-4 w-4 rounded flex items-center justify-center text-[9px] font-bold ${idx >= 0 ? 'bg-primary text-primary-foreground' : 'border border-border'}`}>{idx >= 0 ? idx + 1 : ''}</span>
                   <span className="flex-1 text-left truncate">{m}</span>
                 </button>
               );
@@ -320,7 +320,7 @@ export const RoundtablePanel: React.FC<{
             <span className="text-[11px] font-medium text-muted-foreground">Rounds</span>
             {[1, 2, 3].map(r => (
               <button key={r} type="button" onClick={() => setRounds(r)}
-                className={`h-7 w-7 text-xs rounded-md border transition ${rounds === r ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>{r}</button>
+                className={`h-7 w-7 text-xs rounded-md border transition ${rounds === r ? 'bg-primary text-primary-foreground border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>{r}</button>
             ))}
           </div>
         )}
@@ -337,7 +337,7 @@ export const RoundtablePanel: React.FC<{
           </button>
         ) : (
           <button type="button" onClick={() => { onStart({ mode, models: picked, topic, rounds }); onBack(); }} disabled={!canStart}
-            className="w-full flex items-center justify-center gap-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg py-2 disabled:opacity-40">
+            className="w-full flex items-center justify-center gap-1.5 text-sm bg-primary hover:brightness-110 text-primary-foreground rounded-lg py-2 disabled:opacity-40">
             <Play size={16} /> Start roundtable
           </button>
         )}

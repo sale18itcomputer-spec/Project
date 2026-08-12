@@ -24,6 +24,7 @@ import { parseSheetValue, hasLineItemContent } from "../../../utils/formatters";
 import { ScrollArea } from "../../ui/scroll-area";
 import { useToast } from "../../../contexts/ToastContext";
 import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
+import SearchInput from '../../common/SearchInput';
 
 interface QuotationCreatorProps {
     onBack: () => void;
@@ -137,7 +138,7 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && !disabled && filteredPricelist.length > 0 && (
-                <div className="absolute z-[9999] w-[450px] mt-1 bg-card rounded-md shadow-xl border border-border ring-1 ring-black/5">
+                <div className="absolute z-[1400] w-[450px] mt-1 bg-card rounded-md shadow-xl border border-border ring-1 ring-black/5">
                     <ScrollArea className="max-h-72">
                         <ul>
                             {filteredPricelist.map(pItem => (
@@ -890,13 +891,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                     value={quote.Status}
                     onChange={handleHeaderChange}
                     name="Status"
-                    className="appearance-none bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-8 rounded-lg transition cursor-pointer shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-brand-500 pr-10 text-sm hover:scale-[1.02] active:scale-[0.98]"
+                    className="appearance-none bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-8 rounded-lg transition cursor-pointer shadow-lg shadow-primary/20 focus:outline-none focus:ring-2 focus:ring-ring pr-10 text-sm hover:scale-[1.02] active:scale-[0.98]"
                 >
                     {STATUS_OPTIONS.map(opt => (
                         <option key={opt} value={opt} className="bg-card text-foreground">{opt === 'Open' ? 'Quote Status' : opt}</option>
                     ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-primary-foreground">
                     <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
                 </div>
             </div>
@@ -963,7 +964,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                 <button
                     onClick={handleSharePdfBot}
                     disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 text-sm font-bold text-primary-foreground bg-primary/90 hover:bg-primary rounded-lg shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                     title="Send PDF to your Telegram via Bot"
                 >
                     <Send className="w-4 h-4 flex-shrink-0" />
@@ -975,7 +976,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             <button
                 onClick={handleRequestApprove}
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-2.5 sm:px-6 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-2.5 sm:px-6 py-2 text-sm font-bold text-primary-foreground bg-primary hover:brightness-110 rounded-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Send className="w-4 h-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Request Approve</span>
@@ -985,7 +986,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             <button
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-3 sm:px-8 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 sm:px-8 py-2 text-sm font-bold text-primary-foreground bg-primary hover:brightness-110 rounded-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /><span className="hidden sm:inline ml-1">Save</span></>}
             </button>
@@ -994,7 +995,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             <button
                 onClick={handleSendToTelegram}
                 disabled={isSendingTelegram}
-                className="flex items-center gap-1.5 px-2.5 sm:px-5 py-2 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-2.5 sm:px-5 py-2 text-sm font-bold text-primary-foreground bg-primary/90 hover:bg-primary rounded-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Send to Telegram"
             >
                 {isSendingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -1094,20 +1095,18 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="relative group">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-brand-500 transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search models, codes, brands..."
-                                                    value={pricelistSearch}
-                                                    onChange={(e) => setPricelistSearch(e.target.value)}
-                                                    className="pl-9 pr-4 py-1.5 w-64 bg-muted/50 border border-border rounded-full text-xs focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-background text-foreground transition-all outline-none"
-                                                />
-                                            </div>
+                                            <SearchInput
+                                                value={pricelistSearch}
+                                                onValueChange={setPricelistSearch}
+                                                placeholder="Search models, codes, brands..."
+                                                label="Search pricelist"
+                                                containerClassName="w-64 lg:w-64"
+                                                className="rounded-full"
+                                            />
                                             <select
                                                 value={brandFilter}
                                                 onChange={(e) => setBrandFilter(e.target.value)}
-                                                className="px-3 py-1.5 bg-muted/50 border border-border rounded-full text-xs font-medium text-foreground focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none cursor-pointer"
+                                                className="px-3 py-1.5 bg-muted/50 border border-border rounded-full text-xs font-medium text-foreground focus:ring-2 focus:ring-ring/20 focus:border-brand-500 transition-all outline-none cursor-pointer"
                                             >
                                                 <option value="All" className="bg-card">All Brands</option>
                                                 {pricelist ? [...new Set(pricelist.map(p => p.Brand).filter(Boolean))].sort().map(brand => (
@@ -1117,7 +1116,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                             <select
                                                 value={categoryFilter}
                                                 onChange={(e) => setCategoryFilter(e.target.value)}
-                                                className="px-3 py-1.5 bg-muted/50 border border-border rounded-full text-xs font-medium text-foreground focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none cursor-pointer"
+                                                className="px-3 py-1.5 bg-muted/50 border border-border rounded-full text-xs font-medium text-foreground focus:ring-2 focus:ring-ring/20 focus:border-brand-500 transition-all outline-none cursor-pointer"
                                             >
                                                 <option value="All" className="bg-card">All Categories</option>
                                                 {pricelist ? [...new Set(pricelist.map(p => p.Category).filter(Boolean))].sort().map(cat => (
@@ -1166,7 +1165,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                             {col.label}
                                                             <div className="flex flex-col">
                                                                 {sortConfig.key === col.key ? (
-                                                                    sortConfig.direction === 'asc' ? <ChevronUp className="w-2.5 h-2.5 text-brand-500" /> : <ChevronDown className="w-2.5 h-2.5 text-brand-500" />
+                                                                    sortConfig.direction === 'asc' ? <ChevronUp className="w-2.5 h-2.5 text-primary" /> : <ChevronDown className="w-2.5 h-2.5 text-primary" />
                                                                 ) : (
                                                                     <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                                 )}
@@ -1219,7 +1218,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                         <Search className="w-8 h-8" />
                                                                     </div>
                                                                     <p className="text-muted-foreground font-medium">No items found matching your filters</p>
-                                                                    <button onClick={() => { setPricelistSearch(''); setBrandFilter('All'); setCategoryFilter('All'); setMinPrice(''); setMaxPrice(''); }} className="text-brand-500 font-semibold text-xs hover:underline decoration-brand-500/30 underline-offset-4">Clear all filters</button>
+                                                                    <button onClick={() => { setPricelistSearch(''); setBrandFilter('All'); setCategoryFilter('All'); setMinPrice(''); setMaxPrice(''); }} className="text-primary font-semibold text-xs hover:underline decoration-brand-500/30 underline-offset-4">Clear all filters</button>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1249,13 +1248,13 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                         <td className="px-4 py-3">
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="text-sm font-bold text-foreground group-hover:text-brand-500 transition-colors">{item.Model}</span>
+                                                                    <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{item.Model}</span>
                                                                     <button
                                                                         onClick={() => {
                                                                             navigator.clipboard.writeText(item.Model || '');
                                                                             addToast('Model copied to clipboard', 'info');
                                                                         }}
-                                                                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-brand-500 transition-all rounded"
+                                                                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-all rounded"
                                                                         title="Copy Model"
                                                                     >
                                                                         <Copy className="w-3 h-3" />
@@ -1329,7 +1328,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                 }}
                                                                 className={`p-2 rounded-lg transition-all transform active:scale-90 ${addedItemId === item.Code
                                                                     ? 'bg-emerald-500 text-white scale-110'
-                                                                    : 'bg-brand-500/10 text-brand-500 hover:bg-brand-500 hover:text-white border border-brand-500/20 hover:border-brand-500 shadow-sm'
+                                                                    : 'bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-brand-500/20 hover:border-brand-500 shadow-sm'
                                                                     }`}
                                                                 title="Add to Quotation"
                                                             >
@@ -1356,7 +1355,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                         <div className="h-full flex flex-col w-full">
                             <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-card">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-1 h-5 bg-brand-500 rounded-full"></div>
+                                    <div className="w-1 h-5 bg-primary rounded-full"></div>
                                     <h3 className="text-sm font-bold text-foreground">Quotation Details</h3>
                                 </div>
                                 <button
@@ -1481,7 +1480,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                                     key={bt.label}
                                                                                     type="button"
                                                                                     onClick={() => applyBullet(item.id, bt.char)}
-                                                                                    className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-brand-500 rounded transition-all"
+                                                                                    className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-primary rounded transition-all"
                                                                                     title={bt.label}
                                                                                 >
                                                                                     {bt.label === 'None' ? 'None' : bt.char.trim()}
@@ -1492,7 +1491,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                     <textarea
                                                                     value={item.description}
                                                                     onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
+                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
                                                                     rows={2}
                                                                     placeholder="Add clear note..."
                                                                     />
@@ -1518,7 +1517,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                                 type="text"
                                                                                 value={item.modelName}
                                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
-                                                                                className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all hover:border-muted-foreground/40"
+                                                                                className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all hover:border-muted-foreground/40"
                                                                             />
                                                                         </div>
                                                                     </div>
@@ -1526,15 +1525,15 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                     <div className="flex flex-wrap gap-3 mb-3">
                                                                         <div className="w-20">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
-                                                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
+                                                                            <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="w-28">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Unit Price</label>
-                                                                            <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
+                                                                            <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="w-24">
                                                                             <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Comm.</label>
-                                                                            <input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
+                                                                            <input type="number" step="0.01" value={item.commission} onChange={e => handleItemChange(item.id, 'commission', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-colors" />
                                                                         </div>
                                                                         <div className="flex-1 text-right pt-4">
                                                                             <div className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-0.5">Total Amount</div>
@@ -1558,7 +1557,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                                         key={bt.label}
                                                                                         type="button"
                                                                                         onClick={() => applyBullet(item.id, bt.char)}
-                                                                                        className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-brand-500 rounded transition-all"
+                                                                                        className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-primary rounded transition-all"
                                                                                         title={bt.label}
                                                                                     >
                                                                                         {bt.label === 'None' ? 'None' : bt.char.trim()}
@@ -1569,7 +1568,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                         <textarea
                                                                             value={item.description}
                                                                             onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                            className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
+                                                                            className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
                                                                             rows={3}
                                                                             placeholder="Detailed product description..."
                                                                         />
@@ -1581,7 +1580,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                 })}
 
                                                 <div className="flex gap-3 pt-2">
-                                                    <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                    <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-primary bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                         <span>+ Add Product Line</span>
                                                     </button>
                                                     <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground bg-muted hover:bg-muted/80 hover:border-muted-foreground/30 font-semibold text-sm transition-all flex items-center justify-center gap-2">
@@ -1598,7 +1597,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                     <div className="flex justify-between items-center text-sm"><span className="text-muted-foreground font-medium">VAT (10%)</span><span className="text-foreground font-semibold">{formatCurrency(totals.vat)}</span></div>
                                                     <div className="flex justify-between items-center pt-3 border-t border-border mt-2">
                                                         <span className="text-base text-foreground font-extrabold uppercase tracking-wide">Grand Total</span>
-                                                        <span className="text-xl text-brand-500 font-black">{formatCurrency(totals.grandTotal)}</span>
+                                                        <span className="text-xl text-primary font-black">{formatCurrency(totals.grandTotal)}</span>
                                                     </div>
                                                 </div>
                                             </div>

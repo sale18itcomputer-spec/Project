@@ -7,7 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import { supabase } from '../../../lib/supabase';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
@@ -19,8 +19,14 @@ import InventoryWindowContent from '../../windows/content/InventoryWindowContent
 import { Badge } from '../../ui/badge';
 import { DropdownMenuItem } from '../../ui/dropdown-menu';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import {
-  Warehouse, Search, ArrowRightToLine, WrapText, Scissors, Trash2,
+  Warehouse, Trash2,
   Pencil, PackageCheck, PackageX, AlertTriangle, Hash,
 } from 'lucide-react';
 
@@ -48,7 +54,7 @@ const SN_STATUS_STYLES: Record<string, string> = {
   'Active':      'bg-emerald-500/10 text-emerald-500',
   'In Service':  'bg-blue-500/10 text-blue-500',
   'Returned':    'bg-amber-500/10 text-amber-500',
-  'Written Off': 'bg-slate-500/10 text-slate-500',
+  'Written Off': 'bg-muted-foreground/10 text-muted-foreground',
   'Retired':     'bg-rose-500/10 text-rose-500',
 };
 
@@ -109,8 +115,9 @@ const InventoryDashboard: React.FC = () => {
   const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [itemToViewSerials, setItemToViewSerials] = useState<InventoryItem | null>(null);
 
@@ -140,8 +147,8 @@ const InventoryDashboard: React.FC = () => {
   const filteredData = useMemo(() => {
     let data = inventoryItems ?? [];
     if (statusFilter) data = data.filter(i => i.status === statusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       data = data.filter(i =>
         (i.code ?? '').toLowerCase().includes(q) ||
         (i.model_name ?? '').toLowerCase().includes(q) ||
@@ -153,7 +160,7 @@ const InventoryDashboard: React.FC = () => {
       );
     }
     return data;
-  }, [inventoryItems, searchQuery, statusFilter]);
+  }, [inventoryItems, debouncedSearch, statusFilter]);
 
   // ── Serial numbers linked to each inventory lot ──────────────────────────────
   const serialsByInventoryId = useMemo(() => {
@@ -308,56 +315,29 @@ const InventoryDashboard: React.FC = () => {
     <div className="h-full flex flex-col">
 
       {/* ── Header ── */}
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Warehouse className="text-brand-500" />
-            Inventory
-          </h2>
-          <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {filteredData.length} items
-          </span>
-        </div>
+      <DashboardHeader
+        title="Inventory"
+        icon={<Warehouse />}
+        subtitle={`${filteredData.length} items`}
+      >
+        {/* Search */}
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search inventory…"
+          label="Search inventory"
+        />
 
-        <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-          {/* Search */}
-          <div className="relative w-full lg:w-64">
-            <input
-              type="text"
-              placeholder="Search inventory…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-            />
-            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-          </div>
-
-          {/* Wrap / Column controls */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-              <button onClick={() => setCellWrapStyle('overflow')} title="Overflow"
-                className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}>
-                <ArrowRightToLine size={16} />
-              </button>
-              <button onClick={() => setCellWrapStyle('wrap')} title="Wrap"
-                className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}>
-                <WrapText size={16} />
-              </button>
-              <button onClick={() => setCellWrapStyle('clip')} title="Clip"
-                className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}>
-                <Scissors size={16} />
-              </button>
-            </div>
-            <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-          </div>
-        </div>
-      </header>
+        {/* Wrap / Column controls */}
+        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+        <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
+      </DashboardHeader>
 
       {/* ── Metric cards ── */}
       <div className="flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-3 px-4 lg:px-6 py-3 bg-muted/20 border-b border-border">
-        <div className="bg-card rounded-lg border border-border border-l-4 border-l-brand-500 px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center shrink-0">
-            <Warehouse className="w-5 h-5 text-brand-500" />
+        <div className="bg-card rounded-lg border border-border border-l-4 border-l-primary px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Warehouse className="w-5 h-5 text-primary" />
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total</p>
@@ -403,36 +383,40 @@ const InventoryDashboard: React.FC = () => {
           initialSort={{ key: 'created_at', direction: 'descending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['code', 'model_name', 'qty', 'status']}
+          emptyState={{
+            title: 'No inventory yet',
+            description: 'Items received against a purchase order will appear here.',
+          }}
           renderRowActions={(row) => {
             const serials = serialsByInventoryId.get(row.id);
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {!!serials?.length && (
-                  <button
+                  <IconButton
+                    label={`View Serial Numbers (${serials.length})`}
+                    tone="primary"
                     onClick={e => { e.stopPropagation(); setItemToViewSerials(row); }}
-                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                    title={`View Serial Numbers (${serials.length})`}
                   >
-                    <Hash size={16} />
-                  </button>
+                    <Hash size={16} aria-hidden="true" />
+                  </IconButton>
                 )}
                 {can('inventory', 'edit') && (
-                  <button
+                  <IconButton
+                    label="Edit"
+                    tone="primary"
                     onClick={e => { e.stopPropagation(); openInventoryEditWindow(row); }}
-                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                    title="Edit"
                   >
-                    <Pencil size={16} />
-                  </button>
+                    <Pencil size={16} aria-hidden="true" />
+                  </IconButton>
                 )}
                 {can('inventory', 'delete') && (
-                  <button
+                  <IconButton
+                    label="Delete"
+                    tone="danger"
                     onClick={e => { e.stopPropagation(); setItemToDelete(row); }}
-                    className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                    title="Delete"
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    <Trash2 size={16} aria-hidden="true" />
+                  </IconButton>
                 )}
               </div>
             );
@@ -457,22 +441,12 @@ const InventoryDashboard: React.FC = () => {
       </div>
 
       {/* ── Footer status filters ── */}
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-          {[null, 'In Stock', 'Reserved', 'Out of Stock'].map(s => (
-            <button
-              key={s ?? 'all'}
-              onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-              className={`whitespace-nowrap px-5 py-2 rounded-md border text-sm font-semibold transition
-                ${statusFilter === s
-                  ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
-                  : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-            >
-              {s ?? 'All'}
-            </button>
-          ))}
-        </div>
-      </footer>
+      <StatusFilterBar
+        options={[{ value: null, label: 'All' }, 'In Stock', 'Reserved', 'Out of Stock']}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} items`}
+      />
 
       {/* ── Modals ── */}
       <ConfirmationModal

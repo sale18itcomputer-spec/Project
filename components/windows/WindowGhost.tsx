@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { GhostAnimation } from '../../contexts/WindowManagerContext';
+import { Z } from '../../lib/zIndex';
 
 const GHOST_DURATION = 220;
 const GHOST_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -41,7 +42,7 @@ const WindowGhost: React.FC<{ ghost: GhostAnimation; onDone: (ghostId: string) =
                 height: rect.height,
                 opacity: animate ? 0 : 1,
                 transition: `left ${GHOST_DURATION}ms ${GHOST_EASING}, top ${GHOST_DURATION}ms ${GHOST_EASING}, width ${GHOST_DURATION}ms ${GHOST_EASING}, height ${GHOST_DURATION}ms ${GHOST_EASING}, opacity ${GHOST_DURATION}ms ease-in`,
-                zIndex: 999998,
+                zIndex: Z.WINDOW_DOCK - 1,
             }}
         />
     );

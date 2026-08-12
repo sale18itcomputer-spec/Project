@@ -202,7 +202,7 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
                                     onMouseLeave={() => setHoveredDate(null)}
                                 >
                                     {day && (
-                                        <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all duration-200 ${(isStart || isEnd) ? 'bg-brand-600 text-white font-bold scale-110 shadow-md ring-2 ring-brand-600 ring-offset-2 ring-offset-background' : dayTime === today.getTime() ? 'text-brand-600 font-bold ring-1 ring-brand-600 ring-offset-1 ring-offset-background' : 'text-foreground group-hover:bg-muted group-hover:text-brand-700 dark:group-hover:text-brand-400'}`}>
+                                        <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all duration-200 ${(isStart || isEnd) ? 'bg-primary text-primary-foreground font-bold scale-110 shadow-md ring-2 ring-brand-600 ring-offset-2 ring-offset-background' : dayTime === today.getTime() ? 'text-brand-600 font-bold ring-1 ring-brand-600 ring-offset-1 ring-offset-background' : 'text-foreground group-hover:bg-muted group-hover:text-brand-700 dark:group-hover:text-brand-400'}`}>
                                             {day.getDate()}
                                         </div>
                                     )}
@@ -242,7 +242,7 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
 
                 {isOpen && (
                     <div
-                        className="absolute top-full left-0 mt-3 p-0 bg-card rounded-2xl shadow-2xl border border-border z-[100] animate-in fade-in zoom-in duration-200 overflow-hidden flex"
+                        className="absolute top-full left-0 mt-3 p-0 bg-card rounded-2xl shadow-2xl border border-border z-[1400] animate-in fade-in zoom-in duration-200 overflow-hidden flex"
                         style={{ width: '720px' }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -291,7 +291,7 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
                                     <button
                                         onClick={handleApply}
                                         disabled={!localRange[0]}
-                                        className="px-6 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl shadow-lg shadow-brand-200 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                                        className="px-6 py-2 bg-primary hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground text-sm font-bold rounded-xl shadow-lg shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                                     >
                                         Apply Range
                                     </button>
@@ -353,7 +353,7 @@ const DashboardFilterBar: React.FC<DashboardFilterBarProps> = ({ statuses, assig
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     <span>Filters</span>
                     {activeFilterCount > 0 && (
-                        <span className="ml-0.5 bg-brand-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>
+                        <span className="ml-0.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>
                     )}
                 </button>
                 <div className="flex-1" />

@@ -61,7 +61,7 @@ const AssistantPage: React.FC = () => {
       {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/40 z-30 lg:hidden" />}
       <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform absolute lg:static z-40 h-full w-72 shrink-0 border-r border-border bg-card flex flex-col`}>
         <div className="p-3 border-b border-border">
-          <button type="button" onClick={startNew} className="w-full flex items-center justify-center gap-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg py-2 transition">
+          <button type="button" onClick={startNew} className="w-full flex items-center justify-center gap-2 text-sm bg-primary hover:brightness-110 text-primary-foreground rounded-lg py-2 transition">
             <Plus size={16} /> New chat
           </button>
         </div>
@@ -95,7 +95,7 @@ const AssistantPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
           <button type="button" onClick={() => setSidebarOpen(o => !o)} className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:bg-muted"><PanelLeft size={18} /></button>
-          <div className="h-8 w-8 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0"><Bot size={18} /></div>
+          <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"><Bot size={18} /></div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground leading-tight">AI Assistant</p>
             <p className="text-[11px] text-muted-foreground leading-tight">{agentOn ? 'Agent · looks up data, drafts changes, searches your docs' : 'Self-hosted · private'}</p>
@@ -113,11 +113,11 @@ const AssistantPage: React.FC = () => {
           )}
           <button type="button" onClick={c.toggleAgent} disabled={!c.agentEnabled}
             title={!c.agentEnabled ? 'Agent not available' : c.agent ? 'Agent mode on' : 'Turn on Agent mode'}
-            className={`shrink-0 flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-md border transition disabled:opacity-40 ${c.agent ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>
+            className={`shrink-0 flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-md border transition disabled:opacity-40 ${c.agent ? 'bg-primary text-primary-foreground border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>
             <Sparkles size={13} /> Agent
           </button>
           <button type="button" onClick={() => setPanel('roundtable')} title="Roundtable — models talk to each other"
-            className={`shrink-0 p-1.5 rounded-md border transition ${c.groupRunning ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}><Users size={15} /></button>
+            className={`shrink-0 p-1.5 rounded-md border transition ${c.groupRunning ? 'bg-primary text-primary-foreground border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}><Users size={15} /></button>
           {agentOn && (
             <>
               <button type="button" onClick={() => openPanel('kb')} title="Knowledge base" className="shrink-0 p-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted"><BookText size={15} /></button>
@@ -159,7 +159,7 @@ const AssistantPage: React.FC = () => {
                   placeholder={c.model ? (agentOn ? 'Ask, or request a change…  (Enter to send, Shift+Enter for newline)' : 'Message…  (Enter to send)') : 'Select a model first'}
                   className="flex-1 resize-none max-h-40 text-sm bg-transparent px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 <button type="button" onClick={c.send} disabled={(!c.input.trim() && c.pendingAttachments.length === 0) || c.sending || !c.model} aria-label="Send"
-                  className="h-9 w-9 shrink-0 rounded-xl bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center transition disabled:opacity-40">
+                  className="h-9 w-9 shrink-0 rounded-xl bg-primary hover:brightness-110 text-primary-foreground flex items-center justify-center transition disabled:opacity-40">
                   {c.sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
               </div>

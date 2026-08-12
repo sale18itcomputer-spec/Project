@@ -3,23 +3,29 @@
 import React, { useState, useMemo } from 'react';
 import { Vendor } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import { Pencil, Search, ArrowRightToLine, WrapText, Scissors, UserPlus } from 'lucide-react';
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import { Pencil, Truck, UserPlus } from 'lucide-react';
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import VendorWindowContent from "../../windows/content/VendorWindowContent";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const VENDOR_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-columns-visibility';
 
 const VendorDashboard: React.FC = () => {
     const { vendors, loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
-    useWindowSize();
+    const debouncedSearch = useDebouncedValue(searchQuery);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const { openWindow } = useWindowManager();
 
     const openVendorWindow = (vendorId: string | null, initialReadOnly: boolean) => {
@@ -38,14 +44,14 @@ const VendorDashboard: React.FC = () => {
 
     const filteredData = useMemo(() => {
         if (!vendors) return [];
-        if (!searchQuery) return vendors;
-        const lowercasedQuery = searchQuery.toLowerCase();
+        if (!debouncedSearch) return vendors;
+        const lowercasedQuery = debouncedSearch.toLowerCase();
         return vendors.filter(item =>
             ['vendor_name', 'category', 'contact_person', 'email', 'phone'].some(key =>
                 String(item[key as keyof Vendor] ?? '').toLowerCase().includes(lowercasedQuery)
             )
         );
-    }, [vendors, searchQuery]);
+    }, [vendors, debouncedSearch]);
 
     const allColumns = useMemo<ColumnDef<Vendor>[]>(() => [
         {
@@ -104,58 +110,34 @@ const VendorDashboard: React.FC = () => {
     }, [allColumns, visibleColumns]);
 
     if (error) {
-        return (
-            <div className="p-6 md:p-8">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>Could not load vendor data: {error}</p>
-                </div>
-            </div>
-        );
+        return <ErrorState title="Could not load vendors" message={error} />;
     }
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center">
-                            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-                            <span className="ml-2 text-sm text-muted-foreground">vendors registered</span>
-                        </div>
-                    </div>
-                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-                        <div className="relative w-full lg:w-64 flex-shrink-0">
-                            <input
-                                type="text"
-                                placeholder="Search vendors..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                            />
-                            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                        </div>
+            <DashboardHeader
+                title="Vendors"
+                icon={<Truck />}
+                subtitle={`${filteredData.length} vendors registered`}
+            >
+                <SearchInput
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search vendors..."
+                    label="Search vendors"
+                />
 
-                        <div className="flex items-center gap-2">
-                            <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
-                                <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                                <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                                <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                            </div>
-                            <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-                            <PermissionGate module="vendors" action="create">
-                              <button
-                                onClick={handleOpenNewVendor}
-                                className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-sm ml-auto lg:ml-0"
-                              >
-                                <UserPlus className="w-5 h-5 mr-2" />
-                                <span>New Vendor</span>
-                              </button>
-                            </PermissionGate>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+                <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
+
+                <PermissionGate module="vendors" action="create">
+                  <Button onClick={handleOpenNewVendor} aria-label="New vendor">
+                    <UserPlus className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">New Vendor</span>
+                  </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className="flex-1 overflow-hidden p-4">
                 <DataTable
@@ -166,16 +148,21 @@ const VendorDashboard: React.FC = () => {
                     onRowClick={handleViewVendor}
                     mobilePrimaryColumns={['vendor_name', 'category', 'status']}
                     cellWrapStyle={cellWrapStyle}
+                    emptyState={{
+                        title: 'No vendors yet',
+                        description: 'Vendors you register will appear here.',
+                    }}
                     renderRowActions={(row) => (
-                        <button
+                        <IconButton
+                            label="Edit vendor"
+                            tone="primary"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditVendor(row);
                             }}
-                            className="p-2 text-muted-foreground hover:text-brand-500 transition"
                         >
-                            <Pencil size={16} />
-                        </button>
+                            <Pencil size={16} aria-hidden="true" />
+                        </IconButton>
                     )}
                     renderRowContextMenu={(row) => (
                         <RowActionMenuItems

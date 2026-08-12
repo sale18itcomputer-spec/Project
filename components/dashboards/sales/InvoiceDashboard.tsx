@@ -4,16 +4,16 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { FileText, Table, Columns, Info, Pencil, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Search, Trash2, Copy, Printer, Wallet, Truck, BookOpen, Send } from 'lucide-react';
+import { FileText, Table, Columns, Info, Pencil, Plus, Trash2, Copy, Printer, Wallet, Truck, BookOpen, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
-import { useWindowSize } from "../../../hooks/useWindowSize";
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { deleteRecord } from "../../../services/api";
 import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
@@ -30,6 +30,15 @@ import QuickPaymentModal from "../../modals/QuickPaymentModal";
 import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
 import { isServiceInvoice } from "../../../utils/serviceInvoice";
 import { getUserTelegramChatId } from "../../../utils/telegram";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import ViewToggle from "../../common/ViewToggle";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import StatusFilterBar from "../../common/StatusFilterBar";
+import IconButton from "../../ui/icon-button";
+import { Button } from "../../ui/button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 interface InvoiceDashboardProps {
     initialPayload?: any;
@@ -45,13 +54,13 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const { handleNavigation, navigation } = useNavigation();
     const { openWindow } = useWindowManager();
-    const { width } = useWindowSize();
-    const isMobile = width < 768;
+    const isMobile = useIsMobile();
 
     const selectedInvoiceId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
@@ -305,13 +314,13 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 return true;
             });
         }
-        if (!searchQuery) return dataToFilter;
+        if (!debouncedSearch) return dataToFilter;
         return dataToFilter.filter(item =>
             ['Inv No', 'Company Name', 'Contact Name', 'Status', 'Taxable', 'Created By', 'SO No'].some(key =>
-                String(item[key as keyof Invoice] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+                String(item[key as keyof Invoice] ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
             )
         );
-    }, [invoices, searchQuery, statusFilter, receipts]);
+    }, [invoices, debouncedSearch, statusFilter, receipts]);
 
     const overdueCount = useMemo(
         () => (invoices || []).filter(inv => !isServiceInvoice(inv) && computeInvoiceAR(inv, receipts).collectionStatus === 'Overdue').length,
@@ -428,70 +437,41 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     ];
 
     if (error) {
-        return (
-            <div className="p-6 md:p-8">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>Could not load invoices data: {error}</p>
-                </div>
-            </div>
-        );
+        return <ErrorState title="Could not load invoices" message={error} />;
     }
 
     return (
         <div className="h-full flex flex-col">
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-foreground">Invoices</h1>
-                </div>
-                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
-                    <div className="relative w-full lg:w-64 flex-shrink-0">
-                        <input
-                            type="text" placeholder="Search invoices..."
-                            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground/40 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition shadow-sm"
-                        />
-                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
+            <DashboardHeader title="Invoices" icon={<FileText />}>
+                <SearchInput
+                    id="invoice-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search invoices..."
+                    label="Search invoices"
+                />
 
-                    <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
-                            {VIEW_OPTIONS.map(view => (
-                                <button
-                                    key={view.id} onClick={() => setViewMode(view.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === view.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    {view.icon} <span className="hidden xl:inline">{view.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                        </div>
-                        <div className="flex-shrink-0">
-                            <DataTableColumnToggle
-                                allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
-                                trigger={
-                                    <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm">
-                                        <LayoutGrid className="w-4 h-4" /> View
-                                    </button>
-                                }
-                            />
-                        </div>
+                <ViewToggle<ViewMode>
+                    views={VIEW_OPTIONS}
+                    activeView={viewMode}
+                    onViewChange={setViewMode}
+                />
 
-                        <PermissionGate module="invoices" action="create">
-                          <button
-                            onClick={handleNewInvoice}
-                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                          >
-                            <span className="text-xl leading-none">+</span> New Invoice
-                          </button>
-                        </PermissionGate>
-                    </div>
-                </div>
-            </header>
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+                <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                />
+
+                <PermissionGate module="invoices" action="create">
+                    <Button onClick={handleNewInvoice} aria-label="New invoice">
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">New Invoice</span>
+                    </Button>
+                </PermissionGate>
+            </DashboardHeader>
             <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {loading ? <Spinner /> : viewMode === 'table' ? (
                     <DataTable
@@ -499,38 +479,42 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                         onRowClick={handleViewInvoice} initialSort={{ key: 'Inv Date', direction: 'descending' }}
                         mobilePrimaryColumns={['Inv No', 'Company Name', 'Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
+                        emptyState={{
+                            title: 'No invoices yet',
+                            description: 'Invoices you create will appear here.',
+                        }}
                         renderRowActions={(row) => (
-                            <div className="flex items-center justify-center gap-3">
-                                <button
+                            <div className="flex items-center justify-center gap-1">
+                                <IconButton
+                                    label="View invoice"
+                                    tone="primary"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleViewInvoice(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                    title="View"
                                 >
-                                    <Info size={16} />
-                                </button>
-                                <button
+                                    <Info size={16} aria-hidden="true" />
+                                </IconButton>
+                                <IconButton
+                                    label="Edit invoice"
+                                    tone="primary"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleEditInvoice(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                    title="Edit"
                                 >
-                                    <Pencil size={16} />
-                                </button>
-                                <button
+                                    <Pencil size={16} aria-hidden="true" />
+                                </IconButton>
+                                <IconButton
+                                    label="Delete invoice"
+                                    tone="danger"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteRequest(row);
                                     }}
-                                    className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                                    title="Delete"
                                 >
-                                    <Trash2 size={16} />
-                                </button>
+                                    <Trash2 size={16} aria-hidden="true" />
+                                </IconButton>
                             </div>
                         )}
                         renderRowContextMenu={(row) => {
@@ -578,7 +562,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                 <button
                                     key={inv['Inv No']}
                                     onClick={() => handleNavigation({ view: 'invoices', filter: navigation.filter, action: 'view', id: inv['Inv No'] })}
-                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}
+                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedInvoiceId === inv['Inv No'] ? 'bg-primary/10 border-r-4 border-r-primary' : 'border-border'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-bold text-foreground">{inv['Inv No']}</span>
@@ -586,7 +570,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                     </div>
                                     <div className="text-sm font-medium text-foreground/80 truncate">{inv['Company Name']}</div>
                                     <div className="text-xs text-muted-foreground mt-1">{inv['Inv Date']}</div>
-                                    <div className="text-sm font-bold text-brand-500 mt-2">{formatCurrencySmartly(inv.Amount, inv.Currency)}</div>
+                                    <div className="text-sm font-bold text-primary mt-2">{formatCurrencySmartly(inv.Amount, inv.Currency)}</div>
                                 </button>
                             ))}
                             {filteredData.length === 0 && <div className="p-8 text-center text-muted-foreground">No invoices found</div>}
@@ -606,7 +590,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                                     <div className="flex items-center gap-4">
                                                         <button
                                                             onClick={() => handleEditInvoice(selectedInv)}
-                                                            className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"
+                                                            className="flex items-center gap-2 text-primary font-semibold hover:underline"
                                                         >
                                                             <Pencil size={16} /> Edit
                                                         </button>
@@ -647,7 +631,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                                             <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Financials</label>
                                                             <div className="mt-1">
                                                                 <p className="text-xs text-muted-foreground">Total Amount</p>
-                                                                <p className="text-2xl font-bold text-brand-500">{formatCurrencySmartly(selectedInv.Amount, selectedInv.Currency)}</p>
+                                                                <p className="text-2xl font-bold text-primary">{formatCurrencySmartly(selectedInv.Amount, selectedInv.Currency)}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -673,14 +657,14 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                             {selectedInv['Attachment'] && (
                                                 <div className="bg-card rounded-xl shadow-sm border border-border p-6">
                                                     <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                                                        <FileText size={18} className="text-brand-500" />
+                                                        <FileText size={18} className="text-primary" />
                                                         Attachment
                                                     </h3>
                                                     <a
                                                         href={selectedInv['Attachment']}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500/10 text-brand-500 border border-brand-500/20 rounded-lg hover:bg-brand-500/20 transition-colors font-semibold"
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
                                                     >
                                                         View Document
                                                     </a>
@@ -699,15 +683,16 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     </div>
                 )}
             </div>
-            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-                    <button onClick={() => setStatusFilter(statusFilter === 'Processing' ? null : 'Processing')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Processing' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Processing</button>
-                    <button onClick={() => setStatusFilter(statusFilter === 'Completed' ? null : 'Completed')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Completed' ? 'bg-brand-600 text-white' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>Completed</button>
-                    <button onClick={() => setStatusFilter(statusFilter === 'Overdue' ? null : 'Overdue')} className={`px-6 py-2 rounded-md border text-sm font-semibold transition whitespace-nowrap ${statusFilter === 'Overdue' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/5 hover:bg-rose-500/10'}`}>
-                        Overdue{overdueCount > 0 ? ` (${overdueCount})` : ''}
-                    </button>
-                </div>
-            </footer>
+            <StatusFilterBar
+                options={[
+                    { value: 'Processing', label: 'Processing' },
+                    { value: 'Completed', label: 'Completed' },
+                    { value: 'Overdue', label: 'Overdue', count: overdueCount > 0 ? overdueCount : undefined },
+                ]}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} records`}
+            />
             <ConfirmationModal
                 isOpen={!!invoiceToDelete}
                 onClose={() => setInvoiceToDelete(null)}

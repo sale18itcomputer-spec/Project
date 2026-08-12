@@ -107,15 +107,15 @@ export default function UnlockPage() {
     if (isChecking) return null;
 
     return (
-        <div className="fixed inset-0 z-[99999] bg-[#0c121d] flex flex-col items-center justify-center text-white px-4 font-sans selection:bg-transparent">
+        <div className="fixed inset-0 z-[1300] bg-background flex flex-col items-center justify-center text-foreground px-4 font-sans selection:bg-transparent">
             <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
                 <div className="flex flex-col items-center gap-4 mb-10">
-                    <div className="w-16 h-16 bg-brand-500/20 text-brand-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_hsl(var(--brand-500)/0.15)] border border-brand-500/20">
+                    <div className="w-16 h-16 bg-primary/15 text-primary rounded-2xl flex items-center justify-center shadow-[0_0_30px_hsl(var(--primary)/0.15)] border border-primary/20">
                         <Lock className="w-7 h-7" />
                     </div>
                     <div className="text-center">
-                        <h2 className="text-2xl font-semibold tracking-tight text-white">Enter your PIN</h2>
-                        <p className="text-sm text-slate-400 mt-2">Please enter your 4 to 6-digit PIN to unlock.</p>
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Enter your PIN</h2>
+                        <p className="text-sm text-muted-foreground mt-2">Please enter your 4 to 6-digit PIN to unlock.</p>
                     </div>
                 </div>
 
@@ -137,14 +137,14 @@ export default function UnlockPage() {
                     submitDisabled={pin.length < 4}
                 />
 
-                <p className="hidden md:block text-slate-500 text-sm mt-8 text-center px-6 leading-relaxed">
+                <p className="hidden md:block text-muted-foreground text-sm mt-8 text-center px-6 leading-relaxed">
                     Use your keyboard or the on-screen pad. Press Enter or Check to submit.
                 </p>
 
                 <div className="flex flex-col items-center gap-2 mt-8">
                     <button
                         onClick={handleForgotPin}
-                        className="text-slate-500 hover:text-white text-sm transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5"
+                        className="text-muted-foreground hover:text-foreground text-sm transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-accent/60"
                     >
                         <RefreshCw className="w-4 h-4" />
                         Forgot PIN?

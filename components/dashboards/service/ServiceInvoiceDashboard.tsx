@@ -3,9 +3,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Invoice, ServiceTicket } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { Plus, Receipt as ReceiptIcon, Search, Wallet, Pencil, Trash2, Info, ArrowRightToLine, WrapText, Scissors, LayoutGrid, Printer, Copy, Wrench, Send } from 'lucide-react';
+import { Plus, Receipt as ReceiptIcon, Wallet, Pencil, Trash2, Printer, Copy, Wrench, Send } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { deleteRecord } from '../../../services/api';
@@ -27,11 +27,19 @@ import { computeInvoiceAR, InvoiceAR } from '../../../utils/collection';
 import { formatCurrencySmartly } from '../../../utils/formatters';
 
 import { isServiceInvoice, SERVICE_REMARK_PREFIX } from '../../../utils/serviceInvoice';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-service-invoices-columns-visibility';
 
 const ServiceInvoiceDashboard: React.FC = () => {
-    const { invoices, setInvoices, receipts, companies, serviceTickets, fetchModule, loading } = useData();
+    const { invoices, setInvoices, receipts, companies, serviceTickets, fetchModule, loading, error } = useData();
     const { can } = usePermissions();
     const { addToast } = useToast();
     const { openWindow } = useWindowManager();
@@ -41,8 +49,9 @@ const ServiceInvoiceDashboard: React.FC = () => {
     useEffect(() => { fetchModule('Service Tickets'); }, [fetchModule]);
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const debouncedSearch = useDebouncedValue(searchQuery);
+    const [statusFilter, setStatusFilter] = useState<string | null>('All');
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
 
@@ -55,13 +64,15 @@ const ServiceInvoiceDashboard: React.FC = () => {
 
     const filteredData = useMemo(() => {
         let data = serviceInvoices;
+        // `null` is what StatusFilterBar writes when the active chip is cleared —
+        // it means the same thing as the 'All' chip: no status filter.
         if (statusFilter === 'Overdue') {
             data = data.filter(inv => computeInvoiceAR(inv, receipts).collectionStatus === 'Overdue');
-        } else if (statusFilter !== 'All') {
+        } else if (statusFilter && statusFilter !== 'All') {
             data = data.filter(inv => inv.Status === statusFilter);
         }
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const q = debouncedSearch.toLowerCase();
             data = data.filter(inv =>
                 inv['Inv No']?.toLowerCase().includes(q) ||
                 inv['Company Name']?.toLowerCase().includes(q) ||
@@ -70,7 +81,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
             );
         }
         return data;
-    }, [serviceInvoices, statusFilter, searchQuery, receipts]);
+    }, [serviceInvoices, statusFilter, debouncedSearch, receipts]);
 
     // ── Window helpers ────────────────────────────────────────────────────────
 
@@ -251,7 +262,7 @@ const ServiceInvoiceDashboard: React.FC = () => {
                     ? v.replace(SERVICE_REMARK_PREFIX, '')
                     : null;
                 return ticketNo
-                    ? <span className="font-mono text-xs text-brand-500">{ticketNo}</span>
+                    ? <span className="font-mono text-xs text-primary">{ticketNo}</span>
                     : <span className="text-xs text-muted-foreground italic">{v}</span>;
             },
         },
@@ -317,89 +328,44 @@ const ServiceInvoiceDashboard: React.FC = () => {
 
     const STATUS_FILTERS = ['All', 'Draft', 'Processing', 'Completed', 'Overdue', 'Cancel'];
 
+    if (error) {
+        return <ErrorState title="Could not load service invoices" message={error} />;
+    }
+
     return (
         <div className="h-full flex flex-col">
             {/* ── Header ── */}
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                            <ReceiptIcon className="text-brand-500" size={20} />
-                            Service Invoices
-                        </h2>
-                        <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            {filteredData.length}
-                        </span>
-                        <span className={`text-sm font-semibold px-2.5 py-0.5 rounded-full ${outstandingUSD > 0.005 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                            Outstanding: {formatCurrencySmartly(outstandingUSD, 'USD')}
-                        </span>
-                    </div>
+            <DashboardHeader
+                title="Service Invoices"
+                icon={<ReceiptIcon />}
+                subtitle={
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${outstandingUSD > 0.005 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                        Outstanding: {formatCurrencySmartly(outstandingUSD, 'USD')}
+                    </span>
+                }
+            >
+                <SearchInput
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search invoices..."
+                    label="Search service invoices"
+                />
 
-                    <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap">
-                        {/* Search */}
-                        <div className="relative w-full lg:w-64">
-                            <input
-                                type="text"
-                                placeholder="Search invoices..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-                            />
-                            <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                        </div>
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-                        {/* Cell wrap */}
-                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground hover:text-foreground'}`} title="Overflow"><ArrowRightToLine size={15} /></button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground hover:text-foreground'}`} title="Wrap"><WrapText size={15} /></button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground hover:text-foreground'}`} title="Clip"><Scissors size={15} /></button>
-                        </div>
+                <DataTableColumnToggle
+                    allColumns={allColumns}
+                    visibleColumns={visibleColumns}
+                    onColumnToggle={handleColumnToggle}
+                />
 
-                        {/* Column toggle */}
-                        <DataTableColumnToggle
-                            allColumns={allColumns}
-                            visibleColumns={visibleColumns}
-                            onColumnToggle={handleColumnToggle}
-                            trigger={
-                                <button className="flex items-center gap-1.5 bg-card border border-border text-foreground font-semibold py-2 px-3 rounded-md hover:bg-muted transition shadow-sm text-sm flex-shrink-0">
-                                    <LayoutGrid className="w-4 h-4" /> View
-                                </button>
-                            }
-                        />
-
-                        {/* New invoice */}
-                        <PermissionGate module="service_invoices" action="create">
-                            <button
-                                onClick={openNewServiceInvoice}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition whitespace-nowrap flex-shrink-0"
-                            >
-                                <Plus size={16} />
-                                New Invoice
-                            </button>
-                        </PermissionGate>
-                    </div>
-                </div>
-
-                {/* Status filters */}
-                <div className="flex gap-1 flex-wrap">
-                    {STATUS_FILTERS.map(s => (
-                        <button
-                            key={s}
-                            onClick={() => setStatusFilter(s)}
-                            className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                                statusFilter === s
-                                    ? 'bg-brand-600 text-white border-brand-600'
-                                    : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                            }`}
-                        >
-                            {s}
-                            <span className={`ml-1.5 text-xs ${statusFilter === s ? 'text-white/70' : 'text-muted-foreground/60'}`}>
-                                {statusCounts[s] ?? 0}
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </header>
+                <PermissionGate module="service_invoices" action="create">
+                    <Button onClick={openNewServiceInvoice} aria-label="New service invoice">
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">New Invoice</span>
+                    </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             {/* ── Table ── */}
             <div className="flex-1 overflow-hidden p-4">
@@ -412,46 +378,50 @@ const ServiceInvoiceDashboard: React.FC = () => {
                     initialSort={{ key: 'Inv Date', direction: 'descending' }}
                     mobilePrimaryColumns={['Inv No', 'Company Name', 'Status', 'Amount']}
                     cellWrapStyle={cellWrapStyle}
+                    emptyState={{
+                        title: 'No service invoices yet',
+                        description: 'Invoices raised against service tickets will appear here.',
+                    }}
                     renderRowActions={row => {
                         const ar = computeInvoiceAR(row, receipts);
                         const canPay = (row.Status === 'Processing' || row.Status === 'Completed') && ar.outstanding > 0.005;
                         return (
                             <div className="flex items-center justify-center gap-1">
                                 <PermissionGate module="service_invoices" action="edit">
-                                    <button
+                                    <IconButton
+                                        label="Edit invoice"
+                                        tone="primary"
                                         onClick={e => { e.stopPropagation(); openInvoiceWindow(row['Inv No']); }}
-                                        className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                        title="Edit"
                                     >
-                                        <Pencil size={15} />
-                                    </button>
+                                        <Pencil size={15} aria-hidden="true" />
+                                    </IconButton>
                                 </PermissionGate>
                                 {canPay && (
                                     <PermissionGate module="service_invoices" action="edit">
-                                        <button
+                                        <IconButton
+                                            label="Record payment"
                                             onClick={e => { e.stopPropagation(); handleRecordPayment(row); }}
-                                            className="p-2 text-muted-foreground hover:text-emerald-500 transition hover:bg-emerald-500/10 rounded-full"
-                                            title="Record Payment"
+                                            className="hover:text-emerald-500 hover:bg-emerald-500/10"
                                         >
-                                            <Wallet size={15} />
-                                        </button>
+                                            <Wallet size={15} aria-hidden="true" />
+                                        </IconButton>
                                     </PermissionGate>
                                 )}
-                                <button
+                                <IconButton
+                                    label="Print PDF"
+                                    tone="primary"
                                     onClick={e => { e.stopPropagation(); handlePrintInvoice(row); }}
-                                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                    title="Print PDF"
                                 >
-                                    <Printer size={15} />
-                                </button>
+                                    <Printer size={15} aria-hidden="true" />
+                                </IconButton>
                                 <PermissionGate module="service_invoices" action="delete">
-                                    <button
+                                    <IconButton
+                                        label="Delete invoice"
+                                        tone="danger"
                                         onClick={e => { e.stopPropagation(); handleDeleteRequest(row); }}
-                                        className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                                        title="Delete"
                                     >
-                                        <Trash2 size={15} />
-                                    </button>
+                                        <Trash2 size={15} aria-hidden="true" />
+                                    </IconButton>
                                 </PermissionGate>
                             </div>
                         );
@@ -492,6 +462,14 @@ const ServiceInvoiceDashboard: React.FC = () => {
                     }}
                 />
             </div>
+
+            {/* ── Status filters ── */}
+            <StatusFilterBar
+                options={STATUS_FILTERS.map(s => ({ value: s, label: s, count: statusCounts[s] ?? 0 }))}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} invoices`}
+            />
 
             {/* ── Modals ── */}
             {paymentTarget && (

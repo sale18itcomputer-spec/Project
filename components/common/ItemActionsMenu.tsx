@@ -85,7 +85,7 @@ const ItemActionsMenu: React.FC<ItemActionsMenuProps> = ({
 
             {isOpen && (
                 <div
-                    className="absolute right-0 mt-1 w-40 bg-card rounded-md shadow-lg border border-border z-[9999] animate-contentFadeIn"
+                    className="absolute right-0 mt-1 w-40 bg-card rounded-md shadow-lg border border-border z-[1400] animate-contentFadeIn"
                     style={{ animationDuration: '0.15s' }}
                 >
                     <ul className="py-1">

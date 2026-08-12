@@ -87,7 +87,7 @@ const InventoryWindowContent: React.FC<InventoryWindowContentProps> = ({ windowI
         const footer = (
             <div className="flex justify-end gap-3 w-full">
                 <button type="button" onClick={() => closeWindow(windowId)} className="py-2 px-4 border border-border rounded-lg hover:bg-muted transition">Cancel</button>
-                <button type="submit" form={`edit-inventory-form-${windowId}`} disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50">
+                <button type="submit" form={`edit-inventory-form-${windowId}`} disabled={saving} className="bg-primary hover:brightness-110 text-primary-foreground py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50">
                     <Check size={20} /> {saving ? 'Saving…' : 'Save'}
                 </button>
             </div>

@@ -105,7 +105,7 @@ const ConsignmentWindowContent: React.FC<ConsignmentWindowContentProps> = ({ win
                 <button type="button" onClick={() => closeWindow(windowId)} className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-accent/60 transition-colors">
                     Cancel
                 </button>
-                <button type="submit" form={`consignment-form-${windowId}`} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-60 flex items-center gap-2">
+                <button type="submit" form={`consignment-form-${windowId}`} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-primary hover:brightness-110 text-primary-foreground font-medium transition-colors disabled:opacity-60 flex items-center gap-2">
                     <Check size={16} /> {saving ? 'Creating…' : 'Create Consignment'}
                 </button>
             </div>

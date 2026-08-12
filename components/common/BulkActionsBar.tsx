@@ -51,7 +51,7 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
                 action.variant === 'danger'
                   ? 'bg-rose-600/10 text-rose-600 hover:bg-rose-600/20 border border-rose-600/20'
-                  : 'bg-brand-600 text-white hover:bg-brand-700'
+                  : 'bg-primary text-primary-foreground hover:bg-brand-700'
               }`}
             >
               {isRunning ? <Loader2 size={13} className="animate-spin" /> : action.icon}

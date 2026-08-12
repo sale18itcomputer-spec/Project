@@ -13,8 +13,10 @@ import {
     MobileFormHeader, MobileFormSection, MobileField,
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,
 } from './MobileFormBase';
+// Accent follows the active theme (and the user's accent picker) instead
+// of the per-form hardcoded hex this file used to declare.
+const ACCENT = 'hsl(var(--primary))';
 
-const ACCENT = '#fb923c';
 const STATUS_OPTIONS = ['Pending', 'Delivered', 'Cancelled'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
 
@@ -216,7 +218,6 @@ export default function MobileDeliveryOrderForm({ onBack, existingDO, initialDat
                 onBack={onBack}
                 onSave={handleSave}
                 isSaving={isSaving}
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -284,7 +285,7 @@ export default function MobileDeliveryOrderForm({ onBack, existingDO, initialDat
                                 <div className="flex items-center gap-2 mb-2">
                                     <span
                                         className="text-[10px] font-black px-2 py-0.5 rounded-lg flex-shrink-0"
-                                        style={{ background: `${ACCENT}20`, color: ACCENT }}
+                                        style={{ background: `color-mix(in srgb, ${ACCENT} 12%, transparent)`, color: ACCENT }}
                                     >#{it.no}</span>
                                     <input type="text" value={it.itemCode}
                                         onChange={e => setItemField(it.id, 'itemCode', e.target.value)}
@@ -337,7 +338,7 @@ export default function MobileDeliveryOrderForm({ onBack, existingDO, initialDat
                             style={{
                                 border: `1.5px dashed ${ACCENT}`,
                                 color: ACCENT,
-                                background: `${ACCENT}08`,
+                                background: `color-mix(in srgb, ${ACCENT} 3%, transparent)`,
                             }}
                         >
                             <Plus size={16} /> Add Item

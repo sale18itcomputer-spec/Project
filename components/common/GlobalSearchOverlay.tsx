@@ -13,6 +13,7 @@ import InvoiceWindowContent from '../windows/content/InvoiceWindowContent';
 import ServiceTicketWindowContent from '../windows/content/ServiceTicketWindowContent';
 import SerialNumberWindowContent from '../windows/content/SerialNumberWindowContent';
 import { isServiceInvoice } from '../../utils/serviceInvoice';
+import { Z } from '../../lib/zIndex';
 
 /**
  * A serializable descriptor for a search hit. It carries everything needed to
@@ -481,7 +482,7 @@ const GlobalSearchOverlay: React.FC<{ open: boolean; onClose: () => void }> = ({
     let lastGroup = '';
 
     return (
-        <div className="fixed inset-0 z-[500] flex items-start justify-center pt-[12vh] px-4" onKeyDown={handleKeyDown}>
+        <div style={{ zIndex: Z.COMMAND }} className="fixed inset-0 flex items-start justify-center pt-[12vh] px-4" onKeyDown={handleKeyDown}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
             <div
                 role="dialog"

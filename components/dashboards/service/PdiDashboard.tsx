@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { PdiRecord } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
-import { ClipboardCheck, Search, Pencil, Trash2, ArrowRightToLine, WrapText, Scissors } from 'lucide-react';
+import { ClipboardCheck, Pencil, Trash2, Plus } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import { useToast } from '../../../contexts/ToastContext';
 import { supabase } from '../../../lib/supabase';
@@ -16,6 +16,14 @@ import { usePermissions } from '../../../hooks/usePermissions';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import PdiWindowContent from '../../windows/content/PdiWindowContent';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const COLUMNS_VISIBILITY_KEY = 'limperial-pdi-columns-visibility';
 
@@ -41,14 +49,15 @@ const StatusBadge: React.FC<{ value: string; styleMap: Record<string, string> }>
 );
 
 const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
-  const { pdiRecords, setPdiRecords, loading } = useData();
+  const { pdiRecords, setPdiRecords, loading, error } = useData();
   const { addToast } = useToast();
   const { can } = usePermissions();
   const { openWindow } = useWindowManager();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState(initialFilter ?? 'All');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const debouncedSearch = useDebouncedValue(searchQuery);
+  const [statusFilter, setStatusFilter] = useState<string | null>(initialFilter ?? 'All');
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [recordToDelete, setRecordToDelete] = useState<PdiRecord | null>(null);
 
   const openPdiWindow = (id: string | null, initialReadOnly: boolean) => {
@@ -88,9 +97,11 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
 
   const filteredData = useMemo(() => {
     let data = pdiRecords ?? [];
-    if (statusFilter !== 'All') data = data.filter(r => r.status === statusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    // `null` is what StatusFilterBar writes when the active chip is cleared —
+    // it means the same thing as the 'All' chip: no status filter.
+    if (statusFilter && statusFilter !== 'All') data = data.filter(r => r.status === statusFilter);
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       data = data.filter(r =>
         r.pdi_no?.toLowerCase().includes(q) ||
         r.so_no?.toLowerCase().includes(q) ||
@@ -99,7 +110,7 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
       );
     }
     return data;
-  }, [pdiRecords, statusFilter, searchQuery]);
+  }, [pdiRecords, statusFilter, debouncedSearch]);
 
   const allColumns = useMemo<ColumnDef<PdiRecord>[]>(() => [
     {
@@ -152,67 +163,35 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
 
   const STATUS_FILTERS = ['All', 'Pending', 'In Progress', 'Completed', 'Failed'];
 
+  if (error) {
+    return <ErrorState title="Could not load PDI records" message={error} />;
+  }
+
   return (
     <div className="h-full flex flex-col">
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col gap-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <ClipboardCheck className="text-brand-500" size={20} />
-              PDI Records
-            </h2>
-            <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {filteredData.length} records
-            </span>
-          </div>
+      <DashboardHeader
+        title="PDI Records"
+        icon={<ClipboardCheck />}
+        subtitle={`${filteredData.length} records`}
+      >
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search PDI records..."
+          label="Search PDI records"
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-            <div className="relative w-full lg:w-64">
-              <input
-                type="text"
-                placeholder="Search PDI records..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-            </div>
+        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-                <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-              </div>
-              <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-              <PermissionGate module="pdi_records" action="create">
-                <button
-                  onClick={handleOpenNew}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm"
-                >
-                  <span className="text-xl leading-none">+</span> New PDI
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
+        <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
 
-        <div className="flex gap-1 flex-wrap">
-          {STATUS_FILTERS.map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-md border text-sm font-semibold transition ${
-                statusFilter === s
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </header>
+        <PermissionGate module="pdi_records" action="create">
+          <Button variant="success" onClick={handleOpenNew} aria-label="New PDI">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New PDI</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 overflow-hidden p-4">
         <DataTable
@@ -224,25 +203,29 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
           initialSort={{ key: 'pdi_date', direction: 'descending' }}
           cellWrapStyle={cellWrapStyle}
           mobilePrimaryColumns={['pdi_no', 'company_name', 'status']}
+          emptyState={{
+            title: 'No PDI records yet',
+            description: 'Pre-delivery inspections you log for outgoing units will appear here.',
+          }}
           renderRowActions={(row) => (
             <div className="flex items-center gap-1">
               <PermissionGate module="pdi_records" action="edit">
-                <button
+                <IconButton
+                  label="Edit PDI record"
+                  tone="primary"
                   onClick={e => { e.stopPropagation(); handleEditPdi(row); }}
-                  className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                  title="Edit"
                 >
-                  <Pencil size={15} />
-                </button>
+                  <Pencil size={15} aria-hidden="true" />
+                </IconButton>
               </PermissionGate>
               <PermissionGate module="pdi_records" action="delete">
-                <button
+                <IconButton
+                  label="Delete PDI record"
+                  tone="danger"
                   onClick={e => { e.stopPropagation(); handleDeleteRequest(row); }}
-                  className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                  title="Delete"
                 >
-                  <Trash2 size={15} />
-                </button>
+                  <Trash2 size={15} aria-hidden="true" />
+                </IconButton>
               </PermissionGate>
             </div>
           )}
@@ -255,6 +238,14 @@ const PdiDashboard: React.FC<{ initialFilter?: string }> = ({ initialFilter }) =
           )}
         />
       </div>
+
+      {/* Status filter tabs */}
+      <StatusFilterBar
+        options={STATUS_FILTERS}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} records`}
+      />
 
       <ConfirmationModal
         isOpen={!!recordToDelete}

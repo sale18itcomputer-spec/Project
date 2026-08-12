@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Z } from '../../lib/zIndex';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -51,7 +52,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[1000010] flex justify-center items-center p-4 transition-all duration-300 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+      style={{ zIndex: Z.MODAL }}
+      className={`fixed inset-0 flex justify-center items-center p-4 transition-all duration-300 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
       onClick={isLoading ? undefined : onClose}
       aria-modal="true"
       role="dialog"
@@ -104,10 +106,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             className={`w-full sm:w-auto justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${variant === 'danger' ? 'bg-rose-600 hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-500/20' : 'bg-amber-600 hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20'}`}
           >
             {isLoading && (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Loader2 className="animate-spin h-4 w-4" aria-hidden="true" />
             )}
             {confirmText}
           </button>

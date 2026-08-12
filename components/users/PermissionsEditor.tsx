@@ -121,7 +121,7 @@ const SectionHeader: React.FC<{
       className={`
         shrink-0 whitespace-nowrap text-[10px] font-semibold px-2.5 py-0.5 rounded-full border transition-all
         ${allEnabled
-          ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
+          ? 'bg-primary text-primary-foreground border-brand-600 hover:bg-brand-700'
           : someEnabled
           ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700'
           : 'bg-muted text-muted-foreground border-border hover:bg-accent hover:text-foreground'

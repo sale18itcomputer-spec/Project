@@ -3,12 +3,12 @@
 import React, { useState, useMemo } from 'react';
 import { PurchaseOrder } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { formatDisplayDate } from "../../../utils/time";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import PurchaseOrderWindowContent from "../../windows/content/PurchaseOrderWindowContent";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { ClipboardList, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Warehouse } from 'lucide-react';
+import { ClipboardList, Pencil, Plus, Trash2, Copy, Loader2, Warehouse } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useToast } from "../../../contexts/ToastContext";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -20,15 +20,23 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import IconButton from "../../ui/icon-button";
+import { Button } from "../../ui/button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 const PURCHASE_ORDER_COLUMNS_VISIBILITY_KEY = 'limperial-purchase-order-columns-visibility';
 
 const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
-    const { purchaseOrders, setPurchaseOrders, pricelist, vendorPricelist, loading } = useData();
+    const { purchaseOrders, setPurchaseOrders, pricelist, vendorPricelist, loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const { openWindow } = useWindowManager();
     const { addToast } = useToast();
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const { currentUser } = useAuth();
@@ -157,8 +165,8 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
     const filteredData = useMemo(() => {
         let data = purchaseOrders || [];
 
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const q = debouncedSearch.toLowerCase();
             data = data.filter(item =>
                 item.po_number.toLowerCase().includes(q) ||
                 (item.vendor_name || '').toLowerCase().includes(q) ||
@@ -167,7 +175,7 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
         }
 
         return data;
-    }, [purchaseOrders, searchQuery]);
+    }, [purchaseOrders, debouncedSearch]);
 
     const allColumns = useMemo<ColumnDef<PurchaseOrder>[]>(() => [
         {
@@ -251,51 +259,35 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
         );
     }
 
+    if (error) {
+        return <ErrorState title="Could not load purchase orders" message={error} />;
+    }
+
     return (
         <div className="h-full flex flex-col">
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <ClipboardList className="text-brand-500" />
-                        Purchase Orders
-                    </h2>
-                    <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                        {filteredData.length} items
-                    </span>
-                </div>
+            <DashboardHeader
+                title="Purchase Orders"
+                icon={<ClipboardList />}
+                subtitle={`${filteredData.length} items`}
+            >
+                <SearchInput
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search POs..."
+                    label="Search purchase orders"
+                />
 
-                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                    <div className="relative w-full lg:w-64">
-                        <input
-                            type="text"
-                            placeholder="Search POs..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-muted border-transparent text-sm rounded-lg focus:ring-2 focus:ring-brand-500 block w-full pl-10 p-2.5 transition"
-                        />
-                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-1.5 rounded ${cellWrapStyle === 'clip' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                        </div>
+                <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
 
-                        <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-
-                        <PermissionGate module="purchase_orders" action="create">
-                          <button
-                            onClick={handleNewPO}
-                            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm"
-                          >
-                            <span className="text-xl leading-none">+</span> New PO
-                          </button>
-                        </PermissionGate>
-                    </div>
-                </div>
-            </header>
+                <PermissionGate module="purchase_orders" action="create">
+                  <Button onClick={handleNewPO} aria-label="New purchase order">
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">New PO</span>
+                  </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className="flex-1 overflow-hidden p-4">
                 <DataTable
@@ -307,43 +299,45 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
                     initialSort={{ key: 'order_date', direction: 'descending' }}
                     cellWrapStyle={cellWrapStyle}
                     mobilePrimaryColumns={['po_number', 'vendor_name', 'grand_total', 'status']}
+                    emptyState={{
+                        title: 'No purchase orders yet',
+                        description: 'Purchase orders you raise will appear here.',
+                    }}
                     renderRowActions={(row) => (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                             {/* Convert to Inventory — shown for Approved/Completed POs */}
                             {(row.status === 'Approved' || row.status === 'Completed') && (
-                                <button
+                                <IconButton
+                                    label="Convert to Inventory"
                                     onClick={(e) => { e.stopPropagation(); handleConvertToInventory(row); }}
                                     disabled={convertingId === row.id}
-                                    className="p-2 text-muted-foreground hover:text-emerald-500 transition hover:bg-emerald-500/10 rounded-full disabled:opacity-50"
-                                    title="Convert to Inventory"
                                 >
                                     {convertingId === row.id
-                                        ? <Loader2 size={16} className="animate-spin" />
-                                        : <Warehouse size={16} />}
-                                </button>
+                                        ? <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                                        : <Warehouse size={16} aria-hidden="true" />}
+                                </IconButton>
                             )}
-                            <button
+                            <IconButton
+                                label="Edit purchase order"
+                                tone="primary"
                                 onClick={(e) => { e.stopPropagation(); handleEditPO(row); }}
-                                className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                                title="Edit"
                             >
-                                <Pencil size={16} />
-                            </button>
-                            <button
+                                <Pencil size={16} aria-hidden="true" />
+                            </IconButton>
+                            <IconButton
+                                label="Duplicate purchase order"
                                 onClick={(e) => { e.stopPropagation(); handleDuplicatePO(row); }}
                                 disabled={isDuplicating}
-                                className="p-2 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
-                                title="Duplicate"
                             >
-                                {isDuplicating ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
-                            </button>
-                            <button
+                                {isDuplicating ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                            </IconButton>
+                            <IconButton
+                                label="Delete purchase order"
+                                tone="danger"
                                 onClick={(e) => { e.stopPropagation(); handleDeleteRequest(row); }}
-                                className="p-2 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                                title="Delete"
                             >
-                                <Trash2 size={16} />
-                            </button>
+                                <Trash2 size={16} aria-hidden="true" />
+                            </IconButton>
                         </div>
                     )}
                     renderRowContextMenu={(row) => (

@@ -225,7 +225,7 @@ const PricelistCombobox: React.FC<{
                 disabled={disabled}
             />
             {isOpen && !disabled && mergedResults.length > 0 && (
-                <div className="absolute z-[9999] w-[480px] mt-1 bg-card rounded-md shadow-lg border border-border">
+                <div className="absolute z-[1400] w-[480px] mt-1 bg-card rounded-md shadow-lg border border-border">
                     <ScrollArea className="max-h-80">
                         {/* Section headers when both sources present */}
                         {mergedResults.some(r => r.source === 'inventory') && (
@@ -924,9 +924,9 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
             <button
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-all shadow-sm shadow-brand-500/20 disabled:bg-muted min-w-[110px] justify-center"
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold rounded-lg bg-brand-600 hover:bg-primary text-primary-foreground transition-all shadow-sm shadow-primary/20 disabled:bg-muted min-w-[110px] justify-center"
             >
-                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save SO'}
+                {isSubmitting ? <Spinner size="sm" color="current" /> : 'Save SO'}
             </button>
         </div>
     );
@@ -998,7 +998,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-brand-500 rounded-full" />
+                                <div className="w-1 h-5 bg-primary rounded-full" />
                                 <h3 className="text-sm font-bold text-foreground">Sale Order Information</h3>
                             </div>
                             <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md">
@@ -1097,7 +1097,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                         onChange={(e) => { if (e.target.checked) { handleAddSoftware(option); } else { handleRemoveSoftware(option); } }}
                                                         className="rounded border-border text-brand-600 focus:ring-brand-500"
                                                     />
-                                                    <span className={`text-sm ${selectedSoftware.includes(option) ? 'text-brand-500 font-medium' : 'text-foreground'}`}>{option}</span>
+                                                    <span className={`text-sm ${selectedSoftware.includes(option) ? 'text-primary font-medium' : 'text-foreground'}`}>{option}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -1200,7 +1200,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                 <textarea
                                                                     value={item.description}
                                                                     onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
+                                                                    className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-none"
                                                                     rows={2}
                                                                     placeholder="Add clear note..."
                                                                 />
@@ -1218,18 +1218,18 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                     </div>
                                                                     <div className="flex-[1.5] min-w-[160px]">
                                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Model</label>
-                                                                        <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)} className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-all" />
+                                                                        <input type="text" value={item.modelName} onChange={e => handleItemChange(item.id, 'modelName', e.target.value)} className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-all" />
                                                                     </div>
                                                                 </div>
 
                                                                 <div className="flex flex-wrap gap-3 mb-3">
                                                                     <div className="w-20">
                                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Qty</label>
-                                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
+                                                                        <input type="number" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', e.target.value)} className="w-full h-9 px-2 text-center text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-colors" />
                                                                     </div>
                                                                     <div className="w-28">
                                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Unit Price</label>
-                                                                        <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-muted-foreground/40 transition-colors" />
+                                                                        <input type="number" step="0.01" value={item.unitPrice} onChange={e => handleItemChange(item.id, 'unitPrice', e.target.value)} className="w-full h-9 px-2 text-right text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 hover:border-muted-foreground/40 transition-colors" />
                                                                     </div>
                                                                     <div className="flex-1 text-right pt-4">
                                                                         <div className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-0.5">Total Amount</div>
@@ -1249,7 +1249,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                         <div className="flex items-center gap-1 bg-muted p-0.5 rounded border border-border">
                                                                             <List className="w-2.5 h-2.5 text-muted-foreground/40 ml-1 mr-0.5" />
                                                                             {BULLET_TYPES.map(bt => (
-                                                                                <button key={bt.label} type="button" onClick={() => applyBullet(item.id, bt.char)} className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-brand-500 rounded transition-all">
+                                                                                <button key={bt.label} type="button" onClick={() => applyBullet(item.id, bt.char)} className="px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-card hover:text-primary rounded transition-all">
                                                                                     {bt.label === 'None' ? 'None' : bt.char.trim() || '∅'}
                                                                                 </button>
                                                                             ))}
@@ -1258,7 +1258,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                                     <textarea
                                                                         value={item.description}
                                                                         onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                                                                        className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
+                                                                        className="w-full text-sm p-3 rounded-lg border border-border focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all bg-input text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px]"
                                                                         rows={3}
                                                                         placeholder="Detailed product description..."
                                                                     />
@@ -1270,7 +1270,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                             })}
 
                                             <div className="flex gap-3 pt-2">
-                                                <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                                                <button type="button" onClick={addItem} className="flex-1 py-2.5 rounded-lg border border-dashed border-brand-500/30 text-primary bg-brand-500/5 hover:bg-brand-500/10 hover:border-brand-500 font-semibold text-sm transition-all flex items-center justify-center gap-2">
                                                     <span>+ Add Product Line</span>
                                                 </button>
                                                 <button type="button" onClick={addDescriptionRow} className="flex-1 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground bg-muted hover:bg-muted/80 hover:border-muted-foreground/30 font-semibold text-sm transition-all flex items-center justify-center gap-2">
@@ -1292,7 +1292,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                                                 </div>
                                                 <div className="flex justify-between items-center pt-3 border-t border-border mt-2">
                                                     <span className="text-base text-foreground font-extrabold uppercase tracking-wide">Grand Total</span>
-                                                    <span className="text-xl text-brand-500 font-black">{formatCurrency(totals.grandTotal)}</span>
+                                                    <span className="text-xl text-primary font-black">{formatCurrency(totals.grandTotal)}</span>
                                                 </div>
                                             </div>
                                         </div>

@@ -13,6 +13,7 @@ import {
     SlidersHorizontal, RefreshCw, ArrowUpDown, FilterX,
 } from 'lucide-react';
 import { cn } from "../../../lib/utils";
+import SearchInput from '../../common/SearchInput';
 
 interface PendingWorkItem extends Omit<BasePendingWorkItem, 'icon'> {
     iconType: 'FileText' | 'ShoppingCart' | 'Briefcase' | 'FileCode' | 'Calendar';
@@ -425,21 +426,13 @@ const PendingWorks: React.FC = () => {
                 {showFilters && (
                     <div className="px-4 py-3 border-t border-border/50 space-y-3 bg-muted/20">
                         {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                            <input
-                                type="text"
-                                placeholder="Search title, company, status…"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pl-8 pr-8 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                            />
-                            {searchQuery && (
-                                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                                    <X className="h-3 w-3" />
-                                </button>
-                            )}
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onValueChange={setSearchQuery}
+                            placeholder="Search title, company, status…"
+                            label="Search pending works"
+                            containerClassName="w-full lg:w-full"
+                        />
 
                         {/* Sort */}
                         <div className="flex items-center gap-1.5 flex-wrap">

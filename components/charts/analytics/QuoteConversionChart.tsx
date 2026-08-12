@@ -229,7 +229,7 @@ const QuoteConversionChart: React.FC<Props> = ({ data }) => {
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${
       active
-        ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+        ? 'bg-primary text-primary-foreground border-brand-500 shadow-sm'
         : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'
     }`;
 
@@ -237,7 +237,7 @@ const QuoteConversionChart: React.FC<Props> = ({ data }) => {
 
   return (
     <div
-      className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden"
+      className={`${showTable ? '' : 'chart-container'} bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden`}
       style={{ height: showTable ? 'auto' : '500px' }}
     >
       {/* Top accent */}
@@ -253,7 +253,7 @@ const QuoteConversionChart: React.FC<Props> = ({ data }) => {
           <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${
             trend === 'up'   ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
             trend === 'down' ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20' :
-                               'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                               'bg-muted text-muted-foreground'
           }`}>
             <TrendIcon className="w-3 h-3" />
             <span className="hidden sm:inline ml-1">

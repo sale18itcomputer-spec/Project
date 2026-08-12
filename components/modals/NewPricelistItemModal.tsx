@@ -212,7 +212,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                     </button>
                     <div className="flex items-center gap-3">
                         <button type="button" onClick={onClose} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200 shadow-sm">Close</button>
-                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
+                        <button type="button" onClick={() => setIsReadOnly(false)} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
                             <Pencil className="w-5 h-5" /> Edit
                         </button>
                     </div>
@@ -220,7 +220,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
             ) : (
                 <div className="flex justify-end gap-3 w-full">
                     <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200">Cancel</button>
-                    <button type="submit" form={formId} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
+                    <button type="submit" form={formId} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
                         <Check className="w-5 h-5" />
                         {submitText}
                     </button>

@@ -60,7 +60,7 @@ const FindReplaceBar: React.FC<FindReplaceBarProps> = ({
         disabled={!canReplace}
         onClick={() => onReplaceAll(findText, replaceText)}
         title={findText && matchCount > 0 && replaceableCount === 0 ? 'No matches in editable columns' : undefined}
-        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
       >
         Replace All
       </button>

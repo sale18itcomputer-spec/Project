@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
+import { Z } from '../../lib/zIndex';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -40,10 +41,10 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
 
   if (typeof window === 'undefined') return null;
   return createPortal(
-    <div className={`fixed inset-0 z-[99999] flex items-center justify-center p-4 transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+    <div style={{ zIndex: Z.MODAL }} className={`fixed inset-0 flex items-center justify-center p-4 transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
       {/* Professional Backdrop */}
       <div
-        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
 
@@ -84,7 +85,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
                 href={actionButtonLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 bg-brand-600 text-white h-11 rounded-xl font-bold hover:bg-brand-700 transition-all active:scale-[0.98] shadow-sm"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground h-11 rounded-xl font-bold hover:bg-brand-700 transition-all active:scale-[0.98] shadow-sm"
               >
                 {actionButtonText}
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -92,7 +93,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
             ) : (
               <button
                 onClick={onAction || onClose}
-                className="w-full flex items-center justify-center gap-2 bg-brand-600 text-white h-11 rounded-xl font-bold hover:bg-brand-700 transition-all active:scale-[0.98] shadow-sm"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground h-11 rounded-xl font-bold hover:bg-brand-700 transition-all active:scale-[0.98] shadow-sm"
               >
                 {actionButtonText}
                 <ArrowRight className="w-3.5 h-3.5" />

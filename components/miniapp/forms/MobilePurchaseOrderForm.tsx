@@ -13,8 +13,10 @@ import {
     MobileFormHeader, MobileFormSection, MobileField,
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,
 } from './MobileFormBase';
+// Accent follows the active theme (and the user's accent picker) instead
+// of the per-form hardcoded hex this file used to declare.
+const ACCENT = 'hsl(var(--primary))';
 
-const ACCENT = '#f59e0b';
 const STATUS_OPTIONS = ['Draft', 'Approved', 'Sent', 'Completed', 'Cancelled'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
 const TAX_OPTIONS = ['VAT', 'NON-VAT'];
@@ -189,7 +191,6 @@ export default function MobilePurchaseOrderForm({ onBack, existingPO, initialDat
                 onBack={onBack}
                 onSave={handleSave}
                 isSaving={isSaving}
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -260,7 +261,7 @@ export default function MobilePurchaseOrderForm({ onBack, existingPO, initialDat
                             >
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-[10px] font-black px-2 py-0.5 rounded-lg flex-shrink-0"
-                                        style={{ background: `${ACCENT}20`, color: ACCENT }}>
+                                        style={{ background: `color-mix(in srgb, ${ACCENT} 12%, transparent)`, color: ACCENT }}>
                                         #{it.line_number}
                                     </span>
                                     <input type="text" value={it.item_number}
@@ -306,7 +307,7 @@ export default function MobilePurchaseOrderForm({ onBack, existingPO, initialDat
                         ))}
                         <button type="button" onClick={() => { haptic('light'); addItem(); }}
                             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-bold active:opacity-70"
-                            style={{ border: `1.5px dashed ${ACCENT}`, color: ACCENT, background: `${ACCENT}08` }}>
+                            style={{ border: `1.5px dashed ${ACCENT}`, color: ACCENT, background: `color-mix(in srgb, ${ACCENT} 3%, transparent)` }}>
                             <Plus size={16} /> Add Item
                         </button>
                     </div>

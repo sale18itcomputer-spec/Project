@@ -110,7 +110,7 @@ const RecurringTab: React.FC<{ accounts: ChartOfAccount[] }> = ({ accounts }) =>
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
                     </button>
                     <button onClick={() => setShowForm(v => !v)}
-                        className="flex items-center gap-1.5 h-9 px-3 text-sm rounded-lg bg-brand-600 text-white hover:bg-brand-700 font-medium">
+                        className="flex items-center gap-1.5 h-9 px-3 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-brand-700 font-medium">
                         <PlusCircle size={15} /> New Template
                     </button>
                 </div>
@@ -167,7 +167,7 @@ const RecurringTab: React.FC<{ accounts: ChartOfAccount[] }> = ({ accounts }) =>
                             Debits ${fmt(totalDr)} · Credits ${fmt(totalCr)} {balanced ? '✓ balanced' : totalDr > 0 ? '· not balanced' : ''}
                         </span>
                         <button onClick={save} disabled={saving || !balanced}
-                            className="h-9 px-4 text-sm rounded-lg bg-brand-600 text-white hover:bg-brand-700 font-medium disabled:opacity-40">
+                            className="h-9 px-4 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-brand-700 font-medium disabled:opacity-40">
                             {saving ? 'Saving…' : 'Save Template'}
                         </button>
                     </div>
@@ -202,14 +202,14 @@ const RecurringTab: React.FC<{ accounts: ChartOfAccount[] }> = ({ accounts }) =>
                                     <td className="px-4 py-2.5 text-muted-foreground tabular-nums">{t.last_generated_date || '—'}</td>
                                     <td className="px-4 py-2.5 text-center">
                                         <button onClick={() => toggleActive(t)}
-                                            className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${t.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+                                            className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${t.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}>
                                             {t.is_active ? 'Active' : 'Paused'}
                                         </button>
                                     </td>
                                     <td className="px-4 py-2.5">
                                         <div className="flex items-center justify-end gap-1.5">
                                             <button onClick={() => generate(t)} disabled={busy[t.id!]}
-                                                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40" title="Post a journal entry from this template dated today">
+                                                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-brand-700 disabled:opacity-40" title="Post a journal entry from this template dated today">
                                                 <Play size={12} /> Post Now
                                             </button>
                                             <button onClick={() => remove(t)} className="text-muted-foreground hover:text-red-500 p-1" title="Delete template"><Trash2 size={14} /></button>

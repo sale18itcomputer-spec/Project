@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { haptic } from '@/lib/miniapp/telegramShare';
 import type { PricelistItem } from '@/types';
+import { Z } from '../../../lib/zIndex';
+import { useSearchSelect } from '../../../hooks/useSearchSelect';
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 export function MobileFormHeader({
@@ -194,17 +196,25 @@ export function MobileSearchSelect({
     options: string[];
     placeholder?: string;
 }) {
-    const [open, setOpen] = useState(false);
-    const [q, setQ] = useState('');
-    const ref = useRef<HTMLDivElement>(null);
-
-    const filtered = options.filter(o => o.toLowerCase().includes(q.toLowerCase())).slice(0, 60);
+    // Open/query/filter/dismiss logic is shared with FormSearchSelect. The hook
+    // also supplies the outside-click and Escape dismissal this component was
+    // missing — it declared a container ref but never attached a handler, so
+    // tapping away left the sheet open.
+    const {
+        isOpen: open, query: q, setQuery: setQ, containerRef: ref, filtered, toggle, select,
+    } = useSearchSelect({
+        options,
+        value,
+        onChange,
+        limit: 60,
+        onSelected: () => haptic('light'),
+    });
 
     return (
         <div ref={ref} className="relative">
             <button
                 type="button"
-                onClick={() => { haptic('light'); setOpen(p => !p); setQ(''); }}
+                onClick={() => { haptic('light'); toggle(); }}
                 className="w-full text-left text-[13px] py-1.5 flex items-center gap-1"
                 style={{ color: value ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground) / 0.5)' }}
             >
@@ -213,7 +223,7 @@ export function MobileSearchSelect({
             </button>
             {open && (
                 <div
-                    className="absolute left-0 right-0 top-full mt-1 rounded-xl z-50 overflow-hidden shadow-xl"
+                    className="absolute left-0 right-0 top-full mt-1 rounded-xl z-[1400] overflow-hidden shadow-xl"
                     style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', maxHeight: '240px' }}
                 >
                     <div className="p-2 border-b" style={{ borderColor: 'hsl(var(--border) / 0.5)' }}>
@@ -233,7 +243,7 @@ export function MobileSearchSelect({
                             <button
                                 key={o}
                                 type="button"
-                                onPointerDown={() => { onChange(o); setOpen(false); haptic('light'); }}
+                                onPointerDown={() => select(o)}
                                 className="w-full text-left px-3 py-2.5 text-[12px] active:bg-muted transition-colors"
                                 style={{
                                     color: o === value ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
@@ -291,8 +301,8 @@ function PricelistSearch({
 
     return (
         <div
-            className="fixed inset-0 z-[200] flex flex-col"
-            style={{ background: 'hsl(var(--background))' }}
+            className="fixed inset-0 flex flex-col"
+            style={{ background: 'hsl(var(--background))', zIndex: Z.DRAWER }}
         >
             {/* Header */}
             <div
@@ -446,7 +456,7 @@ export function MobileLineItemCard({
                     {/* number badge */}
                     <span
                         className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0"
-                        style={{ background: `${accentColor}25`, color: accentColor }}
+                        style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}
                     >
                         {item.no}
                     </span>
@@ -477,7 +487,7 @@ export function MobileLineItemCard({
                             type="button"
                             onClick={() => { haptic('light'); setShowPricelist(true); }}
                             className="w-7 h-7 flex items-center justify-center rounded-lg active:opacity-60 flex-shrink-0"
-                            style={{ background: `${accentColor}18`, color: accentColor }}
+                            style={{ background: `color-mix(in srgb, ${accentColor} 9%, transparent)`, color: accentColor }}
                         >
                             <Search size={12} />
                         </button>
@@ -571,9 +581,9 @@ export function MobileLineItemCard({
                         {/* Amount bar */}
                         <div
                             className="rounded-xl px-3 py-2 flex items-center justify-between"
-                            style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}30` }}
+                            style={{ background: `color-mix(in srgb, ${accentColor} 7%, transparent)`, border: `1px solid color-mix(in srgb, ${accentColor} 19%, transparent)` }}
                         >
-                            <span className="text-[11px] font-semibold" style={{ color: `${accentColor}cc` }}>
+                            <span className="text-[11px] font-semibold" style={{ color: `color-mix(in srgb, ${accentColor} 80%, transparent)` }}>
                                 {Number(item.qty) || 0} × {currency}{Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                             <span className="text-[14px] font-black" style={{ color: accentColor }}>
@@ -652,7 +662,7 @@ export function MobileItemsSection({
                 <div className="flex items-center gap-1.5">
                     <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: `${accentColor}20`, color: accentColor }}
+                        style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor }}
                     >
                         {items.length} item{items.length !== 1 ? 's' : ''}
                     </span>
@@ -701,7 +711,7 @@ export function MobileItemsSection({
                 {/* Grand total */}
                 <div
                     className="flex items-center justify-between px-4 py-3.5"
-                    style={{ background: `${accentColor}0e` }}
+                    style={{ background: `color-mix(in srgb, ${accentColor} 5%, transparent)` }}
                 >
                     <span className="text-[13px] font-bold text-foreground">Grand Total</span>
                     <span className="text-[18px] font-black" style={{ color: accentColor }}>

@@ -112,7 +112,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                 autoComplete="off"
             />
             {open && results.length > 0 && (
-                <div className="absolute z-[9999] left-0 w-[440px] mt-1 bg-card rounded-md shadow-xl border border-border">
+                <div className="absolute z-[1400] left-0 w-[440px] mt-1 bg-card rounded-md shadow-xl border border-border">
                     <ScrollArea className="max-h-72">
                         {hasVendor && (
                             <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400 select-none">
@@ -605,7 +605,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                     >
                         <Download size={14} /> Download PDF
                     </button>
-                    <button type="button" onClick={handleSave} disabled={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-8 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 min-w-[100px] flex items-center justify-center text-sm disabled:opacity-50">
+                    <button type="button" onClick={handleSave} disabled={isSaving} className="bg-primary hover:brightness-110 text-primary-foreground font-bold py-2 px-8 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 min-w-[100px] flex items-center justify-center text-sm disabled:opacity-50">
                         {isSaving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={14} className="mr-2" /> Save</>}
                     </button>
                 </div>

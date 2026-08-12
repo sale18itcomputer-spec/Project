@@ -5,9 +5,9 @@ import { PricelistItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useB2B } from "../../../contexts/B2BContext";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { parseSheetValue } from "../../../utils/formatters";
-import { LayoutGrid, Table, ListTree, ChevronDown, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { LayoutGrid, Table, ListTree, ChevronDown, Pencil, Plus, Tags } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import { PermissionGate } from '../../common/PermissionGate';
@@ -22,6 +22,13 @@ import { Badge } from "../../ui/badge";
 import PricelistFilterBar from "../components/PricelistFilterBar";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import RowActionMenuItems from "../../common/RowActionMenuItems";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import { Button } from "../../ui/button";
+import IconButton from "../../ui/icon-button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 const PriceCell: React.FC<{ value: string; currency?: PricelistItem['Currency'] }> = ({ value, currency }) => {
     const num = parseSheetValue(value);
@@ -243,11 +250,12 @@ const B2BPricelistDashboard: React.FC = () => {
 
     const { handleNavigation, navigation } = useNavigation();
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [renderStep, setRenderStep] = useState(0);
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip' | 'nowrap'>('wrap');
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('wrap');
 
     useEffect(() => {
         if (!loading) {
@@ -291,8 +299,8 @@ const B2BPricelistDashboard: React.FC = () => {
         if (brandFilter.length > 0) {
             data = data.filter(item => item.Brand && brandFilter.includes(item.Brand));
         }
-        if (searchQuery) {
-            const lowerQuery = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const lowerQuery = debouncedSearch.toLowerCase();
             data = data.filter(item =>
                 Object.values(item).some(val =>
                     String(val).toLowerCase().includes(lowerQuery)
@@ -300,7 +308,7 @@ const B2BPricelistDashboard: React.FC = () => {
             );
         }
         return data;
-    }, [pricelist, searchQuery, categoryFilter, brandFilter]);
+    }, [pricelist, debouncedSearch, categoryFilter, brandFilter]);
 
     const processedFilteredData: ProcessedPricelistItem[] = useMemo(() => {
         return filteredData.map(item => {
@@ -406,14 +414,7 @@ const B2BPricelistDashboard: React.FC = () => {
     ];
 
     if (error) {
-        return (
-            <div className="p-6 md:p-8">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-                    <p className="font-bold">Error</p>
-                    <p>Could not load pricelist data: {error}</p>
-                </div>
-            </div>
-        );
+        return <ErrorState title="Could not load the B2B pricelist" message={error} />;
     }
 
     const renderContent = () => {
@@ -430,28 +431,32 @@ const B2BPricelistDashboard: React.FC = () => {
                             mobilePrimaryColumns={['Model', 'Brand', 'End User Price', 'Status']}
                             cellWrapStyle={cellWrapStyle}
                             highlightedCheck={(row) => !!row.Promotion}
+                            emptyState={{
+                                title: 'No B2B products yet',
+                                description: 'Products you add to the B2B pricelist will appear here.',
+                            }}
                             renderRowActions={(row) => (
                                 <div className="flex items-center gap-1">
-                                    <button
+                                    <IconButton
+                                        label="View details"
+                                        tone="primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleViewItem(row);
                                         }}
-                                        className="p-2 text-muted-foreground hover:text-brand-500 transition-colors"
-                                        title="View Details"
                                     >
-                                        <Info size={16} />
-                                    </button>
-                                    <button
+                                        <Info size={16} aria-hidden="true" />
+                                    </IconButton>
+                                    <IconButton
+                                        label="Edit product"
+                                        tone="primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleEditItem(row);
                                         }}
-                                        className="p-2 text-muted-foreground hover:text-brand-500 transition-colors"
-                                        title="Edit Product"
                                     >
-                                        <Pencil size={16} />
-                                    </button>
+                                        <Pencil size={16} aria-hidden="true" />
+                                    </IconButton>
                                 </div>
                             )}
                             renderRowContextMenu={(row) => (
@@ -501,112 +506,53 @@ const B2BPricelistDashboard: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border flex-shrink-0">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold text-foreground tracking-tight">B2B Master Pricelist</h1>
-                            <Badge variant="outline" className="bg-brand-500/10 text-brand-500 border-brand-500/20 flex items-center gap-1 py-0.5 px-2">
-                                <ShieldCheck className="w-3 h-3" />
-                                Secure Access
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <p className="flex items-center gap-1.5">
-                                <span className="font-bold text-foreground">{filteredData.length}</span> items in inventory
-                            </p>
-                            <span className="w-1 h-1 bg-muted rounded-full"></span>
-                            <p className="flex items-center gap-1.5 text-brand-600 font-medium">
-                                <TrendingUp className="w-3.5 h-3.5" />
-                                Live Dealer Rates
-                            </p>
-                        </div>
-                    </div>
+            <DashboardHeader
+                title="B2B Master Pricelist"
+                icon={<Tags />}
+                subtitle={
+                    <span className="inline-flex items-center gap-3">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                            <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                            Secure Access
+                        </span>
+                        <span>
+                            <span className="font-bold text-foreground">{filteredData.length}</span> items in inventory
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-primary">
+                            <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                            Live Dealer Rates
+                        </span>
+                    </span>
+                }
+            >
+                <SearchInput
+                    id="pricelist-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search pricelist..."
+                    label="Search pricelist"
+                />
 
-                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center mt-2 lg:mt-0">
-                        <div className="relative w-full lg:w-64 flex-shrink-0">
-                            <label htmlFor="pricelist-search" className="sr-only">Search</label>
-                            <input
-                                id="pricelist-search"
-                                type="text"
-                                placeholder="Search pricelist..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/60 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                            />
-                            <svg className="w-5 h-5 text-muted-foreground/60 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
+                <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
 
-                        <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-                            <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-                            {viewMode === 'table' && (
-                                <>
-                                    <div className="bg-muted p-1 rounded-lg flex items-center gap-1 border border-border flex-shrink-0">
-                                        <button
-                                            onClick={() => setCellWrapStyle('overflow')}
-                                            title="Overflow"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                                                ? 'bg-background shadow-sm text-brand-500'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'overflow'}
-                                        >
-                                            <ArrowRightToLine className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('wrap')}
-                                            title="Wrap"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                                                ? 'bg-background shadow-sm text-brand-500'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'wrap'}
-                                        >
-                                            <WrapText className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('clip')}
-                                            title="Clip"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                                                ? 'bg-background shadow-sm text-brand-500'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'clip'}
-                                        >
-                                            <Scissors className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setCellWrapStyle('nowrap')}
-                                            title="No Wrap (Horizontal)"
-                                            className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'nowrap'
-                                                ? 'bg-background shadow-sm text-brand-500'
-                                                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                                                }`}
-                                            aria-pressed={cellWrapStyle === 'nowrap'}
-                                        >
-                                            <LayoutGrid className="w-4 h-4 rotate-90" />
-                                        </button>
-                                    </div>
-                                    <DataTableColumnToggle
-                                        allColumns={allColumns}
-                                        visibleColumns={visibleColumns}
-                                        onColumnToggle={handleColumnToggle}
-                                    />
-                                </>
-                            )}
-                            <PermissionGate module="b2b_pricelist" action="create">
-                              <button
-                                onClick={handleNewItem}
-                                className="flex-shrink-0 flex items-center justify-center bg-brand-700 hover:bg-brand-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all duration-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_15px_-3px_rgba(0,0,0,0.3)] transform hover:-translate-y-0.5 active:translate-y-0 ml-auto lg:ml-0"
-                              >
-                                <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                                <span className="hidden sm:inline">Add B2B Product</span>
-                              </button>
-                            </PermissionGate>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                {viewMode === 'table' && (
+                    <>
+                        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+                        <DataTableColumnToggle
+                            allColumns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onColumnToggle={handleColumnToggle}
+                        />
+                    </>
+                )}
+
+                <PermissionGate module="b2b_pricelist" action="create">
+                    <Button onClick={handleNewItem} aria-label="Add B2B product">
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">Add B2B Product</span>
+                    </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className={`flex-1 overflow-hidden transition-opacity duration-500 ${renderStep > 0 ? 'opacity-100' : 'opacity-0'} flex flex-col`}>
                 <div className="p-4 sm:p-6 space-y-4">

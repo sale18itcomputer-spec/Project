@@ -210,7 +210,7 @@ const CompanyWindowContent: React.FC<CompanyWindowContentProps> = ({ windowId, c
                     <button type="button" onClick={() => closeWindow(windowId)} className="font-semibold py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted text-sm">
                         {isEditMode ? 'Close' : 'Cancel'}
                     </button>
-                    <button type="submit" form={`company-window-form-${windowId}`} disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
+                    <button type="submit" form={`company-window-form-${windowId}`} disabled={isSubmitting} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-1.5" />}
                         {isEditMode ? 'Save Changes' : 'Save Company'}
                     </button>

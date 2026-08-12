@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useAssistantChat } from '../../hooks/useAssistantChat';
 import { ChatThread, EmptyHint, KnowledgePanel, SkillsPanel, AttachmentChips, DropOverlay } from '../assistant/ChatParts';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Z } from '../../lib/zIndex';
 
 const ROWS_MIME = 'application/x-lpt-rows';
 const WINDOW_KEY = 'lpt-ai-chat-window';
@@ -21,6 +23,7 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(v,
 const AiChatWidget: React.FC = () => {
   const router = useRouter();
   const c = useAssistantChat({ persist: false });
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<'kb' | 'skills' | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -144,31 +147,51 @@ const AiChatWidget: React.FC = () => {
   return (
     <>
       {!open && (
+        // The FAB used to be `bottom-5 right-5 z-[85]` while the mobile tab bar
+        // is 60px tall at z-index 80 — so on every phone it sat on top of the
+        // right-most tab. It now clears the bar (MinimizedDock already did this)
+        // and sits below nav chrome in the z scale.
         <button type="button" onClick={() => setOpen(true)} aria-label="Open AI assistant"
           onDragOver={acceptDrag} onDrop={(e) => onDropData(e, true)}
-          className={`fixed bottom-5 right-5 z-[85] h-14 w-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg shadow-brand-600/30 flex items-center justify-center transition hover:scale-105 active:scale-95 ${dragActive ? 'ring-4 ring-brand-600/40 scale-110 animate-pulse' : ''}`}>
-          <Bot size={26} />
+          style={{ zIndex: Z.FAB }}
+          className={`fixed right-4 lg:right-5 bottom-[calc(60px+env(safe-area-inset-bottom)+16px)] lg:bottom-5 h-14 w-14 rounded-full bg-primary hover:brightness-110 text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center transition hover:scale-105 active:scale-95 ${dragActive ? 'ring-4 ring-primary/40 scale-110' : ''}`}>
+          <Bot size={26} aria-hidden="true" />
         </button>
       )}
 
       {open && (
+        // Desktop keeps the draggable/resizable floating window. On a phone
+        // that interaction makes no sense and the 410x620 fallback overflowed
+        // a 375px viewport, so the panel becomes a full-height sheet that
+        // respects the safe areas and sits above the tab bar.
         <div onDragOver={acceptDrag} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDrop={(e) => onDropData(e, false)}
-          style={win ? { left: win.x, top: win.y, width: win.w, height: win.h } : { right: 20, bottom: 20, width: 410, height: 620 }}
-          className={`fixed z-[85] flex flex-col rounded-2xl border bg-card shadow-2xl overflow-hidden animate-slide-up ${dragActive ? 'border-brand-600 ring-2 ring-brand-600/30' : 'border-border'}`}>
+          style={
+            isMobile
+              ? {
+                zIndex: Z.FAB,
+                left: 0, right: 0, bottom: 0,
+                top: 'calc(56px + env(safe-area-inset-top))',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }
+              : win
+                ? { zIndex: Z.FAB, left: win.x, top: win.y, width: win.w, height: win.h }
+                : { zIndex: Z.FAB, right: 20, bottom: 20, width: 410, height: 620 }
+          }
+          className={`fixed flex flex-col border bg-card shadow-2xl overflow-hidden animate-slide-up ${isMobile ? 'rounded-t-2xl' : 'rounded-2xl'} ${dragActive ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}>
           <DropOverlay show={dropHover} />
           {/* Header (drag handle) */}
-          <div onPointerDown={startMove} onPointerMove={onMove} onPointerUp={endMove}
-            className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/40 cursor-move select-none touch-none">
-            <div className="h-8 w-8 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0"><Bot size={18} /></div>
+          <div onPointerDown={isMobile ? undefined : startMove} onPointerMove={isMobile ? undefined : onMove} onPointerUp={isMobile ? undefined : endMove}
+            className={`flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/40 select-none ${isMobile ? '' : 'cursor-move touch-none'}`}>
+            <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"><Bot size={18} aria-hidden="true" /></div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground leading-tight">AI Assistant</p>
               <p className="text-[11px] text-muted-foreground leading-tight">{agentOn ? 'Agent · looks up data & drafts changes' : 'Self-hosted · private'}</p>
             </div>
-            <button type="button" onClick={expand} title="Open full chat" className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><Maximize2 size={16} /></button>
+            <button type="button" onClick={expand} title="Open full chat" aria-label="Open full chat" className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><Maximize2 size={16} /></button>
             {c.messages.length > 0 && (
-              <button type="button" onClick={() => c.setMessages([])} title="Clear conversation" className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><Trash2 size={16} /></button>
+              <button type="button" onClick={() => c.setMessages([])} title="Clear conversation" aria-label="Clear conversation" className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><Trash2 size={16} /></button>
             )}
-            <button type="button" onClick={() => setOpen(false)} title="Close" className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><X size={18} /></button>
+            <button type="button" onClick={() => setOpen(false)} title="Close" aria-label="Close assistant" className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"><X size={18} /></button>
           </div>
 
           {/* Model + agent toggle */}
@@ -190,7 +213,7 @@ const AiChatWidget: React.FC = () => {
             )}
             <button type="button" onClick={c.toggleAgent} disabled={!c.agentEnabled}
               title={!c.agentEnabled ? 'Agent not available' : c.agent ? 'Agent mode on' : 'Turn on Agent mode'}
-              className={`shrink-0 flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-md border transition disabled:opacity-40 disabled:cursor-not-allowed ${c.agent ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground hover:bg-muted'}`}>
+              className={`shrink-0 flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-md border transition disabled:opacity-40 disabled:cursor-not-allowed ${c.agent ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>
               <Sparkles size={13} /> Agent
             </button>
           </div>
@@ -236,17 +259,20 @@ const AiChatWidget: React.FC = () => {
                     disabled={!c.model && c.models.length > 0}
                     className="flex-1 resize-none max-h-32 text-sm bg-input-background border border-border rounded-xl px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
                   <button type="button" onClick={c.send} disabled={(!c.input.trim() && c.pendingAttachments.length === 0) || c.sending || !c.model} aria-label="Send"
-                    className="h-10 w-10 shrink-0 rounded-xl bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="h-10 w-10 shrink-0 rounded-xl bg-primary hover:brightness-110 text-primary-foreground flex items-center justify-center transition disabled:opacity-40 disabled:cursor-not-allowed">
                     {c.sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                   </button>
                 </div>
               </div>
             </>
           )}
-          <div onPointerDown={startResize} onPointerMove={onMove} onPointerUp={endMove}
-            className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none z-[60]" aria-label="Resize window">
-            <span className="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2 border-muted-foreground/50" />
-          </div>
+          {/* Resize grip is desktop-only — the mobile panel is a fixed sheet. */}
+          {!isMobile && (
+            <div onPointerDown={startResize} onPointerMove={onMove} onPointerUp={endMove}
+              className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none" style={{ zIndex: Z.BASE }} aria-label="Resize window">
+              <span className="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2 border-muted-foreground/50" />
+            </div>
+          )}
         </div>
       )}
     </>

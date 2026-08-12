@@ -7,9 +7,9 @@ import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import ContactWindowContent from "../../windows/content/ContactWindowContent";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
-import { Users, LayoutGrid, Table, ArrowRightToLine, WrapText, Scissors, Pencil } from 'lucide-react';
+import { Users, LayoutGrid, Table, Pencil, Plus } from 'lucide-react';
 import ViewToggle from "../../common/ViewToggle";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import ItemActionsMenu from "../../common/ItemActionsMenu";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { deleteRecord } from "../../../services/api";
@@ -20,6 +20,13 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import { IconButton } from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 interface ContactDashboardProps {
   initialFilter?: string;
@@ -73,7 +80,7 @@ const ContactCard: React.FC<{
   onDelete: () => void
 }> = ({ contact, onView, onEdit, onDelete }) => {
   return (
-    <div className="w-full bg-card rounded-lg shadow-sm border border-border hover:shadow-md hover:border-brand-500/30 transition-all duration-200 relative group flex flex-col">
+    <div className="w-full bg-card rounded-lg shadow-sm border border-border hover:shadow-md hover:border-primary/30 transition-all duration-200 relative group flex flex-col">
       <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <ItemActionsMenu onView={onView} onEdit={onEdit} onDelete={onDelete} module="contacts" />
       </div>
@@ -84,7 +91,7 @@ const ContactCard: React.FC<{
         <div className="min-w-0 flex-grow">
           <p className="font-semibold text-foreground truncate">{contact.Name}</p>
           <p className="text-sm text-muted-foreground truncate mt-0.5">{contact.Role || 'No role specified'}</p>
-          <p className="text-sm text-brand-500 font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
+          <p className="text-sm text-primary font-medium truncate mt-2 hover:underline">{contact['Company Name']}</p>
         </div>
         {(contact.totalAmountUSD > 0 || contact.totalAmountKHR > 0) && (
           <div className="mt-3 pt-3 border-t border-border">
@@ -104,9 +111,10 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
   const { openWindow } = useWindowManager();
   const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState(initialFilter || '');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [companyFilter, setCompanyFilter] = useState<string>('All Companies');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
 
   const handleDeleteRequest = (contact: ProcessedContact) => setContactToDelete(contact);
@@ -208,8 +216,8 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
       data = data.filter(c => c['Company Name'] === companyFilter);
     }
 
-    if (searchQuery) {
-      const lowercasedQuery = searchQuery.toLowerCase();
+    if (debouncedSearch) {
+      const lowercasedQuery = debouncedSearch.toLowerCase();
       data = data.filter(item =>
         ['Name', 'Company Name', 'Email', 'Role'].some(key =>
           String(item[key as keyof Contact] ?? '').toLowerCase().includes(lowercasedQuery)
@@ -218,7 +226,7 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
     }
 
     return data;
-  }, [processedData, searchQuery, companyFilter]);
+  }, [processedData, debouncedSearch, companyFilter]);
 
   const allColumns = useMemo<ColumnDef<ProcessedContact>[]>(() => [
     {
@@ -332,90 +340,62 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
 
 
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load contact data: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load contact data" message={error} />;
   }
 
 
   return (
     <div className="h-full flex flex-col">
       {/* Header & Filter Section */}
-      <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">contacts</span>
-          </div>
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-            <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
-              <div className="relative w-full lg:w-64 flex-shrink-0">
-                <label htmlFor="contact-search" className="sr-only">Search</label>
-                <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <input
-                  id="contact-search"
-                  type="text"
-                  placeholder="Search name, role, company..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-                />
-              </div>
-              <select
-                value={companyFilter}
-                onChange={(e) => setCompanyFilter(e.target.value)}
-                className="bg-muted border-transparent text-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 focus:bg-background focus:border-brand-500 block p-2.5 transition w-full md:w-48 lg:w-56"
-              >
-                {companyOptions.map(opt => <option key={opt} value={opt} className="bg-card text-foreground">{opt}</option>)}
-              </select>
-            </div>
+      <DashboardHeader
+        title="Contacts"
+        icon={<Users />}
+        subtitle={`${filteredData.length} contacts`}
+      >
+        <SearchInput
+          id="contact-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search name, role, company..."
+          label="Search contacts"
+        />
 
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-              {viewMode === 'list' && (
-                <>
-                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setCellWrapStyle('overflow')} title="Overflow" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'overflow'} >
-                      <ArrowRightToLine className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('wrap')} title="Wrap" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'wrap'} >
-                      <WrapText className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setCellWrapStyle('clip')} title="Clip" className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip' ? 'bg-background shadow-sm text-brand-500' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`} aria-pressed={cellWrapStyle === 'clip'} >
-                      <Scissors className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <DataTableColumnToggle
-                    allColumns={allColumns}
-                    visibleColumns={visibleColumns}
-                    onColumnToggle={handleColumnToggle}
-                  />
-                </>
-              )}
-              <PermissionGate module="contacts" action="create">
-                <button
-                  onClick={() => openContactWindow(null)}
-                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                >
-                  <svg className="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-      </div>
+        <select
+          value={companyFilter}
+          onChange={(e) => setCompanyFilter(e.target.value)}
+          aria-label="Filter by company"
+          className="h-9 flex-shrink-0 rounded-md border border-border bg-muted px-2 text-sm text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring dark:[color-scheme:dark]"
+        >
+          {companyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+
+        <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
+
+        {viewMode === 'list' && (
+          <>
+            <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+            <DataTableColumnToggle
+              allColumns={allColumns}
+              visibleColumns={visibleColumns}
+              onColumnToggle={handleColumnToggle}
+            />
+          </>
+        )}
+
+        <PermissionGate module="contacts" action="create">
+          <Button onClick={() => openContactWindow(null)} aria-label="New contact">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       {/* Main Content */}
       <div className={`flex-1 min-h-0 ${viewMode === 'list' ? 'overflow-hidden p-4' : 'overflow-auto p-6'}`}>
         {loading ? <Spinner size="lg" /> : (
-          filteredData.length > 0 ? (
-            viewMode === 'grid' ? (
+          viewMode === 'grid' ? (
+            filteredData.length > 0 ? (
               <div className="p-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredData.map(contact => (
@@ -430,44 +410,49 @@ const ContactDashboard: React.FC<ContactDashboardProps> = ({ initialFilter }) =>
                 </div>
               </div>
             ) : (
-              <div className="h-full">
-                <DataTable
-                  tableId="contact-table"
-                  data={filteredData}
-                  columns={displayedColumns}
-                  loading={loading}
-                  onRowClick={(row) => openContactWindow(row['Customer ID'])}
-                  initialSort={{ key: 'Customer ID', direction: 'descending' }}
-                  highlightedCheck={(contact) => contact.status === 'Active'}
-                  mobilePrimaryColumns={['Name', 'Company Name', 'status']}
-                  cellWrapStyle={cellWrapStyle}
-                  renderRowActions={(row) => (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openContactWindow(row['Customer ID']);
-                      }}
-                      className="p-2 text-muted-foreground hover:text-brand-500 transition"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  )}
-                  renderRowContextMenu={(row) => (
-                    <RowActionMenuItems
-                      onOpenWindow={() => openContactWindow(row['Customer ID'])}
-                      onView={() => openContactWindow(row['Customer ID'])}
-                      onEdit={() => openContactWindow(row['Customer ID'])}
-                    />
-                  )}
-                />
+              <div className="pt-16">
+                <EmptyState illustration={<Users className="w-16 h-16 text-muted-foreground/30" />}>
+                  <h3 className="mt-2 text-sm font-semibold text-foreground">No contacts found</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or filters, or create a new contact.</p>
+                </EmptyState>
               </div>
             )
           ) : (
-            <div className="pt-16">
-              <EmptyState illustration={<Users className="w-16 h-16 text-muted-foreground/30" />}>
-                <h3 className="mt-2 text-sm font-semibold text-foreground">No contacts found</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or filters, or create a new contact.</p>
-              </EmptyState>
+            <div className="h-full">
+              <DataTable
+                tableId="contact-table"
+                data={filteredData}
+                columns={displayedColumns}
+                loading={loading}
+                onRowClick={(row) => openContactWindow(row['Customer ID'])}
+                initialSort={{ key: 'Customer ID', direction: 'descending' }}
+                highlightedCheck={(contact) => contact.status === 'Active'}
+                mobilePrimaryColumns={['Name', 'Company Name', 'status']}
+                cellWrapStyle={cellWrapStyle}
+                emptyState={{
+                  title: 'No contacts found',
+                  description: 'Try adjusting your search or filters, or create a new contact.',
+                }}
+                renderRowActions={(row) => (
+                  <IconButton
+                    label="Open contact"
+                    tone="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openContactWindow(row['Customer ID']);
+                    }}
+                  >
+                    <Pencil size={16} aria-hidden="true" />
+                  </IconButton>
+                )}
+                renderRowContextMenu={(row) => (
+                  <RowActionMenuItems
+                    onOpenWindow={() => openContactWindow(row['Customer ID'])}
+                    onView={() => openContactWindow(row['Customer ID'])}
+                    onEdit={() => openContactWindow(row['Customer ID'])}
+                  />
+                )}
+              />
             </div>
           )
         )}

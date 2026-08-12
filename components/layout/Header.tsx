@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { prepare, layout } from '@chenglou/pretext';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Bell, Search, LogOut, AlertTriangle, FileText, ShoppingCart, Briefcase, Calendar, MapPin, ShieldCheck, Lock, PanelLeft } from 'lucide-react';
 
@@ -16,6 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { formatRelativeTime } from "../../utils/time";
 import { getInitials } from "../../utils/formatters";
 import B2BToggle from "../common/B2BToggle";
+import { getRouteLabel, getRouteShortLabel } from "../../lib/routes";
+import { Z } from "../../lib/zIndex";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -29,7 +30,7 @@ const OfflineIndicator = () => (
   <div
     role="status"
     aria-live="assertive"
-    className="ml-4 flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full animate-pulse"
+    className="ml-4 flex items-center gap-2 bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-full"
   >
     <AlertTriangle className="h-4 w-4" />
     <span className="hidden sm:inline">You are currently offline</span>
@@ -46,7 +47,7 @@ const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) =>
     case 'invoice': return <FileText className="w-5 h-5 text-blue-600" />;
     case 'meeting': return <Calendar className="w-5 h-5 text-sky-600" />;
     case 'site_survey': return <MapPin className="w-5 h-5 text-red-600" />;
-    default: return <Bell className="w-5 h-5 text-slate-600" />;
+    default: return <Bell className="w-5 h-5 text-muted-foreground" />;
   }
 }
 
@@ -59,11 +60,33 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
   const [isAvatarError, setAvatarError] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  useEffect(() => { setAvatarError(false); }, [currentUser]);
+
+  // On desktop the scrolling element is <main>, not the window — so a
+  // `window.scroll` listener never fired and the header's elevation state was
+  // permanently false. Listening on `document` in the capture phase picks up
+  // scroll from any element, which covers both the mobile (window) and
+  // desktop (<main>) cases without the header needing a ref into the layout.
   useEffect(() => {
-    setAvatarError(false);
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const handleScroll = (e: Event) => {
+      const target = e.target;
+      const top =
+        target === document || target === document.documentElement
+          ? window.scrollY
+          : (target as HTMLElement)?.scrollTop ?? 0;
+      setScrolled(top > 10);
+    };
+    document.addEventListener('scroll', handleScroll, true);
+    return () => document.removeEventListener('scroll', handleScroll, true);
+  }, []);
+
+  // Cache-bust the avatar once per user, not once per render. This used to be
+  // `${avatarUrl}&t=${new Date().getTime()}` evaluated inline in JSX, so every
+  // Header re-render (a notification tick, a connectivity change) minted a new
+  // URL and the browser re-downloaded the image, making the avatar flicker.
+  const avatarSrc = useMemo(() => {
+    const url = currentUser ? transformToDirectImageUrl(currentUser.Picture) : '';
+    return url ? `${url}&t=${Date.now()}` : '';
   }, [currentUser]);
 
   const handleNotificationClick = (notification: Notification) => {
@@ -85,84 +108,42 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
     }
   };
 
+  // Breadcrumb and mobile title both read lib/routes.ts. They used to keep
+  // two private path→label maps that had drifted from each other and from the
+  // sidebar, and seven live routes (/pos, /assistant, /service-invoices,
+  // /service-tickets, /pdi-records, /serial-numbers, /spare-parts) were absent
+  // from the mobile map entirely — the phone header just read "Dashboard".
   const getBreadcrumbs = () => {
-    const root = <span className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors" onClick={() => router.push('/')}>Home</span>;
-    const separator = <span className="text-muted-foreground/40 mx-2">/</span>;
-
-    const pathMap: Record<string, string> = {
-      '/': 'Dashboard', '/dashboard': 'Dashboard',
-      '/projects': 'Pipelines', '/companies': 'Companies', '/contacts': 'Contacts',
-      '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys', '/meetings': 'Meetings',
-      '/quotations': 'Quotations', '/sale-orders': 'Sale Orders', '/pricelist': 'Pricelist',
-      '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
-      '/vendor-pricelist': 'Vendor Pricelist', '/purchase-orders': 'Purchase Orders',
-      '/invoices': 'Invoices', '/delivery-orders': 'Delivery Orders', '/receipts': 'Receipts',
-      '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice + DO',
-      '/inventory': 'Inventory', '/inquiries': 'Product Inquiries', '/consignment': 'Consignment',
-      '/service-tickets': 'Service Tickets', '/pdi-records': 'PDI Records',
-      '/serial-numbers': 'Serial Numbers', '/spare-parts': 'Spare Parts',
-      '/users': 'Users', '/pricing-calculator': 'Pricing Calculator', '/accounting': 'Accounting',
-    };
-    const current = pathMap[pathname] || 'Dashboard';
+    const root = (
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => router.push('/')}
+      >
+        Home
+      </button>
+    );
 
     if (pathname === '/') return root;
 
     return (
       <div className="flex items-center text-sm font-medium">
         {root}
-        {separator}
-        <span className="text-foreground">{current}</span>
+        <span className="text-muted-foreground/40 mx-2" aria-hidden="true">/</span>
+        <span className="text-foreground">{getRouteLabel(pathname)}</span>
       </div>
     );
   };
 
-  const avatarUrl = currentUser ? transformToDirectImageUrl(currentUser.Picture) : '';
-
   const isDashboard = pathname === '/';
-
-  /* Removed getTitle function as we are now using breadcrumbs for desktop and only simplified title for mobile, handled inline or via separate logic if needed. 
-     Wait, getTitle was used for mobile. Let's bringing it back or alternative. */
-
-  const mobileTitleRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    const el = mobileTitleRef.current;
-    if (!el) return;
-    const w = el.offsetWidth;
-    if (w === 0) return;
-    const title = el.textContent || '';
-    const sizes = [
-      { cls: 'text-lg', px: 18 },
-      { cls: 'text-base', px: 16 },
-      { cls: 'text-sm', px: 14 },
-    ] as const;
-    for (const s of sizes) {
-      const p = prepare(title, `600 ${s.px}px Inter`);
-      const { lineCount } = layout(p, w, 28);
-      if (lineCount <= 1) { el.className = el.className.replace(/text-(lg|base|sm)/, s.cls); return; }
-    }
-  }, [pathname]);
-
-  const getMobileTitle = () => {
-    const pathMap: Record<string, string> = {
-      '/dashboard': 'Dashboard', '/projects': 'Pipelines', '/companies': 'Companies',
-      '/contacts': 'Contacts', '/contact-logs': 'Contact Logs', '/site-surveys': 'Site Surveys',
-      '/meetings': 'Meetings', '/quotations': 'Quotations', '/sale-orders': 'Sale Orders',
-      '/pricelist': 'Pricelist', '/b2b-pricelist': 'B2B Pricelist', '/vendors': 'Vendors',
-      '/vendor-pricelist': 'Vendor Price', '/users': 'Users', '/purchase-orders': 'Purchase Orders',
-      '/invoices': 'Invoices', '/delivery-orders': 'Delivery Orders', '/receipts': 'Receipts',
-      '/collection': 'Collection', '/weekly-report': 'Weekly Report', '/invoice-do': 'Invoice+DO',
-      '/inventory': 'Inventory', '/inquiries': 'Inquiries', '/consignment': 'Consignment',
-      '/pricing-calculator': 'Calculator', '/accounting': 'Accounting',
-    };
-    return pathMap[pathname] || 'Dashboard';
-  };
+  const mobileTitle = getRouteShortLabel(pathname);
 
   const headerClasses = isMobile
     ? "mobile-nav"
-    : `flex-shrink-0 bg-background/80 backdrop-blur-sm h-14 px-4 sm:px-6 flex justify-between items-center z-[200] transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
+    : `flex-shrink-0 bg-background/80 backdrop-blur-sm h-14 px-4 sm:px-6 flex justify-between items-center transition-all duration-300 ${scrolled ? 'border-b shadow-sm' : 'border-b border-transparent'}`;
 
   return (
-    <header className={headerClasses}>
+    <header className={headerClasses} style={isMobile ? undefined : { zIndex: Z.NAV }}>
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
         <Button
@@ -189,8 +170,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
         )}
 
         <div className="flex flex-col justify-center">
-          {/* Show title on mobile, breadcrumbs on desktop */}
-          <h1 ref={mobileTitleRef} className={`${isMobile ? 'block text-lg font-semibold mobile-nav-title' : 'hidden'}`}>{getMobileTitle()}</h1>
+          {/* Show title on mobile, breadcrumbs on desktop. The title used to be
+              auto-fitted by measuring with pretext and rewriting el.className
+              via regex in an effect — React clobbered that on the next render.
+              `.mobile-nav-title` already truncates with an ellipsis. */}
+          <h1 className={`${isMobile ? 'block text-base font-semibold mobile-nav-title' : 'hidden'}`}>{mobileTitle}</h1>
           <div className="hidden lg:block">
             {getBreadcrumbs()}
           </div>
@@ -216,7 +200,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
         <Button
           variant="ghost"
           size="icon"
-          className="hidden sm:inline-flex text-muted-foreground hover:text-brand-600 transition-all duration-200 hover:bg-accent hover:scale-105"
+          className="hidden sm:inline-flex text-muted-foreground hover:text-primary transition-all duration-200 hover:bg-accent hover:scale-105"
           onClick={() => {
             window.dispatchEvent(new CustomEvent('lock-app'));
           }}
@@ -232,8 +216,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
                 <Bell className={unreadCount > 0 ? 'text-foreground' : ''} />
                 {unreadCount > 0 && (
                   <span className="absolute top-2.5 right-2 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 ring-2 ring-background"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive ring-2 ring-background"></span>
                   </span>
                 )}
               </Button>
@@ -242,7 +226,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
               <div className="p-4 flex justify-between items-center border-b bg-muted/30">
                 <span className="font-semibold text-sm">Notifications</span>
                 {notifications.length > 0 && (
-                  <button onClick={markAllAsRead} className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline transition-colors">Mark all as read</button>
+                  <button onClick={markAllAsRead} className="text-xs font-medium text-primary hover:underline transition-colors">Mark all as read</button>
                 )}
               </div>
               <div className="max-h-[28rem] overflow-y-auto custom-scrollbar">
@@ -251,15 +235,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
                     <DropdownMenuItem
                       key={n.id}
                       onClick={() => handleNotificationClick(n)}
-                      className={`flex items-start gap-3 p-4 cursor-pointer border-b last:border-0 hover:bg-muted/50 transition-colors ${n.read ? 'opacity-75 bg-background' : 'bg-brand-50/30'}`}
+                      className={`flex items-start gap-3 p-4 cursor-pointer border-b last:border-0 hover:bg-muted/50 transition-colors ${n.read ? 'opacity-75 bg-background' : 'bg-primary/5'}`}
                     >
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${n.read ? 'bg-muted text-muted-foreground' : 'bg-white ring-1 ring-border'}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${n.read ? 'bg-muted text-muted-foreground' : 'bg-background ring-1 ring-border'}`}>
                         <NotificationIcon type={n.type} />
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex justify-between items-start gap-2">
                           <p className={`text-sm leading-none ${n.read ? 'font-medium text-foreground/90' : 'font-semibold text-foreground'}`}>{n.title}</p>
-                          {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1"></span>}
+                          {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1"></span>}
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{n.description}</p>
                         <p className="text-[10px] text-muted-foreground/70 font-medium pt-1">{formatRelativeTime(n.timestamp)}</p>
@@ -281,12 +265,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen, isMobile, i
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full ring-2 ring-transparent hover:ring-brand-100 transition-all p-0 overflow-hidden" aria-label="Open user menu">
+              <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full ring-2 ring-transparent hover:ring-primary/30 transition-all p-0 overflow-hidden" aria-label="Open user menu">
                 <Avatar className="h-full w-full">
-                  {currentUser && avatarUrl && !isAvatarError ? (
-                    <AvatarImage src={`${avatarUrl}&t=${new Date().getTime()}`} alt={currentUser.Name} onError={() => setAvatarError(true)} className="object-cover" />
+                  {currentUser && avatarSrc && !isAvatarError ? (
+                    <AvatarImage src={avatarSrc} alt={currentUser.Name} onError={() => setAvatarError(true)} className="object-cover" />
                   ) : null}
-                  <AvatarFallback className="bg-brand-100 text-brand-700 font-bold">{currentUser ? getInitials(currentUser.Name) : '?'}</AvatarFallback>
+                  <AvatarFallback className="bg-primary/15 text-primary font-bold">{currentUser ? getInitials(currentUser.Name) : '?'}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>

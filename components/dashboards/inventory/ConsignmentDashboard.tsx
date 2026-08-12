@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    PackageCheck, Search, RefreshCw, MapPin, Calendar,
+    PackageCheck, RefreshCw, MapPin, Calendar,
     User, FileText, ChevronDown, ArrowLeftRight,
-    Package, AlertCircle, PlusCircle, X, Check, Edit2,
+    Package, PlusCircle, X, Check, Edit2,
 } from 'lucide-react';
 import {
     fetchConsignments, updateConsignment, updateConsignmentItem,
@@ -14,6 +14,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/ToastContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import ConsignmentWindowContent from '@/components/windows/content/ConsignmentWindowContent';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import ErrorState from '../../common/ErrorState';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -29,7 +36,7 @@ const ITEM_STATUS_CLS: Record<string, string> = {
 
 const VOUCHER_STATUS_CLS: Record<string, string> = {
     'Open':   'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700',
-    'Closed': 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-600',
+    'Closed': 'bg-muted text-muted-foreground border border-border',
 };
 
 const BRAND_COLORS: Record<string, string> = {
@@ -44,7 +51,7 @@ const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 function StatusBadge({ status, map }: { status: string; map: Record<string, string> }) {
-    const cls = map[status] ?? 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600';
+    const cls = map[status] ?? 'bg-muted text-muted-foreground border border-border';
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${cls}`}>
             {status}
@@ -55,7 +62,7 @@ function StatusBadge({ status, map }: { status: string; map: Record<string, stri
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon: React.ReactNode }) {
     return (
         <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-            <div className="shrink-0 w-9 h-9 rounded-lg bg-brand-600/10 flex items-center justify-center text-brand-600 dark:text-brand-400">
+            <div className="shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 {icon}
             </div>
             <div className="min-w-0">
@@ -85,9 +92,10 @@ export default function ConsignmentDashboard() {
 
     // ── Filters ───────────────────────────────────────────────────────────────
     const [search, setSearch]             = useState('');
+    const debouncedSearch                 = useDebouncedValue(search);
     const [filterBrand, setFilterBrand]   = useState('');
     const [filterCategory, setFilterCategory] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
     // ── Item status editing ───────────────────────────────────────────────────
     const [editingItemId, setEditingItemId]         = useState<string | null>(null);
@@ -142,12 +150,12 @@ export default function ConsignmentDashboard() {
         if (filterBrand    && item.brand    !== filterBrand)    return false;
         if (filterCategory && item.category !== filterCategory) return false;
         if (filterStatus   && item.status   !== filterStatus)   return false;
-        if (search) {
-            const q = search.toLowerCase();
+        if (debouncedSearch) {
+            const q = debouncedSearch.toLowerCase();
             return item.item_code.toLowerCase().includes(q) || item.product_name.toLowerCase().includes(q);
         }
         return true;
-    }), [allItems, filterBrand, filterCategory, filterStatus, search]);
+    }), [allItems, filterBrand, filterCategory, filterStatus, debouncedSearch]);
 
     const totalSent     = allItems.reduce((s, i) => s + i.qty_sent, 0);
     const totalReturned = allItems.reduce((s, i) => s + i.qty_returned, 0);
@@ -222,65 +230,54 @@ export default function ConsignmentDashboard() {
         </div>
     );
 
-    if (error) return (
-        <div className="flex items-center justify-center h-64 gap-2 text-destructive">
-            <AlertCircle size={18} /> <span>{error}</span>
-            <button onClick={load} className="ml-2 text-sm underline">Retry</button>
-        </div>
-    );
+    if (error) return <ErrorState title="Could not load consignments" message={error} onRetry={load} />;
 
     return (
-        <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
+        <div className="h-full flex flex-col">
 
             {/* ── Header ── */}
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-600/10 flex items-center justify-center text-brand-600 dark:text-brand-400">
-                        <PackageCheck size={20} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground leading-tight">Stock Consignment</h1>
-                        <p className="text-[12px] text-muted-foreground mt-0.5">
-                            Supplier stock on loan for showroom display — not LPT-owned inventory
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    {consignments.length > 1 && (
-                        <div className="relative">
-                            <select
-                                value={selectedId}
-                                onChange={e => { setSelectedId(e.target.value); setSearch(''); setFilterBrand(''); setFilterCategory(''); setFilterStatus(''); }}
-                                className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500"
-                            >
-                                {consignments.map(c => <option key={c.id} value={c.id}>{c.voucher_no}</option>)}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                        </div>
-                    )}
-                    <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-border bg-background hover:bg-accent/60 text-foreground transition-colors">
-                        <RefreshCw size={14} /> Refresh
-                    </button>
-                    {canCreate && (
-                        <button
-                            onClick={openConsignmentWindow}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors"
+            <DashboardHeader
+                title="Stock Consignment"
+                icon={<PackageCheck />}
+                subtitle="Supplier stock on loan for showroom display — not LPT-owned inventory"
+            >
+                {consignments.length > 1 && (
+                    <div className="relative flex-shrink-0">
+                        <select
+                            value={selectedId}
+                            onChange={e => { setSelectedId(e.target.value); setSearch(''); setFilterBrand(''); setFilterCategory(''); setFilterStatus(null); }}
+                            aria-label="Consignment voucher"
+                            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                         >
-                            <PlusCircle size={14} /> New Consignment
-                        </button>
-                    )}
-                </div>
-            </div>
+                            {consignments.map(c => <option key={c.id} value={c.id}>{c.voucher_no}</option>)}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    </div>
+                )}
+                <Button variant="outline" onClick={load} aria-label="Refresh consignments">
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                {canCreate && (
+                    <Button onClick={openConsignmentWindow} aria-label="New consignment">
+                        <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">New Consignment</span>
+                    </Button>
+                )}
+            </DashboardHeader>
+
+            <div className="flex-1 w-full overflow-y-auto p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
 
             {consignments.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                     <PackageCheck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No consignment records found</p>
                     {canCreate && (
-                        <button onClick={openConsignmentWindow} className="mt-3 text-sm text-brand-600 hover:underline">
-                            Create your first consignment
-                        </button>
+                        <div className="mt-3">
+                            <Button variant="link" onClick={openConsignmentWindow}>
+                                Create your first consignment
+                            </Button>
+                        </div>
                     )}
                 </div>
             ) : selected ? (
@@ -297,26 +294,27 @@ export default function ConsignmentDashboard() {
                                                 <select
                                                     value={voucherStatus}
                                                     onChange={e => setVoucherStatus(e.target.value)}
-                                                    className="appearance-none pl-2 pr-6 py-0.5 text-xs rounded border border-brand-500 bg-background text-foreground focus:outline-none"
+                                                    aria-label="Voucher status"
+                                                    className="appearance-none pl-2 pr-6 py-0.5 text-xs rounded border border-primary bg-background text-foreground focus:outline-none"
                                                 >
                                                     {VOUCHER_STATUSES.map(s => <option key={s}>{s}</option>)}
                                                 </select>
                                                 <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                                             </div>
-                                            <button onClick={saveVoucherStatus} disabled={savingVoucher} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
-                                                <Check size={13} />
-                                            </button>
-                                            <button onClick={() => setEditingVoucher(false)} className="p-1 rounded text-muted-foreground hover:bg-muted">
-                                                <X size={13} />
-                                            </button>
+                                            <IconButton label="Save voucher status" tone="primary" size="sm" onClick={saveVoucherStatus} disabled={savingVoucher}>
+                                                <Check size={13} aria-hidden="true" />
+                                            </IconButton>
+                                            <IconButton label="Cancel voucher status edit" size="sm" onClick={() => setEditingVoucher(false)}>
+                                                <X size={13} aria-hidden="true" />
+                                            </IconButton>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-1">
                                             <StatusBadge status={selected.status} map={VOUCHER_STATUS_CLS} />
                                             {canEdit && (
-                                                <button onClick={startEditVoucher} className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors ml-0.5">
-                                                    <Edit2 size={11} />
-                                                </button>
+                                                <IconButton label="Edit voucher status" size="sm" onClick={startEditVoucher} className="ml-0.5">
+                                                    <Edit2 size={11} aria-hidden="true" />
+                                                </IconButton>
                                             )}
                                         </div>
                                     )}
@@ -366,7 +364,7 @@ export default function ConsignmentDashboard() {
                                 {brandSummary.map(([brand, stat]) => {
                                     const inShow = stat.sent - stat.returned;
                                     const pct = stat.sent > 0 ? Math.round((inShow / stat.sent) * 100) : 0;
-                                    const cls = BRAND_COLORS[brand] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800/40 dark:text-gray-300';
+                                    const cls = BRAND_COLORS[brand] ?? 'bg-muted text-muted-foreground';
                                     return (
                                         <div key={brand} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
                                             <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${cls}`}>{brand}</span>
@@ -384,23 +382,24 @@ export default function ConsignmentDashboard() {
                     {/* ── Items Table ── */}
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                         <div className="p-4 border-b border-border flex flex-wrap items-center gap-2">
-                            <div className="relative flex-1 min-w-[180px] max-w-xs">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    placeholder="Search code or name…"
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                />
-                            </div>
+                            <SearchInput
+                                value={search}
+                                onValueChange={setSearch}
+                                placeholder="Search code or name…"
+                                label="Search consignment items"
+                                containerClassName="flex-1 min-w-[180px] max-w-xs lg:w-auto"
+                            />
                             <SelectFilter value={filterBrand}    onChange={setFilterBrand}    placeholder="All Brands"     options={brands} />
                             <SelectFilter value={filterCategory} onChange={setFilterCategory} placeholder="All Categories" options={categories} />
-                            <SelectFilter value={filterStatus}   onChange={setFilterStatus}   placeholder="All Statuses"   options={statuses} />
                             {(search || filterBrand || filterCategory || filterStatus) && (
-                                <button onClick={() => { setSearch(''); setFilterBrand(''); setFilterCategory(''); setFilterStatus(''); }} className="text-[12px] text-muted-foreground hover:text-foreground underline whitespace-nowrap">
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => { setSearch(''); setFilterBrand(''); setFilterCategory(''); setFilterStatus(null); }}
+                                    className="text-muted-foreground underline hover:text-foreground"
+                                >
                                     Clear filters
-                                </button>
+                                </Button>
                             )}
                             <span className="ml-auto text-[12px] text-muted-foreground whitespace-nowrap">
                                 {filtered.length} of {allItems.length} items
@@ -432,7 +431,7 @@ export default function ConsignmentDashboard() {
                                         </tr>
                                     ) : filtered.map((item, idx) => {
                                         const showroom = item.qty_sent - item.qty_returned;
-                                        const brandCls = BRAND_COLORS[item.brand] ?? 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600';
+                                        const brandCls = BRAND_COLORS[item.brand] ?? 'bg-muted text-muted-foreground border border-border';
                                         const isEditing = editingItemId === item.id;
                                         const isSaving  = savingItemId  === item.id;
 
@@ -458,7 +457,8 @@ export default function ConsignmentDashboard() {
                                                             max={item.qty_sent}
                                                             value={editingQtyReturned}
                                                             onChange={e => setEditingQtyReturned(Math.min(Number(e.target.value), item.qty_sent))}
-                                                            className="w-16 h-7 px-1.5 text-sm text-right rounded border border-brand-500 bg-background focus:outline-none"
+                                                            aria-label="Quantity returned"
+                                                            className="w-16 h-7 px-1.5 text-sm text-right rounded border border-primary bg-background text-foreground focus:outline-none"
                                                         />
                                                     ) : (
                                                         item.qty_returned || '—'
@@ -481,7 +481,8 @@ export default function ConsignmentDashboard() {
                                                                     setEditingStatus(e.target.value);
                                                                     if (e.target.value !== 'Transferred Back') setEditingQtyReturned(item.qty_returned);
                                                                 }}
-                                                                className="w-full appearance-none pl-2 pr-6 py-0.5 text-[11px] rounded border border-brand-500 bg-background text-foreground focus:outline-none"
+                                                                aria-label="Item status"
+                                                                className="w-full appearance-none pl-2 pr-6 py-0.5 text-[11px] rounded border border-primary bg-background text-foreground focus:outline-none"
                                                             >
                                                                 {ITEM_STATUSES.map(s => <option key={s}>{s}</option>)}
                                                             </select>
@@ -495,17 +496,17 @@ export default function ConsignmentDashboard() {
                                                     <td className="px-2 py-2.5">
                                                         {isEditing ? (
                                                             <div className="flex gap-1">
-                                                                <button onClick={() => saveItemStatus(item.id, item.qty_sent)} disabled={isSaving} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
-                                                                    <Check size={13} />
-                                                                </button>
-                                                                <button onClick={cancelEditItem} disabled={isSaving} className="p-1 rounded text-muted-foreground hover:bg-muted">
-                                                                    <X size={13} />
-                                                                </button>
+                                                                <IconButton label="Save item status" tone="primary" size="sm" onClick={() => saveItemStatus(item.id, item.qty_sent)} disabled={isSaving}>
+                                                                    <Check size={13} aria-hidden="true" />
+                                                                </IconButton>
+                                                                <IconButton label="Cancel item edit" size="sm" onClick={cancelEditItem} disabled={isSaving}>
+                                                                    <X size={13} aria-hidden="true" />
+                                                                </IconButton>
                                                             </div>
                                                         ) : (
-                                                            <button onClick={() => startEditItem(item)} className="p-1 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
-                                                                <Edit2 size={12} />
-                                                            </button>
+                                                            <IconButton label="Edit item status" size="sm" onClick={() => startEditItem(item)} className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100">
+                                                                <Edit2 size={12} aria-hidden="true" />
+                                                            </IconButton>
                                                         )}
                                                     </td>
                                                 )}
@@ -538,6 +539,18 @@ export default function ConsignmentDashboard() {
                 </>
             ) : null}
 
+            </div>
+
+            {/* ── Footer status filters ── */}
+            {selected && (
+                <StatusFilterBar
+                    options={[{ value: null, label: 'All' }, ...statuses]}
+                    active={filterStatus}
+                    onChange={setFilterStatus}
+                    summary={`${filtered.length} of ${allItems.length} items`}
+                />
+            )}
+
         </div>
     );
 }
@@ -549,8 +562,8 @@ function SelectFilter({ value, onChange, placeholder, options }: {
 }) {
     return (
         <div className="relative">
-            <select value={value} onChange={e => onChange(e.target.value)}
-                className="appearance-none pl-3 pr-7 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <select value={value} onChange={e => onChange(e.target.value)} aria-label={placeholder}
+                className="appearance-none pl-3 pr-7 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                 <option value="">{placeholder}</option>
                 {options.map(o => <option key={o} value={o}>{o}</option>)}
             </select>

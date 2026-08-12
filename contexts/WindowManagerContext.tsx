@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
+import { Z } from '../lib/zIndex';
 
 export type SnapZone = 'left' | 'right' | 'maximize' | null;
 
@@ -78,7 +79,20 @@ const DEFAULT_WIDTH = 896;
 const DEFAULT_HEIGHT = 720;
 const CASCADE_OFFSET = 32;
 const CASCADE_SLOTS = 6;
-const BASE_Z_INDEX = 10000;
+// Windows live in a bounded band of the app's z scale (see lib/zIndex.ts).
+// The counter increments on every open AND every focus, so without a ceiling a
+// long session would eventually push a window's z-index past the minimized
+// dock and the modal layer. `normalizeZ` compacts the band back down whenever
+// it is about to overflow, preserving stacking order.
+const BASE_Z_INDEX: number = Z.WINDOW;
+const MAX_Z_INDEX: number = Z.WINDOW + 180;
+
+/** Re-pack window z-indexes into BASE..BASE+n, preserving relative order. */
+const normalizeZ = (wins: ManagedWindow[]): ManagedWindow[] => {
+    const order = [...wins].sort((a, b) => a.zIndex - b.zIndex);
+    const rank = new Map(order.map((w, i) => [w.id, BASE_Z_INDEX + i]));
+    return wins.map(w => ({ ...w, zIndex: rank.get(w.id) ?? w.zIndex }));
+};
 
 /** A window's currently-rendered rect, accounting for edge-snapped (maximize/left/right) layouts. */
 export const getWindowRect = (win: ManagedWindow): WindowRect => {
@@ -95,13 +109,22 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
     const [windows, setWindows] = useState<ManagedWindow[]>([]);
     const [ghosts, setGhosts] = useState<GhostAnimation[]>([]);
     const zCounterRef = useRef(BASE_Z_INDEX);
+
+    /** Next z for a window being raised; compacts the band if it would overflow. */
+    const raise = useCallback((wins: ManagedWindow[]): { wins: ManagedWindow[]; z: number } => {
+        if (zCounterRef.current < MAX_Z_INDEX) return { wins, z: ++zCounterRef.current };
+        const packed = normalizeZ(wins);
+        zCounterRef.current = BASE_Z_INDEX + packed.length;
+        return { wins: packed, z: zCounterRef.current };
+    }, []);
     const ghostCounterRef = useRef(0);
 
     const openWindow = useCallback((input: OpenWindowInput) => {
         setWindows(prev => {
             const existing = prev.find(w => w.id === input.id);
             if (existing) {
-                return prev.map(w => w.id === input.id
+                const { wins, z } = raise(prev);
+                return wins.map(w => w.id === input.id
                     ? {
                         ...w,
                         title: input.title,
@@ -110,11 +133,12 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
                         onClose: input.onClose ?? w.onClose,
                         isMinimized: false,
                         isClosing: false,
-                        zIndex: ++zCounterRef.current,
+                        zIndex: z,
                     }
                     : w);
             }
 
+            const { wins: packed, z: newZ } = raise(prev);
             const width = input.initialWidth ?? DEFAULT_WIDTH;
             const height = input.initialHeight ?? DEFAULT_HEIGHT;
             const cascade = (prev.length % CASCADE_SLOTS) * CASCADE_OFFSET;
@@ -136,7 +160,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
                     height,
                 },
                 snapped: null,
-                zIndex: ++zCounterRef.current,
+                zIndex: newZ,
                 minWidth: input.minWidth ?? 400,
                 minHeight: input.minHeight ?? 300,
                 onClose: input.onClose ?? (() => {}),
@@ -144,9 +168,9 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
                 detachUrl: input.detachUrl,
                 headless: input.headless,
             };
-            return [...prev, win];
+            return [...packed, win];
         });
-    }, []);
+    }, [raise]);
 
     // Marks the window for its exit (fade/scale-out) animation; the frame removes
     // itself from state via removeWindow once that animation finishes.
@@ -175,7 +199,10 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
     }, []);
 
     const restoreWindow = useCallback((id: string, fromRect: WindowRect, toRect: WindowRect) => {
-        setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: false, zIndex: ++zCounterRef.current } : w));
+        setWindows(prev => {
+            const { wins, z } = raise(prev);
+            return wins.map(w => w.id === id ? { ...w, isMinimized: false, zIndex: z } : w);
+        });
         setGhosts(prev => [...prev, {
             ghostId: `ghost-${++ghostCounterRef.current}`,
             windowId: id,
@@ -183,7 +210,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
             fromRect,
             toRect,
         }]);
-    }, []);
+    }, [raise]);
 
     // Fills in the dock chip's rect once it has rendered, letting the minimize
     // ghost (created before the chip existed) know where to animate toward.
@@ -202,8 +229,11 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
     }, []);
 
     const focusWindow = useCallback((id: string) => {
-        setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: ++zCounterRef.current } : w));
-    }, []);
+        setWindows(prev => {
+            const { wins, z } = raise(prev);
+            return wins.map(w => w.id === id ? { ...w, zIndex: z } : w);
+        });
+    }, [raise]);
 
     const value: WindowManagerContextValue = {
         windows, ghosts, openWindow, closeWindow, removeWindow, updateWindow, minimizeWindow, restoreWindow, reportGhostTarget, removeGhost, focusWindow,

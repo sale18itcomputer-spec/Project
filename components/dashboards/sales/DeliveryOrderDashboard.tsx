@@ -3,15 +3,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DeliveryOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { useNavigation } from '../../../contexts/NavigationContext';
 import { useWindowManager } from '../../../contexts/WindowManagerContext';
 import DeliveryOrderWindowContent from '../../windows/content/DeliveryOrderWindowContent';
-import { Truck, Table, Columns, Info, Pencil, LayoutGrid, Search, Trash2, WrapText, ArrowRightToLine, Scissors, Plus } from 'lucide-react';
+import { Truck, Table, Columns, Info, Pencil, Trash2, Plus } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import Spinner from '../../common/Spinner';
-import { useWindowSize } from '../../../hooks/useWindowSize';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { deleteRecord, updateRecord } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ConfirmationModal from '../../modals/ConfirmationModal';
@@ -20,6 +20,15 @@ import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { StatusBadge } from '../../ui/status-badge';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import ViewToggle from '../../common/ViewToggle';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const DO_COLUMNS_KEY = 'limperial-do-columns-visibility';
 type ViewMode = 'table' | 'detail';
@@ -32,13 +41,13 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     const { addToast } = useToast();
     const [toDelete, setToDelete] = useState<DeliveryOrder | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>('Pending');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const { handleNavigation, navigation } = useNavigation();
     const { openWindow } = useWindowManager();
-    const { width } = useWindowSize();
-    const isMobile = width < 768;
+    const isMobile = useIsMobile();
 
     const selectedId = useMemo(() => {
         if (navigation.action === 'view') return navigation.id || null;
@@ -131,14 +140,14 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     const filteredData = useMemo(() => {
         let data = deliveryOrders || [];
         if (statusFilter) data = data.filter(d => d['Status'] === statusFilter);
-        if (!searchQuery) return data;
-        const q = searchQuery.toLowerCase();
+        if (!debouncedSearch) return data;
+        const q = debouncedSearch.toLowerCase();
         return data.filter(d =>
             ['DO No', 'Inv No', 'SO No', 'Company Name', 'Contact Name', 'Status', 'Created By'].some(
                 k => String(d[k] ?? '').toLowerCase().includes(q)
             )
         );
-    }, [deliveryOrders, searchQuery, statusFilter]);
+    }, [deliveryOrders, debouncedSearch, statusFilter]);
 
     const allColumns = useMemo<ColumnDef<DeliveryOrder>[]>(() => [
         {
@@ -165,7 +174,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                     <select
                         value={v}
                         onChange={e => handleStatusChange(row, e.target.value as DeliveryOrder['Status'])}
-                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer
+                        className={`bg-transparent border border-border rounded-md px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer
                             ${v === 'Pending' ? 'text-amber-500 bg-amber-500/10' : v === 'Delivered' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
                     >
                         <option className="text-foreground bg-card" value="Pending">Pending</option>
@@ -205,13 +214,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
-    if (error) return (
-        <div className="p-8">
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
-                <p className="font-bold">Error</p><p>Could not load delivery orders: {error}</p>
-            </div>
-        </div>
-    );
+    if (error) return <ErrorState title="Could not load delivery orders" message={error} />;
 
 
     const selectedDO = selectedId ? (deliveryOrders || []).find(d => d['DO No'] === selectedId) : null;
@@ -219,51 +222,34 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Truck className="w-5 h-5 text-brand-500" />
-                    <h1 className="text-xl font-bold text-foreground">Delivery Orders</h1>
-                </div>
-                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                    <div className="relative w-full lg:w-64">
-                        <input
-                            type="text" placeholder="Search delivery orders..."
-                            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground/40 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 transition shadow-sm"
-                        />
-                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
-                            {VIEW_OPTIONS.map(v => (
-                                <button key={v.id} onClick={() => setViewMode(v.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === v.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                                    {v.icon}<span className="hidden xl:inline">{v.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                        </div>
-                        <DataTableColumnToggle
-                            allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
-                            trigger={
-                                <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm flex-shrink-0">
-                                    <LayoutGrid className="w-4 h-4" /> View
-                                </button>
-                            }
-                        />
-                        <PermissionGate module="delivery_orders" action="create">
-                          <button onClick={handleNew}
-                            className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0">
-                            <Plus size={16} /> New DO
-                          </button>
-                        </PermissionGate>
-                    </div>
-                </div>
-            </header>
+            <DashboardHeader title="Delivery Orders" icon={<Truck />}>
+                <SearchInput
+                    id="delivery-order-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search delivery orders..."
+                    label="Search delivery orders"
+                />
+
+                <ViewToggle<ViewMode>
+                    views={VIEW_OPTIONS}
+                    activeView={viewMode}
+                    onViewChange={setViewMode}
+                />
+
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+                <DataTableColumnToggle
+                    allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
+                />
+
+                <PermissionGate module="delivery_orders" action="create">
+                  <Button onClick={handleNew} aria-label="New delivery order">
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">New DO</span>
+                  </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             {/* Body */}
             <div className="flex-1 min-h-0 overflow-hidden p-4">
@@ -274,11 +260,15 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                         initialSort={{ key: 'DO Date', direction: 'descending' }}
                         mobilePrimaryColumns={['DO No', 'Company Name', 'Status']}
                         cellWrapStyle={cellWrapStyle}
+                        emptyState={{
+                            title: 'No delivery orders yet',
+                            description: 'Delivery orders you create will appear here.',
+                        }}
                         renderRowActions={row => (
-                            <div className="flex items-center justify-center gap-3">
-                                <button onClick={e => { e.stopPropagation(); handleView(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="View"><Info size={16} /></button>
-                                <button onClick={e => { e.stopPropagation(); handleEdit(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="Edit"><Pencil size={16} /></button>
-                                <button onClick={e => { e.stopPropagation(); setToDelete(row); }} className="p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full" title="Delete"><Trash2 size={16} /></button>
+                            <div className="flex items-center justify-center gap-1">
+                                <IconButton label="View delivery order" tone="primary" onClick={e => { e.stopPropagation(); handleView(row); }}><Info size={16} aria-hidden="true" /></IconButton>
+                                <IconButton label="Edit delivery order" tone="primary" onClick={e => { e.stopPropagation(); handleEdit(row); }}><Pencil size={16} aria-hidden="true" /></IconButton>
+                                <IconButton label="Delete delivery order" tone="danger" onClick={e => { e.stopPropagation(); setToDelete(row); }}><Trash2 size={16} aria-hidden="true" /></IconButton>
                             </div>
                         )}
                         renderRowContextMenu={row => (
@@ -297,7 +287,7 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                             {filteredData.map(d => (
                                 <button key={d['DO No']}
                                     onClick={() => handleNavigation({ view: 'delivery-orders', action: 'view', id: d['DO No'] })}
-                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedId === d['DO No'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}>
+                                    className={`w-full text-left p-4 border-b border-border hover:bg-muted transition-colors ${selectedId === d['DO No'] ? 'bg-primary/10 border-r-4 border-r-primary' : ''}`}>
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-bold text-foreground">{d['DO No']}</span>
                                         <StatusBadge status={d['Status']} />
@@ -315,9 +305,9 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
                                     <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
                                         <div className="px-6 py-4 bg-muted border-b border-border flex justify-between items-center">
                                             <h2 className="text-lg font-bold text-foreground">Delivery Order Details</h2>
-                                            <div className="flex gap-4">
-                                                <button onClick={() => handleEdit(selectedDO)} className="flex items-center gap-2 text-brand-500 font-semibold hover:underline"><Pencil size={16} /> Edit</button>
-                                                <button onClick={() => setToDelete(selectedDO)} className="flex items-center gap-2 text-rose-500 font-semibold hover:underline"><Trash2 size={16} /> Delete</button>
+                                            <div className="flex gap-2">
+                                                <Button variant="link" size="sm" onClick={() => handleEdit(selectedDO)} className="font-semibold"><Pencil size={16} aria-hidden="true" /> Edit</Button>
+                                                <Button variant="link" size="sm" onClick={() => setToDelete(selectedDO)} className="font-semibold text-rose-500"><Trash2 size={16} aria-hidden="true" /> Delete</Button>
                                             </div>
                                         </div>
                                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -380,15 +370,12 @@ const DeliveryOrderDashboard: React.FC<Props> = ({ initialPayload }) => {
             </div>
 
             {/* Footer filters */}
-            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-                {(['Pending', 'Delivered', 'Cancelled'] as const).map(s => (
-                    <button key={s} onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-                        className={`px-5 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>
-                        {s}
-                    </button>
-                ))}
-                <span className="ml-auto text-xs text-muted-foreground">{filteredData.length} records</span>
-            </footer>
+            <StatusFilterBar
+                options={['Pending', 'Delivered', 'Cancelled']}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} records`}
+            />
 
             <ConfirmationModal
                 isOpen={!!toDelete} onClose={() => setToDelete(null)} onConfirm={handleConfirmDelete}

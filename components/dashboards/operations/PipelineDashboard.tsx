@@ -3,9 +3,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PipelineProject } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { useNavigation } from "../../../contexts/NavigationContext";
-import { ExternalLink, Table, ArrowRightToLine, WrapText, Scissors, Pencil, Columns, Info, Trash2 } from 'lucide-react';
+import { ExternalLink, Table, Pencil, Columns, Info, Trash2, Plus, Filter } from 'lucide-react';
 import { deleteRecord } from "../../../services/api";
 import ConfirmationModal from "../../modals/ConfirmationModal";
 import { useToast } from "../../../contexts/ToastContext";
@@ -21,6 +21,14 @@ import PipelineListContainer from "../lists/PipelineListContainer";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import ErrorState from '../../common/ErrorState';
+import { IconButton } from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 type ProcessedProject = PipelineProject & { calculatedDueDate: Date | null };
 
@@ -36,7 +44,7 @@ const StatusBadge: React.FC<{ status: PipelineProject['Status'] }> = ({ status }
     'Order Processing': { label: 'Order Processing', color: 'bg-cyan-500/10 text-cyan-600' },
     'Delivery Processing': { label: 'Delivery Processing', color: 'bg-teal-500/10 text-teal-600' },
     'Closure (Win)': { label: 'Closure (Win)', color: 'bg-emerald-600/10 text-emerald-600' },
-    'Closure (Lose)': { label: 'Closure (Lose)', color: 'bg-slate-500/10 text-slate-500' },
+    'Closure (Lose)': { label: 'Closure (Lose)', color: 'bg-muted text-muted-foreground' },
   };
   const config = statusConfig[status] || { label: status, color: 'bg-muted text-muted-foreground' };
 
@@ -106,9 +114,10 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
   const { openWindow } = useWindowManager();
   const [projectToDelete, setProjectToDelete] = useState<PipelineProject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedPipelineNo, setSelectedPipelineNo] = useState<string | null>(null);
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
 
   const openPipelineWindow = useCallback((pipelineNo: string | null, initialReadOnly = false) => {
     const id = pipelineNo ? `pipeline-${pipelineNo}` : 'pipeline-new';
@@ -206,8 +215,8 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       }
     }
 
-    if (searchQuery) {
-      const lowercasedQuery = searchQuery.toLowerCase();
+    if (debouncedSearch) {
+      const lowercasedQuery = debouncedSearch.toLowerCase();
       const searchKeys = ['Company Name', 'Pipeline No', 'Responsible By', 'Contact Name', 'Requirements'];
       dataToFilter = dataToFilter.filter(item =>
         searchKeys.some(key =>
@@ -217,7 +226,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
     }
 
     return dataToFilter;
-  }, [processedData, searchQuery, statusFilter]);
+  }, [processedData, debouncedSearch, statusFilter]);
 
   const selectedProject = useMemo(() => {
     if (!selectedPipelineNo) return null;
@@ -390,14 +399,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
 
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load pipeline data: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load pipeline data" message={error} />;
   }
 
   const renderDetailView = () => (
@@ -419,19 +421,23 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
                   <h1 className="text-2xl font-bold text-foreground">{selectedProject['Company Name']}</h1>
                   <p className="text-muted-foreground font-mono mt-1">{selectedProject['Pipeline No']}</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <button
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="link"
+                    size="sm"
                     onClick={() => handleEditProject(selectedProject)}
-                    className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
+                    className="font-semibold"
                   >
-                    <Pencil className="w-4 h-4" /> Edit
-                  </button>
-                  <button
+                    <Pencil className="w-4 h-4" aria-hidden="true" /> Edit
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
                     onClick={() => handleDeleteRequest(selectedProject)}
-                    className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
+                    className="font-semibold text-rose-500"
                   >
-                    <Trash2 className="w-4 h-4" /> Delete
-                  </button>
+                    <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete
+                  </Button>
                 </div>
               </div>
             </div>
@@ -439,7 +445,7 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-muted/50 p-4 rounded-lg">
                 <dt className="text-sm font-medium text-muted-foreground/60">Total Amount</dt>
-                <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedProject['Total Amount'], selectedProject.Currency)}</dd>
+                <dd className="mt-1 text-xl font-semibold text-primary">{formatCurrencySmartly(selectedProject['Total Amount'], selectedProject.Currency)}</dd>
               </div>
               <div className="bg-muted/50 p-4 rounded-lg">
                 <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
@@ -489,90 +495,36 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 lg:p-6 flex flex-col gap-4 bg-card border-b border-border">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">opportunities</span>
-          </div>
+      <DashboardHeader title="Pipelines" icon={<Filter />}>
+        <SearchInput
+          id="pipeline-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search opportunities..."
+          label="Search opportunities"
+        />
 
-          <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-            <div className="relative w-full lg:w-64 flex-shrink-0">
-              <label htmlFor="pipeline-search" className="sr-only">Search</label>
-              <input
-                id="pipeline-search"
-                type="text"
-                placeholder="Search opportunities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-              />
-              <svg className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
+        <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
 
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-              <div className="flex-shrink-0">
-                <ViewToggle<ViewMode> views={VIEW_OPTIONS} activeView={viewMode} onViewChange={setViewMode} />
-              </div>
-              {viewMode === 'table' && (
-                <>
-                  <div className="bg-muted p-1 rounded-lg flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => setCellWrapStyle('overflow')}
-                      title="Overflow"
-                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'overflow'
-                        ? 'bg-background shadow-sm text-brand-500'
-                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                        }`}
-                      aria-pressed={cellWrapStyle === 'overflow'}
-                    >
-                      <ArrowRightToLine className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setCellWrapStyle('wrap')}
-                      title="Wrap"
-                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'wrap'
-                        ? 'bg-background shadow-sm text-brand-500'
-                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                        }`}
-                      aria-pressed={cellWrapStyle === 'wrap'}
-                    >
-                      <WrapText className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setCellWrapStyle('clip')}
-                      title="Clip"
-                      className={`flex items-center justify-center p-1.5 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-1 ${cellWrapStyle === 'clip'
-                        ? 'bg-background shadow-sm text-brand-500'
-                        : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                        }`}
-                      aria-pressed={cellWrapStyle === 'clip'}
-                    >
-                      <Scissors className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <DataTableColumnToggle
-                      allColumns={allColumns}
-                      visibleColumns={visibleColumns}
-                      onColumnToggle={handleColumnToggle}
-                    />
-                  </div>
-                </>
-              )}
-              <PermissionGate module="pipelines" action="create">
-                <button
-                  onClick={handleOpenNewProject}
-                  className="flex-shrink-0 flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-px ml-auto lg:ml-0"
-                >
-                  <svg className="w-5 h-5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                  <span className="hidden md:inline">New</span>
-                </button>
-              </PermissionGate>
-            </div>
-          </div>
-        </div>
-      </div>
+        {viewMode === 'table' && (
+          <>
+            <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+            <DataTableColumnToggle
+              allColumns={allColumns}
+              visibleColumns={visibleColumns}
+              onColumnToggle={handleColumnToggle}
+            />
+          </>
+        )}
+
+        <PermissionGate module="pipelines" action="create">
+          <Button onClick={handleOpenNewProject} aria-label="New pipeline">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       {viewMode === 'table' ? (
         <div className="flex-1 min-h-0 overflow-hidden p-4">
@@ -584,28 +536,32 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
             onRowClick={handleViewProject}
             mobilePrimaryColumns={['Pipeline No', 'Company Name', 'Total Amount', 'Status']}
             cellWrapStyle={cellWrapStyle}
+            emptyState={{
+              title: 'No opportunities yet',
+              description: 'Pipeline opportunities you create will appear here.',
+            }}
             renderRowActions={(row) => (
               <div className="flex items-center gap-1">
-                <button
+                <IconButton
+                  label="Edit pipeline"
+                  tone="primary"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditProject(row);
                   }}
-                  className="p-2 text-muted-foreground hover:text-brand-500 transition"
-                  title="Edit"
                 >
-                  <Pencil size={16} />
-                </button>
-                <button
+                  <Pencil size={16} aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label="Delete pipeline"
+                  tone="danger"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteRequest(row);
                   }}
-                  className="p-2 text-muted-foreground hover:text-rose-500 transition"
-                  title="Delete"
                 >
-                  <Trash2 size={16} />
-                </button>
+                  <Trash2 size={16} aria-hidden="true" />
+                </IconButton>
               </div>
             )}
             renderRowContextMenu={(row) => (
@@ -635,28 +591,12 @@ const PipelineDashboard: React.FC<PipelineDashboardProps> = ({ initialFilter }) 
       >
         Are you sure you want to delete project {projectToDelete?.['Pipeline No']}? This action cannot be undone.
       </ConfirmationModal>
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Active' ? null : 'Active')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Active' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Active
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Won' ? null : 'Won')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Won' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Won
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Lost' ? null : 'Lost')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Lost' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Lost
-          </button>
-        </div>
-      </footer>
+      <StatusFilterBar
+        options={['Active', 'Won', 'Lost']}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} opportunities`}
+      />
     </div>
   );
 };

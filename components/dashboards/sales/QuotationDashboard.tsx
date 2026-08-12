@@ -3,11 +3,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Quotation } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { parseDate, formatDateAsMDY, formatDisplayDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { ShoppingCart, Table, Columns, Info, Pencil, Search, ArrowRightToLine, WrapText, Scissors, Trash2, Copy, Loader2, Send } from 'lucide-react';
+import { ShoppingCart, Table, Columns, Info, Pencil, Plus, FileText, Trash2, Copy, Loader2, Send } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import { useToast } from "../../../contexts/ToastContext";
 import { deleteRecord } from "../../../services/api";
@@ -15,7 +15,6 @@ import ConfirmationModal from "../../modals/ConfirmationModal";
 import QuotationListContainer from "../lists/QuotationListContainer";
 import Spinner from "../../common/Spinner";
 import EmptyState from "../../common/EmptyState";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import { readQuotationSheetData } from '../../../services/b2bDb';
@@ -25,6 +24,15 @@ import { useAuth } from '../../../contexts/AuthContext';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { DropdownMenuItem } from "../../ui/dropdown-menu";
 import { StatusBadge } from "../../ui/status-badge";
+import DashboardHeader from "../../common/DashboardHeader";
+import SearchInput from "../../common/SearchInput";
+import ViewToggle from "../../common/ViewToggle";
+import CellWrapToggle from "../../common/CellWrapToggle";
+import ErrorState from "../../common/ErrorState";
+import StatusFilterBar from "../../common/StatusFilterBar";
+import IconButton from "../../ui/icon-button";
+import { Button } from "../../ui/button";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
   if (!value || (typeof value === 'string' && !value.trim())) return null;
@@ -53,16 +61,15 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
   const { quotations, setQuotations, loading, error, isB2B } = useB2BData();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [statusFilter, setStatusFilter] = useState<string | null>('Quote Pending');
   const { handleNavigation, navigation } = useNavigation();
   const { addToast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+  const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
   const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
-  const { width } = useWindowSize();
-  const isMobile = width < 1024;
 
   const selectedQuotationId = useMemo(() => {
     if (navigation.action === 'view') return navigation.id || null;
@@ -223,14 +230,14 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       });
     }
 
-    if (!searchQuery) return dataToFilter;
+    if (!debouncedSearch) return dataToFilter;
 
     return dataToFilter.filter(item =>
       ['Quote No', 'Company Name', 'Contact Name', 'Status', 'Reason'].some(key =>
-        String(item[key as keyof Quotation] ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+        String(item[key as keyof Quotation] ?? '').toLowerCase().includes(debouncedSearch.toLowerCase())
       )
     );
-  }, [quotations, searchQuery, statusFilter]);
+  }, [quotations, debouncedSearch, statusFilter]);
 
   // Note: accessorKey uses 'Quote No' (no dot) to match DB column name
   const selectedQuotationForDetail = useMemo(() => {
@@ -396,41 +403,49 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-3">
-                    <button
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => openQuotationWindow(selectedQuotationForDetail['Quote No'])}
-                      className="text-sm font-semibold text-brand-500 hover:underline flex items-center gap-1.5"
+                      className="h-auto gap-1.5 p-0 font-semibold"
                     >
-                      <Pencil className="w-4 h-4" /> Edit
-                    </button>
-                    <button
+                      <Pencil className="w-4 h-4" aria-hidden="true" /> Edit
+                    </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => handleDuplicateQuotation(selectedQuotationForDetail)}
                       disabled={isDuplicating}
-                      className="text-sm font-semibold text-violet-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-auto gap-1.5 p-0 font-semibold text-violet-500"
                     >
-                      {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                      {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
                       Duplicate
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => handleDeleteRequest(selectedQuotationForDetail)}
-                      className="text-sm font-semibold text-rose-500 hover:underline flex items-center gap-1.5"
+                      className="h-auto gap-1.5 p-0 font-semibold text-rose-500"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
-                    </button>
-                    <button
+                      <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete
+                    </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => handleSendToTelegram(selectedQuotationForDetail)}
                       disabled={isSendingTelegram}
-                      className="text-sm font-semibold text-sky-500 hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-auto gap-1.5 p-0 font-semibold text-sky-500"
                       title="Send to Telegram (admin)"
                     >
-                      {isSendingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {isSendingTelegram ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}
                       Telegram
-                    </button>
+                    </Button>
                   </div>
                   {selectedQuotationForDetail.Status === 'Close (Win)' && (
-                    <button onClick={() => handleCreateSaleOrder(selectedQuotationForDetail)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded-lg transition shadow-sm flex items-center gap-2 text-sm">
-                      <ShoppingCart className="w-4 h-4" />
+                    <Button variant="success" size="sm" onClick={() => handleCreateSaleOrder(selectedQuotationForDetail)}>
+                      <ShoppingCart className="w-4 h-4" aria-hidden="true" />
                       Create SO
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -438,7 +453,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <dt className="text-sm font-medium text-muted-foreground/60">Total Amount</dt>
-                  <dd className="mt-1 text-xl font-semibold text-brand-500">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
+                  <dd className="mt-1 text-xl font-semibold text-primary">{formatCurrencySmartly(selectedQuotationForDetail.Amount, selectedQuotationForDetail.Currency)}</dd>
                 </div>
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <dt className="text-sm font-medium text-muted-foreground/60">Status</dt>
@@ -471,97 +486,49 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
     </div>
   );
 
+  const VIEW_OPTIONS: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
+    { id: 'table', label: 'Table', icon: <Table /> },
+    { id: 'detail', label: 'Detail', icon: <Columns /> },
+  ];
+
   if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg" role="alert">
-          <p className="font-bold">Error</p>
-          <p>Could not load quotations data: {error}</p>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Could not load quotations" message={error} />;
   }
 
   return (
     <div className="h-full flex flex-col">
-      <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center justify-between lg:justify-start gap-4">
-          <div className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">{filteredData.length}</span>
-            <span className="ml-2 text-sm text-muted-foreground">quotations</span>
-          </div>
-          <div className="lg:hidden">
-            {/* Spacer or mobile specific header action if needed */}
-          </div>
-        </div>
+      <DashboardHeader title="Quotations" icon={<FileText />}>
+        <SearchInput
+          id="quotation-search"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search quotations..."
+          label="Search quotations"
+        />
 
-        <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto mt-2 lg:mt-0">
-          <div className="relative w-full lg:w-64 flex-shrink-0">
-            <label htmlFor="quotation-search" className="sr-only">Search</label>
-            <input
-              id="quotation-search"
-              type="text"
-              placeholder="Search quotations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-muted border-transparent text-foreground placeholder-muted-foreground text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 p-2.5 transition"
-            />
-            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-          </div>
+        {/* View Mode Toggle */}
+        <ViewToggle<ViewMode>
+          views={VIEW_OPTIONS}
+          activeView={viewMode}
+          onViewChange={setViewMode}
+        />
 
-          <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'table' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <Table className="w-4 h-4" />
-                <span className="hidden xl:inline">Table</span>
-              </button>
-              <button
-                onClick={() => setViewMode('detail')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === 'detail' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <Columns className="w-4 h-4" />
-                <span className="hidden xl:inline">Detail</span>
-              </button>
-            </div>
+        <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
 
-            {/* Alignment/Wrap Icons — desktop only */}
-            <div className="hidden lg:flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-              <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md hover:bg-muted transition ${cellWrapStyle === 'overflow' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                <ArrowRightToLine className="w-4 h-4" />
-              </button>
-              <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 hover:bg-muted transition border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                <WrapText className="w-4 h-4" />
-              </button>
-              <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md hover:bg-muted transition ${cellWrapStyle === 'clip' ? 'text-brand-600 bg-brand-500/10' : 'text-muted-foreground'}`}>
-                <Scissors className="w-4 h-4" />
-              </button>
-            </div>
+        <DataTableColumnToggle
+          allColumns={allColumns}
+          visibleColumns={visibleColumns}
+          onColumnToggle={handleColumnToggle}
+        />
 
-            {/* Column Toggle — desktop only */}
-            <div className="hidden lg:block flex-shrink-0">
-              <DataTableColumnToggle
-                allColumns={allColumns}
-                visibleColumns={visibleColumns}
-                onColumnToggle={handleColumnToggle}
-              />
-            </div>
-
-            {/* New Quotation Button */}
-            <PermissionGate module="quotations" action="create">
-              <button
-                onClick={handleNewQuotation}
-                className="flex-shrink-0 flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-              >
-                <span className="text-xl leading-none">+</span> New
-              </button>
-            </PermissionGate>
-          </div>
-        </div>
-      </header>
+        {/* New Quotation Button */}
+        <PermissionGate module="quotations" action="create">
+          <Button onClick={handleNewQuotation} aria-label="New quotation">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </PermissionGate>
+      </DashboardHeader>
 
       <div className="flex-1 min-h-0 overflow-hidden p-0 md:p-4">
         {viewMode === 'table' ? (
@@ -574,50 +541,52 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
             initialSort={{ key: 'Quote Date', direction: 'descending' }}
             mobilePrimaryColumns={['Quote No', 'Company Name', 'Amount', 'Status']}
             cellWrapStyle={cellWrapStyle}
+            emptyState={{
+              title: 'No quotations yet',
+              description: 'Quotations you create will appear here.',
+            }}
             renderRowActions={(row) => (
-              <div className="flex items-center justify-center gap-1 md:gap-3">
-                <button
+              <div className="flex items-center justify-center gap-1">
+                <IconButton
+                  label="Edit quotation"
+                  tone="primary"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditQuotation(row);
                   }}
-                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full"
-                  title="Edit"
                 >
-                  <Pencil size={15} />
-                </button>
-                <button
+                  <Pencil size={16} aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label="Duplicate quotation"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDuplicateQuotation(row);
                   }}
                   disabled={isDuplicating}
-                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-violet-500 transition hover:bg-violet-500/10 rounded-full disabled:opacity-50"
-                  title="Duplicate"
                 >
-                  <Copy size={15} />
-                </button>
-                <button
+                  <Copy size={16} aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label="Delete quotation"
+                  tone="danger"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteRequest(row);
                   }}
-                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-rose-500 transition hover:bg-rose-500/10 rounded-full"
-                  title="Delete"
                 >
-                  <Trash2 size={15} />
-                </button>
-                <button
+                  <Trash2 size={16} aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label="Send to Telegram"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleSendToTelegram(row);
                   }}
                   disabled={isSendingTelegram}
-                  className="p-1.5 md:p-2.5 text-muted-foreground hover:text-sky-500 transition hover:bg-sky-500/10 rounded-full disabled:opacity-50"
-                  title="Send to Telegram"
                 >
-                  {isSendingTelegram ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                </button>
+                  {isSendingTelegram ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+                </IconButton>
               </div>
             )}
             renderRowContextMenu={(row) => (
@@ -646,34 +615,12 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-card border-t border-border p-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full custom-scrollbar-hide">
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Quote Pending' ? null : 'Quote Pending')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote Pending' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Quote Pending
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Quote (Win)' ? null : 'Quote (Win)')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Win)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Quote (Win)
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Quote (Lose)' ? null : 'Quote (Lose)')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Quote (Lose)' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Quote (Lose)
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Cancel' ? null : 'Cancel')}
-            className={`flex-shrink-0 whitespace-nowrap px-4 lg:px-6 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === 'Cancel' ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-          >
-            Cancel
-          </button>
-        </div>
-      </footer>
+      <StatusFilterBar
+        options={['Quote Pending', 'Quote (Win)', 'Quote (Lose)', 'Cancel']}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        summary={`${filteredData.length} records`}
+      />
 
       <ConfirmationModal
         isOpen={!!quotationToDelete}

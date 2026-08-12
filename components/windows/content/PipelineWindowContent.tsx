@@ -423,7 +423,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
                     <button
                         type="button"
                         onClick={() => setIsReadOnly(false)}
-                        className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2 text-sm"
+                        className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-lg transition shadow-sm flex items-center gap-2 text-sm"
                     >
                         <Pencil size={16} /> Edit
                     </button>
@@ -442,7 +442,7 @@ const PipelineWindowContent: React.FC<PipelineWindowContentProps> = ({
                     type="submit"
                     form={`pipeline-form-${windowId}`}
                     disabled={isSubmitting}
-                    className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center text-sm"
+                    className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md transition shadow-sm flex items-center text-sm"
                 >
                     {isSubmitting ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />

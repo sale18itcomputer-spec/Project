@@ -3,19 +3,28 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Receipt } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
-import DataTable, { ColumnDef } from '../../common/DataTable';
+import DataTable, { ColumnDef, CellWrapStyle } from '../../common/DataTable';
 import { formatDisplayDate } from '../../../utils/time';
 import { useNavigation } from '../../../contexts/NavigationContext';
 import { formatCurrencySmartly } from '../../../utils/formatters';
-import { Receipt as ReceiptIcon, Table, Columns, Info, LayoutGrid, Search, WrapText, ArrowRightToLine, Scissors } from 'lucide-react';
+import { Receipt as ReceiptIcon, Table, Columns, Info } from 'lucide-react';
 import { DataTableColumnToggle } from '../../common/DataTableColumnToggle';
 import Spinner from '../../common/Spinner';
 import ReceiptCreator from '../../features/sales/ReceiptCreator';
-import { useWindowSize } from '../../../hooks/useWindowSize';
+import { useIsMobile } from '../../../hooks/useIsMobile';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { Wallet, ArrowRight } from 'lucide-react';
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import { StatusBadge } from '../../ui/status-badge';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import ViewToggle from '../../common/ViewToggle';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import StatusFilterBar from '../../common/StatusFilterBar';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
 
 const RV_COLUMNS_KEY = 'limperial-rv-columns-visibility';
 type ViewMode = 'table' | 'detail';
@@ -29,12 +38,12 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
     // not mutate receipts directly.
     const { receipts = [], loading, error } = useData();
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const { handleNavigation, navigation } = useNavigation();
-    const { width } = useWindowSize();
-    const isMobile = width < 768;
+    const isMobile = useIsMobile();
 
     // Only "view" mode is reachable now. Any inbound "edit" or "create" action
     // (from legacy links or URL hacking) is treated as a view so the form is
@@ -59,14 +68,14 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
     const filteredData = useMemo(() => {
         let data = receipts || [];
         if (statusFilter) data = data.filter(r => r['Status'] === statusFilter);
-        if (!searchQuery) return data;
-        const q = searchQuery.toLowerCase();
+        if (!debouncedSearch) return data;
+        const q = debouncedSearch.toLowerCase();
         return data.filter(r =>
             ['RV No', 'Inv No', 'SO No', 'DO No', 'Company Name', 'Contact Name', 'Status', 'Payment Method', 'Created By'].some(
                 k => String(r[k] ?? '').toLowerCase().includes(q)
             )
         );
-    }, [receipts, searchQuery, statusFilter]);
+    }, [receipts, debouncedSearch, statusFilter]);
 
     const allColumns = useMemo<ColumnDef<Receipt>[]>(() => [
         {
@@ -133,13 +142,7 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
         { id: 'detail', label: 'Detail', icon: <Columns /> },
     ];
 
-    if (error) return (
-        <div className="p-8">
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
-                <p className="font-bold">Error</p><p>Could not load receipts: {error}</p>
-            </div>
-        </div>
-    );
+    if (error) return <ErrorState title="Could not load receipts" message={error} />;
 
     const selectedRV = selectedId ? (receipts || []).find(r => r['RV No'] === selectedId) : null;
 
@@ -156,60 +159,45 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <ReceiptIcon className="w-5 h-5 text-brand-500" />
-                    <h1 className="text-xl font-bold text-foreground">Receipts (RV)</h1>
-                </div>
-                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                    <div className="relative w-full lg:w-64">
-                        <input
-                            type="text" placeholder="Search receipts..."
-                            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground/40 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 transition shadow-sm"
-                        />
-                        <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border flex-shrink-0">
-                            {VIEW_OPTIONS.map(v => (
-                                <button key={v.id} onClick={() => setViewMode(v.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${viewMode === v.id ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                                    {v.icon}<span className="hidden xl:inline">{v.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex items-center bg-card border border-border rounded-md shadow-sm flex-shrink-0">
-                            <button onClick={() => setCellWrapStyle('overflow')} className={`p-2 rounded-l-md ${cellWrapStyle === 'overflow' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('wrap')} className={`p-2 border-x border-border ${cellWrapStyle === 'wrap' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                            <button onClick={() => setCellWrapStyle('clip')} className={`p-2 rounded-r-md ${cellWrapStyle === 'clip' ? 'text-brand-500 bg-brand-500/10' : 'text-muted-foreground'}`}><Scissors size={16} /></button>
-                        </div>
-                        <DataTableColumnToggle
-                            allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
-                            trigger={
-                                <button className="flex items-center gap-2 bg-card border border-border text-foreground font-semibold py-2 px-4 rounded-md hover:bg-muted transition shadow-sm text-sm flex-shrink-0">
-                                    <LayoutGrid className="w-4 h-4" /> View
-                                </button>
-                            }
-                        />
-                        <button
-                            onClick={() => handleNavigation({ view: 'collection' })}
-                            className="flex-shrink-0 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-md transition shadow-md whitespace-nowrap text-sm ml-auto lg:ml-0"
-                            title="Record payments in Collection to create receipts"
-                        >
-                            <Wallet size={16} /> Record Payment <ArrowRight size={14} />
-                        </button>
-                    </div>
-                </div>
-            </header>
+            <DashboardHeader title="Receipts (RV)" icon={<ReceiptIcon />}>
+                <SearchInput
+                    id="receipt-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search receipts..."
+                    label="Search receipts"
+                />
+
+                <ViewToggle<ViewMode>
+                    views={VIEW_OPTIONS}
+                    activeView={viewMode}
+                    onViewChange={setViewMode}
+                />
+
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+                <DataTableColumnToggle
+                    allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle}
+                />
+
+                <Button
+                    onClick={() => handleNavigation({ view: 'collection' })}
+                    title="Record payments in Collection to create receipts"
+                    aria-label="Record payment"
+                >
+                    <Wallet size={16} aria-hidden="true" />
+                    <span className="hidden sm:inline">Record Payment</span>
+                    <ArrowRight size={14} aria-hidden="true" />
+                </Button>
+            </DashboardHeader>
 
             {/* Banner — receipts are created via Collection only */}
-            <div className="flex-shrink-0 px-4 lg:px-6 py-2.5 bg-brand-500/5 border-b border-border flex items-center gap-2 text-xs text-muted-foreground">
-                <Wallet className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />
+            <div className="flex-shrink-0 px-4 lg:px-6 py-2.5 bg-primary/5 border-b border-border flex items-center gap-2 text-xs text-muted-foreground">
+                <Wallet className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                 <span>Receipts are created automatically when you record a payment.</span>
                 <button
                     onClick={() => handleNavigation({ view: 'collection' })}
-                    className="font-bold text-brand-600 hover:underline inline-flex items-center gap-0.5"
+                    className="font-bold text-primary hover:underline inline-flex items-center gap-0.5"
                 >
                     Go to Collection <ArrowRight className="w-3 h-3" />
                 </button>
@@ -224,9 +212,19 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                         initialSort={{ key: 'created_at', direction: 'descending' }}
                         mobilePrimaryColumns={['RV No', 'Company Name', 'Amount', 'Status']}
                         cellWrapStyle={cellWrapStyle}
+                        emptyState={{
+                            title: 'No receipts yet',
+                            description: 'Receipts appear here once you record a payment in Collection.',
+                        }}
                         renderRowActions={row => (
-                            <div className="flex items-center justify-center gap-3">
-                                <button onClick={e => { e.stopPropagation(); handleView(row); }} className="p-2.5 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-full" title="View"><Info size={16} /></button>
+                            <div className="flex items-center justify-center gap-1">
+                                <IconButton
+                                    label="View receipt"
+                                    tone="primary"
+                                    onClick={e => { e.stopPropagation(); handleView(row); }}
+                                >
+                                    <Info size={16} aria-hidden="true" />
+                                </IconButton>
                             </div>
                         )}
                         renderRowContextMenu={row => (
@@ -240,13 +238,13 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                             {filteredData.map(r => (
                                 <button key={r['RV No']}
                                     onClick={() => handleNavigation({ view: 'receipts', action: 'view', id: r['RV No'] })}
-                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedId === r['RV No'] ? 'bg-brand-500/10 border-r-4 border-r-brand-500' : 'border-border'}`}>
+                                    className={`w-full text-left p-4 border-b hover:bg-muted transition-colors ${selectedId === r['RV No'] ? 'bg-primary/10 border-r-4 border-r-primary' : 'border-border'}`}>
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-bold text-foreground">{r['RV No']}</span>
                                         <StatusBadge status={r['Status']} />
                                     </div>
                                     <div className="text-sm font-medium text-foreground/80 truncate">{r['Company Name']}</div>
-                                    <div className="text-sm font-bold text-brand-500 mt-2">
+                                    <div className="text-sm font-bold text-primary mt-2">
                                         {formatCurrencySmartly(String(r['Amount'] ?? ''), r['Currency'])}
                                     </div>
                                     {r['Payment Method'] && <div className="text-xs text-muted-foreground mt-1">{r['Payment Method']}</div>}
@@ -288,7 +286,7 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
                                                     <div className="mt-2 space-y-2">
                                                         <div>
                                                             <p className="text-xs text-muted-foreground">Total Amount</p>
-                                                            <p className="text-2xl font-bold text-brand-500">
+                                                            <p className="text-2xl font-bold text-primary">
                                                                 {formatCurrencySmartly(String(selectedRV['Amount'] ?? ''), selectedRV['Currency'])}
                                                             </p>
                                                         </div>
@@ -338,15 +336,12 @@ const ReceiptDashboard: React.FC<Props> = ({ initialPayload }) => {
             </div>
 
             {/* Footer */}
-            <footer className="flex-shrink-0 bg-card border-t border-border p-3 flex items-center gap-3">
-                {(['Draft', 'Issued', 'Cancelled'] as const).map(s => (
-                    <button key={s} onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-                        className={`px-5 py-2 rounded-md border text-sm font-semibold transition ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground bg-muted hover:bg-muted/80'}`}>
-                        {s}
-                    </button>
-                ))}
-                <span className="ml-auto text-xs text-muted-foreground">{filteredData.length} records</span>
-            </footer>
+            <StatusFilterBar
+                options={['Draft', 'Issued', 'Cancelled']}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                summary={`${filteredData.length} records`}
+            />
 
         </div>
     );

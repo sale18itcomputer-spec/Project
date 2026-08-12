@@ -1034,7 +1034,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     onChange={setColWidths}
                     onReset={resetColWidths}
                 />
-                <button onClick={() => handleDownloadPDF()} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-white text-brand-600 border border-brand-200 rounded-md hover:bg-brand-50 hover:border-brand-300 shadow-sm transition-all active:scale-95">
+                <button onClick={() => handleDownloadPDF()} className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-card text-primary border border-primary/30 rounded-md hover:bg-primary/10 hover:border-primary/50 shadow-sm transition-all active:scale-95">
                     <Download className="w-4 h-4" />
                     Download PDF
                 </button>
@@ -1043,9 +1043,9 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             <button
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+                className="bg-primary hover:brightness-110 text-primary-foreground font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
             >
-                {isSubmitting ? <Spinner size="sm" color="white" /> : 'Save Invoice'}
+                {isSubmitting ? <Spinner size="sm" color="current" /> : 'Save Invoice'}
             </button>
         </div>
     );

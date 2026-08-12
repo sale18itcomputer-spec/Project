@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Wallet, Search, TrendingUp, AlertTriangle, CheckCircle2, Clock, FileText, ExternalLink } from 'lucide-react';
+import { Wallet, TrendingUp, AlertTriangle, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useNavigation } from '@/contexts/NavigationContext';
 import DataTable, { ColumnDef } from '@/components/common/DataTable';
@@ -20,6 +20,12 @@ import { formatDisplayDate } from '@/utils/time';
 import QuickPaymentModal from '@/components/modals/QuickPaymentModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import DashboardHeader from '@/components/common/DashboardHeader';
+import SearchInput from '@/components/common/SearchInput';
+import StatusFilterBar from '@/components/common/StatusFilterBar';
+import IconButton from '@/components/ui/icon-button';
+import { Button } from '@/components/ui/button';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const COLLECTION_STATUSES: CollectionStatus[] = ['Pending', 'Partial', 'Overdue', 'Paid'];
 const AGING_BUCKETS: AgingBucket[] = ['Current', '1-30', '31-60', '61-90', '90+'];
@@ -56,7 +62,7 @@ const KpiCard: React.FC<{
             type="button"
             onClick={onClick}
             disabled={!onClick}
-            className={`text-left bg-card border ${active ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-border'} rounded-lg p-4 transition-all ${onClick ? 'hover:border-brand-400 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
+            className={`text-left bg-card border ${active ? 'border-primary ring-2 ring-primary/30' : 'border-border'} rounded-lg p-4 transition-all ${onClick ? 'hover:border-primary/60 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
         >
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</span>
@@ -78,6 +84,7 @@ const CollectionDashboard: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<CollectionStatus | null>(null);
     const [bucketFilter, setBucketFilter] = useState<AgingBucket | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
 
     // ── Derive AR rows ────────────────────────────────────────────────────────
@@ -115,8 +122,8 @@ const CollectionDashboard: React.FC = () => {
                 : [bucketFilter];
             rows = rows.filter(r => r.outstanding > 0 && matchBuckets.includes(r.agingBucket));
         }
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
+        if (debouncedSearch.trim()) {
+            const q = debouncedSearch.trim().toLowerCase();
             rows = rows.filter(r => {
                 const inv = r.invoice;
                 return ['Inv No', 'SO No', 'Company Name', 'Contact Name'].some(k =>
@@ -125,7 +132,7 @@ const CollectionDashboard: React.FC = () => {
             });
         }
         return rows;
-    }, [allRows, statusFilter, bucketFilter, searchQuery]);
+    }, [allRows, statusFilter, bucketFilter, debouncedSearch]);
 
     // ── Table columns ─────────────────────────────────────────────────────────
     const columns = useMemo<ColumnDef<InvoiceAR>[]>(() => [
@@ -139,7 +146,7 @@ const CollectionDashboard: React.FC = () => {
                         e.stopPropagation();
                         handleNavigation({ view: 'invoices', action: 'view', id: row.invoice['Inv No'] });
                     }}
-                    className="font-semibold text-brand-600 hover:underline"
+                    className="font-semibold text-primary hover:underline"
                 >
                     {row.invoice['Inv No']}
                 </button>
@@ -238,26 +245,29 @@ const CollectionDashboard: React.FC = () => {
     const renderRowActions = (row: InvoiceAR) => {
         const canPay = canRecordPayment && row.outstanding > 0;
         return (
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-1">
                 {canPay && (
-                    <button
+                    <Button
+                        size="xs"
                         onClick={(e) => { e.stopPropagation(); setPaymentTarget(row); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-md transition shadow-sm whitespace-nowrap"
                         title="Record Payment"
+                        aria-label="Record payment"
+                        className="font-bold"
                     >
-                        <Wallet className="w-3.5 h-3.5" /> Record Payment
-                    </button>
+                        <Wallet className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span className="hidden sm:inline">Record Payment</span>
+                    </Button>
                 )}
-                <button
+                <IconButton
+                    label="Open Invoice"
+                    tone="primary"
                     onClick={(e) => {
                         e.stopPropagation();
                         handleNavigation({ view: 'invoices', action: 'view', id: row.invoice['Inv No'] });
                     }}
-                    className="p-2 text-muted-foreground hover:text-brand-500 transition hover:bg-brand-500/10 rounded-md"
-                    title="Open Invoice"
                 >
-                    <ExternalLink className="w-4 h-4" />
-                </button>
+                    <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                </IconButton>
             </div>
         );
     };
@@ -265,18 +275,23 @@ const CollectionDashboard: React.FC = () => {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="h-full flex flex-col">
-            <header className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4">
-                <div className="flex items-center gap-3 mb-4">
-                    <Wallet className="w-5 h-5 text-brand-500" />
-                    <h1 className="text-xl font-bold text-foreground">Collection</h1>
-                    <span className="text-sm text-muted-foreground ml-1">Accounts Receivable</span>
-                    {!canRecordPayment && (
-                        <span className="ml-3 text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded-md uppercase font-bold tracking-wider">Read-Only</span>
-                    )}
-                </div>
+            <DashboardHeader title="Collection" icon={<Wallet />} subtitle="Accounts Receivable">
+                <SearchInput
+                    id="collection-search"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search by invoice, company, contact..."
+                    label="Search collection"
+                    containerClassName="lg:w-72"
+                />
+                {!canRecordPayment && (
+                    <span className="flex-shrink-0 text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded-md uppercase font-bold tracking-wider">Read-Only</span>
+                )}
+            </DashboardHeader>
 
+            <div className="flex-shrink-0 bg-card border-b border-border px-4 lg:px-6 py-4">
                 {/* KPI cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <KpiCard
                         label="Total Outstanding"
                         value={formatCurrencySmartly(kpis.total, 'USD')}
@@ -329,61 +344,25 @@ const CollectionDashboard: React.FC = () => {
                     />
                 </div>
 
-                {/* Filter row */}
-                <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
-                    <div className="relative w-full lg:w-72">
-                        <input
-                            type="text"
-                            placeholder="Search by invoice, company, contact..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full bg-muted border border-border text-foreground placeholder-muted-foreground/40 text-sm rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-brand-500 transition shadow-sm"
-                        />
-                        <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                            onClick={() => { setStatusFilter(null); setBucketFilter(null); }}
-                            className={`px-4 py-1.5 rounded-md border text-xs font-semibold transition ${statusFilter === null && bucketFilter === null ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground bg-card hover:bg-muted'}`}
+                {/* Aging filter is driven by the KPI cards above — this clears it. */}
+                {bucketFilter && (
+                    <div className="mt-3 flex items-center">
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setBucketFilter(null)}
+                            className="font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-600 dark:hover:text-rose-400"
                         >
-                            All ({allRows.length})
-                        </button>
-                        {COLLECTION_STATUSES.map(s => {
-                            const count = allRows.filter(r => r.collectionStatus === s).length;
-                            return (
-                                <button
-                                    key={s}
-                                    onClick={() => { setStatusFilter(statusFilter === s ? null : s); setBucketFilter(null); }}
-                                    className={`px-4 py-1.5 rounded-md border text-xs font-semibold transition ${statusFilter === s ? 'bg-brand-600 text-white border-brand-600' : 'border-border text-muted-foreground bg-card hover:bg-muted'}`}
-                                >
-                                    {s} ({count})
-                                </button>
-                            );
-                        })}
-                        {bucketFilter && (
-                            <button
-                                onClick={() => setBucketFilter(null)}
-                                className="px-3 py-1.5 rounded-md text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition"
-                            >
-                                Clear aging filter ({bucketFilter})
-                            </button>
-                        )}
+                            Clear aging filter ({bucketFilter})
+                        </Button>
                     </div>
-                </div>
-            </header>
+                )}
+            </div>
 
             {/* Table */}
             <div className="flex-1 min-h-0 overflow-hidden p-4">
                 {loading && allRows.length === 0 ? (
                     <Spinner />
-                ) : filteredRows.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                        <FileText className="w-12 h-12 text-muted-foreground/40 mb-3" />
-                        <h3 className="text-sm font-semibold text-foreground">No invoices match these filters</h3>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                            Once an invoice is issued (Processing or Completed), it appears here for collection tracking.
-                        </p>
-                    </div>
                 ) : (
                     <DataTable<InvoiceAR>
                         tableId="collection-table"
@@ -393,6 +372,10 @@ const CollectionDashboard: React.FC = () => {
                         initialSort={{ key: 'created_at', direction: 'descending' }}
                         mobilePrimaryColumns={['invoice', 'outstanding', 'collectionStatus']}
                         cellWrapStyle="nowrap"
+                        emptyState={{
+                            title: 'No invoices match these filters',
+                            description: 'Once an invoice is issued (Processing or Completed), it appears here for collection tracking.',
+                        }}
                         renderRowActions={renderRowActions}
                         renderRowContextMenu={(row) => (
                             <>
@@ -409,6 +392,24 @@ const CollectionDashboard: React.FC = () => {
                     />
                 )}
             </div>
+
+            {/* Footer */}
+            <StatusFilterBar
+                options={[
+                    { value: null, label: 'All', count: allRows.length },
+                    ...COLLECTION_STATUSES.map(s => ({
+                        value: s,
+                        label: s,
+                        count: allRows.filter(r => r.collectionStatus === s).length,
+                    })),
+                ]}
+                active={statusFilter}
+                onChange={value => {
+                    setStatusFilter(value as CollectionStatus | null);
+                    setBucketFilter(null);
+                }}
+                summary={`${filteredRows.length} records`}
+            />
 
             {/* Payment modal */}
             {paymentTarget && (

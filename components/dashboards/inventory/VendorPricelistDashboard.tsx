@@ -3,10 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { VendorPricelistItem } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
-import { Pencil, Search, ArrowRightToLine, WrapText, Filter, Tag, Download, Upload, Loader2 } from 'lucide-react';
-import DataTable, { ColumnDef } from "../../common/DataTable";
+import { Pencil, Filter, Tag, Package, Download, Upload, Loader2 } from 'lucide-react';
+import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
-import { useWindowSize } from "../../../hooks/useWindowSize";
 import { Badge } from "../../ui/badge";
 import ExcelJS from 'exceljs';
 import { useToast } from "../../../contexts/ToastContext";
@@ -19,6 +18,13 @@ import VendorPricelistWindowContent from '../../windows/content/VendorPricelistW
 import { localStorageGet, localStorageSet } from '../../../utils/storage';
 import { PermissionGate } from '../../common/PermissionGate';
 import RowActionMenuItems from '../../common/RowActionMenuItems';
+import DashboardHeader from '../../common/DashboardHeader';
+import SearchInput from '../../common/SearchInput';
+import CellWrapToggle from '../../common/CellWrapToggle';
+import ErrorState from '../../common/ErrorState';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const VENDOR_PRICELIST_COLUMNS_VISIBILITY_KEY = 'limperial-vendor-pricelist-columns-visibility';
 
@@ -31,10 +37,10 @@ const VendorPricelistDashboard: React.FC = () => {
     const { openWindow } = useWindowManager();
 
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery);
     const [vendorFilter, setVendorFilter] = useState<string>('all');
-    const [cellWrapStyle, setCellWrapStyle] = useState<'overflow' | 'wrap' | 'clip'>('nowrap' as any);
+    const [cellWrapStyle, setCellWrapStyle] = useState<CellWrapStyle>('nowrap');
     const [isUploading, setIsUploading] = useState(false);
-    useWindowSize();
 
     const handleOpenNewItem = () => {
         const winId = 'vendor-pricelist-new';
@@ -189,8 +195,8 @@ const VendorPricelistDashboard: React.FC = () => {
             data = data.filter(item => item.vendor_id === vendorFilter);
         }
 
-        if (searchQuery) {
-            const lowercasedQuery = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const lowercasedQuery = debouncedSearch.toLowerCase();
             data = data.filter(item =>
                 ['brand', 'model_name', 'specification', 'vendor_name'].some(key =>
                     String(item[key as keyof VendorPricelistItem] ?? '').toLowerCase().includes(lowercasedQuery)
@@ -199,7 +205,7 @@ const VendorPricelistDashboard: React.FC = () => {
         }
 
         return data;
-    }, [vendorPricelist, searchQuery, vendorFilter]);
+    }, [vendorPricelist, debouncedSearch, vendorFilter]);
 
     const allColumns = useMemo<ColumnDef<VendorPricelistItem>[]>(() => {
         const canSeeVendorPricing = showField('showVendorPricing');
@@ -228,7 +234,7 @@ const VendorPricelistDashboard: React.FC = () => {
                     header: 'User Price',
                     isSortable: true,
                     cell: (value: number, row: VendorPricelistItem) => (
-                        <span className="text-right block w-full font-medium text-brand-600">
+                        <span className="text-right block w-full font-medium text-primary">
                             {row.currency === 'KHR' ? `៛${value?.toLocaleString()}` : `$${value?.toLocaleString()}`}
                         </span>
                     )
@@ -287,83 +293,73 @@ const VendorPricelistDashboard: React.FC = () => {
     }, [allColumns, visibleColumns]);
 
     if (error) {
-        return <div className="p-8 text-rose-500">Error: {error}</div>;
+        return <ErrorState title="Could not load the vendor pricelist" message={error} />;
     }
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-4 lg:p-6 bg-card border-b border-border flex-shrink-0">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">{filteredData.length} items from {vendorFilter === 'all' ? 'all' : vendors?.find(v => v.id === vendorFilter)?.vendor_name} vendors</p>
-                    </div>
-                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto items-start lg:items-center">
-                        <div className="flex items-center gap-2">
-                            <Filter className="w-4 h-4 text-muted-foreground" />
-                            <select
-                                value={vendorFilter}
-                                onChange={(e) => setVendorFilter(e.target.value)}
-                                className="bg-muted border-none text-sm rounded-lg p-2 focus:ring-1 focus:ring-brand-500"
-                            >
-                                <option value="all">All Vendors</option>
-                                {vendors?.map(v => (
-                                    <option key={v.id} value={v.id}>{v.vendor_name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="relative w-full lg:w-64">
-                            <input
-                                type="text"
-                                placeholder="Search items..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-muted border-transparent text-foreground placeholder-muted-foreground/50 text-sm rounded-lg focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 p-2.5 transition"
-                            />
-                            <Search className="w-5 h-5 text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2" />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <div className="bg-muted p-1 rounded-lg flex items-center gap-1">
-                                <button onClick={() => setCellWrapStyle('overflow')} className={`p-1.5 rounded ${cellWrapStyle === 'overflow' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><ArrowRightToLine size={16} /></button>
-                                <button onClick={() => setCellWrapStyle('wrap')} className={`p-1.5 rounded ${cellWrapStyle === 'wrap' ? 'bg-background shadow text-brand-500' : 'text-muted-foreground'}`}><WrapText size={16} /></button>
-                            </div>
-                            <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
-
-                            <div className="flex items-center gap-2 border-l pl-2 ml-1">
-                                <button
-                                    onClick={handleDownloadTemplate}
-                                    className="p-2 text-muted-foreground hover:text-brand-500 transition-colors"
-                                    title="Download Template"
-                                >
-                                    <Download size={20} />
-                                </button>
-
-                                <label className="cursor-pointer p-2 text-muted-foreground hover:text-emerald-500 transition-colors" title="Bulk Upload">
-                                    {isUploading ? <Loader2 size={20} className="animate-spin text-brand-500" /> : <Upload size={20} />}
-                                    <input
-                                        type="file"
-                                        accept=".xlsx, .xls"
-                                        className="hidden"
-                                        onChange={handleFileUpload}
-                                        disabled={isUploading}
-                                    />
-                                </label>
-                            </div>
-
-                            <PermissionGate module="vendor_pricelist" action="create">
-                              <button
-                                onClick={handleOpenNewItem}
-                                className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-sm"
-                              >
-                                <Tag className="w-5 h-5 mr-2" />
-                                <span>Add Item</span>
-                              </button>
-                            </PermissionGate>
-                        </div>
-                    </div>
+            <DashboardHeader
+                title="Vendor Pricelist"
+                icon={<Package />}
+                subtitle={`${filteredData.length} items from ${vendorFilter === 'all' ? 'all' : vendors?.find(v => v.id === vendorFilter)?.vendor_name} vendors`}
+            >
+                <div className="flex flex-shrink-0 items-center gap-2">
+                    <Filter className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <select
+                        value={vendorFilter}
+                        onChange={(e) => setVendorFilter(e.target.value)}
+                        aria-label="Filter by vendor"
+                        className="h-9 rounded-md border border-border bg-muted px-2 text-sm text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                        <option value="all">All Vendors</option>
+                        {vendors?.map(v => (
+                            <option key={v.id} value={v.id}>{v.vendor_name}</option>
+                        ))}
+                    </select>
                 </div>
-            </div>
+
+                <SearchInput
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="Search items..."
+                    label="Search pricelist items"
+                />
+
+                <CellWrapToggle value={cellWrapStyle} onChange={setCellWrapStyle} />
+
+                <DataTableColumnToggle allColumns={allColumns} visibleColumns={visibleColumns} onColumnToggle={handleColumnToggle} />
+
+                <div className="flex flex-shrink-0 items-center gap-1 border-l border-border pl-2">
+                    <IconButton
+                        label="Download Template"
+                        onClick={handleDownloadTemplate}
+                    >
+                        <Download size={18} aria-hidden="true" />
+                    </IconButton>
+
+                    {/* Stays a <label> so the click still opens the hidden file input;
+                        `asChild` gives it the canonical icon-button styling. */}
+                    <Button asChild variant="ghostMuted" size="iconTouch" className="cursor-pointer rounded-md">
+                        <label title="Bulk Upload" aria-label="Bulk Upload">
+                            {isUploading ? <Loader2 size={18} className="animate-spin text-primary" aria-hidden="true" /> : <Upload size={18} aria-hidden="true" />}
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls"
+                                className="hidden"
+                                onChange={handleFileUpload}
+                                disabled={isUploading}
+                            />
+                        </label>
+                    </Button>
+                </div>
+
+                <PermissionGate module="vendor_pricelist" action="create">
+                  <Button onClick={handleOpenNewItem} aria-label="Add pricelist item">
+                    <Tag className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Add Item</span>
+                  </Button>
+                </PermissionGate>
+            </DashboardHeader>
 
             <div className="flex-1 overflow-hidden p-4">
                 <DataTable
@@ -375,16 +371,21 @@ const VendorPricelistDashboard: React.FC = () => {
                     mobilePrimaryColumns={['model_name', 'brand', 'dealer_price']}
 
                     cellWrapStyle={cellWrapStyle}
+                    emptyState={{
+                        title: 'No pricelist items yet',
+                        description: 'Items you add or bulk-upload will appear here.',
+                    }}
                     renderRowActions={(row) => (
-                        <button
+                        <IconButton
+                            label="Edit item"
+                            tone="primary"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditItem(row);
                             }}
-                            className="p-2 text-muted-foreground hover:text-brand-500 transition"
                         >
-                            <Pencil size={16} />
-                        </button>
+                            <Pencil size={16} aria-hidden="true" />
+                        </IconButton>
                     )}
                     renderRowContextMenu={(row) => (
                         <RowActionMenuItems

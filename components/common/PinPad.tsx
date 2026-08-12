@@ -18,8 +18,8 @@ export function PinDots({ length = 4, filled }: PinDotsProps) {
                     key={i}
                     className={`w-4 h-4 rounded-full transition-all duration-300 ${
                         i < filled
-                            ? 'bg-brand-500 scale-125 shadow-[0_0_15px_hsl(var(--brand-500)/0.6)]'
-                            : 'bg-slate-700/50 border border-slate-600'
+                            ? 'bg-primary scale-125 shadow-[0_0_15px_hsl(var(--primary)/0.6)]'
+                            : 'bg-muted border border-border'
                     }`}
                 />
             ))}
@@ -49,7 +49,7 @@ export function PinPad({ onDigit, onDelete, onSubmit, submitDisabled }: PinPadPr
                 <button
                     key={num}
                     onClick={() => onDigit(String(num))}
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto"
+                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-foreground hover:bg-accent active:bg-accent/70 transition-colors mx-auto"
                 >
                     {num}
                 </button>
@@ -60,8 +60,8 @@ export function PinPad({ onDigit, onDelete, onSubmit, submitDisabled }: PinPadPr
                     disabled={submitDisabled}
                     className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors mx-auto ${
                         submitDisabled 
-                            ? 'text-slate-700 cursor-not-allowed' 
-                            : 'text-brand-400 hover:text-white hover:bg-white/10 active:bg-white/20'
+                            ? 'text-muted-foreground/40 cursor-not-allowed' 
+                            : 'text-primary hover:text-foreground hover:bg-accent active:bg-accent/70'
                     }`}
                 >
                     <Check className="w-8 h-8" />
@@ -71,13 +71,13 @@ export function PinPad({ onDigit, onDelete, onSubmit, submitDisabled }: PinPadPr
             )}
             <button
                 onClick={() => onDigit('0')}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto"
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium text-foreground hover:bg-accent active:bg-accent/70 transition-colors mx-auto"
             >
                 0
             </button>
             <button
                 onClick={onDelete}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 active:bg-white/20 transition-colors mx-auto"
+                className="w-16 h-16 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent active:bg-accent/70 transition-colors mx-auto"
             >
                 <Delete className="w-6 h-6" />
             </button>

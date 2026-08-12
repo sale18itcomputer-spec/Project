@@ -117,7 +117,7 @@ const DepositChequeTab: React.FC<{ accounts: ChartOfAccount[] }> = ({ accounts }
                 <button
                     onClick={handleDeposit}
                     disabled={depositing || selectedLines.length === 0 || !targetAccount}
-                    className="h-9 px-4 text-sm font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="h-9 px-4 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     {depositing ? 'Depositing…' : `Deposit ${selectedLines.length || ''} Cheque${selectedLines.length === 1 ? '' : 's'}`}
                 </button>

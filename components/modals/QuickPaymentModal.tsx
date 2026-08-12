@@ -15,6 +15,7 @@ import { SERVICE_REMARK_PREFIX } from '../../utils/serviceInvoice';
 import { formatCurrencySmartly } from '../../utils/formatters';
 import { formatToSheetDate } from '../../utils/time';
 import { InvoiceAR } from '../../utils/collection';
+import { Z } from '../../lib/zIndex';
 
 const PAYMENT_METHOD_OPTIONS: NonNullable<Receipt['Payment Method']>[] = [
     'Cash', 'Bank Transfer', 'ABA', 'KHQR', 'Cheque', 'Other',
@@ -271,7 +272,8 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
 
     return createPortal(
         <div
-            className={`fixed inset-0 z-[99999] flex justify-center items-center p-4 transition-opacity duration-200 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+            style={{ zIndex: Z.MODAL }}
+            className={`fixed inset-0 flex justify-center items-center p-4 transition-opacity duration-200 ${isShowing ? 'opacity-100' : 'opacity-0'}`}
             onClick={isSubmitting ? undefined : handleClose}
             aria-modal="true"
             role="dialog"
@@ -430,7 +432,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
                     <button
                         type="submit"
                         disabled={!isValid || isSubmitting}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary-foreground bg-primary hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition shadow-sm"
                     >
                         {isSubmitting ? 'Recording...' : <>
                             <Wallet className="w-4 h-4" />

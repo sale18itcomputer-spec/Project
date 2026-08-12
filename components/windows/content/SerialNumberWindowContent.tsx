@@ -203,7 +203,7 @@ const SerialNumberWindowContent: React.FC<SerialNumberWindowContentProps> = ({
                 ) : <span />}
                 <div className="flex gap-3">
                     <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-md border border-border transition text-sm">Cancel</button>
-                    <button type="submit" form={`serial-number-window-form-${windowId}`} disabled={isSaving} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
+                    <button type="submit" form={`serial-number-window-form-${windowId}`} disabled={isSaving} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-4 rounded-md flex items-center text-sm disabled:opacity-50">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-1.5" />}
                         {isEditMode ? 'Save Changes' : 'Save'}
                     </button>

@@ -309,7 +309,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
           </button>
           <button
             onClick={onClose}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:brightness-110 text-primary-foreground text-sm font-bold transition"
           >
             {isReprint ? 'Close' : (<>New Sale <ArrowRight size={16} /></>)}
           </button>

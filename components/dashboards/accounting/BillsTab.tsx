@@ -16,6 +16,11 @@ import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt, Download, AlertTriangle } from 'lucide-react';
 import { exportBills } from '../../../utils/exportAccountingXlsx';
+import SearchInput from '../../common/SearchInput';
+import IconButton from '../../ui/icon-button';
+import { Button } from '../../ui/button';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
+import { Z } from '../../../lib/zIndex';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,7 +37,7 @@ const fmt = (n: number) =>
 const getTodayISO = () => new Date().toISOString().split('T')[0];
 
 const STATUS_BADGE: Record<string, string> = {
-    draft:  'bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
+    draft:  'bg-muted text-muted-foreground border border-border',
     posted: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
     paid:   'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
 };
@@ -93,33 +98,34 @@ const PayModal: React.FC<{
     const [method, setMethod] = useState('ABA');
     const [ref, setRef]     = useState('');
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-            <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50" style={{ zIndex: Z.MODAL - 10 }} onClick={onClose}>
+            <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-6" style={{ zIndex: Z.MODAL }} onClick={e => e.stopPropagation()}>
                 <h3 className="text-base font-semibold text-foreground mb-4">Mark as Paid — {bill.bill_number}</h3>
                 <p className="text-sm text-muted-foreground mb-4">Amount: <strong className="text-foreground">${fmt(bill.total_amount)}</strong></p>
                 <div className="space-y-3">
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Payment Date</label>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Payment Method</label>
                         <select value={method} onChange={e => setMethod(e.target.value)}
-                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600">
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring">
                             {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Reference (optional)</label>
                         <input type="text" value={ref} onChange={e => setRef(e.target.value)} placeholder="Transaction ID / Cheque no."
-                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                     </div>
                 </div>
                 <div className="flex gap-2 mt-5 justify-end">
-                    <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:bg-muted/50">Cancel</button>
-                    <button onClick={() => onConfirm({ paymentDate: date, paymentMethod: method, paymentReference: ref })}
-                        className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium">Confirm Payment</button>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button variant="success" onClick={() => onConfirm({ paymentDate: date, paymentMethod: method, paymentReference: ref })}>
+                        Confirm Payment
+                    </Button>
                 </div>
             </div>
         </div>
@@ -230,13 +236,13 @@ const BillFormModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-            <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: Z.MODAL - 10 }} onClick={onClose}>
+            <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" style={{ zIndex: Z.MODAL }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-5 border-b border-border">
                     <h3 className="text-base font-semibold text-foreground">
                         {bill ? `Edit Bill — ${bill.bill_number}` : 'New Bill'}
                     </h3>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+                    <IconButton label="Close bill form" size="sm" onClick={onClose}><X size={18} /></IconButton>
                 </div>
 
                 <div className="p-5 space-y-4">
@@ -246,7 +252,7 @@ const BillFormModal: React.FC<{
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
                             <select value={header.bill_type}
                                 onChange={e => setHeader(h => ({ ...h, bill_type: e.target.value as 'vendor' | 'inter' }))}
-                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600">
+                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring">
                                 <option value="vendor">Vendor Bill (PO)</option>
                                 <option value="inter">Inter-Bill (Utility / NSSF)</option>
                             </select>
@@ -260,7 +266,7 @@ const BillFormModal: React.FC<{
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Bill Date</label>
                             <input type="date" value={header.bill_date}
                                 onChange={e => setHeader(h => ({ ...h, bill_date: e.target.value }))}
-                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                         </div>
                     </div>
 
@@ -274,7 +280,7 @@ const BillFormModal: React.FC<{
                             value={header.vendor_reference ?? ''}
                             onChange={e => setHeader(h => ({ ...h, vendor_reference: e.target.value }))}
                             placeholder="e.g. INV-2026-0123, VCH-00456"
-                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                     </div>
 
@@ -321,7 +327,7 @@ const BillFormModal: React.FC<{
                                             setLines([emptyLine()]);
                                         }
                                     }}
-                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                    className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                                 >
                                     <option value="">— Select PO —</option>
                                     {purchaseOrders
@@ -344,7 +350,7 @@ const BillFormModal: React.FC<{
                                 value={header.vendor_name ?? ''}
                                 onChange={e => setHeader(h => ({ ...h, vendor_name: e.target.value }))}
                                 placeholder={header.bill_type === 'vendor' ? 'Auto-filled from PO' : 'Search vendor list or type manually…'}
-                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600"
+                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                             />
                             {header.bill_type === 'inter' && billVendors.length > 0 && (
                                 <datalist id="inter-bill-vendors">
@@ -358,7 +364,7 @@ const BillFormModal: React.FC<{
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Due Date</label>
                             <input type="date" value={header.due_date ?? ''}
                                 onChange={e => setHeader(h => ({ ...h, due_date: e.target.value }))}
-                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                         </div>
                     </div>
 
@@ -367,7 +373,7 @@ const BillFormModal: React.FC<{
                         <input type="text" value={header.description}
                             onChange={e => setHeader(h => ({ ...h, description: e.target.value }))}
                             placeholder="Brief description of this bill"
-                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                            className="w-full h-9 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                     </div>
 
                     {/* Lines */}
@@ -398,12 +404,12 @@ const BillFormModal: React.FC<{
                                                 <input type="text" value={l.description}
                                                     onChange={e => updateLine(l.key, 'description', e.target.value)}
                                                     placeholder="Line detail"
-                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 <select value={l.account_number}
                                                     onChange={e => updateLine(l.key, 'account_number', e.target.value)}
-                                                    className={`w-full h-8 px-2 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 ${l.account_number === '12600' ? 'border-amber-400 dark:border-amber-500' : 'border-border'}`}>
+                                                    className={`w-full h-8 px-2 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-ring ${l.account_number === '12600' ? 'border-amber-400 dark:border-amber-500' : 'border-border'}`}>
                                                     <option value="">— Select account —</option>
                                                     {billLineAccounts.map(a => (
                                                         <option key={a.account_number} value={a.account_number}>
@@ -421,24 +427,24 @@ const BillFormModal: React.FC<{
                                             <td className="px-3 py-1.5">
                                                 <input type="number" value={l.qty} min="0"
                                                     onChange={e => updateLine(l.key, 'qty', e.target.value)}
-                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-ring" />
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 <input type="number" value={l.unit_price} min="0" step="0.01"
                                                     onChange={e => updateLine(l.key, 'unit_price', e.target.value)}
-                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-ring" />
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 <input type="number" value={l.amount} min="0" step="0.01"
                                                     onChange={e => updateLine(l.key, 'amount', e.target.value)}
-                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-brand-600" />
+                                                    className="w-full h-8 px-2 text-xs rounded border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-ring" />
                                             </td>
                                             <td className="px-2 py-1.5">
                                                 {lines.length > 1 && (
-                                                    <button onClick={() => setLines(ls => ls.filter(x => x.key !== l.key))}
-                                                        className="text-muted-foreground hover:text-red-500">
+                                                    <IconButton label="Remove bill line" tone="danger" size="sm"
+                                                        onClick={() => setLines(ls => ls.filter(x => x.key !== l.key))}>
                                                         <X size={14} />
-                                                    </button>
+                                                    </IconButton>
                                                 )}
                                             </td>
                                         </tr>
@@ -474,15 +480,15 @@ const BillFormModal: React.FC<{
                         <textarea value={header.notes ?? ''} rows={2}
                             onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))}
                             placeholder="Internal notes (optional)"
-                            className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 resize-none" />
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none" />
                     </div>
                 </div>
 
                 <div className="flex gap-2 justify-end px-5 py-4 border-t border-border">
-                    <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:bg-muted/50">Cancel</button>
-                    <button onClick={handleSave} className="px-5 py-2 text-sm rounded-lg bg-brand-600 text-white hover:bg-brand-700 font-medium flex items-center gap-1.5">
-                        <Check size={14} /> Save Bill
-                    </button>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSave}>
+                        <Check size={14} aria-hidden="true" /> Save Bill
+                    </Button>
                 </div>
             </div>
         </div>
@@ -504,6 +510,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const [typeFilter, setTypeFilter] = useState<'all' | 'vendor' | 'inter'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'posted' | 'paid'>('all');
     const [billSearch, setBillSearch] = useState('');
+    const debouncedBillSearch = useDebouncedValue(billSearch);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [formBill, setFormBill] = useState<Bill | null | 'new'>('new' as never);
     const [showForm, setShowForm] = useState(false);
@@ -636,8 +643,8 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
         let base = bills;
         if (typeFilter !== 'all') base = base.filter(b => b.bill_type === typeFilter);
         if (statusFilter !== 'all') base = base.filter(b => b.status === statusFilter);
-        if (billSearch.trim()) {
-            const q = billSearch.toLowerCase();
+        if (debouncedBillSearch.trim()) {
+            const q = debouncedBillSearch.toLowerCase();
             base = base.filter(b =>
                 b.bill_number.toLowerCase().includes(q) ||
                 (b.vendor_name ?? '').toLowerCase().includes(q) ||
@@ -646,7 +653,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
             );
         }
         return base;
-    }, [bills, typeFilter, statusFilter, billSearch]);
+    }, [bills, typeFilter, statusFilter, debouncedBillSearch]);
 
     const totals = useMemo(() => ({
         draft:  bills.filter(b => b.status === 'draft').reduce((s, b) => s + b.total_amount, 0),
@@ -659,7 +666,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     }) => (
         <button onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
             active
-                ? 'bg-brand-600 text-white border-brand-600'
+                ? 'bg-primary text-primary-foreground border-brand-600'
                 : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
         }`}>
             {label}
@@ -714,30 +721,27 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                             value={s} active={statusFilter === s} onClick={() => setStatusFilter(s)} />
                     ))}
                 </div>
-                <div className="relative ml-auto">
-                    <input type="text" value={billSearch} onChange={e => setBillSearch(e.target.value)}
-                        placeholder="Search bills…"
-                        className="h-8 pl-8 pr-7 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-brand-600 w-48" />
-                    <svg className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                    </svg>
-                    {billSearch && (
-                        <button onClick={() => setBillSearch('')} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-                <button
+                <SearchInput
+                    value={billSearch}
+                    onValueChange={setBillSearch}
+                    placeholder="Search bills…"
+                    label="Search bills"
+                    containerClassName="ml-auto lg:w-48"
+                />
+                <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => exportBills(filtered, new Date().toISOString().slice(0, 10))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 shrink-0"
+                    aria-label="Export bills"
                 >
-                    <Download size={13} /> Export
-                </button>
+                    <Download size={13} aria-hidden="true" />
+                    <span className="hidden sm:inline">Export</span>
+                </Button>
                 {canEdit && (
-                    <button onClick={openNew}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shrink-0">
-                        <PlusCircle size={14} /> New Bill
-                    </button>
+                    <Button size="sm" onClick={openNew} aria-label="New bill">
+                        <PlusCircle size={14} aria-hidden="true" />
+                        <span className="hidden sm:inline">New Bill</span>
+                    </Button>
                 )}
             </div>
 
@@ -771,10 +775,10 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                                 <React.Fragment key={bill.id}>
                                     <tr className="border-t border-border/50 hover:bg-muted/20 transition-colors">
                                         <td className="pl-3">
-                                            <button onClick={() => setExpandedId(id => id === bill.id ? null : bill.id!)}
-                                                className="text-muted-foreground hover:text-foreground">
+                                            <IconButton label={`${expandedId === bill.id ? 'Hide' : 'Show'} details for ${bill.bill_number}`} size="sm"
+                                                onClick={() => setExpandedId(id => id === bill.id ? null : bill.id!)}>
                                                 {expandedId === bill.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                            </button>
+                                            </IconButton>
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-foreground">{bill.bill_number}</td>
                                         <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">
@@ -811,10 +815,10 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
                                                             className="px-2 py-0.5 rounded text-xs font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700 disabled:opacity-50">
                                                             Post
                                                         </button>
-                                                        <button onClick={() => handleDelete(bill)} disabled={busy[bill.id!]}
-                                                            className="text-muted-foreground hover:text-red-500 disabled:opacity-50">
+                                                        <IconButton label={`Delete ${bill.bill_number}`} tone="danger" size="sm"
+                                                            onClick={() => handleDelete(bill)} disabled={busy[bill.id!]}>
                                                             <Trash2 size={13} />
-                                                        </button>
+                                                        </IconButton>
                                                     </>
                                                 )}
                                                 {canEdit && bill.status === 'posted' && (

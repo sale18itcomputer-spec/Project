@@ -8,7 +8,8 @@ import MobileBottomNav from './MobileBottomNav';
 import GlobalSearch from '@/components/common/GlobalSearch';
 import AiChatWidget from '@/components/common/AiChatWidget';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWindowSize } from '@/hooks/useWindowSize';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { Z } from '@/lib/zIndex';
 import BrandedLoader from '@/components/common/DashboardSkeleton';
 import { UNLOCK_STORAGE_KEY, AUTOLOCK_STORAGE_KEY } from '@/utils/security';
 import { buildAllowedPaths, getDefaultRoute } from '@/utils/permissions';
@@ -38,10 +39,16 @@ const CONSTRAINED_ROUTES = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isAuthLoading, currentUser } = useAuth();
-    const { width } = useWindowSize();
     const pathname = usePathname();
     const router = useRouter();
-    const isMobile = width < 1024;
+    // Was `useWindowSize().width < 1024`, and useWindowSize started at width 0 —
+    // so this evaluated true on the first client render and every desktop
+    // session mounted the entire mobile shell (bottom tab bar, mobile padding,
+    // card-list tables) before swapping to the desktop tree one frame later.
+    // Because the two branches are structurally different that was a full
+    // subtree remount, not a re-render. useIsMobile resolves synchronously
+    // before paint.
+    const isMobile = useIsMobile();
 
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -194,12 +201,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
             router.replace('/unlock');
         };
+        // The mobile bottom bar's "More" tab opens the full nav drawer — the
+        // tab bar only surfaces four of the app's thirty-two modules.
+        const handleOpenSidebar = () => setSidebarOpen(true);
         window.addEventListener('lock-app', handleManualLock);
+        window.addEventListener('open-sidebar', handleOpenSidebar);
 
-        return () => { 
-            document.body.style.cursor = ''; 
-            document.body.style.userSelect = ''; 
+        return () => {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
             window.removeEventListener('lock-app', handleManualLock);
+            window.removeEventListener('open-sidebar', handleOpenSidebar);
         };
     }, [isResizing, router]);
 
@@ -222,7 +234,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="relative min-h-dvh">
                 <Header onMenuClick={() => setSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} isMobile={true} />
                 {isSidebarOpen && (
-                    <div onClick={closeSidebar} className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-[90] lg:hidden" aria-hidden="true" />
+                    <div onClick={closeSidebar} style={{ zIndex: Z.NAV_SCRIM }} className="fixed inset-0 bg-black/50 backdrop-blur-[2px] lg:hidden" aria-hidden="true" />
                 )}
                 <Sidebar
                     isSidebarOpen={isSidebarOpen} width={280} isResizing={false} isCollapsed={false}

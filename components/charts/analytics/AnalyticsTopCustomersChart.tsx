@@ -153,13 +153,13 @@ const AnalyticsTopCustomersChart: React.FC<Props> = ({ data, onBarClick }) => {
   const toolBtn = (active = false) =>
     `flex items-center justify-center w-7 h-7 rounded-lg border transition-all ${
       active
-        ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+        ? 'bg-primary text-primary-foreground border-brand-500 shadow-sm'
         : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40 hover:bg-muted/60'
     }`;
 
   return (
     <div
-      className="bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden"
+      className={`${showTable ? '' : 'chart-container'} bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden`}
       style={{ height: showTable ? 'auto' : '500px' }}
     >
       {/* ── Top accent bar — matches Revenue Growth (blue only) ── */}

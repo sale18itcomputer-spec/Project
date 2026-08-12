@@ -185,7 +185,7 @@ const InquiryWindowContent: React.FC<InquiryWindowContentProps> = ({ windowId, i
         <button type="button" onClick={() => closeWindow(windowId)} className="px-4 py-2 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:text-foreground transition">
           Close
         </button>
-        <button type="button" onClick={() => setIsReadOnly(false)} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition flex items-center gap-2 shadow-md">
+        <button type="button" onClick={() => setIsReadOnly(false)} className="px-4 py-2 rounded-lg bg-primary hover:brightness-110 text-primary-foreground text-sm font-bold transition flex items-center gap-2 shadow-md">
           <Pencil size={14} /> Edit
         </button>
       </div>
@@ -200,7 +200,7 @@ const InquiryWindowContent: React.FC<InquiryWindowContentProps> = ({ windowId, i
             Save as Draft
           </button>
           {canSubmit && (
-            <button type="button" onClick={() => handleSave('Pending')} disabled={isSaving} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition disabled:opacity-50 flex items-center gap-2 shadow-md">
+            <button type="button" onClick={() => handleSave('Pending')} disabled={isSaving} className="px-4 py-2 rounded-lg bg-primary hover:brightness-110 text-primary-foreground text-sm font-bold transition disabled:opacity-50 flex items-center gap-2 shadow-md">
               {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
               Submit to Procurement
             </button>

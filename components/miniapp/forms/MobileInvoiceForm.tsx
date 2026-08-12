@@ -12,8 +12,10 @@ import {
     MobileInput, MobileTextarea, MobileSelect, MobileSearchSelect,
     MobileLineItemCard, MobileAddItemBtn, MobileTotals, MiniLineItem,
 } from './MobileFormBase';
+// Accent follows the active theme (and the user's accent picker) instead
+// of the per-form hardcoded hex this file used to declare.
+const ACCENT = 'hsl(var(--primary))';
 
-const ACCENT = '#a78bfa';
 const STATUS_OPTIONS = ['Draft', 'Processing', 'Completed', 'Cancel'];
 const TAXABLE_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
@@ -256,7 +258,6 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
                 onBack={onBack}
                 onSave={handleSave}
                 isSaving={isSaving}
-                accentColor={ACCENT}
             />
 
             <div className="flex-1 overflow-y-auto py-4 space-y-5 pb-10">
@@ -326,15 +327,14 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
                         {items.map(it => (
                             <MobileLineItemCard
                                 key={it.id} item={it}
-                                onChange={handleItemChange} onRemove={removeItem}
-                                accentColor={ACCENT} currency={currSym}
+                                onChange={handleItemChange} onRemove={removeItem} currency={currSym}
                             />
                         ))}
-                        <MobileAddItemBtn onAdd={addItem} accentColor={ACCENT} />
+                        <MobileAddItemBtn onAdd={addItem} />
                     </div>
                 </div>
 
-                <MobileTotals subTotal={totals.subTotal} tax={totals.tax} grandTotal={totals.grandTotal} currency={currSym} accentColor={ACCENT} />
+                <MobileTotals subTotal={totals.subTotal} tax={totals.tax} grandTotal={totals.grandTotal} currency={currSym} />
 
                 <MobileFormSection title="Preparation">
                     <MobileField label="Prepared By" last={false}>
@@ -359,7 +359,7 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
                                 type="button"
                                 onClick={() => set('Deposit', Number((totals.subTotal * 0.2).toFixed(2)))}
                                 className="text-[11px] font-bold uppercase tracking-wide px-2 py-1 rounded-md flex-shrink-0"
-                                style={{ color: ACCENT, border: `1px solid ${ACCENT}55` }}
+                                style={{ color: ACCENT, border: `1px solid ${`color-mix(in srgb, ${ACCENT} 33%, transparent)`}` }}
                             >
                                 20%
                             </button>
