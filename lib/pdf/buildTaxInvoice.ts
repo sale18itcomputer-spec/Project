@@ -20,6 +20,7 @@ export function buildTaxInvoice(
     columnWidths?: number[],
     hideKhmer = false,
     docTitle?: { en: string; km: string },
+    hideSerials = false,
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
@@ -148,7 +149,7 @@ export function buildTaxInvoice(
                 const isLast = idx === comps.length - 1;
                 const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
                 const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
-                const sn = c.serialNumber?.trim();
+                const sn = hideSerials ? '' : c.serialNumber?.trim();
                 const warranty = c.warrantyMonths ? `${c.warrantyMonths} months warranty` : '';
                 const subLine = [warranty, sn ? `S/N: ${sn}` : ''].filter(Boolean).join(' · ');
                 rows += `
@@ -164,7 +165,16 @@ export function buildTaxInvoice(
             return rows;
         }
 
-        if (!item.description) {
+        // Serial numbers to list under the item (multi-line string or array).
+        // Suppressed entirely when hideSerials is on (cleaner PDF for orders
+        // with many serials).
+        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
+            ? item.serialNumbers
+            : (item.serialNumber || '').split('\n'))
+            .map(s => s.trim()).filter(Boolean);
+
+        // Simple one-row item: no description AND no serials.
+        if (!item.description && serials.length === 0) {
             return `
         <tr class="text-center break-inside-avoid">
           ${wNo>0   ? `<td class="align-top py-2">${esc(item.no)}</td>` : ''}
@@ -176,8 +186,8 @@ export function buildTaxInvoice(
         </tr>`;
         }
 
-        // Header row for a multi-line description — bottom border suppressed
-        // because a description-line row always follows.
+        // Header row (model name) — bottom border suppressed because
+        // description/serial sub-rows always follow.
         let rows = `
         <tr class="text-center break-inside-avoid">
           ${wNo>0   ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${esc(item.no)}</td>` : ''}
@@ -188,20 +198,26 @@ export function buildTaxInvoice(
           ${wAmt>0  ? `<td class="align-top pt-2 pb-0" style="border-bottom:none !important;">${amtDisplay}</td>` : ''}
         </tr>`;
 
-        // Multi-line descriptions get their own row per line (each marked
-        // break-inside-avoid) so a page break can fall between lines instead
-        // of forcing the whole item block onto the next page and leaving a
-        // large blank gap at the bottom of the previous page.
-        const descLines = item.description.split('\n');
-        descLines.forEach((line, idx) => {
-            const isLastLine = idx === descLines.length - 1;
-            const borderStyle = isLastLine ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
-            const padStyle = isLastLine ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+        // Sub-rows: description lines (normal), then serial-number lines (small,
+        // grey). Each is its own row (break-inside-avoid) so a page break can
+        // fall between lines. The LAST sub-row closes the item block.
+        const descLines = item.description ? item.description.split('\n') : [];
+        const subLines: { text: string; serial: boolean }[] = [
+            ...descLines.map(text => ({ text, serial: false })),
+            ...serials.map(s => ({ text: `S/N: ${s}`, serial: true })),
+        ];
+        subLines.forEach((sub, idx) => {
+            const isLast = idx === subLines.length - 1;
+            const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
+            const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
+            const descCell = sub.serial
+                ? `<td class="text-left align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle} font-size:10px; color:#555;">${esc(sub.text)}</td>`
+                : `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(sub.text)}</td>`;
             rows += `
         <tr class="text-center break-inside-avoid">
           ${wNo>0   ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
           ${wCode>0 ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
-          ${wDesc>0 ? `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(line)}</td>` : ''}
+          ${wDesc>0 ? descCell : ''}
           ${wQty>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
           ${wPrice>0? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
           ${wAmt>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}

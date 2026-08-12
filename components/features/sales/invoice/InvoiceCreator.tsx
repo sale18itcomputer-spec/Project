@@ -5,7 +5,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice, SaleOrder, ServiceTicket } from "../../../../types";
 import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo } from "../../../../services/api";
+import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo, releaseInvNoIfUnused } from "../../../../services/api";
+import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../services/reconcileInvoiceEdit";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
@@ -85,6 +86,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [signaturePadding, setSignaturePadding] = useState(0);
     const [labelPadding, setLabelPadding] = useState(200);
     const [hideKhmer, setHideKhmer] = useState(false);
+    const [hideSerials, setHideSerials] = useState(false);
     const [colWidths, setColWidths, resetColWidths] = useColumnWidths('invoice');
 
     // Service invoices are a separate document series (SI numbers, own PDF
@@ -102,7 +104,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     useEffect(() => {
         if (existingInvoice) return;
         const taxable: string = initialData?.soData?.['Bill Invoice'] || initialData?.duplicateOf?.['Taxable'] || 'VAT';
-        const gen = isService ? generateServiceInvNo() : generateInvNo(taxable);
+        // PEEK (non-consuming): show a provisional number while editing. The real
+        // number is minted at save time from the final taxable (see handleSave),
+        // so opening the form / toggling VAT never burns a number or creates gaps.
+        const gen = isService ? peekServiceInvNo() : peekInvNo(taxable);
         gen.then(setNextInvNo).catch(() => {
             // Fallback: derive from current-mode cache if the DB query fails
             const year = new Date().getFullYear().toString();
@@ -304,11 +309,12 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             }
             return updated;
         });
-        // When Taxable type changes on a new invoice, re-fetch the global next number
-        // so the prefix (TI / INV / CI) stays unique across B2C and B2B.
-        // Service invoices keep their SI number — the series does not depend on tax type.
+        // When Taxable type changes on a new invoice, refresh the PROVISIONAL
+        // number so the displayed prefix (TI / INV / CI) tracks the choice.
+        // Non-consuming peek — the real number is minted at save. Service
+        // invoices keep their SI number — the series doesn't depend on tax type.
         if (name === 'Taxable' && !existingInvoice && !isService) {
-            generateInvNo(value)
+            peekInvNo(value)
                 .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
                 .catch(() => {/* keep current number if query fails */});
         }
@@ -346,6 +352,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     useEffect(() => {
         if (isService) fetchModule('Service Tickets');
     }, [isService, fetchModule]);
+
+    // Inventory is a lazy sheet — load it so the line-item search can offer
+    // in-stock items that aren't in the pricelist catalog (e.g. LAC00050).
+    useEffect(() => { fetchModule('Inventory'); }, [fetchModule]);
 
     const serviceTicketOptions = useMemo(
         () => serviceTickets
@@ -405,6 +415,15 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     id: item.id || `item-${Math.random()}`
                 })));
             }
+            // Attaching an SO copies its VAT/Non-VAT type into Taxable, so refresh
+            // the provisional number's prefix to match (this is what was missing
+            // when a Non-VAT SO produced a "TI" invoice number). Non-consuming;
+            // the authoritative number is minted at save from the final taxable.
+            if (!existingInvoice && !isService) {
+                peekInvNo(so['Bill Invoice'] || 'NON-VAT')
+                    .then(newNo => setInvoice(prev => ({ ...prev, 'Inv No': newNo })))
+                    .catch(() => {/* keep current provisional number */});
+            }
             addToast(`Loaded information from SO ${soNo}`, 'success');
         } else {
             setInvoice(prev => ({ ...prev, 'SO No': soNo }));
@@ -412,14 +431,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     };
 
     const handlePricelistItemSelect = (item: LineItem, p: any) => {
+        // p is the combobox's normalized pick { Code, Model, Description, Brand,
+        // unitPrice }; fall back to raw pricelist column names for safety. The
+        // pricelist's real price column is 'End User Price' (NOT the old
+        // 'Selling Price (Include VAT)', which never existed → Unit Price 0).
+        const unit = Number(p.unitPrice ?? p['End User Price'] ?? p['Selling Price (Include VAT)'] ?? 0) || 0;
         setItems(prev => prev.map(i => i.id === item.id ? {
             ...i,
-            itemCode: p['Code'] || p['Item Code'] || '',
-            modelName: p.Model || '',
-            description: p['Description'] || p.Specification || '',
-            unitPrice: p['Selling Price (Include VAT)'] || 0,
-            amount: (Number(p['Selling Price (Include VAT)']) || 0) * (Number(i.qty) || 0),
-            brand: p.Brand || '',
+            itemCode: p.Code || p['Code'] || p['Item Code'] || '',
+            modelName: p.Model || p.model || '',
+            description: p.Description || p['Description'] || p.Specification || '',
+            unitPrice: unit,
+            amount: unit * (Number(i.qty) || 0),
+            brand: p.Brand || p.brand || '',
         } : i));
     };
 
@@ -614,14 +638,34 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 }
             }
 
+            // Mint the AUTHORITATIVE invoice number now, from the FINAL taxable
+            // type. The number shown while editing was a non-consuming peek, so
+            // this is the single point a real number is consumed — guaranteeing
+            // the prefix matches the invoice's actual VAT status (no more Non-VAT
+            // invoices with a "TI" number) and no gaps from abandoned drafts.
+            // Placed after all validation/confirms so a cancelled save burns none.
+            const finalInvNo = existingInvoice
+                ? (invoice['Inv No'] as string)
+                : (isService ? await generateServiceInvNo() : await generateInvNo(invoice['Taxable'] || 'NON-VAT'));
+            payload['Inv No'] = finalInvNo;
+
             if (existingInvoice) {
                 await updateRecord('Invoices', existingInvoice['Inv No'], payload);
                 setInvoices(current => current ? current.map(inv => inv['Inv No'] === invoice['Inv No'] ? (payload as unknown as Invoice) : inv) : [payload as unknown as Invoice]);
             } else {
-                await createRecord('Invoices', payload);
+                try {
+                    await createRecord('Invoices', payload);
+                } catch (insErr) {
+                    // generateInvNo already consumed finalInvNo above; the row did
+                    // NOT persist, so release the number instead of leaving a
+                    // permanent gap in the invoice sequence (mint-before-persist).
+                    // Best-effort — never let a release error mask the real failure.
+                    await releaseInvNoIfUnused(finalInvNo).catch(() => {});
+                    throw insErr;
+                }
                 setInvoices(current => current ? [payload as unknown as Invoice, ...current] : [payload as unknown as Invoice]);
-
-                // JE is posted below (line 632) with full COGS — do not post here.
+                // Reflect the minted number in form state (success screen, PDF, title).
+                setInvoice(prev => ({ ...prev, 'Inv No': finalInvNo }));
             }
 
             if (wasDraft && isNowIssued) {
@@ -864,7 +908,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const depositAmt = toNum(invoice['Deposit']);
                 if (depositAmt > 0.005) {
                     autoPostDepositReceiptJournal({
-                        invNo:         invoice['Inv No']!,
+                        invNo:         finalInvNo,
                         depositAmount: depositAmt,
                         entryDate:     invoice['Inv Date'] || getTodayDateString(),
                         createdBy:     currentUser?.Name || 'system',
@@ -877,7 +921,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // Auto-post invoice journal with COGS after inventory loop
                 // (idempotent — safe for both new invoices and Draft → Issued updates)
                 autoPostInvoiceJournal({
-                    invNo:         invoice['Inv No']!,
+                    invNo:         finalInvNo,
                     entryDate:     invoice['Inv Date'] || getTodayDateString(),
                     grandTotal:    totals.grandTotal,
                     taxAmount:     totals.tax,
@@ -891,6 +935,56 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     console.warn('[InvoiceCreator] auto-post journal failed:', err);
                     addToast(`Invoice saved, but its journal entry failed: ${err.message}`, 'error');
                 });
+            } else if (existingInvoice && isNowIssued) {
+                // Editing an ALREADY-ISSUED invoice: the block above intentionally
+                // skips (so the originals aren't deducted twice). Reconcile only the
+                // DELTA vs the last saved items, so lines/serials/qty added or removed
+                // on this edit are reflected in stock, the serial register and the GL.
+                try {
+                    const parseItems = (raw: any) => {
+                        try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; }
+                    };
+                    const brandByCode = new Map<string, string>((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
+                    const res = await reconcileIssuedInvoiceEdit({
+                        invNo: finalInvNo,
+                        invoiceDate: (invoice['Inv Date'] as string) || getTodayDateString(),
+                        isVAT: invoice['Taxable'] === 'VAT',
+                        soNo: (invoice['SO No'] as string) || '',
+                        companyName: (invoice['Company Name'] as string) || '',
+                        contactName: (invoice['Contact Name'] as string) || '',
+                        createdBy: currentUser?.Name || 'system',
+                        oldItems: parseItems(existingInvoice.ItemsJSON),
+                        newItems: items,
+                        brandByCode,
+                    });
+                    if (res.inventoryChanged) refetchModule('Inventory');
+                    if (res.serialsChanged) refetchModule('Serial Numbers');
+                    if (res.inventoryChanged || res.serialsChanged || res.glAdjusted) {
+                        addToast(`Edit reconciled: ${res.summary}.`, 'success');
+                    }
+                } catch (reconErr: any) {
+                    console.warn('[InvoiceCreator] edit reconciliation failed:', reconErr.message);
+                    addToast(`Invoice saved, but edit reconciliation failed: ${reconErr.message}`, 'error');
+                }
+            } else if (!isNowIssued) {
+                // Draft (not issued): reserve its serials so they can't be picked on
+                // another document, and free any removed from the draft. Serials
+                // become 'Sold' later, at issue. See reserveInvoiceSerials.
+                try {
+                    const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+                    const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+                    const res = await reserveInvoiceSerials({
+                        soNo: (invoice['SO No'] as string) || (finalInvNo as string),
+                        companyName: (invoice['Company Name'] as string) || '',
+                        contactName: (invoice['Contact Name'] as string) || '',
+                        oldItems: parseItems(existingInvoice?.ItemsJSON),
+                        newItems: items,
+                        brandByCode,
+                    });
+                    if (res.changed) refetchModule('Serial Numbers');
+                } catch (resErr: any) {
+                    console.warn('[InvoiceCreator] serial reservation failed:', resErr.message);
+                }
             }
 
             refetchModule('Invoices');
@@ -900,7 +994,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             submitted.current = true;
             clearDraft();
             setHasDraftState(false);
-            setSuccessInfo({ invNo: invoice['Inv No'] });
+            setSuccessInfo({ invNo: finalInvNo });
         } catch (err: any) {
             addToast(friendlyDbError(err, 'invoice number') || 'Failed to save invoice', 'error');
         } finally {
@@ -973,6 +1067,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 isPromotion: item.isPromotion,
                 isPCBuild: item.isPCBuild,
                 buildComponents: item.buildComponents,
+                serialNumber: item.serialNumber,
+                serialNumbers: item.serialNumbers,
             })),
             totals: {
                 subTotal: totals.subTotal,
@@ -983,6 +1079,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             signaturePadding,
             labelPadding,
             hideKhmer,
+            hideSerials,
             previewMode: false,
             filename: `${filePrefix}_${invoice['Inv No']}.pdf`,
             columnWidths: colWidths,
@@ -1004,6 +1101,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         signaturePadding,
         labelPadding,
         hideKhmer,
+        hideSerials,
     };
 
     const headerLeft = (
@@ -1092,6 +1190,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                             onLabelPaddingChange={setLabelPadding}
                             hideKhmer={hideKhmer}
                             onHideKhmerChange={setHideKhmer}
+                            hideSerials={hideSerials}
+                            onHideSerialsChange={setHideSerials}
                             columnWidths={colWidths}
                         />
                     </div>

@@ -36,8 +36,17 @@ export interface DataVisibility {
  * Full permission snapshot stored as JSONB in the users table.
  * null in the DB means "use role preset" — no custom overrides.
  */
+/** Which business modes (B2C / B2B) a user may switch into via the header toggle.
+ *  b2c defaults to true (everyone can sell retail); b2b is opt-in per role/user. */
+export interface BusinessAccess {
+  b2c?: boolean;
+  b2b?: boolean;
+}
+
 export interface UserPermissions {
   modules: Record<string, ModulePermissions>;
+  /** B2C / B2B mode access. Absent → inherit the role preset. */
+  businessAccess?: BusinessAccess;
   /**
    * Per-sub-tab overrides for modules that declare `subTabs` (e.g. Accounting's
    * Journal Entries / Trial Balance / P&L tabs). Keyed by module, then sub-tab

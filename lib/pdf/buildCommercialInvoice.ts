@@ -20,6 +20,7 @@ export function buildCommercialInvoice(
     signaturePadding = 0,
     labelPadding?: number,
     columnWidths?: number[],
+    hideSerials = false,
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
@@ -62,11 +63,19 @@ export function buildCommercialInvoice(
             ? `<div class="flex justify-between"><span>${sym}</span><span>${fmtNum(price)}</span></div>`
             : '';
 
+        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
+            ? item.serialNumbers
+            : (item.serialNumber || '').split('\n'))
+            .map(s => s.trim()).filter(Boolean);
+        const serialHtml = serials.length > 0
+            ? `<div class="font-normal" style="font-size:10px; color:#555;">${serials.map(s => `S/N: ${esc(s)}`).join('<br/>')}</div>`
+            : '';
+
         return `
         <tr class="h-10 text-center">
           ${wNo>0   ? `<td>${esc(item.no)}</td>` : ''}
           ${wCode>0 ? `<td>${esc(item.itemCode)}</td>` : ''}
-          ${wDesc>0 ? `<td class="text-left">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px]">${esc(item.description)}</div>` : ''}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left">${esc(item.modelName ?? '')}${item.description ? `<div class="font-normal text-[12px]">${esc(item.description)}</div>` : ''}${serialHtml}</td>` : ''}
           ${wQty>0  ? `<td>${esc(item.qty)}</td>` : ''}
           ${wPrice>0? `<td>${priceDisplay}</td>` : ''}
           ${wAmt>0  ? `<td class="align-top">${amtDisplay}</td>` : ''}

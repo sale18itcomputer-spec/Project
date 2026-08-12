@@ -695,15 +695,62 @@ export const generatePosRvNo = async (): Promise<string> => {
  * sequence number, "TI2026-00003", that had already been used and abandoned
  * once before).
  */
-export const generateInvNo = async (taxableType: string): Promise<string> => {
+const invPrefixFor = (taxableType: string): string => {
     const year = new Date().getFullYear();
-    let prefix = `INV${year}-`;
-    if (taxableType === 'VAT') prefix = `TI${year}-`;
-    else if (taxableType === 'Commercial Invoice') prefix = `CI${year}-`;
+    if (taxableType === 'VAT') return `TI${year}-`;
+    if (taxableType === 'Commercial Invoice') return `CI${year}-`;
+    return `INV${year}-`;
+};
 
+export const generateInvNo = async (taxableType: string): Promise<string> => {
+    const prefix = invPrefixFor(taxableType);
     const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
     if (error) throw error;
     return `${prefix}${String(data as number).padStart(5, '0')}`;
+};
+
+/**
+ * Release a just-minted document number back to the counter when the row it was
+ * for failed to persist — closing the mint-before-persist gap. generateInvNo
+ * (and the SI/CI/TI variants) consume a number BEFORE the insert; if the insert
+ * then throws, that number would be skipped forever. Call this in the insert's
+ * catch to roll the counter back.
+ *
+ * Safe under concurrency via compare-and-set: it decrements ONLY when last_seq
+ * is still exactly the value we took (`.eq('last_seq', seq)`). If another save
+ * already advanced the counter past it, nothing matches and we leave it alone —
+ * so a number another document already claimed can never be reclaimed. Best
+ * effort: any error here is swallowed by the caller so it can't mask the real
+ * save failure. Works for prefixes whose document_sequences key equals the
+ * number's own prefix (INV/TI/CI/SI); NOT for SO (keyed SO-b2c/SO-b2b).
+ */
+export const releaseInvNoIfUnused = async (invNo: string): Promise<void> => {
+    const m = /^(.*-)(\d+)$/.exec(invNo || '');
+    if (!m) return;
+    const prefix = m[1];
+    const seq = parseInt(m[2], 10);
+    if (!Number.isFinite(seq)) return;
+    await supabase
+        .from('document_sequences')
+        .update({ last_seq: seq - 1, updated_at: new Date().toISOString() })
+        .eq('prefix', prefix)
+        .eq('last_seq', seq);
+};
+
+/**
+ * Provisional invoice number for DISPLAY only — reads the document_sequences
+ * counter WITHOUT consuming it. Editors show this while the user works so
+ * opening a form (or toggling VAT/Non-VAT, attaching an SO) never burns a
+ * real number and never creates gaps. The authoritative number is minted by
+ * generateInvNo at SAVE time, from the final taxable type — so the stored
+ * number's prefix always matches the invoice's actual VAT status. Falls back
+ * to prefix-00001 if the counter row doesn't exist yet.
+ */
+export const peekInvNo = async (taxableType: string): Promise<string> => {
+    const prefix = invPrefixFor(taxableType);
+    const { data } = await supabase.from('document_sequences').select('last_seq').eq('prefix', prefix).maybeSingle();
+    const next = ((data?.last_seq as number) ?? 0) + 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
 };
 
 /**
@@ -717,6 +764,14 @@ export const generateServiceInvNo = async (): Promise<string> => {
     const { data, error } = await supabase.rpc('next_document_seq', { p_key: prefix });
     if (error) throw error;
     return `${prefix}${String(data as number).padStart(5, '0')}`;
+};
+
+/** Provisional service-invoice number for display (non-consuming). See peekInvNo. */
+export const peekServiceInvNo = async (): Promise<string> => {
+    const prefix = `SI${new Date().getFullYear()}-`;
+    const { data } = await supabase.from('document_sequences').select('last_seq').eq('prefix', prefix).maybeSingle();
+    const next = ((data?.last_seq as number) ?? 0) + 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
 };
 
 /**

@@ -194,6 +194,8 @@ export interface PdfTemplateOptions {
     labelPadding?: number;
     /** When true, NON-VAT Invoice PDFs omit Khmer text (English-only). Ignored for VAT/Tax Invoices. */
     hideKhmer?: boolean;
+    /** When true, serial numbers are omitted from item rows (cleaner PDF for many-serial orders). */
+    hideSerials?: boolean;
     /** Optional column width overrides (%) — [No, Code, Desc, Qty, UnitPrice, Amount]. 0 = omit. */
     columnWidths?: number[];
     /** When true the caller wants HTML for in-browser preview, not a PDF. */
@@ -219,17 +221,17 @@ export function buildHtml(opts: PdfTemplateOptions): string {
         return buildReceipt(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding, cw);
     }
     if (opts.type === 'Tax Invoice') {
-        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
+        return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer, undefined, opts.hideSerials);
     }
     if (opts.type === 'Service Invoice') {
         // NON-VAT invoice layout, always English-only, no Part Number column,
         // titled SERVICE INVOICE. Fixed widths override any user column setup.
         return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding,
-            SERVICE_INVOICE_WIDTHS, true, { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' });
+            SERVICE_INVOICE_WIDTHS, true, { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' }, opts.hideSerials);
     }
     if (opts.type === 'Commercial Invoice') {
         const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);
-        return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding, opts.labelPadding, cw);
+        return buildCommercialInvoice(hd, items as any, totals as any, opts.currency, sym, tax, showVatTin, opts.signaturePadding, opts.labelPadding, cw, opts.hideSerials);
     }
     if (opts.type === 'Delivery Order') {
         // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
@@ -246,7 +248,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     // Inline builders
     let body = '';
     switch (opts.type) {
-        case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer);
+        case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer, undefined, opts.hideSerials);
         case 'Sale Order': return buildSaleOrderPdf(hd, items as any, totals as any, opts.currency, sym, tax, opts.signaturePadding, opts.labelPadding, cw);
         case 'Purchase Order': body = buildPO(hd, items, totals, opts.currency, sym, tax, cw); break;
     }

@@ -18,6 +18,7 @@ import {
   checkPermission,
   checkSubTabPermission,
   checkFieldVisibility,
+  checkBusinessAccess,
 } from '../utils/permissions';
 import { PermissionAction, DataVisibility, UserPermissions } from '../types';
 
@@ -32,6 +33,10 @@ export interface UsePermissionsReturn {
   canViewSubTab: (module: string, subTab: string) => boolean;
   /** Check if a sensitive data field should be visible */
   showField: (field: keyof DataVisibility) => boolean;
+  /** Whether the user may use B2C mode (defaults true) */
+  canAccessB2C: boolean;
+  /** Whether the user may use B2B mode (opt-in per role/user) */
+  canAccessB2B: boolean;
   /** The fully-resolved permission object (for the permissions editor UI) */
   resolvedPermissions: UserPermissions;
   /** True while auth is still loading (guards should not render yet) */
@@ -90,12 +95,23 @@ export function usePermissions(): UsePermissionsReturn {
     [resolvedPermissions, isAuthLoading],
   );
 
+  const canAccessB2C = useMemo(
+    () => !isAuthLoading && checkBusinessAccess(resolvedPermissions, 'b2c'),
+    [resolvedPermissions, isAuthLoading],
+  );
+  const canAccessB2B = useMemo(
+    () => !isAuthLoading && checkBusinessAccess(resolvedPermissions, 'b2b'),
+    [resolvedPermissions, isAuthLoading],
+  );
+
   return {
     can,
     canView,
     canSubTab,
     canViewSubTab,
     showField,
+    canAccessB2C,
+    canAccessB2B,
     resolvedPermissions,
     isLoading: isAuthLoading,
   };

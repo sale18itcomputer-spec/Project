@@ -14,7 +14,8 @@ import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import { deleteRecord } from "../../../services/api";
+import { deleteRecord, updateRecord } from "../../../services/api";
+import { voidInvoice, reserveInvoiceSerials } from "../../../services/reconcileInvoiceEdit";
 import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -48,7 +49,7 @@ const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'detail';
 
 const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) => {
-    const { invoices = [], setInvoices, companies, receipts, pricelist, loading, error } = useData();
+    const { invoices = [], setInvoices, companies, receipts, pricelist, loading, error, refetchModule } = useData();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
@@ -126,16 +127,51 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete) return;
+        const inv = invoiceToDelete;
+        const invoiceId = inv['Inv No'];
+        const isDraft = inv['Status'] === 'Draft';
         const originalInvoices = invoices ? [...invoices] : [];
-        const invoiceId = invoiceToDelete['Inv No'];
         setInvoiceToDelete(null);
-        setInvoices(prev => prev ? prev.filter(inv => inv['Inv No'] !== invoiceId) : null);
         try {
-            await deleteRecord('Invoices', invoiceId);
-            addToast('Invoice deleted!', 'success');
-        } catch {
-            addToast('Failed to delete invoice.', 'error');
+            if (isDraft) {
+                // A draft never posted a JE or relieved stock — safe to remove. But
+                // first free any serials it had RESERVED, so they return to stock and
+                // can be picked again (draft never marked them Sold).
+                try {
+                    const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+                    const items = parseItems(inv.ItemsJSON);
+                    if (JSON.stringify(items).includes('serialNumber')) {
+                        const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+                        const res = await reserveInvoiceSerials({ oldItems: items, newItems: [], brandByCode });
+                        if (res.changed) refetchModule?.('Serial Numbers');
+                    }
+                } catch (e: any) { console.warn('[InvoiceDashboard] freeing draft serials failed:', e.message); }
+                setInvoices(prev => prev ? prev.filter(i => i['Inv No'] !== invoiceId) : null);
+                await deleteRecord('Invoices', invoiceId);
+                addToast('Draft invoice deleted.', 'success');
+                return;
+            }
+            // Issued invoice → VOID, never hard-delete: reverse its journal entry and
+            // return stock/serials, then mark the row Cancelled and KEEP it so the
+            // number stays in sequence (no gap, no orphaned JE — the recurring bug).
+            const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+            const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+            const res = await voidInvoice({
+                invNo: invoiceId,
+                entryDate: (inv['Inv Date'] as string) || new Date().toISOString().slice(0, 10),
+                createdBy: currentUser?.Name || 'system',
+                currentItems: parseItems(inv.ItemsJSON),
+                brandByCode,
+            });
+            await updateRecord('Invoices', invoiceId, { Status: 'Cancel' });
+            setInvoices(prev => prev ? prev.map(i => i['Inv No'] === invoiceId ? ({ ...i, Status: 'Cancel' } as Invoice) : i) : prev);
+            const bits = [res.jeReversed ? `JE reversed (${res.jeReversed})` : null, res.restocked ? 'stock restored' : null, res.serialsReverted ? 'serials returned' : null].filter(Boolean).join(', ');
+            addToast(`Invoice ${invoiceId} voided${bits ? ' — ' + bits : ''}.`, 'success');
+            refetchModule?.('Inventory');
+            refetchModule?.('Serial Numbers');
+        } catch (e: any) {
             setInvoices(originalInvoices);
+            addToast(`Failed to ${isDraft ? 'delete' : 'void'} invoice: ${e.message}`, 'error');
         }
     };
 
@@ -697,11 +733,13 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 isOpen={!!invoiceToDelete}
                 onClose={() => setInvoiceToDelete(null)}
                 onConfirm={handleConfirmDelete}
-                title="Delete Invoice"
-                confirmText="Delete"
+                title={invoiceToDelete && invoiceToDelete['Status'] !== 'Draft' ? 'Void Invoice' : 'Delete Draft Invoice'}
+                confirmText={invoiceToDelete && invoiceToDelete['Status'] !== 'Draft' ? 'Void' : 'Delete'}
                 variant="danger"
             >
-                Are you sure you want to delete invoice {invoiceToDelete?.['Inv No']}? This action cannot be undone.
+                {invoiceToDelete && invoiceToDelete['Status'] !== 'Draft'
+                    ? <>Void invoice {invoiceToDelete?.['Inv No']}? This reverses its journal entry and returns its stock/serials to inventory. The invoice is kept and marked <strong>Cancelled</strong> so its number stays in sequence — it is not deleted.</>
+                    : <>Delete draft invoice {invoiceToDelete?.['Inv No']}? This action cannot be undone.</>}
             </ConfirmationModal>
 
             {paymentTarget && (

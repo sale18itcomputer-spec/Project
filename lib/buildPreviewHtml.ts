@@ -40,7 +40,7 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
             const showVatTin = !!(hd['Tin No.'] || hd['Tin No'] || hd['VAT TIN']);
             return buildCommercialInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
-                showVatTin, opts.signaturePadding, opts.labelPadding, opts.columnWidths,
+                showVatTin, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideSerials,
             );
         }
         case 'Receipt':
@@ -69,18 +69,20 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
                 true, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
+                undefined, opts.hideSerials,
             );
         case 'Invoice':
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
                 false, opts.signaturePadding, opts.labelPadding, opts.columnWidths, opts.hideKhmer,
+                undefined, opts.hideSerials,
             );
         case 'Service Invoice':
             // Always English-only with no Part Number column (code width 0).
             return buildTaxInvoice(
                 hd, items as any, totals as any, opts.currency, sym, tax,
                 false, opts.signaturePadding, opts.labelPadding, [4, 0, 50, 14, 17, 15], true,
-                { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' },
+                { en: 'SERVICE INVOICE', km: 'វិក្កយបត្រសេវាកម្ម' }, opts.hideSerials,
             );
         default:
             return null;

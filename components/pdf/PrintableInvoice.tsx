@@ -21,6 +21,8 @@ interface LineItem {
     isPromotion?: boolean;
     isPCBuild?: boolean;
     buildComponents?: BuildComponent[];
+    serialNumber?: string;
+    serialNumbers?: string[];
 }
 
 interface PrintableInvoiceProps {
@@ -33,6 +35,7 @@ interface PrintableInvoiceProps {
     };
     currency: 'USD' | 'KHR';
     signaturePadding?: number;
+    hideSerials?: boolean;
 }
 
 const LOGO_URL = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png';
@@ -41,7 +44,7 @@ const BRAND_BLUE = '#0056b3';
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string =>
     currency === 'KHR' ? '៛' : '$';
 
-const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100 }) => {
+const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100, hideSerials = false }) => {
     const sym = getCurrencySymbol(currency);
     const isTaxInvoice = headerData['Taxable'] === 'VAT';
     const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';
@@ -383,6 +386,17 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                                             {item.description}
                                         </div>
                                     )}
+                                    {(() => {
+                                        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
+                                            ? item.serialNumbers
+                                            : (item.serialNumber || '').split('\n'))
+                                            .map(s => s.trim()).filter(Boolean);
+                                        return serials.length > 0 ? (
+                                            <div style={{ fontSize: 7.5, color: '#555', whiteSpace: 'pre-wrap', marginTop: 3, fontWeight: 'normal' }}>
+                                                {serials.map((s, i) => <div key={i}>S/N: {s}</div>)}
+                                            </div>
+                                        ) : null;
+                                    })()}
                                 </td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.qty || ''}</td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>
