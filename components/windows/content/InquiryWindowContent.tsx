@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Save, Loader2, Search, Pencil } from 'lucide-react';
 import { FormSection, FormInput, FormSelect } from '@/components/common/FormControls';
 import SearchableSelect from '@/components/common/SearchableSelect';
+import NumericInput from '../../common/NumericInput';
 
 const ITEM_STATUS_OPTIONS = ['Pending', 'In Stock', 'Available', 'Lead Time', 'Not Available'] as const;
 const STOCK_TYPE_OPTIONS  = ['In-Stock', 'Lead Time'] as const;
@@ -355,12 +356,12 @@ const InquiryWindowContent: React.FC<InquiryWindowContentProps> = ({ windowId, i
                 />
                 <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
                   <label className="text-xs text-muted-foreground font-medium">Qty</label>
-                  <input
-                    type="number"
-                    min={1}
+                  <NumericInput
+                    blankZero={false}
+                    aria-label="Quantity"
                     className="w-16 text-sm text-center bg-muted/50 border border-border rounded-lg px-2 py-0.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 disabled:opacity-60"
                     value={item.qty}
-                    onChange={e => handleItemChange(index, 'qty', parseInt(e.target.value) || 1)}
+                    onValueChange={v => handleItemChange(index, 'qty', v)}
                     disabled={isReadOnly}
                   />
                 </div>

@@ -591,7 +591,7 @@ const PosTerminal: React.FC = () => {
               {session.currency === 'KHR' && grandTotal > 0 && (
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>≈ KHR</span>
-                  <span>៛{(grandTotal * session.exchangeRate).toLocaleString()}</span>
+                  <span>៛{(grandTotal * (session.exchangeRate || 4100)).toLocaleString()}</span>
                 </div>
               )}
             </div>
@@ -673,10 +673,11 @@ const PosTerminal: React.FC = () => {
             {session.currency === 'KHR' && (
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground shrink-0">Rate ៛:</label>
-                <input
-                  type="number"
+                <NumericInput
                   value={session.exchangeRate}
-                  onChange={e => setSession(p => ({ ...p, exchangeRate: Number(e.target.value) || 4100 }))}
+                  blankZero={false}
+                  onValueChange={v => setSession(p => ({ ...p, exchangeRate: v }))}
+                  aria-label="USD to KHR exchange rate"
                   className="flex-1 bg-muted border border-border rounded px-2 py-1 text-xs"
                 />
               </div>
@@ -786,7 +787,7 @@ const PosTerminal: React.FC = () => {
             </button>
             {session.currency === 'KHR' && grandTotal > 0 && (
               <p className="text-center text-xs text-muted-foreground">
-                ≈ ៛{(grandTotal * session.exchangeRate).toLocaleString()} KHR
+                ≈ ៛{(grandTotal * (session.exchangeRate || 4100)).toLocaleString()} KHR
               </p>
             )}
           </div>

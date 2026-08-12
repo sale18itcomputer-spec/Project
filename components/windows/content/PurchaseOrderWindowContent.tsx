@@ -712,11 +712,12 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                     </td>
                                     {/* Qty */}
                                     <td className="px-2 py-3">
-                                        <input
-                                            type="number" min={1} step={1}
+                                        <NumericInput
                                             className="w-full bg-transparent border-b border-amber-500/30 focus:border-amber-500 py-1.5 focus:outline-none transition text-sm text-center text-amber-600 dark:text-amber-400"
                                             value={item.qty}
-                                            onChange={e => handleItemChange(index, 'qty', parseFloat(e.target.value) || 1)}
+                                            blankZero={false}
+                                            aria-label="Quantity"
+                                            onValueChange={v => handleItemChange(index, 'qty', v)}
                                         />
                                     </td>
                                     {/* Unit Price (per-unit cashback, stored as negative) */}

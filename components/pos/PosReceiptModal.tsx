@@ -63,7 +63,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
       : '';
 
     const khrRow = session.currency === 'KHR'
-      ? `<tr><td style="padding:3px 0;color:#6b7280;">≈ KHR</td><td style="padding:3px 0;text-align:right;color:#6b7280;">៛${(sale.grandTotal * session.exchangeRate).toLocaleString()}</td></tr>`
+      ? `<tr><td style="padding:3px 0;color:#6b7280;">≈ KHR</td><td style="padding:3px 0;text-align:right;color:#6b7280;">៛${(sale.grandTotal * (session.exchangeRate || 4100)).toLocaleString()}</td></tr>`
       : '';
 
     const entries = sale.paymentEntries ?? [{ method: session.paymentMethod, amount: session.amountTendered }];
@@ -262,7 +262,7 @@ const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             </div>
             {session.currency === 'KHR' && (
               <div className="flex justify-between text-gray-500">
-                <span>≈ KHR</span><span>៛{(sale.grandTotal * session.exchangeRate).toLocaleString()}</span>
+                <span>≈ KHR</span><span>៛{(sale.grandTotal * (session.exchangeRate || 4100)).toLocaleString()}</span>
               </div>
             )}
           </div>

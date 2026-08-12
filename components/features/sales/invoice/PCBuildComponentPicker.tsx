@@ -3,6 +3,7 @@ import { LineItem, BuildComponent } from './types';
 import { PricelistCombobox } from './PricelistCombobox';
 import { SerialNumberPicker } from '../../../common/SerialNumberPicker';
 import { Trash2, Plus } from 'lucide-react';
+import NumericInput from '../../../common/NumericInput';
 
 // Wraps each BuildComponent as a LineItem so it can reuse PricelistCombobox's
 // search/select UI without duplicating it — only itemCode/modelName/brand are read back.
@@ -51,19 +52,19 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                             />
                         </div>
                         <div className="w-16">
-                            <input
-                                type="number" min={1} value={c.qty}
-                                onChange={e => updateComponent(idx, { qty: Number(e.target.value) || 1 })}
+                            <NumericInput
+                                value={c.qty} blankZero={false}
+                                onValueChange={v => updateComponent(idx, { qty: v })}
                                 className="w-full h-9 px-2 text-center text-xs bg-input border border-border rounded-md text-foreground"
-                                placeholder="Qty"
+                                placeholder="Qty" aria-label="Component quantity"
                             />
                         </div>
                         <div className="w-20">
-                            <input
-                                type="number" min={0} value={c.warrantyMonths ?? 12}
-                                onChange={e => updateComponent(idx, { warrantyMonths: Number(e.target.value) || 0 })}
+                            <NumericInput
+                                value={c.warrantyMonths ?? 12} blankZero={false}
+                                onValueChange={v => updateComponent(idx, { warrantyMonths: v })}
                                 className="w-full h-9 px-2 text-center text-xs bg-input border border-border rounded-md text-foreground"
-                                placeholder="Mo." title="Warranty (months)"
+                                placeholder="Mo." title="Warranty (months)" aria-label="Warranty months"
                             />
                         </div>
                         <button
