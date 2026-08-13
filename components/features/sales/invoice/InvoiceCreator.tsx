@@ -563,6 +563,18 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Created By': invoice['Created By'] || currentUser?.Name || '',
             };
 
+            // Guarantee a Due Date so a credit-term sale never shows instantly
+            // overdue when the term wasn't carried onto the invoice (e.g. via SO
+            // conversion). Falls back to the selected company's Payment Term.
+            if (!payload['Due Date']) {
+                const hasTerm = !!(payload['Payment Term'] && String(payload['Payment Term']).trim());
+                const coTerm = companies?.find(c => c['Company Name'] === payload['Company Name'])?.['Payment Term'] || '';
+                const term = hasTerm ? payload['Payment Term'] : coTerm;
+                if (!hasTerm && term) payload['Payment Term'] = term;
+                const due = calcDueDate(invoice['Inv Date'], term);
+                if (due) payload['Due Date'] = formatToSheetDate(due);
+            }
+
             // ── When Invoice is issued (Draft → non-Draft): deduct inventory qty ──
             // Mirrors the deduction in DeliveryOrderCreator (DO Status === 'Delivered'),
             // but keyed off the Invoice's Draft → issued transition since not every

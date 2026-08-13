@@ -101,7 +101,11 @@ export function computeInvoiceAR(
     const paid = matching.reduce((sum, r) => sum + toNum(r.Amount), 0);
     const outstanding = invoiced - deposit - paid;
 
-    const dueDate = calcDueDate(invoice['Inv Date'], invoice['Payment Term']);
+    // Honor the Due Date stored on the invoice (computed from the payment term at
+    // creation). Recomputing purely from Payment Term makes a credit-term sale look
+    // instantly overdue whenever the term wasn't carried onto the invoice (empty),
+    // even though its Due Date was saved correctly (e.g. INV2026-00011 due 8/18).
+    const dueDate = parseDate(invoice['Due Date']) ?? calcDueDate(invoice['Inv Date'], invoice['Payment Term']);
     const daysPastDue = dueDate ? dayDiff(now, dueDate) : 0;
 
     let collectionStatus: CollectionStatus;
