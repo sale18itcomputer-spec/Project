@@ -13,10 +13,31 @@ export const normalizeSerials = (raw?: string | null): string =>
 export interface ConvertPOToInventoryResult {
     /** True if new inventory rows were inserted by this call. */
     converted: boolean;
-    /** True if this PO already had inventory rows linked to it (no-op, not re-converted). */
+    /** True if this PO already had inventory rows linked to it (re-synced, not re-converted). */
     alreadyConverted: boolean;
-    /** Number of inventory rows inserted. */
+    /** True if existing inventory rows were updated to match the edited PO (metadata + qty delta). */
+    resynced?: boolean;
+    /** Number of inventory rows inserted (convert) or updated+inserted (re-sync). */
     count: number;
+}
+
+// `po_ordered_qty` may not exist yet if its migration hasn't been applied. Strip
+// it and retry so PO→Inventory conversion never breaks on a lagging migration
+// (the baseline just isn't recorded until the column exists).
+async function inventoryInsert(rows: any[], select = 'id'): Promise<{ data: any[] | null; error: any }> {
+    let res: any = await supabase.from('inventory').insert(rows).select(select);
+    if (res.error && /po_ordered_qty/i.test(res.error.message)) {
+        res = await supabase.from('inventory').insert(rows.map(({ po_ordered_qty, ...r }: any) => r)).select(select);
+    }
+    return res;
+}
+async function inventoryUpdate(id: string, upd: Record<string, any>) {
+    let res = await supabase.from('inventory').update(upd).eq('id', id);
+    if (res.error && /po_ordered_qty/i.test(res.error.message)) {
+        const { po_ordered_qty, ...rest } = upd;
+        res = await supabase.from('inventory').update(rest).eq('id', id);
+    }
+    return res;
 }
 
 /** Returns true if any inventory rows are already linked to this PO. */
@@ -29,6 +50,123 @@ export const hasInventoryForPO = async (poId: string): Promise<boolean> => {
     if (error) throw new Error(error.message);
     return !!data && data.length > 0;
 };
+
+/** Resolve one PO line item into the inventory-row shape (brand/category/model/
+ *  code cascade against the pricelist + vendor pricelist). Shared by the initial
+ *  conversion (insert) and the re-sync (update), so both stay identical. */
+function buildInventoryRow(
+    item: PurchaseOrderItem,
+    po: PurchaseOrder,
+    poId: string,
+    pricelist: PricelistItem[],
+    vendorPricelist: VendorPricelistItem[] | null,
+    createdBy?: string,
+) {
+    const code = (item.item_number ?? '').trim();
+    const hasPOBrand = !!(item.brand ?? '').trim();
+    const hasPOModel = !!(item.model_name ?? '').trim();
+
+    let plMatch = (pricelist ?? []).find(
+        p => (p.Code && p.Code.toLowerCase() === code.toLowerCase())
+            || (p.Model && p.Model.toLowerCase() === code.toLowerCase())
+    );
+    const vplMatch = (vendorPricelist ?? []).find(
+        v => v.model_name && v.model_name.toLowerCase() === code.toLowerCase()
+    );
+    if (!plMatch && vplMatch?.model_name) {
+        plMatch = (pricelist ?? []).find(
+            p => p.Model && p.Model.toLowerCase() === vplMatch.model_name.toLowerCase()
+        );
+    }
+
+    const resolvedBrand = hasPOBrand ? item.brand!
+        : plMatch?.Brand ? plMatch.Brand : vplMatch?.brand ? vplMatch.brand : '';
+    const resolvedCategory = (item.category ?? '').trim() ? item.category!
+        : plMatch?.Category ? plMatch.Category : 'General';
+    const cleanDesc = stripHtml(item.description ?? '');
+    const resolvedModel = hasPOModel ? item.model_name!
+        : plMatch?.Model ? plMatch.Model : vplMatch?.model_name ? vplMatch.model_name
+        : code || cleanDesc.substring(0, 80) || 'N/A';
+    const resolvedDesc = cleanDesc || plMatch?.Description || vplMatch?.specification || '';
+    // Align to the sales pricelist's Code when matched (join key for DO deduction).
+    const resolvedCode = plMatch?.Code ? plMatch.Code : code;
+
+    return {
+        po_id:       poId,
+        po_number:   po.po_number,
+        vendor_id:   po.vendor_id ?? null,
+        vendor_name: po.vendor_name ?? '',
+        category:    resolvedCategory,
+        code:        resolvedCode,
+        brand:       resolvedBrand,
+        model_name:  resolvedModel,
+        description: resolvedDesc,
+        serial_number: normalizeSerials(item.serial_number),
+        warranty_months: item.warranty_months ?? null,
+        qty:         item.qty,
+        po_ordered_qty: item.qty, // baseline ordered qty, for edit re-sync deltas
+        unit_price:  item.unit_price ?? 0,
+        currency:    po.currency ?? 'USD',
+        status:      'In Stock',
+        created_by:  createdBy ?? 'System',
+        created_at:  new Date().toISOString(),
+        updated_at:  new Date().toISOString(),
+    };
+}
+
+/**
+ * Re-sync an ALREADY-converted PO's inventory to the current (edited) PO — used
+ * when a PO is saved again after conversion. For each current line it updates the
+ * linked inventory row's metadata (cost, vendor, brand, category, model, warranty,
+ * currency) and applies the ORDERED-QTY DELTA (new ordered qty − the baseline
+ * po_ordered_qty), so a qty change flows through WITHOUT clobbering units already
+ * sold (delta is added to whatever's on hand, floored at 0). Lines new to the PO
+ * are inserted. This is what closes the "PO edit doesn't reach inventory" gap.
+ */
+export async function resyncPurchaseOrderToInventory(
+    po: PurchaseOrder,
+    poId: string,
+    items: PurchaseOrderItem[],
+    pricelist: PricelistItem[],
+    vendorPricelist: VendorPricelistItem[] | null,
+    createdBy?: string,
+): Promise<ConvertPOToInventoryResult> {
+    const { data: existing } = await supabase
+        .from('inventory').select('id, code, qty, po_ordered_qty').eq('po_id', poId);
+    const byCode = new Map((existing ?? []).map((r: any) => [String(r.code).toLowerCase(), r]));
+
+    let updated = 0;
+    const toInsert: any[] = [];
+    for (const item of items) {
+        if (!(item.qty > 0) || item.is_promotion) continue;
+        const row = buildInventoryRow(item, po, poId, pricelist, vendorPricelist, createdBy);
+        const match = byCode.get(String(row.code).toLowerCase());
+        if (match) {
+            const baseline = Number(match.po_ordered_qty ?? match.qty) || 0;
+            const delta = (Number(row.qty) || 0) - baseline;
+            const newQty = Math.max(0, (Number(match.qty) || 0) + delta);
+            const upd: Record<string, any> = {
+                vendor_id: row.vendor_id, vendor_name: row.vendor_name, category: row.category,
+                brand: row.brand, model_name: row.model_name, description: row.description,
+                warranty_months: row.warranty_months, unit_price: row.unit_price, currency: row.currency,
+                qty: newQty, po_ordered_qty: row.qty, updated_at: new Date().toISOString(),
+            };
+            // Only flip status when the on-hand count crosses zero; leave a manual
+            // "Reserved" (or other) status untouched otherwise.
+            if (newQty <= 0) upd.status = 'Out of Stock';
+            else if ((Number(match.qty) || 0) <= 0) upd.status = 'In Stock';
+            await inventoryUpdate(match.id, upd);
+            updated++;
+        } else {
+            toInsert.push(row); // line added to the PO after the original conversion
+        }
+    }
+    if (toInsert.length > 0) {
+        const { error } = await inventoryInsert(toInsert);
+        if (error) throw new Error(error.message);
+    }
+    return { converted: toInsert.length > 0, alreadyConverted: true, resynced: true, count: updated + toInsert.length };
+}
 
 /**
  * Converts a Purchase Order's line items into Inventory rows, enriching each
@@ -63,9 +201,7 @@ export const convertPurchaseOrderToInventory = async (
     if (!po.id) throw new Error('Purchase Order has no id');
     const poId = po.id;
 
-    if (await hasInventoryForPO(poId)) {
-        return { converted: false, alreadyConverted: true, count: 0 };
-    }
+    const alreadyConverted = await hasInventoryForPO(poId);
 
     const { vendorPricelist, createdBy } = options;
 
@@ -85,84 +221,22 @@ export const convertPurchaseOrderToInventory = async (
 
     const filteredItems = items.filter(item => item.qty > 0 && !item.is_promotion);
 
+    // Already converted: don't duplicate rows — RE-SYNC the existing inventory to
+    // the current (edited) PO instead. Updates cost/vendor/brand/warranty and
+    // applies the ordered-qty delta. This closes the "PO edit doesn't reach
+    // inventory" gap without ever double-adding stock.
+    if (alreadyConverted) {
+        return await resyncPurchaseOrderToInventory(po, poId, filteredItems, pricelist, vendorPricelist ?? null, createdBy);
+    }
+
     const inventoryPayload = filteredItems
-        .map(item => {
-            const code = (item.item_number ?? '').trim();
-            const hasPOBrand = !!(item.brand ?? '').trim();
-            const hasPOModel = !!(item.model_name ?? '').trim();
-
-            // Tier 2 — direct match: PO item_number against pricelist Code or Model
-            let plMatch = (pricelist ?? []).find(
-                p => (p.Code && p.Code.toLowerCase() === code.toLowerCase())
-                    || (p.Model && p.Model.toLowerCase() === code.toLowerCase())
-            );
-            const vplMatch = (vendorPricelist ?? []).find(
-                v => v.model_name && v.model_name.toLowerCase() === code.toLowerCase()
-            );
-
-            // Tier 2b — indirect match: vendor pricelist's model_name against pricelist Model
-            if (!plMatch && vplMatch?.model_name) {
-                plMatch = (pricelist ?? []).find(
-                    p => p.Model && p.Model.toLowerCase() === vplMatch.model_name.toLowerCase()
-                );
-            }
-
-            const resolvedBrand = hasPOBrand ? item.brand!
-                : plMatch?.Brand ? plMatch.Brand
-                : vplMatch?.brand ? vplMatch.brand
-                : '';
-
-            const resolvedCategory = (item.category ?? '').trim() ? item.category!
-                : plMatch?.Category ? plMatch.Category
-                : 'General';
-
-            const cleanDesc = stripHtml(item.description ?? '');
-
-            const resolvedModel = hasPOModel ? item.model_name!
-                : plMatch?.Model ? plMatch.Model
-                : vplMatch?.model_name ? vplMatch.model_name
-                : code || cleanDesc.substring(0, 80) || 'N/A';
-
-            const resolvedDesc = cleanDesc
-                || plMatch?.Description
-                || vplMatch?.specification
-                || '';
-
-            // Align to the sales pricelist's Code whenever a match is found, so
-            // Delivery Order deduction (which matches on sales-side itemCode) can
-            // find this row by inventory.code.
-            const resolvedCode = plMatch?.Code ? plMatch.Code : code;
-
-            return {
-                po_id:       poId,
-                po_number:   po.po_number,
-                vendor_id:   po.vendor_id ?? null,
-                vendor_name: po.vendor_name ?? '',
-                category:    resolvedCategory,
-                code:        resolvedCode,
-                brand:       resolvedBrand,
-                model_name:  resolvedModel,
-                description: resolvedDesc,
-                serial_number: normalizeSerials(item.serial_number),
-                warranty_months: item.warranty_months ?? null,
-                qty:         item.qty,
-                unit_price:  item.unit_price ?? 0,
-                currency:    po.currency ?? 'USD',
-                status:      'In Stock',
-                created_by:  createdBy ?? 'System',
-                created_at:  new Date().toISOString(),
-                updated_at:  new Date().toISOString(),
-            };
-        });
+        .map(item => buildInventoryRow(item, po, poId, pricelist!, vendorPricelist ?? null, createdBy));
 
     if (inventoryPayload.length === 0) {
         return { converted: false, alreadyConverted: false, count: 0 };
     }
 
-    const { data: insertedRows, error } = await supabase
-        .from('inventory')
-        .insert(inventoryPayload)
-        .select('id, brand, model_name, description');
+    const { data: insertedRows, error } = await inventoryInsert(inventoryPayload, 'id, brand, model_name, description');
     if (error) throw new Error(error.message);
 
     // Seed serial_numbers rows for any serials captured at PO intake, linked to

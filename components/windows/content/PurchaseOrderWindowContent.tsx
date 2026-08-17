@@ -541,7 +541,9 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                         items,
                         { pricelist, vendorPricelist, createdBy: currentUser?.Name || 'System' }
                     );
-                    if (result.converted) {
+                    if (result.resynced) {
+                        if (result.count > 0) addToast(`Inventory synced from PO update (${result.count} item(s)).`, 'success');
+                    } else if (result.converted) {
                         addToast(`${result.count} item(s) added to Inventory!`, 'success');
                     }
                 } catch (ie: any) {

@@ -148,8 +148,10 @@ const PurchaseOrderDashboard: React.FC<{ initialPayload?: any }> = () => {
                 createdBy: currentUser?.Name ?? 'System',
             });
 
-            if (result.alreadyConverted) {
-                addToast(`PO ${po.po_number} has already been converted to Inventory.`, 'info');
+            if (result.resynced) {
+                addToast(result.count > 0
+                    ? `Inventory synced from PO ${po.po_number} (${result.count} item(s) updated).`
+                    : `PO ${po.po_number} inventory is already up to date.`, 'success');
             } else if (result.converted) {
                 addToast(`${result.count} item(s) from PO ${po.po_number} added to Inventory!`, 'success');
             } else {
