@@ -16,6 +16,7 @@ import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { deleteRecord, updateRecord } from "../../../services/api";
 import { voidInvoice, reserveInvoiceSerials } from "../../../services/reconcileInvoiceEdit";
+import { finalizeDepositInvoice } from "../../../services/finalizeDepositInvoice";
 import { autoPostInvoiceJournal, normalizeBrand } from "../../../services/accountingApi";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -54,6 +55,21 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
+    const [financeTarget, setFinanceTarget] = useState<Invoice | null>(null);
+    const [isFinalizing, setIsFinalizing] = useState(false);
+    // Invoice numbers that already have a SALE journal entry (source='invoice').
+    // A deposit/pre-order invoice (Deposit > 0) that is NOT in this set has only
+    // had its deposit booked — the sale is still to be recognized ("finalized").
+    const [finalizedRefs, setFinalizedRefs] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        let active = true;
+        supabase.from('journal_entries').select('reference').eq('source', 'invoice').then(({ data }) => {
+            if (active) setFinalizedRefs(new Set((data ?? []).map((r: any) => String(r.reference))));
+        });
+        return () => { active = false; };
+    }, [invoices]);
+    const isAwaitingFinal = (inv: Invoice) =>
+        Number(inv['Deposit']) > 0.005 && inv['Status'] !== 'Cancel' && !finalizedRefs.has(String(inv['Inv No']));
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -123,6 +139,46 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
 
     const handleDeleteRequest = (invoice: Invoice) => {
         setInvoiceToDelete(invoice);
+    };
+
+    const handleConfirmFinalize = async () => {
+        if (!financeTarget || isFinalizing) return;
+        const inv = financeTarget;
+        setIsFinalizing(true);
+        try {
+            const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
+            const items = parseItems(inv.ItemsJSON);
+            const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
+            const isVAT = inv['Taxable'] === 'VAT';
+            const grandTotal = Number(inv['Amount']) || 0;
+            const subTotal = items.reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+            const taxAmount = isVAT ? subTotal * 0.1 : 0;
+            const res = await finalizeDepositInvoice({
+                invNo: inv['Inv No'],
+                invoiceDate: (inv['Inv Date'] as string) || new Date().toISOString().slice(0, 10),
+                isVAT,
+                soNo: (inv['SO No'] as string) || '',
+                companyName: (inv['Company Name'] as string) || '',
+                contactName: (inv['Contact Name'] as string) || '',
+                createdBy: currentUser?.Name || 'system',
+                items,
+                brandByCode,
+                grandTotal,
+                taxAmount,
+                depositAmount: Number(inv['Deposit']) || 0,
+            });
+            await updateRecord('Invoices', inv['Inv No'], { Status: 'Completed' });
+            setInvoices(prev => prev ? prev.map(i => i['Inv No'] === inv['Inv No'] ? ({ ...i, Status: 'Completed' } as Invoice) : i) : prev);
+            setFinalizedRefs(prev => new Set(prev).add(String(inv['Inv No'])));
+            addToast(`Final invoice issued for ${inv['Inv No']} — ${res.summary}.`, 'success');
+            refetchModule?.('Inventory');
+            refetchModule?.('Serial Numbers');
+        } catch (e: any) {
+            addToast(`Failed to issue final invoice: ${e.message}`, 'error');
+        } finally {
+            setIsFinalizing(false);
+            setFinanceTarget(null);
+        }
     };
 
     const handleConfirmDelete = async () => {
@@ -578,6 +634,11 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                     <DropdownMenuItem onClick={() => handleDuplicateInvoice(row)}>
                                         <Copy className="mr-2 h-4 w-4" /> Duplicate
                                     </DropdownMenuItem>
+                                    {isAwaitingFinal(row) && (
+                                        <DropdownMenuItem onClick={() => setFinanceTarget(row)}>
+                                            <BookOpen className="mr-2 h-4 w-4" /> Issue Final Invoice
+                                        </DropdownMenuItem>
+                                    )}
                                     {canRecordPayment && (
                                         <DropdownMenuItem onClick={() => handleRecordPayment(row)}>
                                             <Wallet className="mr-2 h-4 w-4" /> Record Payment
@@ -740,6 +801,21 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 {invoiceToDelete && invoiceToDelete['Status'] !== 'Draft'
                     ? <>Void invoice {invoiceToDelete?.['Inv No']}? This reverses its journal entry and returns its stock/serials to inventory. The invoice is kept and marked <strong>Cancelled</strong> so its number stays in sequence — it is not deleted.</>
                     : <>Delete draft invoice {invoiceToDelete?.['Inv No']}? This action cannot be undone.</>}
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                isOpen={!!financeTarget}
+                onClose={() => !isFinalizing && setFinanceTarget(null)}
+                onConfirm={handleConfirmFinalize}
+                title="Issue Final Invoice"
+                confirmText={isFinalizing ? 'Issuing…' : 'Issue Final Invoice'}
+                variant="warning"
+            >
+                {financeTarget && (() => {
+                    const grand = Number(financeTarget['Amount']) || 0;
+                    const dep = Number(financeTarget['Deposit']) || 0;
+                    return <>Goods have arrived — recognize the full sale for <strong>{financeTarget['Inv No']}</strong>? This posts revenue + VAT + COGS, relieves inventory and marks serials Sold, and applies the <strong>{dep.toLocaleString()}</strong> deposit already taken. The customer's remaining balance will be <strong>{(grand - dep).toLocaleString()}</strong>. The deposit itself is not re-charged.</>;
+                })()}
             </ConfirmationModal>
 
             {paymentTarget && (
