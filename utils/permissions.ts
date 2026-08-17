@@ -367,7 +367,10 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       contact_logs:       { view: true, create: true, delete: false },
       quotations:         { view: true, create: true, edit: true, delete: true, export: true, send: true },
       sale_orders:        { view: true, create: true, edit: true, delete: false, export: true },
-      invoices:           { view: true, create: false, edit: false, delete: false, export: true },
+      // Sales issues invoices directly (retail counter + SO conversion), so
+      // create is granted. edit stays false so an issued invoice can only be
+      // amended by Finance/Admin — the number and amounts are already posted.
+      invoices:           { view: true, create: true, edit: false, delete: false, export: true },
       delivery_orders:    { view: true, create: false, edit: false, delete: false, export: true },
       receipts:           { view: true, create: false, edit: false, delete: false, export: false },
       collection:         { view: true, create: false, edit: false, delete: false, export: false },
