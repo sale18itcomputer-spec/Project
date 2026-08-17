@@ -44,7 +44,7 @@ const FinancialKpiRow: React.FC = () => {
 
     const kpis = useMemo(() => {
         const rows = computeCollectionRows(invoices, receipts);
-        const openRows = rows.filter(r => r.collectionStatus !== 'Paid' && r.collectionStatus !== 'Cancelled');
+        const openRows = rows.filter(r => r.collectionStatus !== 'Paid' && r.collectionStatus !== 'Cancelled' && r.collectionStatus !== 'Converted');
         const buckets = outstandingByBucket(openRows);
         const outstanding = totalOutstanding(openRows);
         const overdue = buckets['1-30'] + buckets['31-60'] + buckets['61-90'] + buckets['90+'];

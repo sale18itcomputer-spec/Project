@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Invoice } from "../../../types";
 import { useData } from "../../../contexts/DataContext";
 import DataTable, { ColumnDef, CellWrapStyle } from "../../common/DataTable";
-import { formatDisplayDate } from "../../../utils/time";
+import { formatDisplayDate, calcDueDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
@@ -69,7 +69,9 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         return () => { active = false; };
     }, [invoices]);
     const isAwaitingFinal = (inv: Invoice) =>
-        Number(inv['Deposit']) > 0.005 && inv['Status'] !== 'Cancel' && !finalizedRefs.has(String(inv['Inv No']));
+        Number(inv['Deposit']) > 0.005 && inv['Status'] !== 'Cancel'
+        && !(inv as any)['deposit_finalized_by']
+        && !finalizedRefs.has(String(inv['Inv No']));
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebouncedValue(searchQuery);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -149,28 +151,19 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
             const parseItems = (raw: any) => { try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || []); } catch { return []; } };
             const items = parseItems(inv.ItemsJSON);
             const brandByCode = new Map<string, string>((pricelist ?? []).map((p: any) => [p['Code'], p['Brand']]));
-            const isVAT = inv['Taxable'] === 'VAT';
-            const grandTotal = Number(inv['Amount']) || 0;
-            const subTotal = items.reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
-            const taxAmount = isVAT ? subTotal * 0.1 : 0;
             const res = await finalizeDepositInvoice({
-                invNo: inv['Inv No'],
-                invoiceDate: (inv['Inv Date'] as string) || new Date().toISOString().slice(0, 10),
-                isVAT,
-                soNo: (inv['SO No'] as string) || '',
-                companyName: (inv['Company Name'] as string) || '',
-                contactName: (inv['Contact Name'] as string) || '',
-                createdBy: currentUser?.Name || 'system',
+                depositInvoice: inv,
                 items,
                 brandByCode,
-                grandTotal,
-                taxAmount,
-                depositAmount: Number(inv['Deposit']) || 0,
+                createdBy: currentUser?.Name || 'system',
+                dueDateFromTerm: (d, term) => calcDueDate(d, term),
             });
-            await updateRecord('Invoices', inv['Inv No'], { Status: 'Completed' });
-            setInvoices(prev => prev ? prev.map(i => i['Inv No'] === inv['Inv No'] ? ({ ...i, Status: 'Completed' } as Invoice) : i) : prev);
-            setFinalizedRefs(prev => new Set(prev).add(String(inv['Inv No'])));
-            addToast(`Final invoice issued for ${inv['Inv No']} — ${res.summary}.`, 'success');
+            // The deposit invoice stays as-is but is now linked (drops out of open A/R);
+            // the new final invoice carries the sale. Refetch to pull both in.
+            setInvoices(prev => prev ? prev.map(i => i['Inv No'] === inv['Inv No'] ? ({ ...i, deposit_finalized_by: res.finalInvNo } as any) : i) : prev);
+            setFinalizedRefs(prev => new Set(prev).add(res.finalInvNo));
+            addToast(`${res.summary}.`, 'success');
+            refetchModule?.('Invoices');
             refetchModule?.('Inventory');
             refetchModule?.('Serial Numbers');
         } catch (e: any) {
@@ -814,7 +807,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 {financeTarget && (() => {
                     const grand = Number(financeTarget['Amount']) || 0;
                     const dep = Number(financeTarget['Deposit']) || 0;
-                    return <>Goods have arrived — recognize the full sale for <strong>{financeTarget['Inv No']}</strong>? This posts revenue + VAT + COGS, relieves inventory and marks serials Sold, and applies the <strong>{dep.toLocaleString()}</strong> deposit already taken. The customer's remaining balance will be <strong>{(grand - dep).toLocaleString()}</strong>. The deposit itself is not re-charged.</>;
+                    return <>Goods have arrived for deposit invoice <strong>{financeTarget['Inv No']}</strong>. This issues a <strong>new final invoice</strong> (next number in the series) for the full <strong>{grand.toLocaleString()}</strong>: it recognizes revenue + COGS, relieves inventory, marks serials Sold, and applies the <strong>{dep.toLocaleString()}</strong> deposit — customer balance due <strong>{(grand - dep).toLocaleString()}</strong>. {financeTarget['Taxable'] === 'VAT' && <>Only the remaining VAT is declared (the deposit already declared its share.) </>}The deposit invoice stays as-is and drops out of open A/R.</>;
                 })()}
             </ConfirmationModal>
 

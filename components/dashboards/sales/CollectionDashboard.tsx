@@ -37,6 +37,7 @@ const statusBadge = (s: CollectionStatus) => {
         'Overdue':   { bg: 'bg-rose-500/10',    text: 'text-rose-600 dark:text-rose-400' },
         'Paid':      { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
         'Cancelled': { bg: 'bg-muted',          text: 'text-muted-foreground' },
+        'Converted': { bg: 'bg-violet-500/10',  text: 'text-violet-600 dark:text-violet-400' },
     };
     const { bg, text } = cfg[s];
     return <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-md ${bg} ${text}`}>{s}</span>;
@@ -95,7 +96,7 @@ const CollectionDashboard: React.FC = () => {
 
     // ── KPIs (computed before filter so cards show the full picture) ──────────
     const kpis = useMemo(() => {
-        const openRows = allRows.filter(r => r.collectionStatus !== 'Paid' && r.collectionStatus !== 'Cancelled');
+        const openRows = allRows.filter(r => r.collectionStatus !== 'Paid' && r.collectionStatus !== 'Cancelled' && r.collectionStatus !== 'Converted');
         const buckets = outstandingByBucket(openRows);
         const total = totalOutstanding(openRows);
 

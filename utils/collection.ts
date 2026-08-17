@@ -11,7 +11,7 @@
 import { Invoice, Receipt } from '../types';
 import { parseDate } from './time';
 
-export type CollectionStatus = 'Paid' | 'Partial' | 'Pending' | 'Overdue' | 'Cancelled';
+export type CollectionStatus = 'Paid' | 'Partial' | 'Pending' | 'Overdue' | 'Cancelled' | 'Converted';
 
 export type AgingBucket = 'Current' | '1-30' | '31-60' | '61-90' | '90+';
 
@@ -99,7 +99,7 @@ export function computeInvoiceAR(
     matching.sort((a, b) => String(a['RV Date'] || '').localeCompare(String(b['RV Date'] || '')));
 
     const paid = matching.reduce((sum, r) => sum + toNum(r.Amount), 0);
-    const outstanding = invoiced - deposit - paid;
+    let outstanding = invoiced - deposit - paid;
 
     // Honor the Due Date stored on the invoice (computed from the payment term at
     // creation). Recomputing purely from Payment Term makes a credit-term sale look
@@ -109,7 +109,13 @@ export function computeInvoiceAR(
     const daysPastDue = dueDate ? dayDiff(now, dueDate) : 0;
 
     let collectionStatus: CollectionStatus;
-    if (invoice.Status === 'Cancel') {
+    // A deposit/pre-order invoice that has been converted into a separate final
+    // invoice carries no open balance of its own — the final invoice holds the
+    // whole sale. Exclude it from open A/R so the balance isn't double-counted.
+    if (invoice['deposit_finalized_by']) {
+        collectionStatus = 'Converted';
+        outstanding = 0;
+    } else if (invoice.Status === 'Cancel') {
         collectionStatus = 'Cancelled';
     } else if (outstanding <= 0.005) {
         // Tolerance for float math — fully paid (or overpaid)
