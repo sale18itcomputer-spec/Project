@@ -70,14 +70,25 @@ export function buildTaxInvoice(
         grandUsd: depositGrandUsd = 0,
         grandRiel: depositGrandRiel = 0,
     } = hasDeposit ? computeVatDepositFooter(deposit, totals.grandTotal, rateNum) : {};
-    const vatBase   = hasDeposit ? depositNet : subTotal;
-    const vatAmount = showVat ? (hasDeposit ? depositVat : (tax > 0 ? tax : vatBase * 0.1)) : 0;
-    const grandUsd  = hasDeposit ? depositGrandUsd : vatBase + vatAmount;
-    const grandRiel = hasDeposit ? depositGrandRiel : (rateNum > 0 ? Math.round(grandUsd * rateNum) : 0);
+    // A FINAL invoice (issued AFTER a deposit invoice, once goods arrive) shows the
+    // deposit DEDUCTED and VAT on the REMAINING balance only — the deposit already
+    // declared its own VAT. A plain deposit invoice instead charges the deposit now
+    // (Grand Total = deposit). hd.finalized_from_deposit flags the former.
+    const isFinalDeposit = hasDeposit && showVat && !!(hd['finalized_from_deposit'] || hd['Finalized From Deposit']);
+    // Net-based "Total Less Deposit" so VAT lands only on the remainder.
+    const finalLessDeposit = Math.round((subTotal - depositNet) * 100) / 100;
+    const vatBase   = isFinalDeposit ? finalLessDeposit : (hasDeposit ? depositNet : subTotal);
+    const vatAmount = showVat
+        ? (isFinalDeposit ? Math.round(finalLessDeposit * 0.1 * 100) / 100 : (hasDeposit ? depositVat : (tax > 0 ? tax : vatBase * 0.1)))
+        : 0;
+    const grandUsd  = isFinalDeposit ? Math.round((finalLessDeposit + vatAmount) * 100) / 100
+        : (hasDeposit ? depositGrandUsd : vatBase + vatAmount);
+    const grandRiel = isFinalDeposit ? (rateNum > 0 ? Math.round(grandUsd * rateNum) : 0)
+        : (hasDeposit ? depositGrandRiel : (rateNum > 0 ? Math.round(grandUsd * rateNum) : 0));
     // Non-VAT footer is simplified to just a "Total" row (+ Deposit/Less Deposit when present).
     // VAT footer keeps the full breakdown: Sub Total, [Deposit], VAT, Grand USD, Exchange Rate, Grand Riel.
     const footerRows = showVat
-        ? (hasDeposit ? 6 : 5)
+        ? (isFinalDeposit ? 7 : hasDeposit ? 6 : 5)
         : (hasDeposit ? 3 : 1);
 
     const dataItems = items.filter(i => Number(i.no) > 0 || i.isPromotion);
@@ -292,6 +303,11 @@ export function buildTaxInvoice(
         <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">កក់ប្រាក់${depositPercent}% (Deposit ${depositPercent}%)</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(depositNet)}</td>
+        </tr>` : ''}
+        ${isFinalDeposit ? `
+        <tr>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុបដកប្រាក់កក់ (Total Less Deposit)</td>
+          <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(finalLessDeposit > 0 ? finalLessDeposit : null)}</td>
         </tr>` : ''}
         <tr>
           <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អាករ (VAT 10%)</td>

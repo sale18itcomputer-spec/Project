@@ -83,6 +83,11 @@ export async function finalizeDepositInvoice(params: {
         'Remark': `Final invoice for deposit invoice ${depositInvNo}. Deposit ${deposit.toLocaleString()} applied; balance due ${balanceDue.toLocaleString()}.`,
     };
     await createRecord('Invoices', payload);
+    // Flag it as a FINAL invoice so the PDF renders the deposit-deducted footer
+    // (Total Less Deposit + VAT on the remainder). Best-effort: set separately so a
+    // lagging migration for this column can't fail the invoice creation above.
+    try { await updateRecord('Invoices', finalInvNo, { finalized_from_deposit: depositInvNo } as any); }
+    catch (e: any) { console.warn('[finalizeDepositInvoice] finalized_from_deposit not set (run migration?):', e?.message); }
 
     // ── 2. Relieve inventory (FIFO) + collect COGS, mark serials Sold ────────
     const delta = computeInvoiceEditDelta([], params.items, params.brandByCode);
