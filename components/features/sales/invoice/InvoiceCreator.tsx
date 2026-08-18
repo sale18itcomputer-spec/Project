@@ -281,6 +281,23 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         }
     }, [existingInvoice, initialData, nextInvNo]);
 
+    // Server-owned flags (`finalized_from_deposit`, `deposit_finalized_by`) are set by
+    // the finalize / void flows and are never edited in this form. Always overlay them
+    // from the persisted record — even when a local draft is restored (which otherwise
+    // short-circuits the load effect above). A stale draft saved before the invoice was
+    // finalized would otherwise hide the flag and render the deposit footer instead of
+    // the deposit-deducted (final) footer. Idempotent: returns prev when unchanged.
+    useEffect(() => {
+        if (!existingInvoice) return;
+        const flag = (existingInvoice as any)['finalized_from_deposit'] ?? null;
+        const conv = (existingInvoice as any)['deposit_finalized_by'] ?? null;
+        setInvoice(prev => (
+            (prev as any)['finalized_from_deposit'] === flag && (prev as any)['deposit_finalized_by'] === conv
+                ? prev
+                : { ...prev, finalized_from_deposit: flag, deposit_finalized_by: conv }
+        ));
+    }, [existingInvoice]);
+
     useEffect(() => {
         if (!invoice['Inv No']) return;
         if (submitted.current) return;

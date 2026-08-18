@@ -90,7 +90,23 @@ export async function finalizeDepositInvoice(params: {
     catch (e: any) { console.warn('[finalizeDepositInvoice] finalized_from_deposit not set (run migration?):', e?.message); }
 
     // ── 2. Relieve inventory (FIFO) + collect COGS, mark serials Sold ────────
-    const delta = computeInvoiceEditDelta([], params.items, params.brandByCode);
+    // Backfill brand for any item the pricelist doesn't cover. PO/inventory-only
+    // codes (e.g. Lenovo units bought via PO but never added to the sales pricelist)
+    // resolve to no brand → the JE would misroute revenue/COGS/inventory to the
+    // "Other Accessories" default. Fill those from the inventory brand so every line
+    // posts under the correct brand accounts.
+    const brandByCode = new Map(params.brandByCode);
+    const missingCodes = [...new Set(
+        params.items.map((it: any) => String(it.itemCode || '').trim()).filter((c: string) => c && !brandByCode.get(c)),
+    )];
+    if (missingCodes.length) {
+        const { data: invBrands } = await supabase.from('inventory').select('code, brand').in('code', missingCodes);
+        for (const r of invBrands || []) {
+            const c = String(r.code || '').trim();
+            if (c && r.brand && !brandByCode.get(c)) brandByCode.set(c, r.brand);
+        }
+    }
+    const delta = computeInvoiceEditDelta([], params.items, brandByCode);
     const costItems: { brand: string; qty: number; unit_price: number }[] = [];
     for (const { code, model, brand, delta: qty } of delta.qtyDeltas) {
         if (qty <= 0) continue;

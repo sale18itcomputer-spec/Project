@@ -246,6 +246,7 @@ export const PRICELIST_HEADERS = [
 export const INVOICE_HEADERS = [
   'Inv No',
   'Inv Date',
+  'Due Date',
   'File',
   'SO No',
   'Company Name',
@@ -264,6 +265,13 @@ export const INVOICE_HEADERS = [
   'Payment Term',
   'Tin No',
   'Deposit',
+  // Deposit / final-invoice link flags. Both MUST be listed here: `normalize()`
+  // rebuilds every store row from THIS header list, so any column absent here is
+  // silently dropped before the UI sees it. `finalized_from_deposit` drives the
+  // deposit-deducted PDF footer on a final invoice; `deposit_finalized_by` marks
+  // the source deposit invoice so computeInvoiceAR excludes it from open A/R.
+  'finalized_from_deposit',
+  'deposit_finalized_by',
   'Exchange Rate',
   'Prepared By',
   'Approved By',

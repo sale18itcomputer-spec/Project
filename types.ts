@@ -338,6 +338,10 @@ export interface Invoice {
   'Prepared By Position'?: string;
   'Approved By Position'?: string;
   'ItemsJSON'?: any;
+  // Deposit / final-invoice link flags (must also be in INVOICE_HEADERS so the
+  // DataContext normalizer keeps them on store rows).
+  'finalized_from_deposit'?: string | null; // set on a FINAL invoice → deposit-deducted PDF footer
+  'deposit_finalized_by'?: string | null;   // set on the SOURCE deposit invoice → excluded from open A/R
   'created_at'?: string;
   'updated_at'?: string;
   [key: string]: any;
