@@ -242,6 +242,10 @@ export function buildTaxInvoice(
     const footerRightSpan = visibleItemCols - footerLeftSpan;
 
     // VAT footer label cells: no left border (T&C rowspan cell sits to the left)
+    // VAT footer labels stack Khmer over English — same shape as th2() in the
+    // header row. Halves what the label cell needs, so Qty/Unit Price can be
+    // narrow and Description keeps the reclaimed width.
+    const ft2 = (kh: string, en: string) => `<div>${kh}</div><div>${en}</div>`;
     const lblCellStyle = `border-top:1px solid #000 !important; border-bottom:1px solid #000 !important; border-right:1px solid #000 !important; border-left:none !important;`;
     // Non-VAT footer label cells: full border (label IS the leftmost column)
     const nonVatLblCellStyle = `border:1px solid #000 !important;`;
@@ -285,28 +289,28 @@ export function buildTaxInvoice(
               </ul>
             </div>
           </td>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុប (Sub Total)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2('សរុប', 'Sub Total')}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(subTotal > 0 ? subTotal : null)}</td>
         </tr>
         ${hasDeposit ? `
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">កក់ប្រាក់${depositPercent}% (Deposit ${depositPercent}%)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2(`កក់ប្រាក់${depositPercent}%`, `Deposit ${depositPercent}%`)}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(depositNet)}</td>
         </tr>` : ''}
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អាករ (VAT 10%)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2('អាករ', 'VAT 10%')}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(vatAmount > 0 ? vatAmount : null)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុបរួម (Grand Total in Dollar)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2('សរុបរួម', 'Grand Total in Dollar')}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${moneyCellUsd(grandUsd > 0 ? grandUsd : null)}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">អត្រាប្តូរប្រាក់ (Exchange Rate)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2('អត្រាប្តូរប្រាក់', 'Exchange Rate')}</td>
           <td class="text-right pr-2 align-middle" style="border:1px solid #000 !important;">${exchangeRate ? esc(String(exchangeRate)) : '-'}</td>
         </tr>
         <tr>
-          <td class="font-bold whitespace-nowrap text-[12px] py-1.5 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">សរុបរួមជាប្រាក់រៀល (Grand Total in Riel)</td>
+          <td class="font-bold whitespace-nowrap text-[12px] py-1 leading-tight text-right" colspan="${footerRightSpan > 1 ? footerRightSpan - 1 : 1}" style="${lblCellStyle}">${ft2('សរុបរួមជាប្រាក់រៀល', 'Grand Total in Riel')}</td>
           <td class="align-middle" style="border:1px solid #000 !important;">${grandRiel > 0 ? `<div class="flex justify-between"><span>&#x17DB;</span><span>${fmtNum(grandRiel)}</span></div>` : `<div class="flex justify-between"><span>&#x17DB;</span><span>-</span></div>`}</td>
         </tr>
       </tbody>` : `<tbody class="break-inside-avoid">

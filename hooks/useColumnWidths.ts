@@ -22,7 +22,10 @@ export type DocTypeKey =
 
 export const DOC_DEFAULT_WIDTHS: Record<DocTypeKey, number[]> = {
     'quotation':          [4, 16, 33, 12, 16, 19],
-    'invoice':            [4, 12, 38, 14, 17, 15],
+    // Qty/UnitPrice narrowed from 14/17 once the tax-invoice footer labels
+    // stacked Khmer over English — the footer label cell spans these two,
+    // so the width freed up goes to Description.
+    'invoice':            [4, 12, 47,  9, 13, 15],
     'sale-order':         [4, 12, 38, 14, 17, 15],
     'receipt':            [5, 16, 64, 15,  0,  0],   // fixed 4-col: No|Ref|Desc|Amt
     'delivery-order':     [4, 12, 39, 15, 30,  0],   // fixed 5-col: No|Code|Desc|Qty|SN
