@@ -236,7 +236,7 @@ export const convertPurchaseOrderToInventory = async (
         return { converted: false, alreadyConverted: false, count: 0 };
     }
 
-    const { data: insertedRows, error } = await inventoryInsert(inventoryPayload, 'id, brand, model_name, description');
+    const { data: insertedRows, error } = await inventoryInsert(inventoryPayload, 'id, code, brand, model_name, description');
     if (error) throw new Error(error.message);
 
     // Seed serial_numbers rows for any serials captured at PO intake, linked to
@@ -245,12 +245,30 @@ export const convertPurchaseOrderToInventory = async (
     // info instead of inserting a duplicate. warranty_period_months uses the
     // real vendor-stated term recorded on the PO line, not a guess — falls
     // back to 12 only when the PO item didn't record one.
-    const serialPayload = (insertedRows ?? []).flatMap((invRow, i) => {
-        const serials = (filteredItems[i]?.serial_number ?? '')
+    //
+    // Link each line's serials to the inventory row by CODE, never by array index:
+    // `.insert().select()` does NOT guarantee the returned rows keep the payload's
+    // order, so index pairing (insertedRows[i] ↔ filteredItems[i]) silently attaches
+    // serials to the wrong product (this scrambled PO-2026-007). Group inserted rows
+    // by code and consume one per payload line so repeat codes still map 1:1.
+    const rowsByCode = new Map<string, any[]>();
+    for (const r of insertedRows ?? []) {
+        const key = String(r.code ?? '').trim().toLowerCase();
+        if (!rowsByCode.has(key)) rowsByCode.set(key, []);
+        rowsByCode.get(key)!.push(r);
+    }
+    const serialPayload = filteredItems.flatMap((item, i) => {
+        // inventoryPayload[i] is buildInventoryRow(filteredItems[i]) — its `code` is
+        // the resolved code that was actually inserted (may differ from the raw PO code).
+        const key = String((inventoryPayload[i] as any)?.code ?? '').trim().toLowerCase();
+        const bucket = rowsByCode.get(key);
+        const invRow = bucket && bucket.length ? bucket.shift() : null;
+        if (!invRow) return [];
+        const serials = (item.serial_number ?? '')
             .split('\n')
             .map(s => s.trim())
             .filter(s => s.length > 0);
-        const warrantyMonths = filteredItems[i]?.warranty_months ?? 12;
+        const warrantyMonths = item.warranty_months ?? 12;
         return serials.map(sn => ({
             serial_number: sn,
             brand: invRow.brand ?? '',

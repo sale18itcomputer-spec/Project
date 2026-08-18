@@ -84,6 +84,19 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
         onChange(next.join('\n'));
     };
 
+    const allSelected = available.length > 0 && selectedKnown.length === available.length;
+    const toggleAll = () => {
+        if (allSelected) {
+            // Deselect every in-stock serial, but keep any manually-typed lines.
+            onChange(manualLines.join('\n'));
+        } else {
+            // Select every in-stock serial (union with whatever's already there),
+            // preserving order: known serials first, manual entries after.
+            const union = [...available.map(a => a.serial_number), ...manualLines];
+            onChange(Array.from(new Set(union)).join('\n'));
+        }
+    };
+
     const handleManualChange = (text: string) => {
         onChange([...selectedKnown, ...splitLines(text)].join('\n'));
     };
@@ -94,9 +107,20 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
                 <label className="text-[10px] uppercase font-bold text-muted-foreground">
                     Serial Numbers <span className="normal-case font-normal text-muted-foreground/40">(one per line)</span>
                 </label>
-                <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                    {selectedKnown.length}{qty > 0 ? `/${qty}` : ''} selected &middot; {available.length} in stock
-                </span>
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                    {available.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={toggleAll}
+                            className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-brand-500/30 text-brand-600 bg-brand-500/10 hover:bg-brand-500/20 transition-colors"
+                        >
+                            {allSelected ? 'Clear all' : `Select all ${available.length}`}
+                        </button>
+                    )}
+                    <span className="text-[9px] text-muted-foreground">
+                        {selectedKnown.length}{qty > 0 ? `/${qty}` : ''} selected &middot; {available.length} in stock
+                    </span>
+                </div>
             </div>
 
             {loading ? (
