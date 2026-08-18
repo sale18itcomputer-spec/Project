@@ -50,7 +50,12 @@ const INVOICE_COLUMNS_VISIBILITY_KEY = 'limperial-invoices-columns-visibility';
 type ViewMode = 'table' | 'detail';
 
 const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) => {
-    const { invoices = [], setInvoices, companies, receipts, pricelist, loading, error, refetchModule } = useData();
+    const { invoices = [], setInvoices, companies, receipts, pricelist, loading, error, refetchModule, fetchModule } = useData();
+    // Receipts are a LAZY-loaded sheet. The Due/Overdue column derives payment
+    // from them (outstanding = Amount − Deposit − receipts); without them every
+    // fully-paid Completed invoice reads as $0 paid → shows "overdue". Load them
+    // on mount (and re-load on B2B/B2C flip, when fetchModule's ref changes).
+    useEffect(() => { fetchModule('Receipts'); }, [fetchModule]);
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);

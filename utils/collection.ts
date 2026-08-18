@@ -117,6 +117,7 @@ export function computeInvoiceAR(
         outstanding = 0;
     } else if (invoice.Status === 'Cancel') {
         collectionStatus = 'Cancelled';
+        outstanding = 0; // a cancelled invoice carries no A/R obligation
     } else if (outstanding <= 0.005) {
         // Tolerance for float math — fully paid (or overpaid)
         collectionStatus = 'Paid';
