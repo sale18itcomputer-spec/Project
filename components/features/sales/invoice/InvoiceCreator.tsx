@@ -747,89 +747,13 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                     };
                 };
 
-                // Creates or updates the serial_numbers row for a sold unit. Shared by
-                // normal line items and PC-build components (each component keeps its
-                // own warranty length instead of the flat 12-month default).
-                const syncSerial = async (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
-                    const { data: existingSN } = await supabase
-                        .from('serial_numbers')
-                        .select('id, stock_status, so_no, warranty_period_months')
-                        .eq('serial_number', sn)
-                        .limit(1);
-
-                    if (existingSN && existingSN.length > 0) {
-                        const existingRow = existingSN[0];
-                        const soNo = invoice['SO No'] || '';
-
-                        // Already sold to a different SO — don't silently reassign
-                        // the unit to this sale; flag it for the user instead.
-                        if (existingRow.stock_status === 'Sold' && existingRow.so_no && existingRow.so_no !== soNo) {
-                            conflictSerials.push({ serial: sn, soNo: existingRow.so_no });
-                            return;
-                        }
-
-                        // Preserve a real duration already recorded at PO intake — never
-                        // clobber it with the caller's fallback guess. Only fall back to
-                        // the passed-in value if this row genuinely has none on file.
-                        const effectiveMonths = existingRow.warranty_period_months ?? opts.warrantyMonths;
-                        const warrantyEndForRow = addMonths(warrantyStart, effectiveMonths);
-
-                        // Row already exists (e.g. seeded at PO intake) — update it
-                        // with this sale's customer/warranty info instead of skipping,
-                        // so the lifecycle transitions from "in stock" to "sold".
-                        const { data: updatedSN, error: updErr } = await supabase
-                            .from('serial_numbers')
-                            .update({
-                                brand: opts.brand,
-                                model_name: opts.modelName,
-                                description: opts.description,
-                                inventory_id: opts.inventoryId,
-                                so_no: soNo,
-                                company_name: invoice['Company Name'] || '',
-                                contact_name: invoice['Contact Name'] || '',
-                                warranty_start_date: warrantyStart,
-                                warranty_period_months: effectiveMonths,
-                                warranty_end_date: warrantyEndForRow,
-                                status: 'Active',
-                                stock_status: 'Sold',
-                            })
-                            .eq('id', existingRow.id)
-                            .select()
-                            .single();
-
-                        if (!updErr && updatedSN) {
-                            setSerialNumbers(prev => prev ? prev.map(s => s.id === updatedSN.id ? updatedSN : s) : [updatedSN]);
-                            syncedSerials = true;
-                        }
-                        return;
-                    }
-
-                    // Genuinely new serial, no prior record — use the caller's value as-is.
-                    const { data: newSN, error: snErr } = await supabase
-                        .from('serial_numbers')
-                        .insert({
-                            serial_number: sn,
-                            brand: opts.brand,
-                            model_name: opts.modelName,
-                            description: opts.description,
-                            inventory_id: opts.inventoryId,
-                            so_no: invoice['SO No'] || '',
-                            company_name: invoice['Company Name'] || '',
-                            contact_name: invoice['Contact Name'] || '',
-                            warranty_start_date: warrantyStart,
-                            warranty_period_months: opts.warrantyMonths,
-                            warranty_end_date: addMonths(warrantyStart, opts.warrantyMonths),
-                            status: 'Active',
-                            stock_status: 'Sold',
-                            created_by: currentUser?.Name || '',
-                        })
-                        .select()
-                        .single();
-
-                    if (!snErr && newSN) {
-                        setSerialNumbers(prev => prev ? [newSN, ...prev] : [newSN]);
-                        syncedSerials = true;
-                    }
+                // Collect sold-serial writes during the item loop, then flush them in
+                // ONE batched pass after the loop (see the flush block below). A
+                // per-serial SELECT+UPDATE round-trip here froze the save once
+                // "Select all" could add hundreds of serials at once.
+                const serialOps: { sn: string; brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }[] = [];
+                const syncSerial = (sn: string, opts: { brand: string; modelName: string; description: string; inventoryId: string | null; warrantyMonths: number }) => {
+                    serialOps.push({ sn, ...opts });
                 };
 
                 try {
@@ -920,6 +844,75 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 description: item.description || '',
                                 inventoryId: matched?.id ?? null,
                                 warrantyMonths: matched?.warrantyMonths ?? 12,
+                            });
+                        }
+                    }
+                    // Flush all queued serials in ONE batched pass: a single classify
+                    // read, then grouped .in() writes. Preserves inventory_id linkage,
+                    // the "already sold to another SO" conflict guard, and any real
+                    // warranty term already recorded at PO intake.
+                    if (serialOps.length > 0) {
+                        const chunkSer = <X,>(a: X[], n: number): X[][] => { const o: X[][] = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
+                        const soNo = invoice['SO No'] || '';
+                        const opBySn = new Map(serialOps.map(o => [o.sn, o]));
+                        const allSns = [...opBySn.keys()];
+                        const existRows: any[] = [];
+                        for (const b of chunkSer(allSns, 150)) {
+                            const { data } = await supabase.from('serial_numbers')
+                                .select('id, serial_number, stock_status, so_no, warranty_period_months').in('serial_number', b);
+                            if (data) existRows.push(...data);
+                        }
+                        const exBySn = new Map(existRows.map((r: any) => [r.serial_number, r]));
+                        const updGroups = new Map<string, { patch: any; ids: string[] }>();
+                        const insRows: any[] = [];
+                        for (const sn of allSns) {
+                            const op = opBySn.get(sn)!;
+                            const ex = exBySn.get(sn);
+                            // Never reassign a unit already Sold to a different SO.
+                            if (ex && ex.stock_status === 'Sold' && ex.so_no && ex.so_no !== soNo) {
+                                conflictSerials.push({ serial: sn, soNo: ex.so_no });
+                                continue;
+                            }
+                            if (ex) {
+                                // Keep a real warranty term already on file; group identical
+                                // patches so hundreds of rows collapse into a few writes.
+                                const months = ex.warranty_period_months ?? op.warrantyMonths;
+                                const key = `${op.brand}|${op.modelName}|${op.description}|${op.inventoryId ?? ''}|${months}`;
+                                if (!updGroups.has(key)) updGroups.set(key, {
+                                    patch: {
+                                        brand: op.brand, model_name: op.modelName, description: op.description, inventory_id: op.inventoryId,
+                                        so_no: soNo, company_name: invoice['Company Name'] || '', contact_name: invoice['Contact Name'] || '',
+                                        warranty_start_date: warrantyStart, warranty_period_months: months, warranty_end_date: addMonths(warrantyStart, months),
+                                        status: 'Active', stock_status: 'Sold',
+                                    },
+                                    ids: [],
+                                });
+                                updGroups.get(key)!.ids.push(ex.id);
+                            } else {
+                                insRows.push({
+                                    serial_number: sn, brand: op.brand, model_name: op.modelName, description: op.description, inventory_id: op.inventoryId,
+                                    so_no: soNo, company_name: invoice['Company Name'] || '', contact_name: invoice['Contact Name'] || '',
+                                    warranty_start_date: warrantyStart, warranty_period_months: op.warrantyMonths, warranty_end_date: addMonths(warrantyStart, op.warrantyMonths),
+                                    status: 'Active', stock_status: 'Sold', created_by: currentUser?.Name || '',
+                                });
+                            }
+                        }
+                        const changed: any[] = [];
+                        for (const { patch, ids } of updGroups.values())
+                            for (const b of chunkSer(ids, 150)) {
+                                const { data } = await supabase.from('serial_numbers').update(patch).in('id', b).select();
+                                if (data) changed.push(...data);
+                            }
+                        for (const b of chunkSer(insRows, 150)) {
+                            const { data } = await supabase.from('serial_numbers').insert(b).select();
+                            if (data) changed.push(...data);
+                        }
+                        if (changed.length > 0) {
+                            syncedSerials = true;
+                            setSerialNumbers(prev => {
+                                const m = new Map((prev ?? []).map((s: any) => [s.id, s]));
+                                for (const r of changed) m.set(r.id, r);
+                                return [...m.values()];
                             });
                         }
                     }

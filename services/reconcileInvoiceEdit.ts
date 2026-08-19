@@ -147,6 +147,105 @@ export function computeInvoiceEditDelta(oldItems: any[], newItems: any[], brandB
     return { qtyDeltas, addedSerials, removedSerials, revDeltaByBrand };
 }
 
+// ── Batched serial writers ──────────────────────────────────────────────────
+// A per-serial SELECT+UPDATE round-trip froze saves once "Select all" could add
+// hundreds of serials at once. These do ONE classify read, then grouped .in()
+// writes (chunked to keep each request small). Shared by the issue path, the
+// issued-edit reconcile, and the deposit-finalize path so all three scale.
+const chunkArr = <X,>(arr: X[], n: number): X[][] => {
+    const out: X[][] = [];
+    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+    return out;
+};
+const SERIAL_CHUNK = 150;
+
+/** Mark serials Sold, batched. Existing rows are updated (keeping a real warranty
+ *  term already recorded at PO intake); serials with no prior row are inserted.
+ *  A unit already Sold to a DIFFERENT SO is never stolen — it's returned in
+ *  `conflicts` for the caller to surface. */
+export async function markSerialsSold(
+    added: { serial: string; info: SerialInfo }[],
+    ctx: { startDate: string; soNo?: string; companyName?: string; contactName?: string; createdBy: string },
+): Promise<{ conflicts: { serial: string; soNo: string }[] }> {
+    if (!added.length) return { conflicts: [] };
+    const infoBySn = new Map(added.map(a => [a.serial, a.info]));
+    const allSns = [...infoBySn.keys()];
+
+    const existRows: { serial_number: string; warranty_period_months: number | null; stock_status: string; so_no: string | null }[] = [];
+    for (const b of chunkArr(allSns, SERIAL_CHUNK)) {
+        const { data } = await supabase.from('serial_numbers')
+            .select('serial_number, warranty_period_months, stock_status, so_no').in('serial_number', b);
+        if (data) existRows.push(...(data as any));
+    }
+    const existBySn = new Map(existRows.map(r => [r.serial_number, r]));
+
+    // Group existing-serial updates by identical payload so hundreds of rows
+    // collapse into a few .in() writes; brand-new serials go in one batch insert.
+    const groups = new Map<string, { patch: Record<string, any>; sns: string[] }>();
+    const inserts: any[] = [];
+    const conflicts: { serial: string; soNo: string }[] = [];
+    for (const sn of allSns) {
+        const info = infoBySn.get(sn)!;
+        const brand = info.brand || '';
+        const ex = existBySn.get(sn);
+        // Never reassign a unit already Sold to a different SO.
+        if (ex && ex.stock_status === 'Sold' && ex.so_no && ctx.soNo && ex.so_no !== ctx.soNo) {
+            conflicts.push({ serial: sn, soNo: ex.so_no });
+            continue;
+        }
+        if (ex) {
+            const months = ex.warranty_period_months ?? info.warrantyMonths ?? 12;
+            const key = `${brand}|${info.modelName || ''}|${info.description || ''}|${months}`;
+            if (!groups.has(key)) groups.set(key, {
+                patch: {
+                    brand, model_name: info.modelName || '', description: info.description || '',
+                    so_no: ctx.soNo || '', company_name: ctx.companyName || '', contact_name: ctx.contactName || '',
+                    warranty_start_date: ctx.startDate, warranty_period_months: months,
+                    warranty_end_date: addMonths(ctx.startDate, months),
+                    status: 'Active', stock_status: 'Sold',
+                },
+                sns: [],
+            });
+            groups.get(key)!.sns.push(sn);
+        } else {
+            const months = info.warrantyMonths ?? 12;
+            inserts.push({
+                serial_number: sn, brand, model_name: info.modelName || '', description: info.description || '',
+                so_no: ctx.soNo || '', company_name: ctx.companyName || '', contact_name: ctx.contactName || '',
+                warranty_start_date: ctx.startDate, warranty_period_months: months,
+                warranty_end_date: addMonths(ctx.startDate, months),
+                status: 'Active', stock_status: 'Sold', created_by: ctx.createdBy,
+            });
+        }
+    }
+    for (const { patch, sns } of groups.values())
+        for (const b of chunkArr(sns, SERIAL_CHUNK))
+            await supabase.from('serial_numbers').update(patch).in('serial_number', b);
+    for (const b of chunkArr(inserts, SERIAL_CHUNK))
+        await supabase.from('serial_numbers').insert(b);
+}
+
+/** Revert serials back to In Stock (unlink this sale), batched. Skips any unit
+ *  since reassigned to a different SO. Returns how many were reverted. */
+export async function revertSerialsToStock(serials: string[], soNo?: string): Promise<number> {
+    if (!serials.length) return 0;
+    const rows: { id: string; stock_status: string; so_no: string | null }[] = [];
+    for (const b of chunkArr(serials, SERIAL_CHUNK)) {
+        const { data } = await supabase.from('serial_numbers')
+            .select('id, stock_status, so_no').in('serial_number', b);
+        if (data) rows.push(...(data as any));
+    }
+    const ids = rows.filter(r =>
+        !(r.stock_status === 'Sold' && soNo && r.so_no && r.so_no !== soNo)
+    ).map(r => r.id);
+    for (const b of chunkArr(ids, SERIAL_CHUNK))
+        await supabase.from('serial_numbers').update({
+            so_no: '', company_name: '', contact_name: '',
+            warranty_start_date: null, warranty_end_date: null, stock_status: 'In Stock',
+        }).in('id', b);
+    return ids.length;
+}
+
 export interface ReconcileResult {
     inventoryChanged: boolean;
     serialsChanged: boolean;
@@ -237,51 +336,20 @@ export async function reconcileIssuedInvoiceEdit(params: {
     }
 
     // ── 2. Serial status delta (no qty change here — handled above) ─────────
-    const markSold = async (sn: string, info: SerialInfo) => {
-        const { data: existing } = await supabase.from('serial_numbers')
-            .select('id, inventory_id, warranty_period_months').eq('serial_number', sn).limit(1);
-        const brand = info.brand || '';
-        if (existing && existing.length) {
-            const row = existing[0];
-            const months = row.warranty_period_months ?? info.warrantyMonths ?? 12;
-            await supabase.from('serial_numbers').update({
-                brand, model_name: info.modelName || '', description: info.description || '',
-                so_no: params.soNo || '', company_name: params.companyName || '', contact_name: params.contactName || '',
-                warranty_start_date: startDate, warranty_period_months: months,
-                warranty_end_date: addMonths(startDate, months),
-                status: 'Active', stock_status: 'Sold',
-            }).eq('id', row.id);
-        } else {
-            const months = info.warrantyMonths ?? 12;
-            await supabase.from('serial_numbers').insert({
-                serial_number: sn, brand, model_name: info.modelName || '', description: info.description || '',
-                so_no: params.soNo || '', company_name: params.companyName || '', contact_name: params.contactName || '',
-                warranty_start_date: startDate, warranty_period_months: months,
-                warranty_end_date: addMonths(startDate, months),
-                status: 'Active', stock_status: 'Sold', created_by: params.createdBy,
-            });
-        }
+    // Batched via the shared markSerialsSold/revertSerialsToStock helpers. A
+    // per-serial SELECT+UPDATE round-trip here froze the save when "Select all"
+    // adds hundreds of serials at once.
+    if (delta.addedSerials.length) {
+        await markSerialsSold(delta.addedSerials, {
+            startDate, soNo: params.soNo, companyName: params.companyName,
+            contactName: params.contactName, createdBy: params.createdBy,
+        });
         serialsChanged = true;
-    };
-
-    const revertToStock = async (sn: string) => {
-        const { data: existing } = await supabase.from('serial_numbers')
-            .select('id, stock_status, so_no').eq('serial_number', sn).limit(1);
-        if (!existing || !existing.length) return;
-        const row = existing[0];
-        // Only revert a unit that is Sold AND belongs to THIS sale — never touch a
-        // serial that has since been reassigned to a different SO.
-        if (row.stock_status === 'Sold' && params.soNo && row.so_no && row.so_no !== params.soNo) return;
-        await supabase.from('serial_numbers').update({
-            so_no: '', company_name: '', contact_name: '',
-            warranty_start_date: null, warranty_end_date: null,
-            stock_status: 'In Stock',
-        }).eq('id', row.id);
-        serialsChanged = true;
-    };
-
-    for (const { serial, info } of delta.addedSerials) await markSold(serial, info);
-    for (const serial of delta.removedSerials) await revertToStock(serial);
+    }
+    if (delta.removedSerials.length) {
+        const n = await revertSerialsToStock(delta.removedSerials, params.soNo);
+        if (n > 0) serialsChanged = true;
+    }
 
     // ── 3. GL adjustment JE for any value change (additive, never mutates original) ──
     const revDeltaByBrand = new Map<string, number>(Object.entries(delta.revDeltaByBrand));
@@ -477,33 +545,40 @@ export async function reserveInvoiceSerials(params: {
     const delta = computeInvoiceEditDelta(params.oldItems, params.newItems, params.brandByCode);
     let changed = false;
 
-    for (const { serial } of delta.addedSerials) {
-        const { data } = await supabase.from('serial_numbers')
-            .select('id, stock_status').eq('serial_number', serial).limit(1);
-        const row = data?.[0];
-        if (row && row.stock_status === 'In Stock') {
+    // Reserve newly-added serials still In Stock (batched — a per-serial round-trip
+    // froze the draft save once "Select all" could add hundreds at once).
+    if (delta.addedSerials.length) {
+        const sns = delta.addedSerials.map(a => a.serial);
+        const rows: { id: string; stock_status: string }[] = [];
+        for (const b of chunkArr(sns, SERIAL_CHUNK)) {
+            const { data } = await supabase.from('serial_numbers')
+                .select('id, stock_status').in('serial_number', b);
+            if (data) rows.push(...(data as any));
+        }
+        const ids = rows.filter(r => r.stock_status === 'In Stock').map(r => r.id);
+        for (const b of chunkArr(ids, SERIAL_CHUNK))
             await supabase.from('serial_numbers').update({
                 stock_status: 'Reserved',
-                so_no: params.soNo || '',
-                company_name: params.companyName || '',
-                contact_name: params.contactName || '',
-            }).eq('id', row.id);
-            changed = true;
-        }
+                so_no: params.soNo || '', company_name: params.companyName || '', contact_name: params.contactName || '',
+            }).in('id', b);
+        if (ids.length) changed = true;
     }
 
-    for (const serial of delta.removedSerials) {
-        const { data } = await supabase.from('serial_numbers')
-            .select('id, stock_status').eq('serial_number', serial).limit(1);
-        const row = data?.[0];
-        // Only free units WE reserved — never disturb a 'Sold' unit or one another
-        // document reserved (which the picker's In-Stock filter already prevented).
-        if (row && row.stock_status === 'Reserved') {
+    // Free serials we had reserved but were removed from the draft. Only touch units
+    // WE reserved — never disturb a 'Sold' unit or one another document reserved.
+    if (delta.removedSerials.length) {
+        const rows: { id: string; stock_status: string }[] = [];
+        for (const b of chunkArr(delta.removedSerials, SERIAL_CHUNK)) {
+            const { data } = await supabase.from('serial_numbers')
+                .select('id, stock_status').in('serial_number', b);
+            if (data) rows.push(...(data as any));
+        }
+        const ids = rows.filter(r => r.stock_status === 'Reserved').map(r => r.id);
+        for (const b of chunkArr(ids, SERIAL_CHUNK))
             await supabase.from('serial_numbers').update({
                 stock_status: 'In Stock', so_no: '', company_name: '', contact_name: '',
-            }).eq('id', row.id);
-            changed = true;
-        }
+            }).in('id', b);
+        if (ids.length) changed = true;
     }
 
     return { changed };

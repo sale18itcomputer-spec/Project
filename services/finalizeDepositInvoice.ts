@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { createJournalEntry, getNextEntryNumber, normalizeBrand, BRAND_ACCOUNT_MAP } from './accountingApi';
 import { createRecord, updateRecord, generateInvNo } from './api';
-import { computeInvoiceEditDelta } from './reconcileInvoiceEdit';
+import { computeInvoiceEditDelta, markSerialsSold } from './reconcileInvoiceEdit';
 
 /**
  * Issue the FINAL invoice for a deposit / pre-order invoice once the goods land.
@@ -130,30 +130,15 @@ export async function finalizeDepositInvoice(params: {
         const unitCost = Number(lot.unit_price) || 0;
         if (unitCost > 0) costItems.push({ brand: normalizeBrand(brand), qty, unit_price: unitCost });
     }
-    for (const { serial, info } of delta.addedSerials) {
-        const { data: ex } = await supabase.from('serial_numbers').select('id, warranty_period_months, stock_status, so_no').eq('serial_number', serial).limit(1);
-        const brand = info.brand || '';
-        const soNo = dep['SO No'] || finalInvNo;
-        if (ex && ex.length) {
-            const row = ex[0];
-            if (row.stock_status === 'Sold' && row.so_no && row.so_no !== soNo) continue;
-            const months = row.warranty_period_months ?? info.warrantyMonths ?? 12;
-            await supabase.from('serial_numbers').update({
-                brand, model_name: info.modelName || '', description: info.description || '',
-                so_no: soNo, company_name: dep['Company Name'] || '', contact_name: dep['Contact Name'] || '',
-                warranty_start_date: invDate, warranty_period_months: months, warranty_end_date: addMonths(invDate, months),
-                status: 'Active', stock_status: 'Sold',
-            }).eq('id', row.id);
-        } else {
-            const months = info.warrantyMonths ?? 12;
-            await supabase.from('serial_numbers').insert({
-                serial_number: serial, brand, model_name: info.modelName || '', description: info.description || '',
-                so_no: soNo, company_name: dep['Company Name'] || '', contact_name: dep['Contact Name'] || '',
-                warranty_start_date: invDate, warranty_period_months: months, warranty_end_date: addMonths(invDate, months),
-                status: 'Active', stock_status: 'Sold', created_by: params.createdBy,
-            });
-        }
-    }
+    // Batched — a per-serial round-trip here froze the finalize when many serials
+    // were captured. markSerialsSold skips any unit already Sold to a different SO.
+    await markSerialsSold(delta.addedSerials, {
+        startDate: invDate,
+        soNo: dep['SO No'] || finalInvNo,
+        companyName: dep['Company Name'] || '',
+        contactName: dep['Contact Name'] || '',
+        createdBy: params.createdBy,
+    });
 
     // ── 3. Post the final-invoice JE (split VAT + net deposit applied) ───────
     //   DR AR (balance)  DR 25000 (net deposit)
