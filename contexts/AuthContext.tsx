@@ -5,6 +5,7 @@ import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
 import { logAudit } from '../services/auditApi';
+import { setAuditActor } from '../lib/supabase';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
@@ -45,6 +46,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // without creating a new effect dependency that would cause re-runs
   const usersRef = useRef<User[] | null>(null);
   useEffect(() => { usersRef.current = users; }, [users]);
+
+  // Stamp the audit actor on every subsequent data write (via request headers the
+  // DB trigger reads). Cleared on logout so post-sign-out writes aren't misattributed.
+  useEffect(() => {
+    setAuditActor(currentUser ? { name: currentUser.Name, role: currentUser.Role } : null);
+  }, [currentUser]);
 
   // Tracks whether a deliberate logout is in progress.
   // Prevents the async SIGNED_OUT event from wiping state that was already
