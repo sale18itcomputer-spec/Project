@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
+import { usePeriodLock } from '../../../hooks/usePeriodLock';
 import { Button } from '../../ui/button';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import {
@@ -1152,6 +1153,7 @@ export default function AccountingDashboard() {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { can, canViewSubTab } = usePermissions();
+    const { lockError } = usePeriodLock();
 
     const canCreate = can('accounting', 'create');
     const canEdit   = can('accounting', 'edit');
@@ -1604,6 +1606,8 @@ export default function AccountingDashboard() {
     };
 
     const handleSaveEntry = async () => {
+        const jeLockMsg = lockError(entryHeader.entry_date);
+        if (jeLockMsg) { addToast(jeLockMsg, 'error'); return; }
         if (!entryBalance.balanced) {
             addToast('Entry is not balanced — debits must equal credits.', 'error');
             return;

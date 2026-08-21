@@ -7,6 +7,7 @@ import { useData } from "../../../../contexts/DataContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { createRecord, updateRecord, uploadFile, generateInvNo, generateServiceInvNo, peekInvNo, peekServiceInvNo, releaseInvNoIfUnused } from "../../../../services/api";
 import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../services/reconcileInvoiceEdit";
+import { usePeriodLock } from "../../../../hooks/usePeriodLock";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
 import { supabase } from "../../../../lib/supabase";
@@ -66,6 +67,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const { addToast } = useToast();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { lockError } = usePeriodLock();
     const [successInfo, setSuccessInfo] = useState<{ invNo: string } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -552,6 +554,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             addToast('Add at least one line item before saving.', 'error');
             return;
         }
+
+        // Period lock: refuse before minting a number / posting any JE, so a locked
+        // month can't be touched (the DB enforces this too — this is the clean early exit).
+        const invLockMsg = lockError(invoice['Inv Date']);
+        if (invLockMsg) { addToast(invLockMsg, 'error'); return; }
 
         setIsSubmitting(true);
 

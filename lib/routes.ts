@@ -66,6 +66,7 @@ export const ROUTE_META: Record<string, RouteMeta> = {
     // ── Admin / tools ──
     '/users': { label: 'Users' },
     '/audit-log': { label: 'Audit Log' },
+    '/period-control': { label: 'Period Control', short: 'Periods' },
     '/accounting': { label: 'Accounting' },
     '/pricing-calculator': { label: 'Pricing Calculator', short: 'Calculator' },
     '/pdf-layout-editor': { label: 'PDF Layout Editor', short: 'PDF Layout' },

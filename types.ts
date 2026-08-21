@@ -12,7 +12,9 @@ export type PermissionAction =
   | 'export'
   | 'send'
   | 'approve'
-  | 'use';
+  | 'use'
+  | 'lock'
+  | 'unlock';
 
 /** Action flags for a single module */
 export type ModulePermissions = Partial<Record<PermissionAction, boolean>>;

@@ -21,6 +21,14 @@
     --color-popover-foreground: hsl(var(--popover-foreground));
     --color-card: hsl(var(--card));
     --color-card-foreground: hsl(var(--card-foreground));
+    /* Side navigation surface: each theme's own background washed with 30% of the
+       Imperial-blue logo colour, so the nav reads as a distinct surface in EVERY
+       theme (a clear blue on light, a navy shift on dark) with no per-theme edits. */
+    --color-sidebar: color-mix(in oklab, hsl(var(--background)) 70%, hsl(var(--brand-600)) 30%);
+    /* Text on the tinted sidebar — strong enough to pop on the blue wash, and
+       theme-aware (near-black on light, near-white on dark). */
+    --color-sidebar-foreground: color-mix(in oklab, hsl(var(--foreground)) 88%, hsl(var(--brand-700)) 12%);
+    --color-sidebar-muted: color-mix(in oklab, hsl(var(--foreground)) 60%, hsl(var(--brand-600)) 40%);
     --color-brand-50: hsl(var(--brand-50));
     --color-brand-100: hsl(var(--brand-100));
     --color-brand-200: hsl(var(--brand-200));

@@ -41,6 +41,8 @@ const ACTION_META: Record<PermissionAction, { label: string; short: string }> = 
   send:    { label: 'Send',    short: 'S' },
   approve: { label: 'Approve', short: 'A' },
   use:     { label: 'Use',     short: 'U' },
+  lock:    { label: 'Lock',    short: 'L' },
+  unlock:  { label: 'Unlock',  short: 'Ul' },
 };
 
 // Fully static Tailwind classes — dynamic strings would be purged
@@ -53,6 +55,8 @@ const ACTION_ON: Record<PermissionAction, string> = {
   send:    'bg-cyan-100   text-cyan-700   border-cyan-300   dark:bg-cyan-900/50   dark:text-cyan-300   dark:border-cyan-700',
   approve: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700',
   use:     'bg-teal-100   text-teal-700   border-teal-300   dark:bg-teal-900/50   dark:text-teal-300   dark:border-teal-700',
+  lock:    'bg-red-100    text-red-700    border-red-300    dark:bg-red-900/50    dark:text-red-300    dark:border-red-700',
+  unlock:  'bg-lime-100   text-lime-700   border-lime-300   dark:bg-lime-900/50   dark:text-lime-300   dark:border-lime-700',
 };
 
 const ACTION_OFF = 'bg-transparent text-muted-foreground/40 border-border/50 hover:border-border hover:text-muted-foreground';

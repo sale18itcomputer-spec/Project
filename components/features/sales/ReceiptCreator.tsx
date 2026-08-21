@@ -19,6 +19,7 @@ import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { ColumnWidthPopover } from './ColumnWidthPopover';
 import { readFormDraft, useFormDraft } from '../../../hooks/useFormDraft';
+import { usePeriodLock } from '../../../hooks/usePeriodLock';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
 
 const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
@@ -322,11 +323,15 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         } finally { setIsUploading(false); }
     };
 
+    const { lockError } = usePeriodLock();
+
     const handleSave = async () => {
         if (!doc['RV No'] || !doc['Company Name']) {
             addToast('Please fill in RV No. and Company Name', 'error');
             return;
         }
+        const rvLockMsg = lockError(doc['RV Date']);
+        if (rvLockMsg) { addToast(rvLockMsg, 'error'); return; }
         setIsSubmitting(true);
         try {
             const payload = {

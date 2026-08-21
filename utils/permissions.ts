@@ -255,6 +255,12 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     actions: ['view'],
     route: ['/audit-log'],
   },
+  period_control: {
+    label: 'Period Control',
+    section: 'Admin',
+    actions: ['view', 'lock', 'unlock'],
+    route: ['/period-control'],
+  },
 };
 
 // Ordered list of section names for UI rendering
@@ -312,6 +318,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       accounting:         { view: true, create: true, edit: true, delete: true },
       users:              { view: true, create: true, edit: true, delete: true },
       audit_log:          { view: true },
+      period_control:     { view: true, lock: true, unlock: true },
     },
     dataVisibility: {
       showDealerPrice:   true,

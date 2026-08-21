@@ -14,6 +14,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { usePermissions } from '../../../hooks/usePermissions';
+import { usePeriodLock } from '../../../hooks/usePeriodLock';
 import { PlusCircle, Trash2, X, Check, ChevronDown, ChevronRight, Receipt, Download, AlertTriangle } from 'lucide-react';
 import { exportBills } from '../../../utils/exportAccountingXlsx';
 import SearchInput from '../../common/SearchInput';
@@ -501,6 +502,7 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const { can } = usePermissions();
+    const { lockError } = usePeriodLock();
     const canEdit = can('accounting', 'edit');
 
     const [bills, setBills] = useState<Bill[]>([]);
@@ -557,6 +559,8 @@ const BillsTab: React.FC<Props> = ({ accounts }) => {
         header: Omit<Bill, 'id' | 'lines' | 'created_at' | 'updated_at'>,
         lines: Omit<BillLine, 'id' | 'bill_id' | 'created_at'>[],
     ) => {
+        const billLockMsg = lockError(header.bill_date);
+        if (billLockMsg) { addToast(billLockMsg, 'error'); return; }
         try {
             if (formBill && (formBill as Bill).id) {
                 const updated = await updateBill((formBill as Bill).id!, header, lines);

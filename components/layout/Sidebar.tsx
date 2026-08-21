@@ -9,7 +9,7 @@ import {
   ClipboardList, Calculator, BarChart2, Receipt, PanelLeft,
   UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
   Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2, Pin, PinOff,
-  GripVertical, History,
+  GripVertical, History, CalendarClock,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -164,6 +164,7 @@ const NAV_ITEM_SOURCE: { key: string; icon: React.ReactNode; path: string; badge
   { key: 'accounting',         icon: <BookOpen size={16} />,        path: '/accounting' },
   { key: 'pricing_calculator', icon: <Calculator size={16} />,      path: '/pricing-calculator' },
   { key: 'audit_log',          icon: <History size={16} />,         path: '/audit-log' },
+  { key: 'period_control',     icon: <CalendarClock size={16} />,   path: '/period-control' },
 ];
 
 const NAV_ITEM_REGISTRY: NavItemDef[] = NAV_ITEM_SOURCE.map(item => ({
@@ -294,9 +295,9 @@ const NavItem: React.FC<{
           }
           ${isActive
             ? isCollapsed
-              ? 'bg-primary/15 text-primary'
-              : 'text-primary bg-primary/10'
-            : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
+              ? 'bg-primary/20 text-primary'
+              : 'text-primary bg-primary/15'
+            : 'text-sidebar-foreground hover:bg-primary/10'
           }
         `}
       >
@@ -310,7 +311,7 @@ const NavItem: React.FC<{
           shrink-0
           ${isActive
             ? 'text-primary'
-            : 'text-muted-foreground/70 group-hover:text-foreground'
+            : 'text-sidebar-muted group-hover:text-sidebar-foreground'
           }
         `}>
           {icon}
@@ -357,7 +358,7 @@ const Section: React.FC<{
 }> = ({ label, isCollapsed, children }) => (
   <div className={isCollapsed ? 'mt-1' : ''}>
     {!isCollapsed && (
-      <p className="px-2.5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none">
+      <p className="px-2.5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-muted select-none">
         {label}
       </p>
     )}
@@ -393,7 +394,7 @@ const UserCard: React.FC<{ user: any; isCollapsed: boolean }> = ({ user, isColla
         <p className="text-[12px] font-semibold text-foreground truncate leading-tight">
           {user?.Name || 'Unknown'}
         </p>
-        <p className="text-[10px] text-muted-foreground/70 leading-tight mt-px">
+        <p className="text-[10px] text-sidebar-muted leading-tight mt-px">
           {user?.Role || 'User'}
         </p>
       </div>
@@ -524,10 +525,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     pricing_calculator: canView('pricing_calculator'),
     accounting:         canView('accounting'),
     audit_log:          canView('audit_log'),
+    period_control:     canView('period_control'),
     pos:                canView('pos'),
   } as Record<string, boolean>;
 
-  const showOverview    = show.dashboard || show.companies || show.contacts || show.users;
+  const showOverview    = show.dashboard || show.companies || show.contacts;
   const showSales       = show.quotations || show.sale_orders || show.invoices ||
                           show.delivery_orders || show.receipts || show.collection ||
                           show.weekly_report || show.pos;
@@ -535,7 +537,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const showProcurement = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
   const showService     = show.service_tickets || show.service_invoices || show.pdi_records || show.serial_numbers || show.spare_parts;
   const showActivity    = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
-  const showTools       = show.pricing_calculator || show.accounting || show.audit_log;
+  const showTools       = show.pricing_calculator || show.accounting;
+  const showAdmin       = show.users || show.audit_log || show.period_control;
 
   const visiblePins = pinnedKeys
     .map(k => NAV_ITEM_MAP[k])
@@ -553,7 +556,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       style={{ width: `${width}px`, zIndex: Z.DRAWER }}
       className={`
         fixed inset-y-0 left-0 flex h-full overflow-hidden
-        bg-background
+        bg-sidebar
         transform transition-transform duration-300 ease-in-out lg:translate-x-0
         ${isCollapsed ? 'border-r-0' : 'border-r border-border/50'}
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -577,7 +580,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && (
             <button
               onClick={onToggleCollapse}
-              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 transition-colors"
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-muted hover:text-sidebar-foreground hover:bg-primary/10 transition-colors"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
             >
@@ -593,7 +596,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {visiblePins.length > 0 && (
             <div className={isCollapsed ? 'mt-1' : ''}>
               {!isCollapsed && (
-                <p className="px-2.5 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/50 select-none flex items-center gap-1">
+                <p className="px-2.5 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-muted select-none flex items-center gap-1">
                   <Pin size={9} className="inline" /> Pinned
                 </p>
               )}
@@ -648,11 +651,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <NavItem icon={<Users size={16} />} label="Contacts"
                   isActive={isActive('/contacts')} onClick={go('/contacts')} onPrefetch={() => prefetch('/contacts')} isCollapsed={isCollapsed}
                   {...navProps('contacts')} />
-              )}
-              {show.users && (
-                <NavItem icon={<UserCog size={16} />} label="Users"
-                  isActive={isActive('/users')} onClick={go('/users')} onPrefetch={() => prefetch('/users')} isCollapsed={isCollapsed}
-                  {...navProps('users')} />
               )}
             </Section>
           )}
@@ -827,10 +825,26 @@ const Sidebar: React.FC<SidebarProps> = ({
                   isActive={isActive('/accounting')} onClick={go('/accounting')} isCollapsed={isCollapsed}
                   {...navProps('accounting')} />
               )}
+            </Section>
+          )}
+
+          {/* Admin */}
+          {showAdmin && (
+            <Section label="Admin" isCollapsed={isCollapsed}>
+              {show.users && (
+                <NavItem icon={<UserCog size={16} />} label="Users"
+                  isActive={isActive('/users')} onClick={go('/users')} onPrefetch={() => prefetch('/users')} isCollapsed={isCollapsed}
+                  {...navProps('users')} />
+              )}
               {show.audit_log && (
                 <NavItem icon={<History size={16} />} label="Audit Log"
                   isActive={isActive('/audit-log')} onClick={go('/audit-log')} onPrefetch={() => prefetch('/audit-log')} isCollapsed={isCollapsed}
                   {...navProps('audit_log')} />
+              )}
+              {show.period_control && (
+                <NavItem icon={<CalendarClock size={16} />} label="Period Control"
+                  isActive={isActive('/period-control')} onClick={go('/period-control')} onPrefetch={() => prefetch('/period-control')} isCollapsed={isCollapsed}
+                  {...navProps('period_control')} />
               )}
             </Section>
           )}
