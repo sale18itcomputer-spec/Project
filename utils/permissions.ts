@@ -249,6 +249,12 @@ export const PERMISSION_MODULES: Record<string, ModuleDefinition> = {
     actions: ['view', 'create', 'edit', 'delete'],
     route: ['/users'],
   },
+  audit_log: {
+    label: 'Audit Log',
+    section: 'Admin',
+    actions: ['view'],
+    route: ['/audit-log'],
+  },
 };
 
 // Ordered list of section names for UI rendering
@@ -305,6 +311,7 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       pricing_calculator: { use: true },
       accounting:         { view: true, create: true, edit: true, delete: true },
       users:              { view: true, create: true, edit: true, delete: true },
+      audit_log:          { view: true },
     },
     dataVisibility: {
       showDealerPrice:   true,

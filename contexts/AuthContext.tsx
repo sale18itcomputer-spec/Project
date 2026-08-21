@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { createClient } from '../utils/supabase/client';
 import { User } from '../types';
 import { readRecords } from '../services/api';
+import { logAudit } from '../services/auditApi';
 import { localStorageGet, localStorageSet, localStorageRemove, setCookie, deleteCookie } from '../utils/storage';
 
 const AUTH_STORAGE_KEY = 'limperial_auth_user';
@@ -260,6 +261,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await supabase!.auth.signOut();
           return { success: false, message: 'Your account is not active or not registered. Please contact your administrator.' };
         }
+        // Sign-in is not a table write, so DB triggers can't record it — log it
+        // explicitly with the confirmed actor.
+        logAudit({
+          actionLabel: 'Signed in',
+          actor: { id: matched.UserID, name: matched.Name, role: matched.Role },
+          tableName: 'auth',
+          recordPk: matched.UserID,
+        });
       }
 
       return { success: true, message: 'Login successful!' };

@@ -9,7 +9,7 @@ import {
   ClipboardList, Calculator, BarChart2, Receipt, PanelLeft,
   UserCog, Wallet, Warehouse, BookOpen, PackageCheck, Search,
   Wrench, ClipboardCheck, Hash, Boxes, ShoppingBag, Maximize2, Pin, PinOff,
-  GripVertical,
+  GripVertical, History,
 } from 'lucide-react';
 import { useB2B } from '@/contexts/B2BContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -163,6 +163,7 @@ const NAV_ITEM_SOURCE: { key: string; icon: React.ReactNode; path: string; badge
   { key: 'meetings',           icon: <Calendar size={16} />,        path: '/meetings' },
   { key: 'accounting',         icon: <BookOpen size={16} />,        path: '/accounting' },
   { key: 'pricing_calculator', icon: <Calculator size={16} />,      path: '/pricing-calculator' },
+  { key: 'audit_log',          icon: <History size={16} />,         path: '/audit-log' },
 ];
 
 const NAV_ITEM_REGISTRY: NavItemDef[] = NAV_ITEM_SOURCE.map(item => ({
@@ -522,6 +523,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     meetings:           canView('meetings'),
     pricing_calculator: canView('pricing_calculator'),
     accounting:         canView('accounting'),
+    audit_log:          canView('audit_log'),
     pos:                canView('pos'),
   } as Record<string, boolean>;
 
@@ -533,7 +535,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const showProcurement = show.purchase_orders || show.inventory || show.product_inquiries || show.consignment;
   const showService     = show.service_tickets || show.service_invoices || show.pdi_records || show.serial_numbers || show.spare_parts;
   const showActivity    = show.pipelines || show.contact_logs || show.site_surveys || show.meetings;
-  const showTools       = show.pricing_calculator || show.accounting;
+  const showTools       = show.pricing_calculator || show.accounting || show.audit_log;
 
   const visiblePins = pinnedKeys
     .map(k => NAV_ITEM_MAP[k])
@@ -824,6 +826,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <NavItem icon={<BookOpen size={16} />} label="Accounting"
                   isActive={isActive('/accounting')} onClick={go('/accounting')} isCollapsed={isCollapsed}
                   {...navProps('accounting')} />
+              )}
+              {show.audit_log && (
+                <NavItem icon={<History size={16} />} label="Audit Log"
+                  isActive={isActive('/audit-log')} onClick={go('/audit-log')} onPrefetch={() => prefetch('/audit-log')} isCollapsed={isCollapsed}
+                  {...navProps('audit_log')} />
               )}
             </Section>
           )}
