@@ -386,14 +386,14 @@ export function buildTaxInvoice(
   </div>
   <div class="flex justify-between gap-4 mb-6">
     <div class="w-[55%] min-w-0">
-      <table class="w-full border-none table-fixed"><tbody class="text-[12px]">
-        ${noKhmer ? '' : `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%] align-top">អតិថិជន</td><td class="border-none py-1 w-[4%] text-center align-top">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${customerKh || customer}</td></tr>`}
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%] align-top">Customer</td><td class="border-none py-1 w-[4%] text-center align-top">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${customer}</td></tr>
-        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap w-[27%]">${lblAddress}</td><td class="border-none py-1 align-top w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-top"><div class="addr-clamp">${address}</div></td></tr>
-        ${(showVat && vatTin) ? `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">VAT TIN</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%]">${vatTin}</td></tr>` : ''}
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblContact}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-middle" style="overflow-wrap:anywhere;word-break:break-word;">${contact}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblTelephone}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-middle">${phone}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblEmail}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${email}</td></tr>
+      <table class="w-full border-none"><tbody class="text-[12px]">
+        ${noKhmer ? '' : `<tr><td class="font-bold border-none py-1 whitespace-nowrap align-top">អតិថិជន</td><td class="border-none py-1 px-1.5 text-center align-top">:</td><td class="border-none py-1 w-full" style="overflow-wrap:anywhere;word-break:break-word;">${customerKh || customer}</td></tr>`}
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap align-top">Customer</td><td class="border-none py-1 px-1.5 text-center align-top">:</td><td class="border-none py-1 w-full" style="overflow-wrap:anywhere;word-break:break-word;">${customer}</td></tr>
+        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap">${lblAddress}</td><td class="border-none py-1 px-1.5 align-top text-center">:</td><td class="border-none py-1 w-full align-top"><div class="addr-clamp">${address}</div></td></tr>
+        ${(showVat && vatTin) ? `<tr><td class="font-bold border-none py-1 whitespace-nowrap">VAT TIN</td><td class="border-none py-1 px-1.5 text-center">:</td><td class="border-none py-1 w-full">${vatTin}</td></tr>` : ''}
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap align-top">${lblContact}</td><td class="border-none py-1 px-1.5 text-center align-top">:</td><td class="border-none py-1 w-full align-top" style="overflow-wrap:anywhere;word-break:break-word;">${contact}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap align-top">${lblTelephone}</td><td class="border-none py-1 px-1.5 text-center align-top">:</td><td class="border-none py-1 w-full align-top">${phone}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap align-top">${lblEmail}</td><td class="border-none py-1 px-1.5 text-center align-top">:</td><td class="border-none py-1 w-full align-top" style="overflow-wrap:anywhere;word-break:break-word;">${email}</td></tr>
       </tbody></table>
     </div>
     <div class="w-[45%] min-w-0 flex flex-col">
