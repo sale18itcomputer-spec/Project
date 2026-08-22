@@ -360,7 +360,7 @@ export function buildTaxInvoice(
   .items-table thead { break-after:avoid; page-break-after:avoid; }
   .items-table tbody tr:first-child { break-before:avoid; page-break-before:avoid; }
   .header-info p { margin-bottom:2px; }
-  .addr-clamp { white-space:normal; word-break:break-word; }
+  .addr-clamp { white-space:pre-line; word-break:break-word; overflow-wrap:anywhere; }
   @page { size:A4; margin:10mm 8mm 18mm 8mm; }
   .no-break { page-break-inside:avoid; break-inside:avoid; }
   @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
@@ -384,19 +384,19 @@ export function buildTaxInvoice(
     ${noKhmer ? '' : `<h3 class="text-xl font-bold" style="font-family:'Moul',serif;line-height:1.6;">${docTitle ? docTitle.km : showVat ? 'វិក្កយបត្រអាករ' : 'វិក្កយបត្រ'}</h3>`}
     <h4 class="text-lg font-bold" style="font-family:'Times New Roman',serif;">${docTitle ? docTitle.en : showVat ? 'TAX INVOICE' : 'INVOICE'}</h4>
   </div>
-  <div class="flex justify-between gap-0 mb-6">
-    <div class="w-[55%]">
-      <table class="w-full border-none"><tbody class="text-[12px]">
-        ${noKhmer ? '' : `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">អតិថិជន</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${customerKh || customer}</td></tr>`}
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">Customer</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${customer}</td></tr>
-        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap w-[25%]">${lblAddress}</td><td class="border-none py-1 align-top w-[5%] text-center">:</td><td class="border-none py-1" style="min-width:320px;"><div class="addr-clamp">${address}</div></td></tr>
-        ${(showVat && vatTin) ? `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">VAT TIN</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[60%]">${vatTin}</td></tr>` : ''}
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblContact}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${contact}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblTelephone}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%] align-middle">${phone}</td></tr>
-        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[25%]">${lblEmail}</td><td class="border-none py-1 w-[5%] text-center">:</td><td class="border-none py-1 w-[55%]">${email}</td></tr>
+  <div class="flex justify-between gap-4 mb-6">
+    <div class="w-[55%] min-w-0">
+      <table class="w-full border-none table-fixed"><tbody class="text-[12px]">
+        ${noKhmer ? '' : `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%] align-top">អតិថិជន</td><td class="border-none py-1 w-[4%] text-center align-top">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${customerKh || customer}</td></tr>`}
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%] align-top">Customer</td><td class="border-none py-1 w-[4%] text-center align-top">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${customer}</td></tr>
+        <tr><td class="font-bold border-none py-1 align-top whitespace-nowrap w-[27%]">${lblAddress}</td><td class="border-none py-1 align-top w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-top"><div class="addr-clamp">${address}</div></td></tr>
+        ${(showVat && vatTin) ? `<tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">VAT TIN</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%]">${vatTin}</td></tr>` : ''}
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblContact}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-middle" style="overflow-wrap:anywhere;word-break:break-word;">${contact}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblTelephone}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%] align-middle">${phone}</td></tr>
+        <tr><td class="font-bold border-none py-1 whitespace-nowrap w-[27%]">${lblEmail}</td><td class="border-none py-1 w-[4%] text-center">:</td><td class="border-none py-1 w-[69%]" style="overflow-wrap:anywhere;word-break:break-word;">${email}</td></tr>
       </tbody></table>
     </div>
-    <div class="w-[45%] flex flex-col">
+    <div class="w-[45%] min-w-0 flex flex-col">
       <table class="w-auto ml-auto border-none table-fixed"><tbody class="text-[12px]">
         <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">${lblInvoiceNo}</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invNo}</td></tr>
         <tr><td class="w-[150px] font-bold border-none py-1 whitespace-nowrap">${lblDate}</td><td class="w-[10px] border-none py-1 text-center">:</td><td class="w-auto border-none py-1 align-middle">${invDate}</td></tr>
