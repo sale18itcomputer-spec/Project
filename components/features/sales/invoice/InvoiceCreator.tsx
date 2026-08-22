@@ -300,6 +300,19 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         ));
     }, [existingInvoice]);
 
+    // Backfill the customer VAT TIN from the company when the invoice has none —
+    // e.g. the company's TIN was added AFTER this invoice was first created, so the
+    // snapshot on the invoice is empty and the TIN row is hidden on the PDF. Only
+    // fills a blank; never overwrites a TIN already on the invoice.
+    useEffect(() => {
+        if (invoice['Tin No']) return;
+        const companyName = invoice['Company Name'];
+        if (!companyName) return;
+        const co = companies?.find(c => c['Company Name'] === companyName);
+        const coTin = co?.['Tin No'] || co?.['Patent'];
+        if (coTin) setInvoice(prev => (prev['Tin No'] ? prev : { ...prev, 'Tin No': coTin }));
+    }, [companies, invoice['Company Name'], invoice['Tin No']]);
+
     useEffect(() => {
         if (!invoice['Inv No']) return;
         if (submitted.current) return;

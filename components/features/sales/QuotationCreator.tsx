@@ -395,6 +395,18 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
         }
     }, [nextQuotationNumber, existingQuotation]);
 
+    // Backfill the customer VAT TIN from the company when the quote has none — e.g.
+    // the company's TIN was added AFTER this quote was created, so its snapshot is
+    // empty and the TIN row is hidden on the PDF. Only fills a blank; never overwrites.
+    useEffect(() => {
+        if (quote['Tin No']) return;
+        const companyName = quote['Company Name'];
+        if (!companyName) return;
+        const co = companies?.find(c => c['Company Name'] === companyName);
+        const coTin = co?.['Tin No'] || co?.['Patent'];
+        if (coTin) setQuote(prev => (prev['Tin No'] ? prev : { ...prev, 'Tin No': coTin }));
+    }, [companies, quote['Company Name'], quote['Tin No']]);
+
     useEffect(() => {
         if (!quote['Quote No']) return;
         if (submitted.current) return;
