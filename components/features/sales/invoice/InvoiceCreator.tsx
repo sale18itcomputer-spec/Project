@@ -305,13 +305,14 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     // snapshot on the invoice is empty and the TIN row is hidden on the PDF. Only
     // fills a blank; never overwrites a TIN already on the invoice.
     useEffect(() => {
+        if (invoice['Taxable'] !== 'VAT') return; // VAT TIN only applies to VAT invoices
         if (invoice['Tin No']) return;
         const companyName = invoice['Company Name'];
         if (!companyName) return;
         const co = companies?.find(c => c['Company Name'] === companyName);
         const coTin = co?.['Tin No'] || co?.['Patent'];
         if (coTin) setInvoice(prev => (prev['Tin No'] ? prev : { ...prev, 'Tin No': coTin }));
-    }, [companies, invoice['Company Name'], invoice['Tin No']]);
+    }, [companies, invoice['Company Name'], invoice['Tin No'], invoice['Taxable']]);
 
     useEffect(() => {
         if (!invoice['Inv No']) return;

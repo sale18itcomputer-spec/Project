@@ -399,13 +399,14 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     // the company's TIN was added AFTER this quote was created, so its snapshot is
     // empty and the TIN row is hidden on the PDF. Only fills a blank; never overwrites.
     useEffect(() => {
+        if (quote['Tax Type'] === 'NON-VAT') return; // VAT TIN only applies to VAT quotes
         if (quote['Tin No']) return;
         const companyName = quote['Company Name'];
         if (!companyName) return;
         const co = companies?.find(c => c['Company Name'] === companyName);
         const coTin = co?.['Tin No'] || co?.['Patent'];
         if (coTin) setQuote(prev => (prev['Tin No'] ? prev : { ...prev, 'Tin No': coTin }));
-    }, [companies, quote['Company Name'], quote['Tin No']]);
+    }, [companies, quote['Company Name'], quote['Tin No'], quote['Tax Type']]);
 
     useEffect(() => {
         if (!quote['Quote No']) return;
