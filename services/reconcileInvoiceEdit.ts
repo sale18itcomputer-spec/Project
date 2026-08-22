@@ -5,6 +5,7 @@ import {
     normalizeBrand,
     BRAND_ACCOUNT_MAP,
 } from './accountingApi';
+import { wantTaxType, taxTypeOrFilter } from './inventoryApi';
 
 /**
  * Delta reconciliation for edits to an ALREADY-ISSUED invoice.
@@ -275,19 +276,20 @@ export async function reconcileIssuedInvoiceEdit(params: {
     const cogsDeltaByBrand = new Map<string, number>(); // brand → signed cost delta
 
     // ── 1. Inventory qty delta (per code) ──────────────────────────────────
+    const wantTax = wantTaxType(params.isVAT); // only draw stock of this tax type (or unclassified)
     const deductFIFO = async (code: string | undefined, model: string | undefined, qty: number): Promise<number> => {
         // Returns the unit_price of the lot deducted (for COGS), 0 if none matched.
         let rows: any[] | null = null;
         if (code) {
             const { data } = await supabase.from('inventory')
                 .select('id, qty, unit_price').eq('status', 'In Stock').gt('qty', 0)
-                .eq('code', code).order('created_at', { ascending: true }).limit(1);
+                .eq('code', code).or(taxTypeOrFilter(wantTax)).order('created_at', { ascending: true }).limit(1);
             rows = data;
         }
         if ((!rows || !rows.length) && model) {
             const { data } = await supabase.from('inventory')
                 .select('id, qty, unit_price').eq('status', 'In Stock').gt('qty', 0)
-                .ilike('model_name', `%${model}%`).order('created_at', { ascending: true }).limit(1);
+                .ilike('model_name', `%${model}%`).or(taxTypeOrFilter(wantTax)).order('created_at', { ascending: true }).limit(1);
             rows = data;
         }
         if (!rows || !rows.length) return 0;

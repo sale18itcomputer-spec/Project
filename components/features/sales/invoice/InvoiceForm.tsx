@@ -246,6 +246,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                                     qty={Number(item.qty) || 0}
                                                                     value={item.serialNumber || ''}
                                                                     onChange={v => handleItemChange(item.id, 'serialNumber', v)}
+                                                                    taxType={invoice['Taxable']}
                                                                 />
                                                             </div>
                                                         )}
@@ -258,6 +259,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                                 <PCBuildComponentPicker
                                                                     components={item.buildComponents || []}
                                                                     onChange={(components) => handleBuildComponentsChange(item.id, components)}
+                                                                    taxType={invoice['Taxable']}
                                                                 />
                                                             </div>
                                                         )}

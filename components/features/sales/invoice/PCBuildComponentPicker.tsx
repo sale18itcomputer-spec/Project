@@ -15,9 +15,12 @@ const toLineItemShape = (c: BuildComponent, idx: number): LineItem => ({
 interface PCBuildComponentPickerProps {
     components: BuildComponent[];
     onChange: (components: BuildComponent[]) => void;
+    /** Document tax type — forwarded to each component's serial picker so a VAT
+     *  invoice only lists VAT-purchased component serials (and vice-versa). */
+    taxType?: string;
 }
 
-export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ components, onChange }) => {
+export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ components, onChange, taxType }) => {
     const addComponent = () => {
         onChange([...components, { itemCode: '', modelName: '', qty: 1, unitCost: 0, warrantyMonths: 12 }]);
     };
@@ -83,6 +86,7 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                         qty={c.qty}
                         value={c.serialNumber || ''}
                         onChange={v => updateComponent(idx, { serialNumber: v })}
+                        taxType={taxType}
                     />
                 </div>
             ))}

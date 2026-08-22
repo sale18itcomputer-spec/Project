@@ -21,23 +21,70 @@ export interface ConvertPOToInventoryResult {
     count: number;
 }
 
-// `po_ordered_qty` may not exist yet if its migration hasn't been applied. Strip
-// it and retry so PO→Inventory conversion never breaks on a lagging migration
-// (the baseline just isn't recorded until the column exists).
+// `po_ordered_qty` / `tax_type` may not exist yet if their migration hasn't been
+// applied. Strip them and retry so PO→Inventory conversion never breaks on a
+// lagging migration (the field just isn't recorded until the column exists).
+const OPTIONAL_INV_COLS = /po_ordered_qty|tax_type/i;
 async function inventoryInsert(rows: any[], select = 'id'): Promise<{ data: any[] | null; error: any }> {
     let res: any = await supabase.from('inventory').insert(rows).select(select);
-    if (res.error && /po_ordered_qty/i.test(res.error.message)) {
-        res = await supabase.from('inventory').insert(rows.map(({ po_ordered_qty, ...r }: any) => r)).select(select);
+    if (res.error && OPTIONAL_INV_COLS.test(res.error.message)) {
+        res = await supabase.from('inventory').insert(rows.map(({ po_ordered_qty, tax_type, ...r }: any) => r)).select(select);
     }
     return res;
 }
 async function inventoryUpdate(id: string, upd: Record<string, any>) {
     let res = await supabase.from('inventory').update(upd).eq('id', id);
-    if (res.error && /po_ordered_qty/i.test(res.error.message)) {
-        const { po_ordered_qty, ...rest } = upd;
+    if (res.error && OPTIONAL_INV_COLS.test(res.error.message)) {
+        const { po_ordered_qty, tax_type, ...rest } = upd;
         res = await supabase.from('inventory').update(rest).eq('id', id);
     }
     return res;
+}
+
+/** The tax type a sale draws: VAT documents draw VAT stock, everything else non-VAT. */
+export const wantTaxType = (isVAT: boolean): 'VAT' | 'NON-VAT' => (isVAT ? 'VAT' : 'NON-VAT');
+
+/** A lot is eligible for a document of `want` tax type when its own tax_type matches,
+ *  or it is unclassified (NULL — legacy stock with no PO tax type). Used as a Supabase
+ *  `.or()` filter fragment on the inventory query. */
+export const taxTypeOrFilter = (want: 'VAT' | 'NON-VAT'): string => `tax_type.eq.${want},tax_type.is.null`;
+
+/**
+ * Enforce "VAT stock sells on VAT invoices only" (and non-VAT on non-VAT).
+ *
+ * Pre-flight run BEFORE any inventory is deducted or a number minted. For every
+ * coded line it checks the required qty can be met from stock of the matching tax
+ * type (or unclassified). If a line's need can only be covered by WRONG-tax-type
+ * stock, it returns a human-readable block message; otherwise null (proceed).
+ * Lines with no tracked stock (services, untracked) are ignored.
+ */
+export async function checkInventoryTaxMatch(
+    items: any[],
+    isVAT: boolean,
+): Promise<string | null> {
+    const want = wantTaxType(isVAT);
+    const other = want === 'VAT' ? 'NON-VAT' : 'VAT';
+    const need = new Map<string, number>();
+    const addNeed = (code?: string, qty?: number) => {
+        const c = (code || '').trim(); const q = Number(qty) || 0;
+        if (c && q > 0) need.set(c, (need.get(c) || 0) + q);
+    };
+    for (const it of items || []) {
+        if (it?.isPromotion) continue;
+        if (it?.isPCBuild) { for (const comp of it.buildComponents || []) addNeed(comp.itemCode, comp.qty); continue; }
+        addNeed(it?.itemCode, it?.qty);
+    }
+    for (const [code, qty] of need) {
+        const { data } = await supabase.from('inventory')
+            .select('qty, tax_type').eq('code', code).eq('status', 'In Stock').gt('qty', 0);
+        if (!data || !data.length) continue; // untracked / service — not guarded here
+        const eligible = data.filter(r => r.tax_type === want || r.tax_type == null).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        const wrong    = data.filter(r => r.tax_type === other).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        if (eligible < qty && wrong > 0) {
+            return `${code}: this is a ${want} document, but ${wrong} of the ${qty} unit(s) in stock are ${other}-purchased. ${want} stock can only be sold on ${want} invoices — issue this as a ${other} invoice, or add ${want} stock. (${want}-eligible on hand: ${eligible}.)`;
+        }
+    }
+    return null;
 }
 
 /** Returns true if any inventory rows are already linked to this PO. */
@@ -108,6 +155,7 @@ function buildInventoryRow(
         unit_price:  item.unit_price ?? 0,
         currency:    po.currency ?? 'USD',
         status:      'In Stock',
+        tax_type:    (po as any).tax_type ?? null, // VAT | NON-VAT — gates sale-time deduction
         created_by:  createdBy ?? 'System',
         created_at:  new Date().toISOString(),
         updated_at:  new Date().toISOString(),
@@ -149,6 +197,7 @@ export async function resyncPurchaseOrderToInventory(
                 vendor_id: row.vendor_id, vendor_name: row.vendor_name, category: row.category,
                 brand: row.brand, model_name: row.model_name, description: row.description,
                 warranty_months: row.warranty_months, unit_price: row.unit_price, currency: row.currency,
+                tax_type: row.tax_type,
                 qty: newQty, po_ordered_qty: row.qty, updated_at: new Date().toISOString(),
             };
             // Only flip status when the on-hand count crosses zero; leave a manual

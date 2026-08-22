@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { createJournalEntry, getNextEntryNumber, normalizeBrand, BRAND_ACCOUNT_MAP } from './accountingApi';
 import { createRecord, updateRecord, generateInvNo } from './api';
 import { computeInvoiceEditDelta, markSerialsSold } from './reconcileInvoiceEdit';
+import { wantTaxType, taxTypeOrFilter } from './inventoryApi';
 
 /**
  * Issue the FINAL invoice for a deposit / pre-order invoice once the goods land.
@@ -107,19 +108,22 @@ export async function finalizeDepositInvoice(params: {
         }
     }
     const delta = computeInvoiceEditDelta([], params.items, brandByCode);
+    // Only relieve stock of the deposit invoice's tax type (or unclassified) — a VAT
+    // final invoice can't draw non-VAT stock and vice-versa.
+    const wantTax = wantTaxType(isVAT);
     const costItems: { brand: string; qty: number; unit_price: number }[] = [];
     for (const { code, model, brand, delta: qty } of delta.qtyDeltas) {
         if (qty <= 0) continue;
         let rows: any[] | null = null;
         if (code) {
             const { data } = await supabase.from('inventory').select('id, qty, unit_price')
-                .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
+                .eq('status', 'In Stock').gt('qty', 0).eq('code', code).or(taxTypeOrFilter(wantTax))
                 .order('created_at', { ascending: true }).limit(1);
             rows = data;
         }
         if ((!rows || !rows.length) && model) {
             const { data } = await supabase.from('inventory').select('id, qty, unit_price')
-                .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
+                .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`).or(taxTypeOrFilter(wantTax))
                 .order('created_at', { ascending: true }).limit(1);
             rows = data;
         }

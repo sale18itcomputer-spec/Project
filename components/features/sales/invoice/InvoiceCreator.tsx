@@ -10,6 +10,7 @@ import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../s
 import { usePeriodLock } from "../../../../hooks/usePeriodLock";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
+import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxType } from "../../../../services/inventoryApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import { friendlyDbError, hasLineItemContent } from "../../../../utils/formatters";
@@ -635,6 +636,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             // stock isn't in inventory yet — issuing a pre-order before the PO is
             // received would recognise revenue too early (see TI2026-00003).
             if (wasDraft && isNowIssued) {
+                // VAT integrity: a VAT invoice may only draw VAT-purchased stock (and a
+                // non-VAT invoice only non-VAT). Block BEFORE minting a number/deducting.
+                const taxBlock = await checkInventoryTaxMatch(items, invoice['Taxable'] === 'VAT');
+                if (taxBlock) { addToast(taxBlock, 'error'); setIsSubmitting(false); return; }
+
                 const shortfalls: { label: string; requested: number; available: number }[] = [];
                 const checkAvailability = async (code: string | undefined, model: string | undefined, qty: number, label: string) => {
                     if (!code && !model) return; // service / free-text line — can't check
@@ -736,19 +742,23 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // Finds the oldest matching in-stock inventory lot (code first, then
                 // fuzzy model fallback) and deducts qty from it. Shared by both normal
                 // line items and PC-build components — same FIFO matching either way.
+                // Only draws lots of the document's tax type (or unclassified): a VAT
+                // invoice can't consume non-VAT stock and vice-versa (the pre-flight
+                // check above already blocked the impossible cases).
+                const wantTax = wantTaxType(invoice['Taxable'] === 'VAT');
                 const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
                     let invRows: any[] | null = null;
                     if (code) {
                         const { data } = await supabase
                             .from('inventory').select('id, qty, unit_price, brand, warranty_months')
-                            .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
+                            .eq('status', 'In Stock').gt('qty', 0).eq('code', code).or(taxTypeOrFilter(wantTax))
                             .order('created_at', { ascending: true }).limit(1);
                         invRows = data;
                     }
                     if ((!invRows || invRows.length === 0) && model) {
                         const { data } = await supabase
                             .from('inventory').select('id, qty, unit_price, brand, warranty_months')
-                            .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
+                            .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`).or(taxTypeOrFilter(wantTax))
                             .order('created_at', { ascending: true }).limit(1);
                         invRows = data;
                     }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { wantTaxType, taxTypeOrFilter } from '../../services/inventoryApi';
 
 interface AvailableSerial {
     id: string;
@@ -14,6 +15,10 @@ interface SerialNumberPickerProps {
     qty?: number;
     value: string;
     onChange: (value: string) => void;
+    /** Document tax type ('VAT' | 'NON-VAT' | 'Commercial Invoice'). When set, only
+     *  serials from stock of the matching tax type (or unclassified) are offered —
+     *  so VAT stock can only be picked on a VAT invoice, and vice-versa. */
+    taxType?: string;
 }
 
 const splitLines = (s: string) => s.split('\n').map(l => l.trim()).filter(Boolean);
@@ -22,7 +27,7 @@ const splitLines = (s: string) => s.split('\n').map(l => l.trim()).filter(Boolea
 // instead of free-typing. Falls back to a manual textarea for units never
 // logged at PO intake. Always emits the same newline-joined string shape that
 // LineItem.serialNumber already expects, so callers don't need to change.
-export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode, modelName, qty = 0, value, onChange }) => {
+export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode, modelName, qty = 0, value, onChange, taxType }) => {
     const [available, setAvailable] = useState<AvailableSerial[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -41,14 +46,21 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
         setLoading(true);
         (async () => {
             // Same code-first, model-fallback precedence used for FIFO inventory
-            // matching in InvoiceCreator/DeliveryOrderCreator.
+            // matching in InvoiceCreator/DeliveryOrderCreator. When a document tax
+            // type is given, restrict to matching (or unclassified) stock so a VAT
+            // invoice never lists non-VAT serials and vice-versa.
+            const taxFilter = taxType ? taxTypeOrFilter(wantTaxType(taxType === 'VAT')) : null;
             let invIds: string[] = [];
             if (code) {
-                const { data } = await supabase.from('inventory').select('id').eq('code', code);
+                let q = supabase.from('inventory').select('id').eq('code', code);
+                if (taxFilter) q = q.or(taxFilter);
+                const { data } = await q;
                 invIds = (data ?? []).map((r: any) => r.id);
             }
             if (invIds.length === 0 && model) {
-                const { data } = await supabase.from('inventory').select('id').ilike('model_name', `%${model}%`);
+                let q = supabase.from('inventory').select('id').ilike('model_name', `%${model}%`);
+                if (taxFilter) q = q.or(taxFilter);
+                const { data } = await q;
                 invIds = (data ?? []).map((r: any) => r.id);
             }
 
@@ -71,7 +83,7 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
         })();
 
         return () => { active = false; };
-    }, [itemCode, modelName]);
+    }, [itemCode, modelName, taxType]);
 
     const availableSet = useMemo(() => new Set(available.map(a => a.serial_number)), [available]);
     const selectedKnown = currentLines.filter(l => availableSet.has(l));
