@@ -365,13 +365,13 @@ export async function reconcileIssuedInvoiceEdit(params: {
     let glAdjusted = false;
 
     if (hasRev || hasCogs) {
-        const lines: { account_number: string; description: string; debit: number; credit: number }[] = [];
+        const deltaLines: { account_number: string; description: string; debit: number; credit: number }[] = [];
         // Positive `amount` goes on `side`; negative flips to the opposite side.
         const push = (account: string, desc: string, amount: number, side: 'debit' | 'credit') => {
             if (Math.abs(amount) <= 0.005) return;
             const onDebit = side === 'debit' ? amount > 0 : amount < 0;
             const v = Math.abs(amount);
-            lines.push({ account_number: account, description: desc, debit: onDebit ? v : 0, credit: onDebit ? 0 : v });
+            deltaLines.push({ account_number: account, description: desc, debit: onDebit ? v : 0, credit: onDebit ? 0 : v });
         };
 
         // Revenue side: DR AR (rev+vat), CR revenue per brand, CR VAT output.
@@ -395,21 +395,59 @@ export async function reconcileIssuedInvoiceEdit(params: {
             push(creditAcct, `${creditDesc} ${brand} adj — ${params.invNo}`, d, 'credit');
         }
 
-        if (lines.length > 0) {
-            const entryNumber = await getNextEntryNumber();
-            await createJournalEntry(
-                {
-                    entry_number: entryNumber,
-                    entry_date: startDate,
-                    description: `Auto: Invoice ${params.invNo} edit adjustment`,
-                    reference: params.invNo,
-                    created_by: params.createdBy,
-                    is_posted: true,
-                    source: 'invoice-edit-adjustment',
-                } as any,
-                lines,
-            );
-            glAdjusted = true;
+        if (deltaLines.length > 0) {
+            // Ops model: adjusting an invoice sets its FINAL price, so the invoice's
+            // own JE must always equal the invoice total — the edit is FOLDED into it
+            // (reprice_invoice_je, atomic). The 'invoice-edit-adjustment' JE is then a
+            // NON-POSTING reference ("adjusted from X to Y"), never a second posting —
+            // posting both double-counts the delta (see INV2026-00014 / JE-2195).
+            const { data: mainJe } = await supabase.from('journal_entries')
+                .select('id').eq('reference', params.invNo).eq('source', 'invoice').maybeSingle();
+            let arWas = 0;
+            if (mainJe) {
+                const { data: arRows } = await supabase.from('journal_entry_lines')
+                    .select('debit, credit').eq('journal_entry_id', mainJe.id).eq('account_number', '11900');
+                arWas = (arRows ?? []).reduce((s, l) => s + (Number(l.debit) || 0) - (Number(l.credit) || 0), 0);
+            }
+
+            let repriced: string | null = null;
+            if (mainJe) {
+                try {
+                    const { data, error } = await supabase.rpc('reprice_invoice_je', { p_inv_no: params.invNo, p_delta_lines: deltaLines });
+                    if (error) throw new Error(error.message);
+                    repriced = (data as string | null) ?? null;
+                } catch { repriced = null; }
+            }
+
+            if (repriced) {
+                glAdjusted = true;
+                // Non-posting reference of what changed (does NOT hit the ledger).
+                const arNow = arWas + arDelta;
+                const refNum = await getNextEntryNumber();
+                await createJournalEntry(
+                    {
+                        entry_number: refNum, entry_date: startDate,
+                        description: `Reference: ${params.invNo} adjusted (AR $${arWas.toFixed(2)} → $${arNow.toFixed(2)})`,
+                        reference: params.invNo, created_by: params.createdBy,
+                        is_posted: false, source: 'invoice-edit-adjustment',
+                    } as any,
+                    deltaLines,
+                );
+            } else {
+                // No main JE (or reprice unavailable) — post a real adjustment so the
+                // ledger still reflects the change (never silently lose it).
+                const entryNumber = await getNextEntryNumber();
+                await createJournalEntry(
+                    {
+                        entry_number: entryNumber, entry_date: startDate,
+                        description: `Auto: Invoice ${params.invNo} edit adjustment`,
+                        reference: params.invNo, created_by: params.createdBy,
+                        is_posted: true, source: 'invoice-edit-adjustment',
+                    } as any,
+                    deltaLines,
+                );
+                glAdjusted = true;
+            }
         }
     }
 
