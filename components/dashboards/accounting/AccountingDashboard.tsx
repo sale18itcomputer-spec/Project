@@ -1750,11 +1750,16 @@ export default function AccountingDashboard() {
         );
     }, [entries, journalFilter, journalSearch, jeDateFrom, jeDateTo]);
 
-    const draftCount = useMemo(() => entries.filter(e => !e.is_posted).length, [entries]);
+    // 'invoice-edit-adjustment' entries are NON-POSTING references (they document how
+    // an invoice was adjusted; the invoice's own JE already holds the final amount).
+    // Posting one re-introduces the double-count, so they're never "postable drafts".
+    const isReferenceEntry = (e: JournalEntry) => e.source === 'invoice-edit-adjustment';
+
+    const draftCount = useMemo(() => entries.filter(e => !e.is_posted && !isReferenceEntry(e)).length, [entries]);
     const autoCount  = useMemo(() => entries.filter(e => e.source && e.source !== 'manual').length, [entries]);
 
     const handlePostAllDrafts = () => {
-        const drafts = filteredEntries.filter(e => !e.is_posted);
+        const drafts = filteredEntries.filter(e => !e.is_posted && !isReferenceEntry(e));
         if (drafts.length === 0) { addToast('No draft entries to post.', 'info'); return; }
         setConfirmDialog({
             title: `Post ${drafts.length} draft ${drafts.length === 1 ? 'entry' : 'entries'}?`,
@@ -2560,12 +2565,16 @@ export default function AccountingDashboard() {
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                                entry.is_posted
-                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                            <span
+                                                title={isReferenceEntry(entry) && !entry.is_posted ? 'Reference note — not posted to the ledger (the invoice’s own JE holds the amount)' : undefined}
+                                                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                                isReferenceEntry(entry) && !entry.is_posted
+                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    : entry.is_posted
+                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                             }`}>
-                                                {entry.is_posted ? 'Posted' : 'Draft'}
+                                                {isReferenceEntry(entry) && !entry.is_posted ? 'Reference' : entry.is_posted ? 'Posted' : 'Draft'}
                                             </span>
                                             <span className="text-xs text-muted-foreground hidden md:inline">Dr ${fmt(entry.total_debit ?? 0)} / Cr ${fmt(entry.total_credit ?? 0)}</span>
                                             {canEdit && !entry.is_posted && (
@@ -2577,7 +2586,7 @@ export default function AccountingDashboard() {
                                                     <Edit2 size={14} />
                                                 </button>
                                             )}
-                                            {canEdit && (
+                                            {canEdit && !(isReferenceEntry(entry) && !entry.is_posted) && (
                                                 <button
                                                     onClick={() => handleTogglePost(entry)}
                                                     title={entry.is_posted ? 'Unpost this entry' : 'Post this entry'}
