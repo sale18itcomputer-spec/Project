@@ -5,6 +5,7 @@ import { DeliveryOrder, Invoice, SaleOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createRecord, updateRecord, uploadFile } from '../../../services/api';
+import { taxTypeOrFilter, wantTaxType } from '../../../services/inventoryApi';
 import type { BuildComponent } from './invoice/types';
 import { supabase } from '../../../lib/supabase';
 import { formatToSheetDate, formatToInputDate } from '../../../utils/time';
@@ -334,22 +335,30 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                         d.setMonth(d.getMonth() + months);
                         return d.toISOString().slice(0, 10);
                     };
+                    // Only draw stock matching the linked invoice's tax type (VAT stock
+                    // sells on VAT invoices only). If the DO has no linked invoice / an
+                    // unknown tax type, don't filter — deliver whatever fulfils it.
+                    const invTaxable = invoices?.find(i => i['Inv No'] === doc['Inv No'])?.['Taxable'];
+                    const doTaxFilter = (invTaxable === 'VAT' || invTaxable === 'NON-VAT')
+                        ? taxTypeOrFilter(wantTaxType(invTaxable === 'VAT')) : null;
                     // Finds the oldest matching in-stock inventory lot (code first, then
                     // fuzzy model fallback) and deducts qty from it.
                     const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
                         let invRows: any[] | null = null;
                         if (code) {
-                            const { data } = await supabase
+                            let q = supabase
                                 .from('inventory').select('id, qty, unit_price, brand, warranty_months')
-                                .eq('status', 'In Stock').gt('qty', 0).eq('code', code)
-                                .order('created_at', { ascending: true }).limit(1);
+                                .eq('status', 'In Stock').gt('qty', 0).eq('code', code);
+                            if (doTaxFilter) q = q.or(doTaxFilter);
+                            const { data } = await q.order('created_at', { ascending: true }).limit(1);
                             invRows = data;
                         }
                         if ((!invRows || invRows.length === 0) && model) {
-                            const { data } = await supabase
+                            let q = supabase
                                 .from('inventory').select('id, qty, unit_price, brand, warranty_months')
-                                .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`)
-                                .order('created_at', { ascending: true }).limit(1);
+                                .eq('status', 'In Stock').gt('qty', 0).ilike('model_name', `%${model}%`);
+                            if (doTaxFilter) q = q.or(doTaxFilter);
+                            const { data } = await q.order('created_at', { ascending: true }).limit(1);
                             invRows = data;
                         }
                         if (!invRows || invRows.length === 0) return null;
@@ -868,6 +877,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                                     qty={Number(item.qty) || 0}
                                                                     value={item.serialNumber || ''}
                                                                     onChange={v => handleItemChange(item.id, 'serialNumber', v)}
+                                                                    taxType={invoices?.find(i => i['Inv No'] === doc['Inv No'])?.['Taxable']}
                                                                 />
                                                             )}
                                                         </div>

@@ -8,6 +8,7 @@ import { useB2B } from '../../contexts/B2BContext';
 import { useToast } from '../../contexts/ToastContext';
 import { generatePosInvNo, generatePosRvNo, createRecord, readRecords, getSetting } from '../../services/api';
 import { autoPostInvoiceJournal, autoPostReceiptJournal, normalizeBrand } from '../../services/accountingApi';
+import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxType } from '../../services/inventoryApi';
 import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
@@ -234,6 +235,11 @@ const PosTerminal: React.FC = () => {
       return;
     }
 
+    // VAT integrity: a VAT sale may only draw VAT-purchased stock (and non-VAT only
+    // non-VAT). Block before any invoice/receipt is created.
+    const posTaxBlock = await checkInventoryTaxMatch(cart.map(i => ({ itemCode: i.itemCode, qty: i.qty })), session.taxType === 'VAT');
+    if (posTaxBlock) { addToast(posTaxBlock, 'error'); return; }
+
     setIsProcessing(true);
     try {
       const invNo = await generatePosInvNo();
@@ -294,6 +300,7 @@ const PosTerminal: React.FC = () => {
         const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
         const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+        const wantTax = wantTaxType(session.taxType === 'VAT'); // draw only matching-tax stock
 
         for (const item of cartSnapshot) {
           const brand = normalizeBrand((item.itemCode && brandMap.get(item.itemCode)) || item.brand || 'Other Accessories');
@@ -308,6 +315,7 @@ const PosTerminal: React.FC = () => {
               .eq('status', 'In Stock')
               .gt('qty', 0)
               .eq('code', item.itemCode)
+              .or(taxTypeOrFilter(wantTax))
               .order('created_at', { ascending: true })
               .limit(1);
             invRows = data;
@@ -319,6 +327,7 @@ const PosTerminal: React.FC = () => {
               .eq('status', 'In Stock')
               .gt('qty', 0)
               .ilike('model_name', `%${item.modelName}%`)
+              .or(taxTypeOrFilter(wantTax))
               .order('created_at', { ascending: true })
               .limit(1);
             invRows = data;
