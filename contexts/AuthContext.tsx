@@ -53,6 +53,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuditActor(currentUser ? { name: currentUser.Name, role: currentUser.Role } : null);
   }, [currentUser]);
 
+  // Guarantee the server session cookie exists whenever a user is loaded. The
+  // bootstrap sets it on most paths, but not all — e.g. an active Supabase
+  // session whose email doesn't match a Users row leaves currentUser populated
+  // from cache yet never refreshes the cookie, and the 7-day TTL can lapse while
+  // a tab stays open (or in a freshly-opened standalone tab). Whenever that
+  // happens the UI still shows "logged in" but /api/pdf/generate — which
+  // authenticates against this cookie — returns 401 ("PDF generation failed:
+  // Unauthorized"). Refreshing here on every currentUser change closes every
+  // such gap idempotently. Logout still clears it (SIGNED_OUT + logout()).
+  useEffect(() => {
+    if (currentUser?.UserID) {
+      setCookie('limperial_legacy_session', currentUser.UserID, 7);
+    }
+  }, [currentUser]);
+
   // Tracks whether a deliberate logout is in progress.
   // Prevents the async SIGNED_OUT event from wiping state that was already
   // overwritten by a subsequent login (race condition: signOut fires late).

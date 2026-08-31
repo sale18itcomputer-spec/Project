@@ -32,7 +32,7 @@ const QuotationPDFPreview: React.FC<QuotationPDFPreviewProps> = ({
     columnWidths,
 }) => {
     const [showControls, setShowControls] = useState(false);
-    const [labelPadding, setLabelPadding] = useState(200);
+    const [labelPadding, setLabelPadding] = useState(80);
     const [linePadding, setLinePadding]   = useState(0);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const { addToast } = useToast();

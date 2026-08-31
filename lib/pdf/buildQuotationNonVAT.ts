@@ -14,7 +14,7 @@ export function buildQuotationNonVAT(
     currency: string,
     sym: string,
     signaturePadding = 0,
-    labelPadding = 200,
+    labelPadding = 80,
     columnWidths?: number[],
 ): string {
     const cw = (columnWidths && columnWidths.length === 6) ? columnWidths : DEFAULT_WIDTHS;
@@ -319,7 +319,7 @@ export function buildQuotationNonVAT(
     </table>
   </div>
 
-  <div class="flex justify-between px-4 pb-8 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
+  <div class="flex justify-between px-4 pb-4 mx-auto w-full break-inside-avoid" style="margin-top:${signaturePadding}px;">
     <div class="w-[35%] text-center">
       <p class="font-bold text-[11px]" style="margin-bottom:${labelPadding}px;">Prepared By:</p>
       <div class="border-t-2 border-black mb-1"></div>
