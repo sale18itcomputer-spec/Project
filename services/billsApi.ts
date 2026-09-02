@@ -214,7 +214,11 @@ export const postBill = async (id: string, createdBy: string): Promise<Bill> => 
             {
                 entry_number: entryNumber,
                 entry_date: bill.bill_date,
-                description: `Bill — ${bill.vendor_name || bill.description} — ${bill.bill_number}`,
+                // Include the vendor's invoice ref in the DESCRIPTION (searchable) —
+                // never in `reference`, which is the bill's idempotency key and is
+                // DB-locked (20260902_lock_bill_je_identity.sql). Editing the
+                // reference is what double-booked BILL-0021..0030.
+                description: `Bill — ${bill.vendor_name || bill.description} — ${bill.bill_number}${bill.vendor_reference ? ` — ${bill.vendor_reference}` : ''}`,
                 reference: bill.bill_number,
                 created_by: createdBy,
                 is_posted: true,
