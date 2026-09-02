@@ -44,7 +44,7 @@ const ROWS = [
 
 export function PinPad({ onDigit, onDelete, onSubmit, submitDisabled }: PinPadProps) {
     return (
-        <div className="grid grid-cols-3 gap-x-8 gap-y-4 max-w-[280px] mx-auto w-full md:hidden">
+        <div className="grid grid-cols-3 gap-x-8 gap-y-4 max-w-[280px] mx-auto w-full">
             {ROWS.flat().map((num) => (
                 <button
                     key={num}
