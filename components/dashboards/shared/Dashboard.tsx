@@ -75,17 +75,22 @@ const Dashboard = () => {
 
     const wonProjects = (projects || []).filter(p => p.Status === 'Closure (Win)');
 
-    // Open Quotes: quotations that are not cancelled/rejected/done
-    const closedStatuses = ['cancelled', 'rejected', 'done', 'invoiced', 'expired'];
+    // Open Quotes: still awaiting a decision. Closed = Close (Win) / Close (Lose)
+    // / Cancel (plus legacy terminal states). The substrings must match the real
+    // quote vocabulary ('close' catches both Win and Lose) — otherwise won/lost/
+    // cancelled quotes get miscounted as open.
+    const closedStatuses = ['close', 'win', 'lose', 'lost', 'cancel', 'rejected', 'done', 'invoiced', 'expired'];
     const openQuotes = (quotations || []).filter(q => {
       const status = (q['Status'] || q['Quote Status'] || '').toLowerCase();
       return status === '' || !closedStatuses.some(s => status.includes(s));
     });
 
-    // Pending Orders: sale orders that are not fully delivered/cancelled
+    // Pending Orders: sale orders not in a terminal state. Orders are created as
+    // 'Completed', so 'complete' MUST be excluded or every finished order counts
+    // as pending.
     const pendingOrders = (saleOrders || []).filter(so => {
       const status = (so['Status'] || so['SO Status'] || so['Delivery Status'] || '').toLowerCase();
-      return status === '' || (!status.includes('done') && !status.includes('cancel') && !status.includes('delivered'));
+      return status === '' || (!status.includes('complete') && !status.includes('done') && !status.includes('cancel') && !status.includes('delivered'));
     });
 
     return {

@@ -121,7 +121,7 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
               <span style="font-weight:900;font-size:22px;color:#0f172a;letter-spacing:-1px;">${formatFullCurrency(p.value)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-radius:8px;margin-top:6px;">
-              <span style="font-size:11px;color:#64748b;font-weight:600;">Orders closed:</span>
+              <span style="font-size:11px;color:#64748b;font-weight:600;">Invoices:</span>
               <span style="font-weight:800;color:#3b82f6;font-size:13px;">${d?.count ?? 0}</span>
             </div>`;
         },
@@ -275,7 +275,7 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
           <div className="min-w-0">
             <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">Revenue Growth</h3>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {data[0]?.name?.split(' ').pop()} closed orders revenue
+              {data[0]?.name?.split(' ').pop()} invoiced revenue
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -351,8 +351,8 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
                 <tr className="bg-muted/50">
                   <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Period</th>
                   <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Revenue</th>
-                  <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Orders</th>
-                  <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Avg / Order</th>
+                  <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Invoices</th>
+                  <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">Avg / Invoice</th>
                   <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider">% of Total</th>
                 </tr>
               </thead>

@@ -3,8 +3,8 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useB2BData } from "../../../hooks/useB2BData";
 import { useAuth } from "../../../contexts/AuthContext";
-import { useB2B } from "../../../contexts/B2BContext";
 import { parseSheetValue } from "../../../utils/formatters";
+import { computeInvoiceAR } from "../../../utils/collection";
 import { useFilter } from "../../../contexts/FilterContext";
 import DashboardFilterBar from "../components/DashboardFilterBar";
 import PendingWorks from './PendingWorks';
@@ -42,6 +42,13 @@ function getBestValue(item: any): number {
   );
 }
 
+// Revenue is recognised at the INVOICE stage (both B2C and B2B). An invoice
+// counts as revenue once it's issued and not a draft or a cancelled/void entry.
+function isRecognizedInvoice(status: any): boolean {
+  const s = String(status || '').trim().toLowerCase();
+  return s !== '' && !['draft', 'cancel', 'cancelled', 'void', 'voided'].includes(s);
+}
+
 function parseRevKey(k: string): Date {
   if (k.startsWith('Q')) {
     const [q, y] = k.split(' ');
@@ -64,9 +71,8 @@ const SectionHeader = ({ title }: { title: string }) => (
 // Main component
 // ---------------------------------------------------------------------------
 const AnalyticsDashboard: React.FC = () => {
-  const { quotations, saleOrders, projects, invoices, pricelist, fetchModule } = useB2BData();
+  const { quotations, saleOrders, projects, invoices, receipts, catalogPricelist, fetchModule } = useB2BData();
   const { currentUser } = useAuth();
-  const { isB2B } = useB2B();
   const { filters, setFilter } = useFilter();
 
   const [revenuePeriod, setRevenuePeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
@@ -120,13 +126,16 @@ const AnalyticsDashboard: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Pricelist code→brand lookup — only rebuilds when pricelist changes
   // ---------------------------------------------------------------------------
+  // Use the mode-independent b2c catalog (b2b_pricelist is empty), since item
+  // codes are shared across B2C/B2B. Building this from the mode-resolved
+  // `pricelist` would leave B2B brand resolution empty → every brand "Other".
   const codeToBrand = useMemo(() => {
     const map: Record<string, string> = {};
-    pricelist?.forEach(p => {
+    catalogPricelist?.forEach(p => {
       if (p.Code && p.Brand) map[p.Code.trim().toLowerCase()] = p.Brand.trim();
     });
     return map;
-  }, [pricelist]);
+  }, [catalogPricelist]);
 
   // ---------------------------------------------------------------------------
   // Filter options for the filter bar
@@ -175,9 +184,12 @@ const AnalyticsDashboard: React.FC = () => {
     quotations?.forEach(q  => { if (canView(q['Created By'], q['Prepared By'])  && ['Open', 'Pending'].includes(q.Status))              counts.Quotations++; });
     saleOrders?.forEach(so => { if (canView(so['Created By'], so['Prepared By']) && ['Pending', 'Processing'].includes(so.Status))        counts.SaleOrders++; });
     projects?.forEach(p    => { if ((isAdmin || p['Responsible By'] === name)    && !['Closure (Win)', 'Closure (Lose)'].includes(p.Status))    counts.Projects++; });
-    invoices?.forEach(inv  => { if ((isAdmin || inv['Created By'] === name)      && ['Draft', 'Processing', 'Partial Paid'].includes(inv.Status)) counts.Invoices++; });
+    // Invoice payment state isn't on inv.Status (only Completed/Cancel) — it's the
+    // outstanding A/R computed from the invoice's deposit + matched receipts. A
+    // "pending" invoice is one still carrying an open balance.
+    invoices?.forEach(inv  => { if ((isAdmin || inv['Created By'] === name)      && computeInvoiceAR(inv, receipts || []).outstanding > 0.005) counts.Invoices++; });
     return counts;
-  }, [quotations, saleOrders, projects, invoices, currentUser]);
+  }, [quotations, saleOrders, projects, invoices, receipts, currentUser]);
 
   const revenueData: RevenueDataPoint[] = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -188,10 +200,10 @@ const AnalyticsDashboard: React.FC = () => {
     } else if (revenuePeriod === 'quarterly') {
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => { groups[`${q} ${activeYear}`] = { val: 0, count: 0 }; });
     }
-    const items = (isB2B
-      ? (projects   || []).filter(p  => p.Status === 'Closure (Win)')
-      : (saleOrders || []).filter(so => (so.Status || '').toLowerCase().includes('complete'))
-    ).filter(passesFilters);
+    // Revenue = issued invoices (mode-resolved: invoices / b2b_invoices), dated by Inv Date.
+    const items = (invoices || [])
+      .filter(inv => isRecognizedInvoice(inv.Status))
+      .filter(passesFilters);
     items.forEach(item => {
       const d = getBestDate(item);
       if (!d) return;
@@ -207,31 +219,28 @@ const AnalyticsDashboard: React.FC = () => {
     return Object.entries(groups)
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => parseRevKey(a.name).getTime() - parseRevKey(b.name).getTime());
-  }, [saleOrders, projects, revenuePeriod, isB2B, passesFilters, filters.year]);
+  }, [invoices, revenuePeriod, passesFilters, filters.year]);
 
   const customerData: CustomerDataPoint[] = useMemo(() => {
-    const items = (isB2B ? (projects || []) : (saleOrders || []))
-      .filter(i => (i.Status || '').toLowerCase().includes('completed') || i.Status === 'Closure (Win)')
+    const items = (invoices || [])
+      .filter(i => isRecognizedInvoice(i.Status))
       .filter(passesFilters);
     const map: Record<string, number> = {};
     items.forEach(i => { const n = i['Company Name'] || 'Unknown'; map[n] = (map[n] || 0) + getBestValue(i); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
-  }, [saleOrders, projects, isB2B, passesFilters]);
+  }, [invoices, passesFilters]);
 
   const brandData: BrandDataPoint[] = useMemo(() => {
     const map: Record<string, number> = {};
-    if (isB2B) {
-      (projects || []).filter(passesFilters).forEach(item => {
-        const brand = (item as any)['Brand']?.trim() || 'Other';
-        const val   = getBestValue(item);
-        if (val > 0) map[brand] = (map[brand] || 0) + val;
-      });
-    } else {
-      (saleOrders || []).filter(passesFilters).forEach(so => {
-        if (!so.ItemsJSON) return;
+    // Brand revenue from issued-invoice line items (both B2C and B2B).
+    (invoices || [])
+      .filter(inv => isRecognizedInvoice(inv.Status))
+      .filter(passesFilters)
+      .forEach(inv => {
+        if (!inv.ItemsJSON) return;
         let lineItems: any[];
         try {
-          lineItems = typeof so.ItemsJSON === 'string' ? JSON.parse(so.ItemsJSON) : so.ItemsJSON;
+          lineItems = typeof inv.ItemsJSON === 'string' ? JSON.parse(inv.ItemsJSON) : inv.ItemsJSON;
           if (!Array.isArray(lineItems)) return;
         } catch { return; }
         lineItems.forEach(li => {
@@ -241,13 +250,12 @@ const AnalyticsDashboard: React.FC = () => {
           if (amount > 0) map[brand] = (map[brand] || 0) + amount;
         });
       });
-    }
     return Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
-  }, [saleOrders, projects, isB2B, passesFilters, codeToBrand]);
+  }, [invoices, passesFilters, codeToBrand]);
 
   const pipelineData: PipelineDataPoint[] = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -273,33 +281,13 @@ const AnalyticsDashboard: React.FC = () => {
       const key = `${MONTH_SHORT[d.getMonth()]} ${activeYear}`;
       if (!groups[key]) return;
       groups[key].quotes++;
-      // A quote is "converted" if its status indicates a win / sale order
+      // A quote is "converted" when its OWN status is a win (Quote (Win)) —
+      // driven purely by the quote status, consistent for B2C and B2B.
       const status = (q['Status'] || q['Quote Status'] || '').toLowerCase();
-      if (
-        status.includes('win') ||
-        status.includes('done') ||
-        status.includes('invoiced') ||
-        status.includes('order') ||
-        status.includes('confirmed') ||
-        status.includes('sold') ||
-        status.includes('closed')
-      ) {
+      if (status.includes('win')) {
         groups[key].converted++;
       }
     });
-
-    // Also count won projects as converted leads when in B2B mode
-    if (isB2B) {
-      (projects || []).forEach(p => {
-        const d = getBestDate(p);
-        if (!d || d.getFullYear() !== activeYear) return;
-        const key = `${MONTH_SHORT[d.getMonth()]} ${activeYear}`;
-        if (!groups[key]) return;
-        groups[key].quotes++;
-        const status = (p.Status || '').toLowerCase();
-        if (p.Status === 'Closure (Win)') groups[key].converted++;
-      });
-    }
 
     return Object.entries(groups).map(([name, { quotes, converted }]) => ({
       name,
@@ -307,7 +295,7 @@ const AnalyticsDashboard: React.FC = () => {
       converted,
       rate: quotes > 0 ? (converted / quotes) * 100 : 0,
     }));
-  }, [quotations, projects, isB2B, filters.year]);
+  }, [quotations, filters.year]);
 
   // ---------------------------------------------------------------------------
   // Filter click handlers
