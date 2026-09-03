@@ -65,7 +65,8 @@ export function buildReceipt(
     hideHeader = false,      // omit the top logo + company block (per-render toggle)
     hideVatTin = false,      // omit the customer VAT TIN row (per-render toggle)
 ): string {
-    const rvNo      = esc(hd['RV No'] || hd['Receipt No'] || '');
+    // Print-only override: show display_rv_no when set, else the real RV No.
+    const rvNo      = esc(hd['display_rv_no'] || hd['RV No'] || hd['Receipt No'] || '');
     const rvDate    = esc(fmtDate(hd['RV Date'] || hd['Receipt Date'] || ''));
     const customer  = esc(hd['Company Name'] || hd['Customer'] || '');
     const address   = esc(hd['Company Address'] || hd['Address'] || '');

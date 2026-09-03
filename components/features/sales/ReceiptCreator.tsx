@@ -595,6 +595,15 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                             onChange={handleInvoiceSelect} placeholder="Select Invoice"
                                         />
                                     </div>
+                                    {/* Print-only override: the internal RV No above stays the identity/JE key;
+                                        this is what shows on the PDF. Blank = print the real RV No. */}
+                                    <FormInput
+                                        label="Display RV No. (print only)"
+                                        name="display_rv_no"
+                                        value={doc['display_rv_no'] || ''}
+                                        onChange={handleInputChange}
+                                        placeholder={(existingReceipt?.['RV No'] as string) || 'Defaults to RV No.'}
+                                    />
                                     <FormInput label="DO Reference" name="DO No" value={doc['DO No']} onChange={handleInputChange} />
                                     <FormInput label="SO Reference" name="SO No" value={doc['SO No']} onChange={handleInputChange} />
                                     <div className={monLock}>

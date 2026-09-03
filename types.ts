@@ -381,6 +381,8 @@ export interface DeliveryOrder {
 
 export interface Receipt {
   'RV No': string;
+  /** Print-only override of the number shown on the PDF. RV No stays the identity/JE key. */
+  'display_rv_no'?: string;
   'RV Date': string;
   'Inv No'?: string;
   'SO No'?: string;

@@ -311,6 +311,7 @@ export const DELIVERY_ORDER_HEADERS = [
 
 export const RECEIPT_HEADERS = [
   'RV No',
+  'display_rv_no',
   'RV Date',
   'Inv No',
   'SO No',
