@@ -35,6 +35,10 @@ export interface PdfClientOptions {
     hideKhmer?: boolean;
     /** When true, serial numbers are omitted from item rows (cleaner PDF for many-serial orders). */
     hideSerials?: boolean;
+    /** Receipt only: omit the top logo + company header block. */
+    hideHeader?: boolean;
+    /** Receipt only: omit the customer VAT TIN row. */
+    hideVatTin?: boolean;
     filename?: string;
     /** If true, returns a blob URL instead of auto-downloading */
     previewMode?: boolean;
@@ -77,6 +81,8 @@ function buildBody(opts: PdfClientOptions): string {
         labelPadding:     opts.labelPadding,
         hideKhmer:        opts.hideKhmer,
         hideSerials:      opts.hideSerials,
+        hideHeader:       opts.hideHeader,
+        hideVatTin:       opts.hideVatTin,
         columnWidths:     opts.columnWidths,
         previewMode:      opts.previewMode,
     });

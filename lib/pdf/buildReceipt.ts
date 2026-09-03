@@ -62,6 +62,8 @@ export function buildReceipt(
     signaturePadding = 0,
     labelPadding = 200,
     columnWidths?: number[], // accepted for API consistency; Receipt has its own 4-col schema
+    hideHeader = false,      // omit the top logo + company block (per-render toggle)
+    hideVatTin = false,      // omit the customer VAT TIN row (per-render toggle)
 ): string {
     const rvNo      = esc(hd['RV No'] || hd['Receipt No'] || '');
     const rvDate    = esc(fmtDate(hd['RV Date'] || hd['Receipt Date'] || ''));
@@ -158,7 +160,7 @@ export function buildReceipt(
 <div style="width:210mm;margin:0 auto;padding:0 8px;">
 
   <div class="no-break">
-  <header class="mb-6">
+  ${hideHeader ? '' : `<header class="mb-6">
     <div class="border-b-[3px] border-brand-blue pb-4 text-center header-info relative pt-12">
       <div class="absolute left-0 top-0">
         <img src="${LOGO}" alt="Logo" class="h-10 w-auto object-contain"/>
@@ -170,7 +172,7 @@ export function buildReceipt(
       <p class="text-[10px]">Address: #B15 (Ground Floor 1st Floor 2nd Floor 3rd Floor and 4th Floor), East Railway (139), Phum 1, Sangkat Srah Chak, Khan Daun Penh, Phnom Penh.</p>
       <p class="text-[10px]">E-mail: info@limperialtech.com || លេខទូរស័ព្ទ (Telephone): +855 92 218 333</p>
     </div>
-  </header>
+  </header>`}
 
   <div class="text-center mb-6">
     <h3 class="text-xl font-bold" style="font-family:'Moul',serif;">ប័ណ្ណទទួលប្រាក់</h3>
@@ -191,7 +193,7 @@ export function buildReceipt(
             <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;vertical-align:top;">:</td>
             <td class="border-none py-1" style="min-width:260px;"><div class="addr-clamp">${address}</div></td>
           </tr>
-          ${vatTin ? `<tr>
+          ${(vatTin && !hideVatTin) ? `<tr>
             <td class="font-bold border-none py-1 whitespace-nowrap" style="width:110px;padding-right:0;">VAT TIN</td>
             <td class="border-none py-1" style="width:14px;padding-left:2px;padding-right:8px;">:</td>
             <td class="border-none py-1">${vatTin}</td>

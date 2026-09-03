@@ -339,7 +339,9 @@ export const ROLE_PRESETS: Record<string, UserPermissions> = {
       sale_orders:        { view: true, create: true, edit: true, delete: true, export: true },
       invoices:           { view: true, create: true, edit: true, delete: true, export: true },
       delivery_orders:    { view: true, create: true, edit: true, delete: true, export: true },
-      receipts:           { view: true, create: true, edit: true, delete: true, export: true },
+      // receipts.edit gates content-editing an ISSUED receipt — Admin/Finance only
+      // by default (grantable per-user via the permissions editor).
+      receipts:           { view: true, create: true, edit: false, delete: true, export: true },
       collection:         { view: true, create: true, edit: true, delete: true, export: true },
       weekly_report:      { view: true, export: true },
       invoice_do:         { view: true },

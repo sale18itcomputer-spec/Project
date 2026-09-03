@@ -21,6 +21,7 @@ import { ColumnWidthPopover } from './ColumnWidthPopover';
 import { readFormDraft, useFormDraft } from '../../../hooks/useFormDraft';
 import { usePeriodLock } from '../../../hooks/usePeriodLock';
 import PdfPreviewPane from '../../pdf/PdfPreviewPane';
+import { checkPermission, resolvePermissions } from '../../../utils/permissions';
 
 const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
@@ -82,7 +83,26 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     // Receipts are immutable artifacts of payment events. ReceiptCreator is now
     // only reachable in VIEW mode (open an existing receipt for printing/PDF).
     // Standalone creation has been removed — record payments via Collection.
-    const isReadOnly = !!existingReceipt;
+    //
+    // CONTENT-EDIT: an issued receipt's *presentation* (customer info, refs,
+    // prepared-by, remarks) can be edited to tidy it before sending — but never
+    // the amount or anything that feeds the payment journal entry (RV No/Date,
+    // Invoice Reference, Currency, Payment Method, Status, and the line items).
+    // Those stay locked, and the save re-asserts them from the original, so a
+    // content edit can never move money. Gated on the receipts.edit permission
+    // (Admin/Finance by default).
+    const isIssued = !!existingReceipt;
+    const canEditContent = useMemo(
+        () => checkPermission(resolvePermissions(currentUser), 'receipts', 'edit'),
+        [currentUser],
+    );
+    const [editing, setEditing] = useState(false);
+    const [hideHeader, setHideHeader] = useState(false);
+    const [hideVatTin, setHideVatTin] = useState(false);
+    // Whole-form lock when viewing an issued receipt and NOT in edit mode.
+    const isReadOnly = isIssued && !editing;
+    // Monetary/identity fields: locked even while editing.
+    const monLock = editing ? 'pointer-events-none opacity-60' : '';
     useEffect(() => {
         if (!existingReceipt && !initialData) {
             addToast('Receipts can only be created by recording a payment in Collection.', 'info');
@@ -380,10 +400,53 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             totals,
             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
             signaturePadding,
+            hideHeader,
+            hideVatTin,
             previewMode: false,
             filename: `Receipt_${doc['RV No']}.pdf`,
         });
     };
+
+    // Save a CONTENT-ONLY edit of an issued receipt. Monetary/identity fields and
+    // the line items are re-asserted from the original record, so the amount and
+    // the payment journal entry are never touched — no reversal, no reprice.
+    // Skips the client period-lock check on purpose: content edits are permitted
+    // even in a locked month (the DB guard exempts amount-unchanged updates).
+    const handleSaveContent = async () => {
+        if (!existingReceipt) return;
+        if (!doc['Company Name']) { addToast('Company Name is required', 'error'); return; }
+        setIsSubmitting(true);
+        try {
+            const payload: any = {
+                ...doc,
+                // Re-assert everything that affects money / the JE from the original.
+                'RV No':          existingReceipt['RV No'],
+                'RV Date':        existingReceipt['RV Date'],
+                'Inv No':         existingReceipt['Inv No'],
+                'Currency':       existingReceipt['Currency'],
+                'Payment Method': existingReceipt['Payment Method'],
+                'Status':         existingReceipt['Status'],
+                'Amount':         existingReceipt['Amount'],
+                'ItemsJSON':      existingReceipt['ItemsJSON'],
+                updated_at:       new Date().toISOString(),
+            };
+            await updateRecord('Receipts', existingReceipt['RV No'], payload);
+            setReceipts(cur => cur
+                ? cur.map(r => r['RV No'] === existingReceipt['RV No'] ? ({ ...r, ...payload } as Receipt) : r)
+                : cur
+            );
+            refetchModule('Receipts');
+            addToast('Receipt updated', 'success');
+            setEditing(false);
+        } catch (err: any) {
+            addToast(friendlyDbError(err, 'receipt') || 'Failed to update receipt', 'error');
+        } finally { setIsSubmitting(false); }
+    };
+
+    // Snapshot the presentation fields on entering edit mode so Cancel reverts.
+    const preEditDoc = useRef<Partial<Receipt> | null>(null);
+    const startEdit = () => { preEditDoc.current = { ...doc }; setEditing(true); };
+    const cancelEdit = () => { if (preEditDoc.current) setDoc(preEditDoc.current); setEditing(false); };
 
     const invoiceOptions = useMemo(
         () => (invoices || []).map(i => i['Inv No']).filter(Boolean).sort().reverse(),
@@ -415,7 +478,34 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             >
                 <Download className="w-4 h-4" /> Download PDF
             </button>
-            {!isReadOnly && (
+            {/* Issued receipt: Edit content (gated) / Save-Cancel while editing */}
+            {isIssued && !editing && canEditContent && (
+                <button
+                    onClick={startEdit}
+                    className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-card text-foreground border border-border rounded-md hover:bg-accent shadow-sm transition-all"
+                >
+                    Edit Content
+                </button>
+            )}
+            {isIssued && editing && (
+                <>
+                    <button
+                        onClick={cancelEdit}
+                        disabled={isSubmitting}
+                        className="px-5 py-2 text-sm font-bold bg-card text-muted-foreground border border-border rounded-md hover:bg-accent transition-all disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSaveContent}
+                        disabled={isSubmitting}
+                        className="bg-primary hover:brightness-110 text-primary-foreground font-bold py-2 px-6 rounded-md transition shadow-md text-sm disabled:opacity-50 min-w-[120px] flex items-center justify-center"
+                    >
+                        {isSubmitting ? <Spinner size="sm" color="current" /> : 'Save Changes'}
+                    </button>
+                </>
+            )}
+            {!isIssued && (
                 <button
                     onClick={handleSave}
                     disabled={isSubmitting}
@@ -430,13 +520,13 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
     return (
         <>
             <DocumentEditorContainer
-                title={isReadOnly ? `Receipt: ${doc['RV No']}` : 'New Receipt'}
-                subtitle={isReadOnly ? 'Read-only · issued payment record' : undefined}
+                title={isIssued ? `Receipt: ${doc['RV No']}` : 'New Receipt'}
+                subtitle={isIssued ? (editing ? 'Editing content · amount locked' : 'Issued payment record') : undefined}
                 onBack={onBack}
                 onSave={handleSave}
                 isSubmitting={isSubmitting}
                 rightActions={headerRight}
-                draftBadge={!isReadOnly && hasDraftState ? (
+                draftBadge={!isIssued && hasDraftState ? (
                     <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-0.5 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Unsaved draft
@@ -452,6 +542,10 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                         labelPadding={labelPadding}
                         onLabelPaddingChange={setLabelPadding}
                         columnWidths={colWidths}
+                        hideHeader={hideHeader}
+                        onHideHeaderChange={setHideHeader}
+                        hideVatTin={hideVatTin}
+                        onHideVatTinChange={setHideVatTin}
                         pdfOptions={{
                             type: 'Receipt',
                             headerData: { ...doc },
@@ -463,6 +557,8 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                             })),
                             totals,
                             currency: (doc['Currency'] as 'USD' | 'KHR') || 'USD',
+                            hideHeader,
+                            hideVatTin,
                         }}
                     />
 
@@ -476,28 +572,39 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                             <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md"><X className="w-4 h-4" /></button>
                         </div>
 
-                        {isReadOnly && (
+                        {isIssued && !editing && (
                             <div className="px-5 py-2.5 bg-emerald-500/5 border-b border-emerald-200/40 text-xs text-emerald-700">
-                                Read-only · Once issued, a Receipt is immutable. To correct a recorded payment, issue a reversal in a future update.
+                                Issued · The amount and payment are locked.{canEditContent ? ' Use “Edit Content” to adjust customer-facing details (name, address, refs, remarks) before sending.' : ' Content editing requires the receipts “edit” permission.'}
+                            </div>
+                        )}
+                        {isIssued && editing && (
+                            <div className="px-5 py-2.5 bg-amber-500/5 border-b border-amber-200/40 text-xs text-amber-700">
+                                Editing content · Amount, RV No/Date, Invoice Reference, Currency, Payment Method, Status and line items stay locked — only presentation fields save.
                             </div>
                         )}
 
                         <ScrollArea className="flex-1 px-5 py-4">
                             <div className={`space-y-6 ${isReadOnly ? 'pointer-events-none select-none' : ''}`}>
                                 <FormSection title="Header Details">
-                                    <FormInput label="RV No." name="RV No" value={doc['RV No']} onChange={handleInputChange} required />
-                                    <FormInput label="RV Date" name="RV Date" type="date" value={doc['RV Date']} onChange={handleInputChange} />
-                                    <SearchableSelect
-                                        name="Inv No" label="Invoice Reference"
-                                        value={doc['Inv No'] || ''} options={invoiceOptions}
-                                        onChange={handleInvoiceSelect} placeholder="Select Invoice"
-                                    />
+                                    <div className={monLock}>
+                                        <FormInput label="RV No." name="RV No" value={doc['RV No']} onChange={handleInputChange} required />
+                                        <FormInput label="RV Date" name="RV Date" type="date" value={doc['RV Date']} onChange={handleInputChange} />
+                                        <SearchableSelect
+                                            name="Inv No" label="Invoice Reference"
+                                            value={doc['Inv No'] || ''} options={invoiceOptions}
+                                            onChange={handleInvoiceSelect} placeholder="Select Invoice"
+                                        />
+                                    </div>
                                     <FormInput label="DO Reference" name="DO No" value={doc['DO No']} onChange={handleInputChange} />
                                     <FormInput label="SO Reference" name="SO No" value={doc['SO No']} onChange={handleInputChange} />
-                                    <FormSelect label="Status" name="Status" value={doc['Status']} options={RV_STATUS_OPTIONS} onChange={handleInputChange} />
+                                    <div className={monLock}>
+                                        <FormSelect label="Status" name="Status" value={doc['Status']} options={RV_STATUS_OPTIONS} onChange={handleInputChange} />
+                                    </div>
                                     <FormSelect label="Tax Type" name="Tax Type" value={doc['Tax Type']} options={TAX_TYPE_OPTIONS} onChange={handleInputChange} />
-                                    <FormSelect label="Currency" name="Currency" value={doc['Currency']} options={CURRENCY_OPTIONS} onChange={handleInputChange} />
-                                    <FormSelect label="Payment Method" name="Payment Method" value={doc['Payment Method']} options={PAYMENT_METHOD_OPTIONS} onChange={handleInputChange} />
+                                    <div className={monLock}>
+                                        <FormSelect label="Currency" name="Currency" value={doc['Currency']} options={CURRENCY_OPTIONS} onChange={handleInputChange} />
+                                        <FormSelect label="Payment Method" name="Payment Method" value={doc['Payment Method']} options={PAYMENT_METHOD_OPTIONS} onChange={handleInputChange} />
+                                    </div>
                                     <FormInput label="Payment Term" name="Payment Term" value={doc['Payment Term']} onChange={handleInputChange} />
                                 </FormSection>
 
@@ -525,9 +632,11 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                     <FormTextarea label="Company Address" name="Company Address" value={doc['Company Address']} onChange={handleInputChange} rows={3} />
                                 </FormSection>
 
-                                {/* Line Items with pricing */}
-                                <div className="bg-background p-4 rounded-xl border border-border shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Line Items</h3>
+                                {/* Line Items with pricing — LOCKED while editing an issued receipt
+                                    (qty/price/add/remove all move the amount, which must never change
+                                    on a content edit). */}
+                                <div className={`bg-background p-4 rounded-xl border border-border shadow-sm ${monLock}`}>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Line Items{editing ? ' · locked' : ''}</h3>
                                     <div className="space-y-3">
                                         {items.map(item => {
                                             const isPromoRow = !!item.isPromotion;

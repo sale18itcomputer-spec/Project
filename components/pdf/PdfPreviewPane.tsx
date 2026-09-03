@@ -16,6 +16,13 @@ interface PdfPreviewPaneProps {
     onLabelPaddingChange?: (v: number) => void;
     defaultLabelPadding?: number;
     columnWidths?: number[];
+    /** Receipt-only PDF toggles. When onHideHeaderChange is provided, the two
+     *  checkboxes render in the toolbar. Their values must also be present in
+     *  `pdfOptions` so the preview + download reflect them. */
+    hideHeader?: boolean;
+    onHideHeaderChange?: (v: boolean) => void;
+    hideVatTin?: boolean;
+    onHideVatTinChange?: (v: boolean) => void;
 }
 
 const Stepper = ({ label, value, onChange, min = -200, max = 300, step = 10 }: {
@@ -56,6 +63,10 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
     onLabelPaddingChange,
     defaultLabelPadding = 200,
     columnWidths,
+    hideHeader = false,
+    onHideHeaderChange,
+    hideVatTin = false,
+    onHideVatTinChange,
 }) => {
     const [apiUrl, setApiUrl]         = useState<string | null>(null);
     const [loading, setLoading]       = useState(false);
@@ -119,6 +130,30 @@ const PdfPreviewPane: React.FC<PdfPreviewPaneProps> = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {onHideHeaderChange && (
+                        <div className="flex items-center gap-3 pr-3 mr-1 border-r border-gray-200">
+                            <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-brand-600">
+                                <input
+                                    type="checkbox"
+                                    checked={!hideHeader}
+                                    onChange={e => onHideHeaderChange(!e.target.checked)}
+                                    className="accent-brand-500 w-3.5 h-3.5"
+                                />
+                                Header
+                            </label>
+                            {onHideVatTinChange && (
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-brand-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={!hideVatTin}
+                                        onChange={e => onHideVatTinChange(!e.target.checked)}
+                                        className="accent-brand-500 w-3.5 h-3.5"
+                                    />
+                                    VAT TIN
+                                </label>
+                            )}
+                        </div>
+                    )}
                     <button
                         onClick={() => setShowControls(v => !v)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${

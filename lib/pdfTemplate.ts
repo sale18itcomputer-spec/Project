@@ -198,6 +198,10 @@ export interface PdfTemplateOptions {
     hideSerials?: boolean;
     /** Optional column width overrides (%) — [No, Code, Desc, Qty, UnitPrice, Amount]. 0 = omit. */
     columnWidths?: number[];
+    /** Receipt only: omit the top logo + company header block. */
+    hideHeader?: boolean;
+    /** Receipt only: omit the customer VAT TIN row. */
+    hideVatTin?: boolean;
     /** When true the caller wants HTML for in-browser preview, not a PDF. */
     previewMode?: boolean;
 }
@@ -218,7 +222,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
 
     // Self-contained bilingual builders — pass columnWidths
     if (opts.type === 'Receipt') {
-        return buildReceipt(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding, cw);
+        return buildReceipt(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding, cw, opts.hideHeader, opts.hideVatTin);
     }
     if (opts.type === 'Tax Invoice') {
         return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, true, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer, undefined, opts.hideSerials);

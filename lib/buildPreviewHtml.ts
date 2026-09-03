@@ -47,6 +47,7 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
             return buildReceipt(
                 hd, items as any, totals as any, opts.currency, sym,
                 opts.signaturePadding, opts.labelPadding, opts.columnWidths,
+                (opts as any).hideHeader, (opts as any).hideVatTin,
             );
         case 'Delivery Order': {
             // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
