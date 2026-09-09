@@ -65,13 +65,20 @@ const B2B_TABLE_MAP: Record<string, string> = {
     'site_survey_logs':  'b2b_site_survey_logs',
     'quotations':        'b2b_quotations',
     'sale_orders':       'b2b_sale_orders',
-    'pricelist':         'b2b_pricelist',
     'invoices':          'b2b_invoices',
     'delivery_orders':   'b2b_delivery_orders',
     'receipts':          'b2b_receipts',
     // inventory is shared: it is procurement-owned (flows from purchase_orders)
     // and has no B2B-specific isolation requirement. b2b_inventory table does
     // not exist in Supabase.
+    //
+    // pricelist is ALSO shared, not mirrored to b2b_pricelist: B2B pricing is
+    // the same catalog with Dealer Price shown instead of End User Price, not
+    // a separate item set. b2b_pricelist exists in Supabase but is
+    // intentionally left unpopulated/unused going forward -- every other B2B
+    // consumer (AnalyticsDashboard, PosTerminal, QuotationCreator,
+    // inventoryApi's PO-to-inventory conversion) already had to bypass this
+    // same mapping for the same reason before this table was even routed to.
 };
 
 /**

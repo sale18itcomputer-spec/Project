@@ -174,8 +174,10 @@ export const getTableName = (baseTable: string, isB2B: boolean): string => {
         'invoices':          'b2b_invoices',
         'delivery_orders':   'b2b_delivery_orders',
         'receipts':          'b2b_receipts',
-        'pricelist':         'b2b_pricelist',
         // Shared between B2B and B2C (procurement-owned, no isolation needed):
+        // pricelist is shared too -- B2B pricing is the same catalog with
+        // Dealer Price shown instead of End User Price, not a separate item
+        // set. b2b_pricelist exists but is intentionally left unpopulated.
         'inventory':         'inventory',
         'vendors':           'vendors',
         'vendor_pricelist':  'vendor_pricelist',
