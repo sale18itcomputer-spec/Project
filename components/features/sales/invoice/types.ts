@@ -1,6 +1,8 @@
 export interface BuildComponent {
     itemCode: string;
     modelName: string;
+    /** Full item description (shown on the PDF); falls back to modelName when empty. */
+    description?: string;
     brand?: string;
     qty: number;
     unitCost: number;

@@ -167,7 +167,7 @@ export function buildTaxInvoice(
         <tr class="text-center break-inside-avoid">
           ${wNo>0   ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
           ${wCode>0 ? `<td class="align-top py-0 text-[11px]" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.itemCode)}</td>` : ''}
-          ${wDesc>0 ? `<td class="text-left font-normal text-[11px] align-top" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.modelName)}${subLine ? `<div class="text-[9px]" style="color:#666;">${esc(subLine)}</div>` : ''}</td>` : ''}
+          ${wDesc>0 ? `<td class="text-left font-normal text-[11px] align-top" style="${borderStyle} padding-top:2px; ${padStyle}">${esc((c as any).description || c.modelName)}${subLine ? `<div class="text-[9px]" style="color:#666;">${esc(subLine)}</div>` : ''}</td>` : ''}
           ${wQty>0  ? `<td class="align-top py-0 text-[11px]" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(c.qty)}</td>` : ''}
           ${wPrice>0? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}
           ${wAmt>0  ? `<td class="align-top py-0" style="${borderStyle}"></td>` : ''}

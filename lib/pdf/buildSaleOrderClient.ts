@@ -114,7 +114,7 @@ export function buildSaleOrderClient(
             <tr class="text-center break-inside-avoid">
               ${wNo>0    ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
               ${wCode>0  ? `<td class="align-top py-0 text-[11px]" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.itemCode)}</td>` : ''}
-              ${wDesc>0  ? `<td class="text-left font-normal text-[11px] align-top" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.modelName)}</td>` : ''}
+              ${wDesc>0  ? `<td class="text-left font-normal text-[11px] align-top" style="${tdStyle} padding-top:2px; ${padStyle}">${esc((c as any).description || c.modelName)}</td>` : ''}
               ${wQty>0   ? `<td class="align-top py-0 text-[11px]" style="${tdStyle} padding-top:2px; ${padStyle}">${esc(c.qty)}</td>` : ''}
               ${wPrice>0 ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}
               ${wAmt>0   ? `<td class="align-top py-0" style="${tdStyle}"></td>` : ''}

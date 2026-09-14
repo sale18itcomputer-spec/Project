@@ -50,6 +50,7 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                                 onPricelistItemSelect={(_item, p) => updateComponent(idx, {
                                     itemCode: p['Code'] || p['Item Code'] || '',
                                     modelName: p.Model || '',
+                                    description: (p as any).Description || (p as any).description || '',
                                     brand: p.Brand || '',
                                 })}
                             />

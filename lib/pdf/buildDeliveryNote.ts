@@ -76,7 +76,7 @@ export function buildDeliveryNote(
         <tr class="text-center">
           <td style="${borderStyle}"></td>
           <td class="text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.itemCode)}</td>
-          <td class="text-left text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.modelName)}${warranty}</td>
+          <td class="text-left text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc((c as any).description || c.modelName)}${warranty}</td>
           <td class="text-[11px]" style="vertical-align:top;padding-top:2px;${padStyle}${borderStyle}">${esc(c.qty)}</td>
           <td class="text-left" style="font-size:9px;vertical-align:top;padding-top:2px;line-height:1.6;${padStyle}${borderStyle}">${esc(c.serialNumber ?? '')}</td>
         </tr>`;
