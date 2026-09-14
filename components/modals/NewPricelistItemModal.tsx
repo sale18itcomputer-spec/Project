@@ -10,6 +10,7 @@ import { useB2B } from "../../contexts/B2BContext";
 import { useToast } from "../../contexts/ToastContext";
 import ConfirmationModal from "./ConfirmationModal";
 import ResizableModal from "./ResizableModal";
+import { ITEM_TYPES, getNextItemCode } from "../../utils/itemCode";
 import { GoogleGenAI } from '@google/genai';
 import { Check, Pencil, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from "../ui/button";
@@ -24,11 +25,15 @@ interface NewPricelistItemModalProps {
     onClose: () => void;
     existingData?: PricelistItem | null;
     initialReadOnly?: boolean;
+    /** Pre-fill fields when creating (e.g. Model/Description from a PO line). */
+    initialData?: Partial<PricelistItem>;
+    /** Fired after a successful CREATE with the saved item (e.g. to drop it onto a PO line). */
+    onCreated?: (item: PricelistItem) => void;
 }
 
 const STATUS_OPTIONS = ['Available', 'Pre-Order', 'Out of Stock'];
 
-const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false }) => {
+const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, onClose, existingData, initialReadOnly = false, initialData, onCreated }) => {
     const { pricelist, setPricelist } = useData();
     const { currentUser } = useAuth();
     const { isB2B } = useB2B();
@@ -43,6 +48,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isSearchingWebsite, setIsSearchingWebsite] = useState(false);
+    const [itemType, setItemType] = useState('');
 
     const isEditMode = !!existingData;
 
@@ -55,14 +61,30 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     useEffect(() => {
         if (isOpen) {
             setIsReadOnly(initialReadOnly);
+            setItemType('');
             if (isEditMode) {
                 setFormData(existingData);
             } else {
-                setFormData(getInitialState());
+                setFormData({ ...getInitialState(), ...(initialData || {}) });
             }
             setDeleteConfirmOpen(false);
         }
-    }, [isOpen, existingData, isEditMode, initialReadOnly, getInitialState]);
+    }, [isOpen, existingData, isEditMode, initialReadOnly, getInitialState, initialData]);
+
+    // Selecting an Item Type auto-generates a unique Code (PREFIX + next number)
+    // and fills the coarse Category. The Code stays editable.
+    const handleItemTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        const label = e.target.value;
+        setItemType(label);
+        const def = ITEM_TYPES.find(t => t.label === label);
+        if (!def) return;
+        const nextCode = getNextItemCode(def.prefix, (pricelist ?? []).map(p => p.Code));
+        setFormData(prev => ({
+            ...prev,
+            Code: nextCode,
+            Category: prev.Category || def.category || '',
+        }));
+    }, [pricelist]);
 
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -157,6 +179,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                     if (!current) return [createdRecord];
                     return current.map(p => p.Code === tempId ? createdRecord : p);
                 });
+                onCreated?.(createdRecord);
             } catch (err: any) {
                 addToast(`Failed to create item: ${err.message}`, 'error');
                 // Revert by removing the optimistic data.
@@ -239,6 +262,15 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
             >
                 <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                     <FormSection title="General Information">
+                        {!isEditMode && !isReadOnly && (
+                            <FormSelect
+                                name="itemType"
+                                label="Item Type (auto-generates Code)"
+                                value={itemType}
+                                onChange={handleItemTypeChange}
+                                options={ITEM_TYPES.map(t => t.label)}
+                            />
+                        )}
                         {isReadOnly || isEditMode ? <FormDisplay label="Code" value={formData.Code} /> : <FormInput name="Code" label="Code" value={formData.Code} onChange={handleChange} required />}
                         {isReadOnly ? <FormDisplay label="Brand" value={formData.Brand} /> : <FormInput name="Brand" label="Brand" value={formData.Brand} onChange={handleChange} />}
                         {isReadOnly ? (

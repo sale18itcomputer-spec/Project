@@ -16,6 +16,7 @@ import { generatePDF } from '@/lib/pdfClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfPreviewPane from '@/components/pdf/PdfPreviewPane';
 import NumericInput from '../../common/NumericInput';
+import NewPricelistItemModal from '@/components/modals/NewPricelistItemModal';
 
 // ── POItemCombobox ────────────────────────────────────────────────────────────
 // Searches vendor_pricelist (dealer items) + main pricelist (B2C items) so
@@ -24,9 +25,11 @@ interface POItemComboboxProps {
     value: string;
     onChange: (value: string) => void;
     onSelect: (fields: { item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string }) => void;
+    /** When the typed item has no match, offer to create it as a new pricelist item. */
+    onCreateNew: (text: string) => void;
 }
 
-const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSelect }) => {
+const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSelect, onCreateNew }) => {
     const { vendorPricelist, pricelist } = useData();
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -112,7 +115,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                 placeholder="Search / SKU"
                 autoComplete="off"
             />
-            {open && results.length > 0 && (
+            {open && (results.length > 0 || value.trim().length > 0) && (
                 <div className="absolute z-[1400] left-0 w-[440px] mt-1 bg-card rounded-md shadow-xl border border-border">
                     <ScrollArea className="max-h-72">
                         {hasVendor && (
@@ -172,6 +175,16 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                             })}
                         </ul>
                     </ScrollArea>
+                    {value.trim().length > 0 && (
+                        <button
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); onCreateNew(value.trim()); setOpen(false); }}
+                            className="w-full text-left px-3 py-2 text-sm border-t border-border text-brand-600 dark:text-brand-400 hover:bg-muted transition-colors font-semibold flex items-center gap-1.5"
+                        >
+                            <Plus className="w-4 h-4 flex-shrink-0" />
+                            Create &ldquo;{value.trim()}&rdquo; as new item
+                        </button>
+                    )}
                 </div>
             )}
         </div>
@@ -229,6 +242,9 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
     const [items, setItems] = useState<PurchaseOrderItem[]>([
         { line_number: 1, item_number: '', description: '', qty: 1, unit_price: 0 }
     ]);
+
+    // "+ Create new item" from the item picker → open the pricelist modal for a line.
+    const [newItemFor, setNewItemFor] = useState<{ index: number; text: string } | null>(null);
 
     useEffect(() => {
         if (!poId && initialData) {
@@ -753,6 +769,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                                             value={item.item_number}
                                             onChange={val => handleItemChange(index, 'item_number', val)}
                                             onSelect={fields => handleItemSelectFromLookup(index, fields)}
+                                            onCreateNew={text => setNewItemFor({ index, text })}
                                         />
                                     </td>
 
@@ -884,6 +901,25 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                     </div>
                 </FormSection>
             </div>
+
+            <NewPricelistItemModal
+                isOpen={!!newItemFor}
+                onClose={() => setNewItemFor(null)}
+                initialData={newItemFor ? { Model: newItemFor.text, Description: newItemFor.text } : undefined}
+                onCreated={item => {
+                    if (newItemFor) {
+                        handleItemSelectFromLookup(newItemFor.index, {
+                            item_number: item.Code || '',
+                            model_name: item.Model || '',
+                            description: item.Description || '',
+                            unit_price: parseFloat(String(item['End User Price'] ?? 0)) || 0,
+                            brand: item.Brand || '',
+                            category: item.Category || '',
+                        });
+                    }
+                    setNewItemFor(null);
+                }}
+            />
         </form>
     );
 };
