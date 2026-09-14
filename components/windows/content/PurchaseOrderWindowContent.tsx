@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { supabase } from '@/lib/supabase';
-import { convertPurchaseOrderToInventory, syncPurchaseOrderSerialsToInventory } from '@/services/inventoryApi';
+import { convertPurchaseOrderToInventory, syncPurchaseOrderSerialsToInventory, hasInventoryForPO } from '@/services/inventoryApi';
 import { Plus, Trash2, Save, ShoppingCart, Download, Loader2, Eye } from 'lucide-react';
 import { FormSection, FormInput, FormTextarea, FormSelect } from '@/components/common/FormControls';
 import { formatCurrencySmartly, stripHtml, hasLineItemContent, friendlyDbError } from '@/utils/formatters';
@@ -465,6 +465,16 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
         if (!hasLineItemContent(items)) {
             addToast('Add at least one line item before saving the PO.', 'error');
             return;
+        }
+        // Block un-completing a PO that already materialised inventory — moving it
+        // out of Completed would orphan the stock/serials it created. Correct the
+        // inventory directly instead of reversing via the PO status.
+        if (existingPO?.status === 'Completed' && formData.status !== 'Completed' && formData.id) {
+            const hasInv = await hasInventoryForPO(formData.id).catch(() => false);
+            if (hasInv) {
+                addToast('This PO already added stock to Inventory — it can’t be moved out of Completed. Adjust the inventory directly instead.', 'error');
+                return;
+            }
         }
         setIsSaving(true);
         try {

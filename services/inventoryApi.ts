@@ -190,24 +190,22 @@ export async function resyncPurchaseOrderToInventory(
         const row = buildInventoryRow(item, po, poId, pricelist, vendorPricelist, createdBy);
         const match = byCode.get(String(row.code).toLowerCase());
         if (match) {
-            const baseline = Number(match.po_ordered_qty ?? match.qty) || 0;
-            const delta = (Number(row.qty) || 0) - baseline;
-            const newQty = Math.max(0, (Number(match.qty) || 0) + delta);
+            // METADATA-ONLY re-sync. NEVER touch on-hand qty or status here — a
+            // status change / re-save must not manufacture stock. Re-completing a
+            // PO whose units were already sold (qty 0, with a drifted po_ordered_qty
+            // baseline) used to resurrect the ordered qty as phantom inventory
+            // (the UM5606KA / PO-2026-011 bug). Ordered-qty corrections after
+            // receiving are a deliberate inventory adjustment, not a side-effect.
             const upd: Record<string, any> = {
                 vendor_id: row.vendor_id, vendor_name: row.vendor_name, category: row.category,
                 brand: row.brand, model_name: row.model_name, description: row.description,
                 warranty_months: row.warranty_months, unit_price: row.unit_price, currency: row.currency,
-                tax_type: row.tax_type,
-                qty: newQty, po_ordered_qty: row.qty, updated_at: new Date().toISOString(),
+                tax_type: row.tax_type, updated_at: new Date().toISOString(),
             };
-            // Only flip status when the on-hand count crosses zero; leave a manual
-            // "Reserved" (or other) status untouched otherwise.
-            if (newQty <= 0) upd.status = 'Out of Stock';
-            else if ((Number(match.qty) || 0) <= 0) upd.status = 'In Stock';
             await inventoryUpdate(match.id, upd);
             updated++;
         } else {
-            toInsert.push(row); // line added to the PO after the original conversion
+            toInsert.push(row); // genuinely new line — insert with its qty
         }
     }
     if (toInsert.length > 0) {
