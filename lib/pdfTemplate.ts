@@ -7,8 +7,6 @@
  * All sizing/positioning values sourced from pdfGenerator.ts defaultLayoutConfig.
  * Change numbers here only; no other code needs to change.
  */
-import fs from 'fs';
-import path from 'path';
 import { buildTaxInvoice }          from './pdf/buildTaxInvoice';
 import { buildCommercialInvoice }   from './pdf/buildCommercialInvoice';
 import { buildDeliveryNote }        from './pdf/buildDeliveryNote';
@@ -37,37 +35,18 @@ const LAYOUT = {
   margins: { top: 10, right: 11, bottom: 14, left: 11 },
 };
 
-let _fontsCache: { khmer: string; times: string; timesBold: string } | null = null;
-let _logoCache: string | null = null;
-
-function getFontsB64(): { khmer: string; times: string; timesBold: string } {
-    if (_fontsCache) return _fontsCache;
-    const khmer     = fs.readFileSync(path.join(process.cwd(), 'public', 'KhmerOS.ttf')).toString('base64');
-    const times     = fs.readFileSync(path.join(process.cwd(), 'public', 'times.ttf')).toString('base64');
-    const timesBold = fs.readFileSync(path.join(process.cwd(), 'public', 'timesbd.ttf')).toString('base64');
-    _fontsCache = { khmer, times, timesBold };
-    return _fontsCache;
-}
-
-function getLogoB64(): string {
-    if (_logoCache) return _logoCache;
-    const logo = fs.readFileSync(path.join(process.cwd(), 'public', 'Limperial Technology Logo01.png(004aad).png')).toString('base64');
-    _logoCache = `data:image/png;base64,${logo}`;
-    return _logoCache;
-}
-
 function baseStyle(): string {
     const L = LAYOUT;
     const T = L.table;
-    const fonts = getFontsB64();
     return `
     <style>
-      @font-face { font-family:'KhmerOS'; src:url('data:font/truetype;base64,${fonts.khmer}') format('truetype'); font-weight:normal; }
-      @font-face { font-family:'Custom Times'; src:url('data:font/truetype;base64,${fonts.times}') format('truetype'); font-weight:normal; }
-      @font-face { font-family:'Custom Times'; src:url('data:font/truetype;base64,${fonts.timesBold}') format('truetype'); font-weight:bold; }
+      /* Link web fonts (Tinos = Times New Roman metric-compatible, Koh Santepheap = Khmer)
+         instead of inlining the local TTFs. Inlining made the PO HTML ~4.5MB, which
+         Browserless's proxy rejected with a 500 — every other builder links fonts. */
+      @import url('https://fonts.googleapis.com/css2?family=Koh+Santepheap:wght@400;700&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap');
       @page { size: A4; }
       html, body { margin: 0; padding: 0; }
-      body { font-family:'Custom Times','KhmerOS',serif; font-size:9pt; color:#000; background:#fff; }
+      body { font-family:'Tinos','Times New Roman','Koh Santepheap',serif; font-size:9pt; color:#000; background:#fff; }
       .page-inner { box-sizing:border-box; }
       .hdr { display:flex; align-items:center; border-bottom:1px solid #000; padding-bottom:${mm(L.separator.paddingBottom)}; margin-bottom:${mm(L.separator.marginBottom)}; gap:14px; }
       .hdr img { width:${mm(L.logo.width)}; height:${mm(L.logo.height)}; object-fit:contain; flex-shrink:0; }
@@ -126,7 +105,9 @@ function moneyTd(v: number | string, sym: string, extraStyle = ''): string {
     return `<td style="${style}">${moneyInner(v, sym)}</td>`;
 }
 
-const LOGO = getLogoB64();
+// URL logo (same asset the other builders use) — inlining the local PNG added
+// ~1.1MB to the PO HTML. Keep the payload small so Browserless can render it.
+const LOGO = 'https://i.postimg.cc/RFYdrpBC/Limperial-Technology-Logo01-png(004aad).png';
 
 // ── Default column widths (%) for each doc type ───────────────────────────────
 const DEFAULT_WIDTHS: Record<string, number[]> = {
@@ -263,11 +244,18 @@ export function buildHtml(opts: PdfTemplateOptions): string {
 function buildPO(hd: any, items: any[], totals: any, currency: string, sym: string, tax: number, cw: number[]): string {
     const [wNo, wCode, wDesc, wQty, wPrice, wAmt] = cw;
     const visibleCols = cw.filter(w => w > 0).length;
-    const rows = items.filter(i => i.itemCode || i.description || i.modelName).map(item => {
+    // Promotion / discount rows sort to the BOTTOM of the line items (they reduce
+    // the total, so they read naturally after the parts). Real items keep their
+    // order and get a fresh sequential No.; promo rows show a blank No.
+    const ordered = [...items.filter(i => i.itemCode || i.description || i.modelName)]
+        .sort((a, b) => (a.isPromotion ? 1 : 0) - (b.isPromotion ? 1 : 0));
+    let seq = 0;
+    const rows = ordered.map(item => {
         const uPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice)) || 0;
         const amt    = typeof item.amount    === 'number' ? item.amount    : parseFloat(String(item.amount))    || 0;
+        const displayNo = item.isPromotion ? '' : String(++seq);
         return `<tr>
-          ${wNo>0?`<td class="center">${esc(item.no)}</td>`:''}
+          ${wNo>0?`<td class="center">${esc(displayNo)}</td>`:''}
           ${wCode>0?`<td>${esc(item.itemCode)}</td>`:''}
           ${wDesc>0?`<td>${esc(item.description||item.modelName||'')}</td>`:''}
           ${wQty>0?`<td class="center">${esc(item.qty)}</td>`:''}
