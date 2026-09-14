@@ -382,14 +382,18 @@ export const syncPurchaseOrderSerialsToInventory = async (
 ): Promise<number> => {
     const { data: invRows, error } = await supabase
         .from('inventory')
-        .select('id, code, model_name, brand, description')
+        .select('id, code, model_name, brand, description, qty')
         .eq('po_id', poId)
         .order('created_at', { ascending: true });
     if (error) throw new Error(error.message);
     if (!invRows || invRows.length === 0) return 0;
 
     const filtered = items.filter(it => it.qty > 0 && !it.is_promotion);
-    const remaining = [...invRows];
+    // Only attach serials to rows that actually hold stock. A serial represents a
+    // physical unit, so a sold-out / not-received row (qty <= 0) must never get a
+    // serial attached or a serial_numbers unit seeded — otherwise re-saving a
+    // Completed PO re-creates a phantom In-Stock unit on a qty-0 row.
+    const remaining = [...invRows].filter(r => (Number(r.qty) || 0) > 0);
     const claim = (predicate: (r: any) => boolean): any | null => {
         const idx = remaining.findIndex(predicate);
         return idx === -1 ? null : remaining.splice(idx, 1)[0];
