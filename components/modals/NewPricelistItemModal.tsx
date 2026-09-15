@@ -335,7 +335,7 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
     if (lowerStatus.includes('available')) colorClass = 'bg-emerald-500/10 text-emerald-500';
     else if (lowerStatus.includes('pre-order')) colorClass = 'bg-amber-500/10 text-amber-500';
     else if (lowerStatus.includes('out of stock')) colorClass = 'bg-rose-500/10 text-rose-500';
-    return <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${colorClass}`}>{status}</span>;
+    return <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 text-xs font-semibold rounded-full ${colorClass}`}>{status}</span>;
 };
 
 export default NewPricelistItemModal;

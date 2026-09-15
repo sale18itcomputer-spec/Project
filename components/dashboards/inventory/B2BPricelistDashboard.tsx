@@ -73,7 +73,11 @@ const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status
     let customClass = '';
 
     if (lowerStatus.includes('out of stock')) {
-        variant = 'destructive';
+        // Soft rose pill, matching Available/Pre-Order — the base `destructive`
+        // variant is a solid-fill circle with no whitespace-nowrap, which
+        // squashes a 3-word label like "Out of Stock" into 3 wrapped lines.
+        variant = 'outline';
+        customClass = 'font-semibold text-rose-500 border-rose-500/20 bg-rose-500/10';
     } else if (lowerStatus.includes('available')) {
         variant = 'outline';
         customClass = 'font-semibold text-emerald-500 border-emerald-500/20 bg-emerald-500/10';
@@ -82,7 +86,7 @@ const StatusBadge: React.FC<{ status?: string; className?: string }> = ({ status
         customClass = 'font-semibold text-amber-500 border-amber-500/20 bg-amber-500/10';
     }
 
-    return <Badge variant={variant} className={`${customClass} ${className}`}>{status}</Badge>;
+    return <Badge variant={variant} className={`whitespace-nowrap ${customClass} ${className}`}>{status}</Badge>;
 };
 
 
