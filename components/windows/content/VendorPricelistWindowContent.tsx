@@ -30,8 +30,10 @@ const VendorPricelistWindowContent: React.FC<VendorPricelistWindowContentProps> 
     const isEditMode = !!itemId;
     const item = itemId ? (vendorPricelist?.find(i => i.id === itemId) ?? null) : null;
 
+    // status is deliberately left BLANK on create — never default to 'Available'.
+    // It's a real vendor stock signal; the creator must choose it explicitly.
     const [formData, setFormData] = useState<Partial<VendorPricelistItem>>(() =>
-        isEditMode ? (item ?? {}) : { status: 'Available', currency: 'USD', created_by: currentUser?.Name || '' }
+        isEditMode ? (item ?? {}) : { status: '' as VendorPricelistItem['status'], currency: 'USD', created_by: currentUser?.Name || '' }
     );
     const [isReadOnly, setIsReadOnly] = useState(isEditMode ? initialReadOnly : false);
     const [saving, setSaving] = useState(false);
@@ -60,6 +62,12 @@ const VendorPricelistWindowContent: React.FC<VendorPricelistWindowContentProps> 
 
         if (!isEditMode && !submissionData.vendor_id) {
             addToast('Please select a vendor', 'error');
+            return;
+        }
+        // Never let a new item silently default to Available — the creator must
+        // pick a real status (defense-in-depth alongside the select's `required`).
+        if (!isEditMode && !submissionData.status) {
+            addToast('Status is required.', 'error');
             return;
         }
 
@@ -203,7 +211,8 @@ const VendorPricelistWindowContent: React.FC<VendorPricelistWindowContentProps> 
                     ) : (
                         <div className="flex flex-col">
                             <label className="text-sm font-medium text-muted-foreground/60 mb-1.5">Status</label>
-                            <select name="status" value={formData.status} onChange={handleChange} className="bg-muted border border-border/50 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-500/20 outline-none transition">
+                            <select name="status" value={formData.status} onChange={handleChange} required className="bg-muted border border-border/50 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-500/20 outline-none transition">
+                                <option value="" disabled>Select status…</option>
                                 <option value="Available">Available</option>
                                 <option value="Out of Stock">Out of Stock</option>
                                 <option value="Discontinued">Discontinued</option>

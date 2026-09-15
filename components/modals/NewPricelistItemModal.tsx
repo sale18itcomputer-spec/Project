@@ -39,10 +39,9 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     const { isB2B } = useB2B();
     const { addToast } = useToast();
 
-    const showDealerPrice = React.useMemo(() => {
-        const role = currentUser?.Role?.toLowerCase();
-        return role === 'admin' || role === 'b2b' || isB2B;
-    }, [currentUser, isB2B]);
+    // Dealer Price is a B2B concept — only surface it in B2B mode, never in B2C
+    // (even for Admins), so the B2C pricelist shows just the End User / Unit Price.
+    const showDealerPrice = isB2B;
 
     const [formData, setFormData] = useState<Partial<PricelistItem>>({});
     const [isReadOnly, setIsReadOnly] = useState(initialReadOnly);
@@ -52,8 +51,13 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 
     const isEditMode = !!existingData;
 
+    // Status is deliberately left BLANK — it must never default to 'Available'.
+    // Status is a stock signal (synced from the supplier feed for catalog items,
+    // or set from real inventory for purchased/build-component items); a brand
+    // new item's real availability is unknown at creation time, so the creator
+    // must choose it explicitly rather than inherit a false "Available".
     const getInitialState = useCallback(() => ({
-        'Status': 'Available',
+        'Status': '',
         'Currency': 'USD',
         'Dealer Price': '',
     } as const), []);
@@ -146,6 +150,12 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
 
         if (!submissionData.Code) {
             addToast('Code is required.', 'error');
+            return;
+        }
+        // Never let a new item silently default to Available — the creator must
+        // pick a real status (defense-in-depth alongside FormSelect's `required`).
+        if (!isEditMode && !submissionData.Status) {
+            addToast('Status is required.', 'error');
             return;
         }
 
@@ -307,7 +317,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                             isReadOnly ? <FormDisplay label="Dealer Price" value={formData['Dealer Price']} /> : <FormInput name="Dealer Price" label="Dealer Price" value={formData['Dealer Price']} onChange={handleChange} type="text" />
                         )}
                         {isReadOnly ? <FormDisplay label="Unit Price" value={formData['End User Price']} /> : <FormInput name="End User Price" label="Unit Price" value={formData['End User Price']} onChange={handleChange} type="text" />}
-                        {isReadOnly ? <FormDisplay label="Status">{formData.Status && <StatusBadge status={formData.Status} />}</FormDisplay> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} />}
+                        {isReadOnly ? <FormDisplay label="Status">{formData.Status && <StatusBadge status={formData.Status} />}</FormDisplay> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
                     </FormSection>
                 </form>
             </ResizableModal>

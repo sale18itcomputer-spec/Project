@@ -30,13 +30,17 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
     const isEditMode = !!itemCode;
     const item = itemCode ? (pricelist?.find(i => i.Code === itemCode) ?? null) : null;
 
-    const showDealerPrice = React.useMemo(() => {
-        const role = currentUser?.Role?.toLowerCase();
-        return role === 'admin' || role === 'b2b' || isB2B;
-    }, [currentUser, isB2B]);
+    // Dealer Price is a B2B concept — only surface it in B2B mode, never in B2C
+    // (even for Admins).
+    const showDealerPrice = isB2B;
 
+    // Status is deliberately left BLANK on create — it must never default to
+    // 'Available'. It's a real stock signal (synced supplier feed, or set from
+    // actual inventory for purchased/build-component items); a brand new item's
+    // real availability is unknown at creation time, so the creator must choose
+    // it explicitly.
     const [formData, setFormData] = useState<Partial<PricelistItem>>(() =>
-        isEditMode ? (item ?? {}) : { Status: 'Available', Currency: 'USD', 'Dealer Price': '' }
+        isEditMode ? (item ?? {}) : { Status: '', Currency: 'USD', 'Dealer Price': '' }
     );
     const [isReadOnly, setIsReadOnly] = useState(isEditMode ? initialReadOnly : false);
     const [saving, setSaving] = useState(false);
@@ -74,6 +78,12 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
 
         if (!isEditMode && !submissionData.Code) {
             addToast('Code is required.', 'error');
+            return;
+        }
+        // Never let a new item silently default to Available — the creator must
+        // pick a real status (defense-in-depth alongside FormSelect's `required`).
+        if (!isEditMode && !submissionData.Status) {
+            addToast('Status is required.', 'error');
             return;
         }
 
@@ -186,7 +196,7 @@ const PricelistWindowContent: React.FC<PricelistWindowContentProps> = ({ windowI
                     }
                     {isReadOnly
                         ? <FormDisplay label="Status" value={formData.Status} />
-                        : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} />
+                        : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />
                     }
                 </FormSection>
             </form>
