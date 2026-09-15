@@ -1,4 +1,5 @@
 import React from 'react';
+import { useData } from '@/contexts/DataContext';
 import { LineItem, BuildComponent } from './types';
 import { PricelistCombobox } from './PricelistCombobox';
 import { SerialNumberPicker } from '../../../common/SerialNumberPicker';
@@ -21,6 +22,19 @@ interface PCBuildComponentPickerProps {
 }
 
 export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ components, onChange, taxType }) => {
+    const { inventoryItems } = useData();
+    // Real per-part warranty comes from the received stock (inventory.warranty_months,
+    // sourced from the PO), keyed by item code — the pricelist carries no warranty.
+    const warrantyByCode = React.useMemo(() => {
+        const m = new Map<string, number>();
+        for (const r of inventoryItems ?? []) {
+            const c = String((r as any).code ?? '').toLowerCase();
+            const w = (r as any).warranty_months;
+            if (c && w != null && !m.has(c)) m.set(c, Number(w));
+        }
+        return m;
+    }, [inventoryItems]);
+
     const addComponent = () => {
         onChange([...components, { itemCode: '', modelName: '', qty: 1, unitCost: 0, warrantyMonths: 12 }]);
     };
@@ -47,12 +61,17 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                                 onItemChange={(_id, field, value) => {
                                     if (field === 'itemCode') updateComponent(idx, { itemCode: String(value) });
                                 }}
-                                onPricelistItemSelect={(_item, p) => updateComponent(idx, {
-                                    itemCode: p['Code'] || p['Item Code'] || '',
-                                    modelName: p.Model || '',
-                                    description: (p as any).Description || (p as any).description || '',
-                                    brand: p.Brand || '',
-                                })}
+                                onPricelistItemSelect={(_item, p) => {
+                                    const code = p['Code'] || p['Item Code'] || '';
+                                    updateComponent(idx, {
+                                        itemCode: code,
+                                        modelName: p.Model || '',
+                                        description: (p as any).Description || (p as any).description || '',
+                                        brand: p.Brand || '',
+                                        // Pull the real warranty from received stock; keep 12 as a fallback.
+                                        warrantyMonths: warrantyByCode.get(String(code).toLowerCase()) ?? 12,
+                                    });
+                                }}
                             />
                         </div>
                         <div className="w-16">

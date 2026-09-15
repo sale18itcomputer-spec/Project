@@ -436,6 +436,7 @@ export const INVENTORY_HEADERS = [
   'currency',
   'status',
   'tax_type',
+  'warranty_months',
   'created_by',
   'created_at',
   'updated_at',
