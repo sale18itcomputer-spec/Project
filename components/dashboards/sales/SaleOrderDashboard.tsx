@@ -403,7 +403,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                                             onClick={() => handleConvertToInvoice(selectedSaleOrder)}
                                         >
                                             <FileText className="h-4 w-4" aria-hidden="true" />
-                                            Create Invoice & DO
+                                            Convert to Invoice
                                         </Button>
                                     )}
                                     <Button
@@ -525,7 +525,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                             <div className="flex items-center justify-center gap-1">
                                 {row.Status === 'Completed' && (
                                     <IconButton
-                                        label="Create Invoice & DO"
+                                        label="Convert to Invoice"
                                         tone="primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -576,7 +576,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                             >
                                 {row.Status === 'Completed' && (
                                     <DropdownMenuItem onClick={() => handleConvertToInvoice(row)}>
-                                        <FileText className="mr-2 h-4 w-4" /> Create Invoice & DO
+                                        <FileText className="mr-2 h-4 w-4" /> Convert to Invoice
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem onClick={() => handleDuplicateSaleOrder(row)}>

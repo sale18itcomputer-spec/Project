@@ -818,7 +818,11 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 });
             }
             handleNavigation({ view: 'invoices', payload: { action: 'create', soData: { ...masterSheetData, 'ItemsJSON': items } } });
-            addToast('Sale Order marked as Completed and converted to Invoice.', 'success');
+            // NOTE: this only opens a new Invoice window pre-filled from the SO —
+            // nothing is created/saved yet. The toast must say so; wording it as
+            // "converted" implies completion and led to a real invoice being missed
+            // (the user believed it was done and never clicked Save on the new window).
+            addToast('Sale Order marked as Completed — review and save the new Invoice to finish.', 'success');
         } catch (err: any) {
             addToast('Error during conversion: ' + err.message, 'error');
         } finally {

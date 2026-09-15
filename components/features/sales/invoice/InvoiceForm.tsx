@@ -145,6 +145,29 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
                                 <div className="bg-card p-4 rounded-xl border border-border shadow-sm">
                                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">{isService ? 'Service & Parts' : 'Line Items'}</h3>
+                                    {(() => {
+                                        // Reminder only — serials aren't enforced before save (some
+                                        // items are legitimately non-serialized). Counts any
+                                        // qty>0, non-promo line (incl. PC-build components) with no
+                                        // serial captured yet — e.g. right after "Convert to
+                                        // Invoice" from a Sale Order, which never carries serials.
+                                        const missing = items.reduce((n, it) => {
+                                            if (it.isPromotion || !(Number(it.qty) > 0)) return n;
+                                            if (it.isPCBuild) {
+                                                return n + (it.buildComponents || []).filter(
+                                                    c => Number(c.qty) > 0 && !(c.serialNumber || '').trim()
+                                                ).length;
+                                            }
+                                            return n + (!(it.serialNumber || '').trim() ? 1 : 0);
+                                        }, 0);
+                                        if (missing === 0) return null;
+                                        return (
+                                            <div className="mb-4 flex items-center gap-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                                {missing} unit{missing === 1 ? '' : 's'} still need a serial number selected below.
+                                            </div>
+                                        );
+                                    })()}
                                     <div className="space-y-4">
                                         {items.map((item) => {
                                             const isPromoRow = !!item.isPromotion;

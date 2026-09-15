@@ -80,6 +80,11 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
     const [hasDraftState, setHasDraftState] = useState(!!draft);
     const { save: saveDraft, clear: clearDraft } = useFormDraft(draftKey);
     const autoSavedFromSORef = useRef(false);
+    // Persistent (non-toast) banner for when the SO→Invoice auto-save doesn't
+    // complete — e.g. the stock-shortfall confirm() below gets cancelled/missed.
+    // A toast alone was easy to miss right as the window opens; this stays
+    // visible until the invoice is actually saved.
+    const [autoSaveIncomplete, setAutoSaveIncomplete] = useState<string | null>(null);
 
     const [items, setItems] = useState<LineItem[]>(() => draft?.items ?? [{ id: `item-${Date.now()}`, no: 1, itemCode: '', modelName: '', description: '', qty: 1, unitPrice: 0, amount: 0 }]);
 
@@ -553,27 +558,30 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
         }
     };
 
-    const handleSave = async () => {
+    // Returns true once the invoice is actually persisted, false on any abort/
+    // failure — so a caller (the SO auto-save effect) can tell a silent-looking
+    // return apart from a real save, instead of just firing-and-forgetting.
+    const handleSave = async (): Promise<boolean> => {
         if (!invoice['Inv No'] || !invoice['Company Name']) {
             addToast('Please fill in Invoice No. and Company Name', 'error');
-            return;
+            return false;
         }
 
         const emptyBuild = items.find(i => i.isPCBuild && (!i.buildComponents || i.buildComponents.length === 0));
         if (emptyBuild) {
             addToast(`PC Build line "${emptyBuild.modelName || 'Untitled'}" has no components — add at least one part.`, 'error');
-            return;
+            return false;
         }
 
         if (!hasLineItemContent(items)) {
             addToast('Add at least one line item before saving.', 'error');
-            return;
+            return false;
         }
 
         // Period lock: refuse before minting a number / posting any JE, so a locked
         // month can't be touched (the DB enforces this too — this is the clean early exit).
         const invLockMsg = lockError(invoice['Inv Date']);
-        if (invLockMsg) { addToast(invLockMsg, 'error'); return; }
+        if (invLockMsg) { addToast(invLockMsg, 'error'); return false; }
 
         setIsSubmitting(true);
 
@@ -639,7 +647,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // VAT integrity: a VAT invoice may only draw VAT-purchased stock (and a
                 // non-VAT invoice only non-VAT). Block BEFORE minting a number/deducting.
                 const taxBlock = await checkInventoryTaxMatch(items, invoice['Taxable'] === 'VAT');
-                if (taxBlock) { addToast(taxBlock, 'error'); setIsSubmitting(false); return; }
+                if (taxBlock) { addToast(taxBlock, 'error'); setIsSubmitting(false); return false; }
 
                 const shortfalls: { label: string; requested: number; available: number }[] = [];
                 const checkAvailability = async (code: string | undefined, model: string | undefined, qty: number, label: string) => {
@@ -690,7 +698,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         `If this is a pre-order awaiting a purchase order, keep it as Draft (or take a deposit) ` +
                         `and issue once the stock is received.\n\nIssue the invoice anyway?`
                     );
-                    if (!ok) { setIsSubmitting(false); return; }
+                    if (!ok) { setIsSubmitting(false); return false; }
                 }
             }
 
@@ -1047,22 +1055,35 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             submitted.current = true;
             clearDraft();
             setHasDraftState(false);
+            setAutoSaveIncomplete(null);
             setSuccessInfo({ invNo: finalInvNo });
+            return true;
         } catch (err: any) {
             addToast(friendlyDbError(err, 'invoice number') || 'Failed to save invoice', 'error');
+            return false;
         } finally {
             setIsSubmitting(false);
         }
     };
 
     // Auto-save when navigated here via "Convert to Invoice" from a Sale Order.
-    // Fires once after nextInvNo resolves and the form is fully populated.
+    // Fires once after nextInvNo resolves and the form is fully populated. If it
+    // doesn't actually complete (e.g. the stock-shortfall confirm() below gets
+    // cancelled or missed), a plain toast is easy to miss right as the window
+    // opens — so a false result also raises a persistent on-screen banner that
+    // stays until the invoice is genuinely saved.
     useEffect(() => {
         if (!initialData?.soData) return;
         if (!invoice['Inv No'] || !invoice['Company Name']) return;
         if (autoSavedFromSORef.current) return;
         autoSavedFromSORef.current = true;
-        handleSave();
+        handleSave().then(ok => {
+            if (!ok) {
+                setAutoSaveIncomplete(
+                    'This invoice was NOT saved yet — review it below and click Save to finish converting the Sale Order.'
+                );
+            }
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [invoice['Inv No'], invoice['Company Name']]);
 
@@ -1230,6 +1251,17 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 ) : undefined}
             >
                 <div className="screen-only h-full flex relative overflow-hidden">
+                    {autoSaveIncomplete && (
+                        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-4 py-2.5 bg-rose-500/15 border-b-2 border-rose-500 text-rose-700 dark:text-rose-300 text-sm font-semibold">
+                            <span>⚠ {autoSaveIncomplete}</span>
+                            <button
+                                type="button"
+                                onClick={() => setAutoSaveIncomplete(null)}
+                                className="text-rose-700/70 dark:text-rose-300/70 hover:text-rose-700 dark:hover:text-rose-300 flex-shrink-0"
+                                aria-label="Dismiss"
+                            >✕</button>
+                        </div>
+                    )}
                     {/* Center area: PDF Preview */}
                     <div className="flex-1 flex flex-col relative overflow-hidden">
                         <InvoicePreview
