@@ -186,7 +186,12 @@ export async function resyncPurchaseOrderToInventory(
     let updated = 0;
     const toInsert: any[] = [];
     for (const item of items) {
-        if (!(item.qty > 0) || item.is_promotion) continue;
+        // Negative unit_price is checked independently of is_promotion — a
+        // Sales Discount/promo line always prices negative, and this guard must
+        // hold even if is_promotion itself is ever wrong (that flag got silently
+        // flipped false on a PO reload once, converting a -$200 discount line
+        // into a phantom inventory row on PO-2026-036).
+        if (!(item.qty > 0) || item.is_promotion || Number(item.unit_price) < 0) continue;
         const row = buildInventoryRow(item, po, poId, pricelist, vendorPricelist, createdBy);
         const match = byCode.get(String(row.code).toLowerCase());
         if (match) {
@@ -266,7 +271,9 @@ export const convertPurchaseOrderToInventory = async (
         pricelist = (data ?? []) as PricelistItem[];
     }
 
-    const filteredItems = items.filter(item => item.qty > 0 && !item.is_promotion);
+    // unit_price < 0 is checked independently of is_promotion — see the matching
+    // guard in resyncPurchaseOrderToInventory for why.
+    const filteredItems = items.filter(item => item.qty > 0 && !item.is_promotion && Number(item.unit_price) >= 0);
 
     // Already converted: don't duplicate rows — RE-SYNC the existing inventory to
     // the current (edited) PO instead. Updates cost/vendor/brand/warranty and
@@ -388,7 +395,9 @@ export const syncPurchaseOrderSerialsToInventory = async (
     if (error) throw new Error(error.message);
     if (!invRows || invRows.length === 0) return 0;
 
-    const filtered = items.filter(it => it.qty > 0 && !it.is_promotion);
+    // unit_price < 0 is checked independently of is_promotion — see the matching
+    // guard in resyncPurchaseOrderToInventory for why.
+    const filtered = items.filter(it => it.qty > 0 && !it.is_promotion && Number(it.unit_price) >= 0);
     // Only attach serials to rows that actually hold stock. A serial represents a
     // physical unit, so a sold-out / not-received row (qty <= 0) must never get a
     // serial attached or a serial_numbers unit seeded — otherwise re-saving a

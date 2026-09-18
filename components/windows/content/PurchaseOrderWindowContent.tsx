@@ -395,7 +395,14 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 ...row,
                 brand:        row.brand    ?? '',
                 category:     row.category ?? '',
-                is_promotion: row.line_number === 0 && row.unit_price < 0,
+                // Trust the persisted column — it's the real source of truth.
+                // Re-deriving it from line_number===0 was wrong: any promo row
+                // whose stored line_number isn't exactly 0 (e.g. inserted by a
+                // script, or any future path that doesn't force line_number to
+                // 0) got silently flipped to is_promotion=false on load, and the
+                // next save persisted that wrong value — converting a Sales
+                // Discount line into real inventory on PO completion.
+                is_promotion: row.is_promotion ?? (row.line_number === 0 && row.unit_price < 0),
             })));
         }
     };
