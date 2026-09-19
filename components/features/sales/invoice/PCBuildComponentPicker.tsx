@@ -22,15 +22,19 @@ interface PCBuildComponentPickerProps {
 }
 
 export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ components, onChange, taxType }) => {
-    const { inventoryItems } = useData();
+    const { inventoryItems, catalogPricelist } = useData();
     // Real per-part warranty comes from the received stock (inventory.warranty_months,
     // sourced from the PO), keyed by item code — the pricelist carries no warranty.
+    // A code present in stock but with no warranty recorded on the PO maps to 0
+    // ("no warranty stated"), not the 12-month default — the invoice must match the PO.
     const warrantyByCode = React.useMemo(() => {
         const m = new Map<string, number>();
         for (const r of inventoryItems ?? []) {
             const c = String((r as any).code ?? '').toLowerCase();
+            if (!c) continue;
             const w = (r as any).warranty_months;
-            if (c && w != null && !m.has(c)) m.set(c, Number(w));
+            if (w != null) m.set(c, Number(w));
+            else if (!m.has(c)) m.set(c, 0);
         }
         return m;
     }, [inventoryItems]);
@@ -59,7 +63,24 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                             <PricelistCombobox
                                 item={toLineItemShape(c, idx)}
                                 onItemChange={(_id, field, value) => {
-                                    if (field === 'itemCode') updateComponent(idx, { itemCode: String(value) });
+                                    if (field !== 'itemCode') return;
+                                    const code = String(value);
+                                    // A code typed by hand (not picked from the list) must still
+                                    // pick up the real PO warranty and its catalog name — only an exact code match
+                                    // applies, so partial keystrokes never overwrite anything.
+                                    const key = code.trim().toLowerCase();
+                                    const known = warrantyByCode.get(key);
+                                    const patch: Partial<BuildComponent> = { itemCode: code };
+                                    if (known !== undefined) patch.warrantyMonths = known;
+                                    // Same for identity: an exact catalog match fills any BLANK
+                                    // model/brand/description (never overwrites what's there).
+                                    const cat = key ? (catalogPricelist ?? []).find(p => String(p.Code ?? '').toLowerCase() === key) : undefined;
+                                    if (cat) {
+                                        if (!c.modelName) patch.modelName = cat.Model || '';
+                                        if (!c.brand) patch.brand = cat.Brand || '';
+                                        if (!c.description) patch.description = (cat as any).Description || '';
+                                    }
+                                    updateComponent(idx, patch);
                                 }}
                                 onPricelistItemSelect={(_item, p) => {
                                     const code = p['Code'] || p['Item Code'] || '';
@@ -68,7 +89,7 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                                         modelName: p.Model || '',
                                         description: (p as any).Description || (p as any).description || '',
                                         brand: p.Brand || '',
-                                        // Pull the real warranty from received stock; keep 12 as a fallback.
+                                        // Pull the real warranty from received stock; keep 12 only for codes with no stock yet.
                                         warrantyMonths: warrantyByCode.get(String(code).toLowerCase()) ?? 12,
                                     });
                                 }}
