@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PricelistItem } from "../../types";
 import { createRecord, updateRecord, deleteRecord } from "../../services/api";
 import { FormSection, FormInput, FormTextarea, FormSelect, FormDisplay } from "../common/FormControls";
@@ -62,8 +62,18 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         'Dealer Price': '',
     } as const), []);
 
+    // Seed the form ONLY on the actual open transition (false -> true), never on
+    // a re-render that merely happens to occur while the modal is already open.
+    // The effect used to depend on `initialData` directly — but callers build
+    // that object inline (e.g. PurchaseOrderWindowContent's "+ Create new item"
+    // flow), so it gets a fresh reference on every parent re-render. Any
+    // unrelated re-render (a realtime pricelist/PO update, a keystroke bubbling
+    // up, anything) re-ran this effect and wiped out whatever the user had just
+    // typed. Gating on the open transition makes correctness independent of
+    // whether every caller remembers to memoize its props.
+    const wasOpenRef = useRef(false);
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && !wasOpenRef.current) {
             setIsReadOnly(initialReadOnly);
             setItemType('');
             if (isEditMode) {
@@ -73,6 +83,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
             }
             setDeleteConfirmOpen(false);
         }
+        wasOpenRef.current = isOpen;
     }, [isOpen, existingData, isEditMode, initialReadOnly, getInitialState, initialData]);
 
     // Selecting an Item Type auto-generates a unique Code (PREFIX + next number)

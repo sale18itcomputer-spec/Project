@@ -245,6 +245,15 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
 
     // "+ Create new item" from the item picker → open the pricelist modal for a line.
     const [newItemFor, setNewItemFor] = useState<{ index: number; text: string } | null>(null);
+    // Stable reference for NewPricelistItemModal's initialData prop — an inline
+    // object here would get a fresh identity on every render of this (large,
+    // frequently-updating) component, and the modal used to re-seed its form
+    // from that prop whenever its reference changed, wiping out anything the
+    // user had already typed. Memoized on the one value that actually matters.
+    const newItemModalInitialData = useMemo(
+        () => newItemFor ? { Model: newItemFor.text, Description: newItemFor.text } : undefined,
+        [newItemFor?.text]
+    );
 
     useEffect(() => {
         if (!poId && initialData) {
@@ -922,7 +931,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
             <NewPricelistItemModal
                 isOpen={!!newItemFor}
                 onClose={() => setNewItemFor(null)}
-                initialData={newItemFor ? { Model: newItemFor.text, Description: newItemFor.text } : undefined}
+                initialData={newItemModalInitialData}
                 onCreated={item => {
                     if (newItemFor) {
                         handleItemSelectFromLookup(newItemFor.index, {
