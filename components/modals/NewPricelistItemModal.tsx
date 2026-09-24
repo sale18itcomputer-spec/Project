@@ -48,6 +48,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isSearchingWebsite, setIsSearchingWebsite] = useState(false);
     const [itemType, setItemType] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const isEditMode = !!existingData;
 
@@ -170,7 +171,13 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
             return;
         }
 
-        onClose();
+        // The modal only closes once the write (and, in the PO/PC-build "create
+        // new item" flow, the onCreated link-back into the caller) has actually
+        // finished. Closing early let a fast second click land on the caller's
+        // own Save while the item was still being created — the caller persisted
+        // the pre-creation placeholder text instead of the linked item (PO-2026-037,
+        // "FMK" line: item was created, PO line never got linked to it).
+        setIsSubmitting(true);
 
         if (isEditMode) {
             const originalPricelist = pricelist ? [...pricelist] : [];
@@ -186,6 +193,9 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
             } catch (err: any) {
                 addToast(`Failed to update item: ${err.message}`, 'error');
                 setPricelist(originalPricelist); // Revert
+            } finally {
+                setIsSubmitting(false);
+                onClose();
             }
         } else { // CREATE
             const tempId = submissionData.Code;
@@ -205,6 +215,9 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                 addToast(`Failed to create item: ${err.message}`, 'error');
                 // Revert by removing the optimistic data.
                 setPricelist(current => current ? current.filter(p => p.Code !== tempId) : null);
+            } finally {
+                setIsSubmitting(false);
+                onClose();
             }
         }
     };
@@ -237,6 +250,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
     const submitText = isEditMode ? 'Save Changes' : 'Save Item';
 
     const handleCancelClick = () => {
+        if (isSubmitting) return;
         if (isEditMode) {
             setFormData(existingData);
             setIsReadOnly(true);
@@ -263,10 +277,10 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                 </>
             ) : (
                 <div className="flex justify-end gap-3 w-full">
-                    <button type="button" onClick={handleCancelClick} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200">Cancel</button>
-                    <button type="submit" form={formId} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
-                        <Check className="w-5 h-5" />
-                        {submitText}
+                    <button type="button" onClick={handleCancelClick} disabled={isSubmitting} className="bg-card hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-lg border border-border transition-all duration-200 disabled:opacity-50">Cancel</button>
+                    <button type="submit" form={formId} disabled={isSubmitting} className="bg-primary hover:brightness-110 text-primary-foreground font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50">
+                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                        {isSubmitting ? 'Saving...' : submitText}
                     </button>
                 </div>
             )}
@@ -277,7 +291,7 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         <>
             <ResizableModal
                 isOpen={isOpen}
-                onClose={onClose}
+                onClose={() => { if (!isSubmitting) onClose(); }}
                 title={title}
                 footer={modalFooter}
             >
