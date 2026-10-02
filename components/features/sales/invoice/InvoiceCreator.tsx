@@ -608,6 +608,10 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 'Exchange Rate': toNum(invoice['Exchange Rate']),
                 'ItemsJSON': items,
                 'Created By': invoice['Created By'] || currentUser?.Name || '',
+                // `Taxable` is the source of truth. b2b_invoices."Tax Type" defaults to
+                // 'VAT' in the DB, so leaving it unset tagged every NON-VAT B2B invoice (and
+                // the receipts/DOs copied from it) as VAT.
+                'Tax Type': invoice['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
             };
 
             // Guarantee a Due Date so a credit-term sale never shows instantly

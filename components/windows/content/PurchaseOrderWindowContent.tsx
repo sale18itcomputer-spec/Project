@@ -52,6 +52,15 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
         if (!open) return [];
         const q = value.toLowerCase().trim();
 
+        // Vendor rows often carry only a code in model_name and no brand, and the
+        // dedupe below hides the matching main-pricelist row — so without this the
+        // PO line lands with blank brand/category and the bill posts ASUS/MSI/Lenovo
+        // stock to 12600 Other Accessories. Enrich from the pricelist by code.
+        const plByCode = new Map<string, NonNullable<typeof pricelist>[number]>();
+        for (const p of pricelist ?? []) {
+            if (p.Code) plByCode.set(p.Code.toLowerCase(), p);
+        }
+
         // ── Vendor pricelist (dealer pricing) ────────────────────────────────
         const vendorResults: ComboResult[] = (vendorPricelist ?? [])
             .filter(v =>
@@ -61,17 +70,20 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                 (v.specification ?? '').toLowerCase().includes(q)
             )
             .slice(0, 40)
-            .map(v => ({
-                key: `v-${v.id}`,
-                source: 'vendor',
-                code: v.model_name ?? '',
-                model: v.model_name ?? '',
-                brand: v.brand ?? '',
-                category: '',           // vendor_pricelist has no category column
-                spec: v.specification ?? '',
-                price: v.dealer_price ?? 0,
-                currency: v.currency,
-            }));
+            .map(v => {
+                const pl = plByCode.get((v.model_name ?? '').toLowerCase());
+                return {
+                    key: `v-${v.id}`,
+                    source: 'vendor' as const,
+                    code: v.model_name ?? '',
+                    model: pl?.Model || v.model_name || '',
+                    brand: v.brand || pl?.Brand || '',
+                    category: pl?.Category || '',
+                    spec: v.specification || pl?.Description || '',
+                    price: v.dealer_price ?? 0,
+                    currency: v.currency,
+                };
+            });
 
         // ── Main pricelist (B2C / sales pricelist) ────────────────────────────
         const plResults: ComboResult[] = (pricelist ?? [])
@@ -519,16 +531,25 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 await supabase.from('purchase_order_items').delete().eq('po_id', savedPoId);
             }
 
+            // Last line of defence: a typed/odd-path line may arrive without brand/category.
+            // Resolve them from the pricelist by code so the bill never routes branded
+            // stock to 12600 Other Accessories.
+            const plFor = (code?: string) => code
+                ? (pricelist ?? []).find(p => p.Code && p.Code.toLowerCase() === code.toLowerCase())
+                : undefined;
             const itemsPayload = items.map(item => ({
                 po_id: savedPoId,
                 line_number: item.line_number,
                 item_number: item.item_number,
-                model_name: item.model_name ?? '',
+                // A model_name equal to the code means the lookup never ran (the code was
+                // copied through to inventory and then to SOs/invoices as the "model").
+                model_name: (!item.is_promotion && (!item.model_name?.trim() || item.model_name.trim().toLowerCase() === (item.item_number ?? '').trim().toLowerCase())
+                    ? plFor(item.item_number)?.Model : undefined) || item.model_name || '',
                 description: item.description,
                 qty: item.qty,
                 unit_price: item.unit_price,
-                brand: item.brand ?? '',
-                category: item.category ?? '',
+                brand: item.brand?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Brand) || '',
+                category: item.category?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Category) || '',
                 serial_number: item.serial_number ?? '',
                 warranty_months: item.warranty_months ?? null,
                 is_promotion: item.is_promotion ?? false,
@@ -546,7 +567,11 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                         .filter(item => !item.is_promotion && (item.item_number || item.description))
                         .map(item => ({
                             vendor_id: formData.vendor_id,
-                            brand: '',
+                            // Never write a blank brand: a blank vendor row shadows the main
+                            // pricelist entry in the PO item picker (see POItemCombobox).
+                            brand: item.brand?.trim()
+                                || (pricelist ?? []).find(p => p.Code && p.Code.toLowerCase() === (item.item_number ?? '').toLowerCase())?.Brand
+                                || '',
                             model_name: item.item_number || stripHtml(item.description).substring(0, 50) || 'N/A',
                             specification: stripHtml(item.description),
                             dealer_price: item.unit_price,

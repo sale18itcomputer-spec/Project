@@ -73,7 +73,7 @@ export async function finalizeDepositInvoice(params: {
         'Tin No': dep['Tin No'] || '',
         'Payment Term': dep['Payment Term'] || '',
         'Taxable': taxable,
-        'Tax Type': dep['Tax Type'] || taxable,
+        'Tax Type': taxable,
         'Currency': dep['Currency'] || 'USD',
         'Exchange Rate': dep['Exchange Rate'] || null,
         'Amount': grandTotal,

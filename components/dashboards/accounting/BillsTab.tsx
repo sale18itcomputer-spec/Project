@@ -308,12 +308,30 @@ const BillFormModal: React.FC<{
                                                     .eq('po_id', po.id)
                                                     .order('line_number');
                                                 if (poItems?.length) {
+                                                    // A PO line saved without a brand (e.g. picked from a vendor-pricelist
+                                                    // row that has none) would silently route ASUS/MSI/Lenovo stock to
+                                                    // 12600 — resolve it from the main pricelist by item code first.
+                                                    const blankCodes = poItems
+                                                        .filter((i: any) => !i.is_promotion && !String(i.brand ?? '').trim() && i.item_number)
+                                                        .map((i: any) => i.item_number);
+                                                    const brandByCode = new Map<string, string>();
+                                                    if (blankCodes.length) {
+                                                        const { data: pl } = await supabase
+                                                            .from('pricelist')
+                                                            .select('Code, Brand')
+                                                            .in('Code', blankCodes);
+                                                        for (const r of pl ?? []) {
+                                                            if (r.Brand) brandByCode.set(String(r.Code).toLowerCase(), r.Brand);
+                                                        }
+                                                    }
                                                     setLines(poItems.map((item: any) => ({
                                                         key: Math.random().toString(36).slice(2),
                                                         description: item.description || item.model_name || item.item_number || '',
                                                         account_number: item.is_promotion
                                                             ? '70200'
-                                                            : getBillInventoryAccount(item.brand),
+                                                            : getBillInventoryAccount(
+                                                                String(item.brand ?? '').trim() || brandByCode.get(String(item.item_number ?? '').toLowerCase()),
+                                                            ),
                                                         qty:        String(item.qty ?? 1),
                                                         unit_price: item.is_promotion
                                                             ? String(Math.abs(Number(item.unit_price ?? 0)))

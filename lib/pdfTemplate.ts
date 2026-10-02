@@ -220,7 +220,7 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     }
     if (opts.type === 'Delivery Order') {
         // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
-        const showVat = (hd['Tax Type'] || hd['Taxable'] || '').toUpperCase() !== 'NON-VAT';
+        const showVat = (hd['Taxable'] || hd['Tax Type'] || '').toUpperCase() !== 'NON-VAT';
         return buildDeliveryNote(hd, items as any, showVat, opts.signaturePadding, undefined, cw);
     }
     if (opts.type === 'Quotation') {
