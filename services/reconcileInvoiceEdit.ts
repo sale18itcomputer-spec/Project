@@ -274,6 +274,9 @@ export async function reconcileIssuedInvoiceEdit(params: {
 
     // COGS delta accumulates per (cogsBrand, inventoryBrand) as units move.
     const cogsDeltaByBrand = new Map<string, number>(); // brand → signed cost delta
+    // Zero-cost (free) stock that moved: no amount to post, but the item must still show in the journal.
+    const zeroCostMoves: { brand: string; label: string; qty: number }[] = []; // qty > 0 issued, < 0 returned
+    let lastMatched = false as boolean; // set by deductFIFO / restock: did a stock lot actually match?
 
     // ── 1. Inventory qty delta (per code) ──────────────────────────────────
     const wantTax = wantTaxType(params.isVAT); // only draw stock of this tax type (or unclassified)
@@ -292,6 +295,7 @@ export async function reconcileIssuedInvoiceEdit(params: {
                 .ilike('model_name', `%${model}%`).or(taxTypeOrFilter(wantTax)).order('created_at', { ascending: true }).limit(1);
             rows = data;
         }
+        lastMatched = !!(rows && rows.length);
         if (!rows || !rows.length) return 0;
         const lot = rows[0];
         const newQty = Math.max(0, Number(lot.qty) - qty);
@@ -317,6 +321,7 @@ export async function reconcileIssuedInvoiceEdit(params: {
                 .order('created_at', { ascending: true }).limit(1);
             rows = data;
         }
+        lastMatched = !!(rows && rows.length);
         if (!rows || !rows.length) return 0;
         const lot = rows[0];
         const newQty = Number(lot.qty) + qty;
@@ -331,9 +336,11 @@ export async function reconcileIssuedInvoiceEdit(params: {
         if (d > 0) {
             const unitCost = await deductFIFO(code, model, d);
             if (unitCost > 0) cogsDeltaByBrand.set(brand, (cogsDeltaByBrand.get(brand) || 0) + unitCost * d);
+            else if (lastMatched) zeroCostMoves.push({ brand, label: code || model || 'item', qty: d });
         } else {
             const unitCost = await restock(code, model, -d);
             if (unitCost > 0) cogsDeltaByBrand.set(brand, (cogsDeltaByBrand.get(brand) || 0) + unitCost * d); // d<0 → negative
+            else if (lastMatched) zeroCostMoves.push({ brand, label: code || model || 'item', qty: d });
         }
     }
 
@@ -364,7 +371,7 @@ export async function reconcileIssuedInvoiceEdit(params: {
     const hasRev = Math.abs(revDeltaTotal) > 0.005;
     let glAdjusted = false;
 
-    if (hasRev || hasCogs) {
+    if (hasRev || hasCogs || zeroCostMoves.length > 0) {
         const deltaLines: { account_number: string; description: string; debit: number; credit: number }[] = [];
         // Positive `amount` goes on `side`; negative flips to the opposite side.
         const push = (account: string, desc: string, amount: number, side: 'debit' | 'credit') => {
@@ -393,6 +400,17 @@ export async function reconcileIssuedInvoiceEdit(params: {
             const creditDesc = entry?.payable ? 'Payable' : 'Inventory out';
             push(cogsAcct, `COGS ${brand} adj — ${params.invNo}`, d, 'debit');
             push(creditAcct, `${creditDesc} ${brand} adj — ${params.invNo}`, d, 'credit');
+        }
+
+        // Free / zero-cost items: $0.00 line pair naming the item, so the journal shows
+        // everything that left (or returned to) stock even when there is no amount to post.
+        for (const z of zeroCostMoves) {
+            const brand = normalizeBrand(z.brand);
+            const entry = BRAND_ACCOUNT_MAP[brand];
+            const creditDesc = entry?.payable ? 'Payable' : 'Inventory out';
+            const note = ` · ${z.label} ${z.qty > 0 ? '×' + z.qty : 'returned ×' + -z.qty} @ $0.00 (no cost)`;
+            deltaLines.push({ account_number: entry?.cogs ?? '50600', description: `COGS ${brand} adj — ${params.invNo}${note}`, debit: 0, credit: 0 });
+            deltaLines.push({ account_number: entry?.payable ?? entry?.inventory ?? '12600', description: `${creditDesc} ${brand} adj — ${params.invNo}${note}`, debit: 0, credit: 0 });
         }
 
         if (deltaLines.length > 0) {

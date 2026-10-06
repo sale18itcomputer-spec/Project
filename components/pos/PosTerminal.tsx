@@ -299,7 +299,7 @@ const PosTerminal: React.FC = () => {
       ;(async () => {
         const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
-        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+        const costItems: { brand: string; qty: number; unit_price: number; label?: string }[] = [];
         const wantTax = wantTaxType(session.taxType === 'VAT'); // draw only matching-tax stock
 
         for (const item of cartSnapshot) {
@@ -340,9 +340,8 @@ const PosTerminal: React.FC = () => {
               .update({ qty: newQty, status: newQty <= 0 ? 'Out of Stock' : 'In Stock' })
               .eq('id', inv.id);
             const unitCost = Number(inv.unit_price) || 0;
-            if (unitCost > 0) {
-              costItems.push({ brand, qty: item.qty, unit_price: unitCost });
-            }
+            // Free / zero-cost stock still leaves inventory: journal it too (at $0.00).
+            costItems.push({ brand, qty: item.qty, unit_price: unitCost, label: item.itemCode || item.modelName });
           }
         }
 

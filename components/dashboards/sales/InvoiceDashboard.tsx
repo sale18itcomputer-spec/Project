@@ -255,7 +255,7 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
         const codeMap  = new Map(pl.map((p: any) => [p['Code'],  p['Brand']]));
         const modelMap = new Map(pl.map((p: any) => [p['Model'], p['Brand']]));
         const brandTotals: Record<string, number> = {};
-        const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+        const costItems: { brand: string; qty: number; unit_price: number; label?: string }[] = [];
         let grossSubTotal = 0;
         let cashbackTotal = 0;
 
@@ -286,8 +286,8 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                     const inv = invRows[0];
                     resolvedBrand = normalizeBrand((code && codeMap.get(code)) || inv.brand?.trim() || 'Other Accessories');
                     const unitCost = Number(inv.unit_price) || 0;
-                    if (unitCost > 0 && qty > 0) {
-                        costItems.push({ brand: resolvedBrand, qty, unit_price: unitCost });
+                    if (qty > 0) {
+                        costItems.push({ brand: resolvedBrand, qty, unit_price: unitCost, label: code || model });
                     }
                 }
             }

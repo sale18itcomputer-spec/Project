@@ -111,7 +111,7 @@ export async function finalizeDepositInvoice(params: {
     // Only relieve stock of the deposit invoice's tax type (or unclassified) — a VAT
     // final invoice can't draw non-VAT stock and vice-versa.
     const wantTax = wantTaxType(isVAT);
-    const costItems: { brand: string; qty: number; unit_price: number }[] = [];
+    const costItems: { brand: string; qty: number; unit_price: number; label?: string }[] = [];
     for (const { code, model, brand, delta: qty } of delta.qtyDeltas) {
         if (qty <= 0) continue;
         let rows: any[] | null = null;
@@ -132,7 +132,7 @@ export async function finalizeDepositInvoice(params: {
         const newQty = Math.max(0, Number(lot.qty) - qty);
         await supabase.from('inventory').update({ qty: newQty, status: newQty <= 0 ? 'Out of Stock' : 'In Stock' }).eq('id', lot.id);
         const unitCost = Number(lot.unit_price) || 0;
-        if (unitCost > 0) costItems.push({ brand: normalizeBrand(brand), qty, unit_price: unitCost });
+        costItems.push({ brand: normalizeBrand(brand), qty, unit_price: unitCost, label: code || model });
     }
     // Batched — a per-serial round-trip here froze the finalize when many serials
     // were captured. markSerialsSold skips any unit already Sold to a different SO.
@@ -156,13 +156,14 @@ export async function finalizeDepositInvoice(params: {
         lines.push({ account_number: BRAND_ACCOUNT_MAP[brand]?.revenue ?? '40600', description: `Revenue ${brand} — ${finalInvNo}`, debit: 0, credit: amt });
     }
     if (isVAT && remainingVAT > 0.005) lines.push({ account_number: '23000', description: `VAT Output (net of deposit VAT) — ${finalInvNo}`, debit: 0, credit: remainingVAT });
-    for (const { brand: rawBrand, qty, unit_price } of costItems) {
+    for (const { brand: rawBrand, qty, unit_price, label } of costItems) {
         const cost = qty * unit_price;
-        if (cost <= 0.005) continue;
+        const isZero = cost <= 0.005; // free / zero-cost stock still left inventory: journal it at $0.00
         const brand = normalizeBrand(rawBrand);
         const entry = BRAND_ACCOUNT_MAP[brand];
-        lines.push({ account_number: entry?.cogs ?? '50600', description: `COGS ${brand} — ${finalInvNo}`, debit: cost, credit: 0 });
-        lines.push({ account_number: entry?.payable ?? entry?.inventory ?? '12600', description: `${entry?.payable ? 'Payable' : 'Inventory out'} ${brand} — ${finalInvNo}`, debit: 0, credit: cost });
+        const note = isZero ? ` · ${label ?? 'item'} ×${qty} @ $0.00 (no cost)` : '';
+        lines.push({ account_number: entry?.cogs ?? '50600', description: `COGS ${brand} — ${finalInvNo}${note}`, debit: isZero ? 0 : cost, credit: 0 });
+        lines.push({ account_number: entry?.payable ?? entry?.inventory ?? '12600', description: `${entry?.payable ? 'Payable' : 'Inventory out'} ${brand} — ${finalInvNo}${note}`, debit: 0, credit: isZero ? 0 : cost });
     }
     const entryNumber = await getNextEntryNumber();
     await createJournalEntry(

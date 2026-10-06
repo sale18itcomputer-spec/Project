@@ -836,7 +836,7 @@ export const autoPostInvoiceJournal = async (params: {
      *  (e.g. 'PC Build' → 50900) while `brand` still controls the inventory
      *  account credited — used when a component is sold as part of a build but
      *  its physical inventory lives under its own real brand. */
-    costItems?: { brand: string; qty: number; unit_price: number; cogsBrand?: string }[];
+    costItems?: { brand: string; qty: number; unit_price: number; cogsBrand?: string; label?: string }[];
     /** VAT-inclusive deposit already received — applied against AR (DR 25000 / CR 11900) */
     depositAmount?: number;
 }): Promise<boolean> => {
@@ -954,9 +954,10 @@ export const autoPostInvoiceJournal = async (params: {
     // falls back to the Other Accessories LEAF accounts (50600 / 12600), never the
     // 50000 / 12000 parents — parent/summary accounts must not hold direct postings.
     if (params.costItems && params.costItems.length > 0) {
-        for (const { brand: rawBrand, qty, unit_price, cogsBrand: rawCogsBrand } of params.costItems) {
+        for (const { brand: rawBrand, qty, unit_price, cogsBrand: rawCogsBrand, label } of params.costItems) {
+            if (!(qty > 0)) continue;
             const cost = qty * unit_price;
-            if (cost <= 0.005) continue;
+            const isZero = cost <= 0.005;
             const brand      = normalizeBrand(rawBrand);
             const brandEntry = BRAND_ACCOUNT_MAP[brand];
             const cogsEntry  = rawCogsBrand ? BRAND_ACCOUNT_MAP[normalizeBrand(rawCogsBrand)] : brandEntry;
@@ -965,8 +966,12 @@ export const autoPostInvoiceJournal = async (params: {
             // payable account instead — nothing physical is being relieved.
             const creditAcct = brandEntry?.payable ?? brandEntry?.inventory ?? '12600';
             const creditDesc = brandEntry?.payable ? 'Payable' : 'Inventory out';
-            lines.push({ account_number: cogsAcct,   description: `COGS ${brand} — ${params.invNo}`,              debit: cost, credit: 0 });
-            lines.push({ account_number: creditAcct, description: `${creditDesc} ${brand} — ${params.invNo}`,     debit: 0,    credit: cost });
+            // A free / zero-cost item still LEAVES stock, so it gets its own $0.00 line
+            // pair naming the item — the ledger then shows every item that was issued,
+            // not only the ones that carried a cost (INV2026-00021: free mousepad).
+            const note = isZero ? ` · ${label ?? 'item'} ×${qty} @ $0.00 (no cost)` : '';
+            lines.push({ account_number: cogsAcct,   description: `COGS ${brand} — ${params.invNo}${note}`,          debit: isZero ? 0 : cost, credit: 0 });
+            lines.push({ account_number: creditAcct, description: `${creditDesc} ${brand} — ${params.invNo}${note}`, debit: 0,                credit: isZero ? 0 : cost });
         }
     }
 

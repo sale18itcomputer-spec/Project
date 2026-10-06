@@ -747,7 +747,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 const brandMap = new Map((pricelist ?? []).map(p => [p['Code'], p['Brand']]));
                 const warrantyStart = invoice['Inv Date'] || getTodayDateString();
 
-                const costItems: { brand: string; qty: number; unit_price: number; cogsBrand?: string }[] = [];
+                const costItems: { brand: string; qty: number; unit_price: number; cogsBrand?: string; label?: string }[] = [];
                 const brandTotals: Record<string, number> = {};
                 const conflictSerials: { serial: string; soNo: string }[] = [];
 
@@ -821,8 +821,9 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                                 const matched = (code || model) ? await deductInventoryFIFO(code, model, compQty) : null;
                                 const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || matched?.brand || comp.brand || 'Other Accessories');
                                 const unitCost = matched?.unitCost ?? 0;
-                                if (unitCost > 0) {
-                                    costItems.push({ brand: resolvedBrand, qty: compQty, unit_price: unitCost, cogsBrand: 'PC Build' });
+                                // Any component that actually left stock is journalled, even at $0 cost.
+                                if (matched) {
+                                    costItems.push({ brand: resolvedBrand, qty: compQty, unit_price: unitCost, cogsBrand: 'PC Build', label: code || model || comp.modelName });
                                 }
 
                                 const serials = (comp.serialNumber || '').split('\n').map(s => s.trim()).filter(s => s.length > 0);
@@ -861,9 +862,8 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         } else if (matched) {
                             // Brand resolved with inventory fallback — used for BOTH COGS and revenue
                             const resolvedBrand = normalizeBrand((code && brandMap.get(code)) || matched.brand || 'Other Accessories');
-                            if (matched.unitCost > 0) {
-                                costItems.push({ brand: resolvedBrand, qty, unit_price: matched.unitCost });
-                            }
+                            // Free / zero-cost stock still leaves inventory, so it is journalled too (at $0.00).
+                            costItems.push({ brand: resolvedBrand, qty, unit_price: matched.unitCost, label: code || model });
                             // Accumulate revenue total under same brand as COGS
                             brandTotals[resolvedBrand] = (brandTotals[resolvedBrand] ?? 0) + (Number(item.amount) || 0);
                         } else if (code || model) {
