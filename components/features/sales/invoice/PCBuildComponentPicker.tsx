@@ -76,6 +76,7 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                                     // model/brand/description (never overwrites what's there).
                                     const cat = key ? (catalogPricelist ?? []).find(p => String(p.Code ?? '').toLowerCase() === key) : undefined;
                                     if (cat) {
+                                        if (known === undefined && (cat as any).warranty_months != null) patch.warrantyMonths = (cat as any).warranty_months;
                                         if (!c.modelName) patch.modelName = cat.Model || '';
                                         if (!c.brand) patch.brand = cat.Brand || '';
                                         if (!c.description) patch.description = (cat as any).Description || '';
@@ -89,8 +90,8 @@ export const PCBuildComponentPicker: React.FC<PCBuildComponentPickerProps> = ({ 
                                         modelName: p.Model || '',
                                         description: (p as any).Description || (p as any).description || '',
                                         brand: p.Brand || '',
-                                        // Pull the real warranty from received stock; keep 12 only for codes with no stock yet.
-                                        warrantyMonths: warrantyByCode.get(String(code).toLowerCase()) ?? 12,
+                                        // Real warranty from received stock, else the pricelist default; 12 only as a last resort.
+                                        warrantyMonths: warrantyByCode.get(String(code).toLowerCase()) ?? (p as any).warranty_months ?? 12,
                                     });
                                 }}
                             />

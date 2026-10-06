@@ -24,7 +24,7 @@ import NewPricelistItemModal from '@/components/modals/NewPricelistItemModal';
 interface POItemComboboxProps {
     value: string;
     onChange: (value: string) => void;
-    onSelect: (fields: { item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string }) => void;
+    onSelect: (fields: { item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string; warranty_months?: number | null }) => void;
     /** When the typed item has no match, offer to create it as a new pricelist item. */
     onCreateNew: (text: string) => void;
 }
@@ -46,6 +46,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
         key: string; source: 'vendor' | 'pricelist';
         code: string; model: string; brand: string;
         category: string; spec: string; price: number; currency?: string;
+        warranty: number | null;
     };
 
     const results = useMemo((): ComboResult[] => {
@@ -82,6 +83,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                     spec: v.specification || pl?.Description || '',
                     price: v.dealer_price ?? 0,
                     currency: v.currency,
+                    warranty: pl?.warranty_months ?? null,
                 };
             });
 
@@ -105,6 +107,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                 spec: p.Description ?? '',
                 price: parseFloat(String(p['End User Price'] ?? 0)) || 0,
                 currency: p.Currency,
+                warranty: p.warranty_months ?? null,
             }));
 
         // Deduplicate: if vendor already covers a code, skip pricelist duplicate
@@ -158,6 +161,7 @@ const POItemCombobox: React.FC<POItemComboboxProps> = ({ value, onChange, onSele
                                                         unit_price: r.price,
                                                         brand: r.brand,
                                                         category: r.category,
+                                                        warranty_months: r.warranty,
                                                     });
                                                     setOpen(false);
                                                 }}
@@ -292,6 +296,27 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
 
     const [isSaving, setIsSaving] = useState(false);
     const [signaturePadding, setSignaturePadding] = useState(0);
+
+    // Completing a PO that has no inventory yet normally books its lines into stock.
+    // A PO that was really received (and possibly sold) before it was marked Completed
+    // must be closable WITHOUT creating stock, or it manufactures phantom on-hand qty
+    // (PO-2026-042). `poHasInventory` is null until the lookup resolves.
+    const [poHasInventory, setPoHasInventory] = useState<boolean | null>(null);
+    const [addToInventory, setAddToInventory] = useState(true);
+    useEffect(() => {
+        setPoHasInventory(null);
+        if (!existingPO?.id) return;
+        let cancelled = false;
+        hasInventoryForPO(existingPO.id)
+            .then(has => { if (!cancelled) setPoHasInventory(has); })
+            .catch(() => { if (!cancelled) setPoHasInventory(null); });
+        // An Approved PO is already ordered/received — default to NOT adding stock.
+        setAddToInventory(existingPO.status !== 'Approved');
+        return () => { cancelled = true; };
+    }, [existingPO?.id]);
+    // The choice only applies on the transition into Completed for a PO with no stock yet.
+    const showAddToInventoryChoice =
+        !!existingPO && existingPO.status !== 'Completed' && formData.status === 'Completed' && poHasInventory === false;
 
     const totals = useMemo(() => {
         const sub_total = items.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
@@ -455,10 +480,14 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
     /** Called when a user selects from the POItemCombobox — fills all fields at once */
     const handleItemSelectFromLookup = (index: number, fields: {
         item_number: string; model_name: string; description: string; unit_price: number; brand: string; category: string;
+        warranty_months?: number | null;
     }) => {
+        // The pricelist warranty is only a default: apply it when it has a value, and
+        // never wipe a warranty the buyer already typed on this line.
+        const { warranty_months, ...rest } = fields;
         setItems(prev => prev.map((item, i) =>
             i === index
-                ? { ...item, ...fields }
+                ? { ...item, ...rest, ...(warranty_months != null ? { warranty_months } : {}) }
                 : item
         ));
     };
@@ -551,7 +580,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 brand: item.brand?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Brand) || '',
                 category: item.category?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Category) || '',
                 serial_number: item.serial_number ?? '',
-                warranty_months: item.warranty_months ?? null,
+                warranty_months: item.warranty_months ?? (item.is_promotion ? null : plFor(item.item_number)?.warranty_months) ?? null,
                 is_promotion: item.is_promotion ?? false,
             }));
 
@@ -602,7 +631,8 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 }
 
                 // ── Auto-convert PO → Inventory (non-fatal, guarded against double-conversion) ──
-                try {
+                // Skipped when the user marked an inventory-less PO as already received.
+                if (!showAddToInventoryChoice || addToInventory) try {
                     const result = await convertPurchaseOrderToInventory(
                         { ...formData, id: savedPoId, po_number: formData.po_number || '' } as PurchaseOrder,
                         items,
@@ -718,6 +748,15 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                         <FormSelect name="status" label="Status" value={formData.status || 'Draft'} onChange={handleInputChange} options={['Draft', 'Approved', 'Sent', 'Completed', 'Cancelled']} />
                         <FormSelect name="tax_type" label="Tax Type" value={formData.tax_type || 'VAT'} onChange={handleInputChange} options={['VAT', 'NON-VAT']} />
                     </div>
+                    {showAddToInventoryChoice && (
+                        <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                            <input type="checkbox" className="mt-0.5" checked={addToInventory} onChange={e => setAddToInventory(e.target.checked)} />
+                            <span>
+                                <strong>Add these items to Inventory when completing.</strong>{' '}
+                                Untick if the goods were already received/booked — the PO is then closed without creating any stock.
+                            </span>
+                        </label>
+                    )}
                     <FormInput name="order_date" label="Order Date" value={formData.order_date || ''} onChange={handleInputChange} type="date" />
                     <FormInput name="delivery_date" label="Delivery Date" value={formData.delivery_date || ''} onChange={handleInputChange} type="date" />
                     <FormInput name="payment_term" label="Payment Term" value={formData.payment_term || ''} onChange={handleInputChange} placeholder="e.g. Net 30" />
@@ -966,6 +1005,7 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                             unit_price: parseFloat(String(item['End User Price'] ?? 0)) || 0,
                             brand: item.Brand || '',
                             category: item.Category || '',
+                            warranty_months: item.warranty_months ?? null,
                         });
                     }
                     setNewItemFor(null);

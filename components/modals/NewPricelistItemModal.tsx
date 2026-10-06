@@ -11,6 +11,7 @@ import { useToast } from "../../contexts/ToastContext";
 import ConfirmationModal from "./ConfirmationModal";
 import ResizableModal from "./ResizableModal";
 import { ITEM_TYPES, getNextItemCode } from "../../utils/itemCode";
+import { parseWarrantyMonths } from "../../utils/warranty";
 import { GoogleGenAI } from '@google/genai';
 import { Check, Pencil, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from "../ui/button";
@@ -154,10 +155,18 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
         // Prepare submission data - exclude computed fields like 'fullDescription'
         const { fullDescription: _fullDescription, ...cleanFormData } = formData as any;
 
+        // Warranty default: the typed value, else whatever the description states
+        // ("3Y Warranty…"), else unset. Never a silent 12.
+        const typedWarranty = String(formData.warranty_months ?? '').trim();
+        const warrantyMonths = typedWarranty !== ''
+            ? parseInt(typedWarranty, 10)
+            : parseWarrantyMonths(formData.Description);
+
         const submissionData = {
             ...cleanFormData,
             'Dealer Price': toNumeric(formData['Dealer Price']),
             'End User Price': toNumeric(formData['End User Price']),
+            'warranty_months': Number.isFinite(warrantyMonths as number) ? warrantyMonths : null,
         };
 
         if (!submissionData.Code) {
@@ -342,6 +351,9 @@ const NewPricelistItemModal: React.FC<NewPricelistItemModalProps> = ({ isOpen, o
                             isReadOnly ? <FormDisplay label="Dealer Price" value={formData['Dealer Price']} /> : <FormInput name="Dealer Price" label="Dealer Price" value={formData['Dealer Price']} onChange={handleChange} type="text" />
                         )}
                         {isReadOnly ? <FormDisplay label="Unit Price" value={formData['End User Price']} /> : <FormInput name="End User Price" label="Unit Price" value={formData['End User Price']} onChange={handleChange} type="text" />}
+                        {isReadOnly
+                            ? <FormDisplay label="Warranty" value={formData.warranty_months != null ? `${formData.warranty_months} months` : '-'} />
+                            : <FormInput name="warranty_months" label="Warranty (months)" value={String(formData.warranty_months ?? '')} onChange={handleChange} type="text" />}
                         {isReadOnly ? <FormDisplay label="Status">{formData.Status && <StatusBadge status={formData.Status} />}</FormDisplay> : <FormSelect name="Status" label="Status" value={formData.Status} onChange={handleChange} options={STATUS_OPTIONS} required />}
                     </FormSection>
                 </form>

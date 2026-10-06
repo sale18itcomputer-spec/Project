@@ -149,7 +149,8 @@ function buildInventoryRow(
         model_name:  resolvedModel,
         description: resolvedDesc,
         serial_number: normalizeSerials(item.serial_number),
-        warranty_months: item.warranty_months ?? null,
+        // PO line is the real, per-purchase value; the pricelist is the default.
+        warranty_months: item.warranty_months ?? plMatch?.warranty_months ?? null,
         qty:         item.qty,
         po_ordered_qty: item.qty, // baseline ordered qty, for edit re-sync deltas
         unit_price:  item.unit_price ?? 0,
@@ -322,7 +323,7 @@ export const convertPurchaseOrderToInventory = async (
             .split('\n')
             .map(s => s.trim())
             .filter(s => s.length > 0);
-        const warrantyMonths = item.warranty_months ?? 12;
+        const warrantyMonths = item.warranty_months ?? invRow.warranty_months ?? 12;
         return serials.map(sn => ({
             serial_number: sn,
             brand: invRow.brand ?? '',
@@ -439,7 +440,7 @@ export const syncPurchaseOrderSerialsToInventory = async (
                 model_name: row.model_name ?? '',
                 description: row.description ?? '',
                 inventory_id: row.id,
-                warranty_period_months: it.warranty_months ?? 12,
+                warranty_period_months: it.warranty_months ?? row.warranty_months ?? 12,
                 created_by: createdBy,
                 // so_no / company_name / contact_name / status / stock_status fall
                 // to their DB defaults ('', 'Active', 'In Stock') — a fresh unit.

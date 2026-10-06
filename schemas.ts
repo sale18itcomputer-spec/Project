@@ -240,6 +240,7 @@ export const PRICELIST_HEADERS = [
   'extra_specs',
   'category_id',
   'subcategory_id',
+  'warranty_months',
   'updated_at',
 ] as const;
 

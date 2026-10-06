@@ -467,6 +467,8 @@ export interface PricelistItem {
   'extra_specs': any;
   'category_id': number | null;
   'subcategory_id': number | null;
+  /** Default warranty length in months — prefills the PO line; the PO value is the real one that flows to stock. */
+  'warranty_months'?: number | null;
   'updated_at': string;
   [key: string]: any;
 }
