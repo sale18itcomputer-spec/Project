@@ -37,7 +37,7 @@ function buildMessage(params: {
     const symbol = currency === 'KHR' ? '៛' : '$';
 
     const subTotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
-    const vat      = taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+    const vat      = (taxType === 'NON-VAT' || taxType === 'Commercial Invoice') ? 0 : subTotal * 0.1;
     const grand    = subTotal + vat;
 
     const fmt = (n: number) =>
@@ -56,7 +56,7 @@ function buildMessage(params: {
         })
         .join('\n\n');
 
-    const taxLine = taxType === 'NON-VAT'
+    const taxLine = (taxType === 'NON-VAT' || taxType === 'Commercial Invoice')
         ? `Tax: NON\\-VAT`
         : `VAT \\(10%\\): ${fmt(vat)}`;
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         const text = buildMessage({ quoteNo, customerName, customerContact, currency, taxType, items, note });
 
         const subTotal   = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.unitPrice) || 0), 0);
-        const vat        = taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+        const vat        = (taxType === 'NON-VAT' || taxType === 'Commercial Invoice') ? 0 : subTotal * 0.1;
         const grandTotal = subTotal + vat;
 
         const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

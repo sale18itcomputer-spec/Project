@@ -166,7 +166,7 @@ export async function saveQuotationFromSession(
 
   // Calculate totals — mirrors QuotationCreator.tsx logic
   const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const vat = sessionData.taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+  const vat = (sessionData.taxType as string) === 'NON-VAT' || (sessionData.taxType as string) === 'Commercial Invoice' ? 0 : subTotal * 0.1;
   const grandTotal = subTotal + vat;
 
   // Build line items in the exact shape ItemsJSON expects
@@ -257,7 +257,7 @@ export async function generateQuotationPDF(
 ): Promise<Buffer> {
   const items = sessionData.items ?? [];
   const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const vat = sessionData.taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+  const vat = (sessionData.taxType as string) === 'NON-VAT' || (sessionData.taxType as string) === 'Commercial Invoice' ? 0 : subTotal * 0.1;
   const grandTotal = subTotal + vat;
 
   const opts: PdfTemplateOptions = {

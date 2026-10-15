@@ -77,7 +77,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                             <div className="space-y-6">
                                 <FormSection title="Header Details">
                                     {/* Auto-managed & read-only: the number is minted at save from the
-                                        Taxable type (TI = VAT, INV = Non-VAT, CI = Commercial). Making it
+                                        Taxable type (TI = VAT, INV = Non-VAT, YC = Commercial Invoice). Making it
                                         editable is what let staff hand-type the bare "2026-000XX" format and
                                         created the mixed numbering — the prefix now follows the Taxable choice
                                         below, and can't be overwritten. */}

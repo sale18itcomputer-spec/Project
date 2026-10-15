@@ -26,7 +26,7 @@ import { checkPermission, resolvePermissions } from '../../../utils/permissions'
 const RV_STATUS_OPTIONS: Receipt['Status'][] = ['Draft', 'Issued', 'Cancelled'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 const PAYMENT_METHOD_OPTIONS = ['Cash', 'Bank Transfer', 'Cheque', 'ABA', 'KHQR', 'Other'];
-const TAX_TYPE_OPTIONS = ['VAT', 'NON-VAT'];
+const TAX_TYPE_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 
 const getTodayDateString = () => {
     const d = new Date();
@@ -149,10 +149,11 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
         if (!existingReceipt || !invoices || !doc['Inv No']) return;
         const linkedInv = invoices.find(i => i['Inv No'] === doc['Inv No']);
         if (!linkedInv) return;
-        const invoiceIsVAT = linkedInv['Taxable'] === 'VAT' || linkedInv['Taxable'] === 'Yes';
-        const storedIsVAT = doc['Tax Type'] === 'VAT';
-        if (storedIsVAT !== invoiceIsVAT) {
-            setDoc(prev => ({ ...prev, 'Tax Type': invoiceIsVAT ? 'VAT' : 'NON-VAT' }));
+        const wantTag = linkedInv['Taxable'] === 'Commercial Invoice' ? 'Commercial Invoice'
+            : (linkedInv['Taxable'] === 'VAT' || linkedInv['Taxable'] === 'Yes') ? 'VAT' : 'NON-VAT';
+        const storedTag = doc['Tax Type'] === 'VAT' ? 'VAT' : doc['Tax Type'] === 'Commercial Invoice' ? 'Commercial Invoice' : 'NON-VAT';
+        if (storedTag !== wantTag) {
+            setDoc(prev => ({ ...prev, 'Tax Type': wantTag }));
         }
     }, [existingReceipt, invoices, doc['Inv No']]);
 
@@ -192,7 +193,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                     'Email': source?.['Email'] || (source as any)?.Email || '',
                     'Amount': inv ? Number(inv['Amount']) : 0,
                     'Currency': source?.['Currency'] || 'USD',
-                    'Tax Type': (inv as any)?.Taxable === 'Yes' || (inv as any)?.Taxable === 'VAT' ? 'VAT' : 'NON-VAT',
+                    'Tax Type': (inv as any)?.Taxable === 'Commercial Invoice' ? 'Commercial Invoice' : (inv as any)?.Taxable === 'Yes' || (inv as any)?.Taxable === 'VAT' ? 'VAT' : 'NON-VAT',
                     'Status': 'Draft',
                     'Payment Term': source?.['Payment Term'] || '',
                     'Tin No': company?.['Patent'] || '',
@@ -271,7 +272,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
             'Email': (inv as any)?.Email || prev['Email'],
             'Amount': Number(inv['Amount']) || prev['Amount'],
             'Currency': inv['Currency'] || prev['Currency'],
-            'Tax Type': inv['Taxable'] === 'Yes' || inv['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
+            'Tax Type': inv['Taxable'] === 'Commercial Invoice' ? 'Commercial Invoice' : inv['Taxable'] === 'Yes' || inv['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
             'Payment Term': inv['Payment Term'] || prev['Payment Term'],
             'Tin No': inv['Tin No'] || company?.['Patent'] || prev['Tin No'],
         }));

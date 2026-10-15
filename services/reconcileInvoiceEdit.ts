@@ -258,6 +258,8 @@ export async function reconcileIssuedInvoiceEdit(params: {
     invNo: string;
     invoiceDate: string;        // warranty start / JE date (YYYY-MM-DD or ISO)
     isVAT: boolean;
+    /** Commercial Invoice: may draw VAT or Non-VAT stock. */
+    anyStock?: boolean;
     soNo?: string;
     companyName?: string;
     contactName?: string;
@@ -279,7 +281,7 @@ export async function reconcileIssuedInvoiceEdit(params: {
     let lastMatched = false as boolean; // set by deductFIFO / restock: did a stock lot actually match?
 
     // ── 1. Inventory qty delta (per code) ──────────────────────────────────
-    const wantTax = wantTaxType(params.isVAT); // only draw stock of this tax type (or unclassified)
+    const wantTax = params.anyStock ? 'ANY' as const : wantTaxType(params.isVAT); // only draw stock of this tax type (or unclassified); Commercial draws either
     const deductFIFO = async (code: string | undefined, model: string | undefined, qty: number): Promise<number> => {
         // Returns the unit_price of the lot deducted (for COGS), 0 if none matched.
         let rows: any[] | null = null;

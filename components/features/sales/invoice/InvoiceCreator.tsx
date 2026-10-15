@@ -10,7 +10,7 @@ import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../s
 import { usePeriodLock } from "../../../../hooks/usePeriodLock";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
-import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxType } from "../../../../services/inventoryApi";
+import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxTypeFor } from "../../../../services/inventoryApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import { friendlyDbError, hasLineItemContent } from "../../../../utils/formatters";
@@ -39,6 +39,7 @@ interface InvoiceCreatorProps {
 import { LineItem, BuildComponent } from "./types";
 import { InvoicePreview } from "./InvoicePreview";
 import { InvoiceForm } from "./InvoiceForm";
+import { carryTaxType } from "../../../../lib/docTaxType";
 
 
 
@@ -122,7 +123,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             let prefix = `INV${year}-`;
             if (isService) prefix = `SI${year}-`;
             else if (taxable === 'VAT') prefix = `TI${year}-`;
-            else if (taxable === 'Commercial Invoice') prefix = `CI${year}-`;
+            else if (taxable === 'Commercial Invoice') prefix = `YC${year}-`;
             const filtered = (invoices || []).filter(i => (i as any)['Inv No']?.startsWith(prefix));
             const max = filtered.reduce((m, i) => {
                 const n = parseInt((i as any)['Inv No'].slice(prefix.length), 10);
@@ -611,7 +612,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // `Taxable` is the source of truth. b2b_invoices."Tax Type" defaults to
                 // 'VAT' in the DB, so leaving it unset tagged every NON-VAT B2B invoice (and
                 // the receipts/DOs copied from it) as VAT.
-                'Tax Type': invoice['Taxable'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                'Tax Type': carryTaxType(invoice['Taxable']), // Commercial keeps its own tag
             };
 
             // Guarantee a Due Date so a credit-term sale never shows instantly
@@ -650,7 +651,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
             if (wasDraft && isNowIssued) {
                 // VAT integrity: a VAT invoice may only draw VAT-purchased stock (and a
                 // non-VAT invoice only non-VAT). Block BEFORE minting a number/deducting.
-                const taxBlock = await checkInventoryTaxMatch(items, invoice['Taxable'] === 'VAT');
+                const taxBlock = await checkInventoryTaxMatch(items, invoice['Taxable'] === 'Commercial Invoice' ? 'ANY' : invoice['Taxable'] === 'VAT');
                 if (taxBlock) { addToast(taxBlock, 'error'); setIsSubmitting(false); return false; }
 
                 const shortfalls: { label: string; requested: number; available: number }[] = [];
@@ -757,7 +758,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 // Only draws lots of the document's tax type (or unclassified): a VAT
                 // invoice can't consume non-VAT stock and vice-versa (the pre-flight
                 // check above already blocked the impossible cases).
-                const wantTax = wantTaxType(invoice['Taxable'] === 'VAT');
+                const wantTax = wantTaxTypeFor(invoice['Taxable']);
                 const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
                     let invRows: any[] | null = null;
                     if (code) {
@@ -1014,6 +1015,7 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                         invNo: finalInvNo,
                         invoiceDate: (invoice['Inv Date'] as string) || getTodayDateString(),
                         isVAT: invoice['Taxable'] === 'VAT',
+                        anyStock: invoice['Taxable'] === 'Commercial Invoice',
                         soNo: (invoice['SO No'] as string) || '',
                         companyName: (invoice['Company Name'] as string) || '',
                         contactName: (invoice['Contact Name'] as string) || '',

@@ -198,7 +198,7 @@ export function formatSessionSummary(session: TgSession): string {
   const symbol = data.currency === 'KHR' ? '៛' : '$';
 
   const subTotal = items.reduce((s, i) => s + i.amount, 0);
-  const vat = data.taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+  const vat = (data.taxType as string) === 'NON-VAT' || (data.taxType as string) === 'Commercial Invoice' ? 0 : subTotal * 0.1;
   const grandTotal = subTotal + vat;
 
   const itemLines = items.map((item, idx) =>
@@ -216,7 +216,7 @@ export function formatSessionSummary(session: TgSession): string {
     itemLines || '  (none)',
     ``,
     `Sub-total:  ${symbol}${subTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-    data.taxType !== 'NON-VAT'
+    ((data.taxType as string) !== 'NON-VAT' && (data.taxType as string) !== 'Commercial Invoice')
       ? `VAT (10%):  ${symbol}${vat.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
       : `Tax:        NON-VAT`,
     `*Total:     ${symbol}${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}*`,

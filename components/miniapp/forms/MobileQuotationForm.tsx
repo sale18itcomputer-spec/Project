@@ -15,7 +15,7 @@ import {
 
 const STATUS_OPTIONS = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
-const TAX_OPTIONS = ['VAT', 'NON-VAT'];
+const TAX_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 
 const today = () => {
     const d = new Date();

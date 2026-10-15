@@ -340,7 +340,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                     // unknown tax type, don't filter — deliver whatever fulfils it.
                     const invTaxable = invoices?.find(i => i['Inv No'] === doc['Inv No'])?.['Taxable'];
                     const doTaxFilter = (invTaxable === 'VAT' || invTaxable === 'NON-VAT')
-                        ? taxTypeOrFilter(wantTaxType(invTaxable === 'VAT')) : null;
+                        ? taxTypeOrFilter(wantTaxType(invTaxable === 'VAT')) : null; // Commercial (and unknown): no filter, any stock
                     // Finds the oldest matching in-stock inventory lot (code first, then
                     // fuzzy model fallback) and deducts qty from it.
                     const deductInventoryFIFO = async (code: string | undefined, model: string | undefined, qty: number) => {
@@ -547,11 +547,11 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
     // Determine VAT/NON-VAT for the printed Delivery Note — derived from the
     // linked Invoice or Sale Order so a NON-VAT delivery note omits the
     // company header block, mirroring the NON-VAT Invoice template.
-    const taxType: 'VAT' | 'NON-VAT' = useMemo(() => {
+    const taxType: 'VAT' | 'NON-VAT' | 'Commercial Invoice' = useMemo(() => {
         const inv = invoices?.find(i => i['Inv No'] === doc['Inv No']);
-        if (inv) return (inv['Taxable'] === 'NON-VAT' || inv['Tax Type'] === 'NON-VAT') ? 'NON-VAT' : 'VAT';
+        if (inv) return inv['Taxable'] === 'Commercial Invoice' ? 'Commercial Invoice' : (inv['Taxable'] === 'NON-VAT' || inv['Tax Type'] === 'NON-VAT') ? 'NON-VAT' : 'VAT';
         const so = saleOrders?.find(s => s['SO No'] === doc['SO No']);
-        if (so) return so['Bill Invoice'] === 'NON-VAT' ? 'NON-VAT' : 'VAT';
+        if (so) return so['Bill Invoice'] === 'Commercial Invoice' ? 'Commercial Invoice' : so['Bill Invoice'] === 'NON-VAT' ? 'NON-VAT' : 'VAT';
         return 'VAT';
     }, [doc['Inv No'], doc['SO No'], invoices, saleOrders]);
 

@@ -200,7 +200,7 @@ const QuickPaymentModal: React.FC<Props> = ({ ar, onClose }) => {
             'Currency': currency,
             'Payment Method': paymentMethod,
             // Taxable is authoritative; "Tax Type" alone can carry a stale DB-default 'VAT'.
-            'Tax Type': (invoice['Taxable'] ? invoice['Taxable'] === 'VAT' || invoice['Taxable'] === 'Yes' : invoice['Tax Type'] === 'VAT') ? 'VAT' : 'NON-VAT',
+            'Tax Type': invoice['Taxable'] === 'Commercial Invoice' ? 'Commercial Invoice' : (invoice['Taxable'] ? invoice['Taxable'] === 'VAT' || invoice['Taxable'] === 'Yes' : invoice['Tax Type'] === 'VAT') ? 'VAT' : 'NON-VAT',
             'Status': 'Issued',
             'Payment Term': invoice['Payment Term'] || '',
             'Tin No': invoice['Tin No'] || company?.['Patent'] || '',

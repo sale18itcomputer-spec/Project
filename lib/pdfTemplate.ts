@@ -12,6 +12,8 @@ import { buildCommercialInvoice }   from './pdf/buildCommercialInvoice';
 import { buildDeliveryNote }        from './pdf/buildDeliveryNote';
 import { buildQuotationVAT }        from './pdf/buildQuotationVAT';
 import { buildQuotationNonVAT }     from './pdf/buildQuotationNonVAT';
+import { buildCommercialQuotation } from './pdf/buildCommercialQuotation';
+import { buildCommercialSaleOrder } from './pdf/buildCommercialSaleOrder';
 import { buildReceipt }             from './pdf/buildReceipt';
 import { buildSaleOrder as buildSaleOrderPdf } from './pdf/buildSaleOrder';
 import { buildStatement, StatementRow, StatementHeader } from './pdf/buildStatement';
@@ -220,10 +222,13 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     }
     if (opts.type === 'Delivery Order') {
         // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
-        const showVat = (hd['Taxable'] || hd['Tax Type'] || '').toUpperCase() !== 'NON-VAT';
+        const showVat = !['NON-VAT', 'COMMERCIAL INVOICE'].includes((hd['Taxable'] || hd['Tax Type'] || '').toUpperCase());
         return buildDeliveryNote(hd, items as any, showVat, opts.signaturePadding, undefined, cw);
     }
     if (opts.type === 'Quotation') {
+        if ((hd['Tax Type'] || '') === 'Commercial Invoice') {
+            return buildCommercialQuotation(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+        }
         const isNonVat = (hd['Tax Type'] || '').toUpperCase() === 'NON-VAT';
         if (isNonVat) {
             return buildQuotationNonVAT(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding, cw);
@@ -234,7 +239,9 @@ export function buildHtml(opts: PdfTemplateOptions): string {
     let body = '';
     switch (opts.type) {
         case 'Invoice': return buildTaxInvoice(hd, items as any, totals as any, opts.currency, sym, tax, false, opts.signaturePadding, opts.labelPadding, cw, opts.hideKhmer, undefined, opts.hideSerials);
-        case 'Sale Order': return buildSaleOrderPdf(hd, items as any, totals as any, opts.currency, sym, tax, opts.signaturePadding, opts.labelPadding, cw);
+        case 'Sale Order':
+            if (hd['Bill Invoice'] === 'Commercial Invoice') return buildCommercialSaleOrder(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+            return buildSaleOrderPdf(hd, items as any, totals as any, opts.currency, sym, tax, opts.signaturePadding, opts.labelPadding, cw);
         case 'Purchase Order': body = buildPO(hd, items, totals, opts.currency, sym, tax, cw); break;
     }
     return `<!DOCTYPE html><html lang="km"><head><meta charset="UTF-8"/>${baseStyle()}</head><body><div class="page"><div class="page-inner">${body}</div></div></body></html>`;

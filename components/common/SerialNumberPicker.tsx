@@ -49,7 +49,7 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
             // matching in InvoiceCreator/DeliveryOrderCreator. When a document tax
             // type is given, restrict to matching (or unclassified) stock so a VAT
             // invoice never lists non-VAT serials and vice-versa.
-            const taxFilter = taxType ? taxTypeOrFilter(wantTaxType(taxType === 'VAT')) : null;
+            const taxFilter = (taxType && taxType !== 'Commercial Invoice') ? taxTypeOrFilter(wantTaxType(taxType === 'VAT')) : null; // Commercial: any stock
             let invIds: string[] = [];
             if (code) {
                 let q = supabase.from('inventory').select('id').eq('code', code);

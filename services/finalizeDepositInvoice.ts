@@ -110,7 +110,7 @@ export async function finalizeDepositInvoice(params: {
     const delta = computeInvoiceEditDelta([], params.items, brandByCode);
     // Only relieve stock of the deposit invoice's tax type (or unclassified) — a VAT
     // final invoice can't draw non-VAT stock and vice-versa.
-    const wantTax = wantTaxType(isVAT);
+    const wantTax = taxable === 'Commercial Invoice' ? 'ANY' as const : wantTaxType(isVAT);
     const costItems: { brand: string; qty: number; unit_price: number; label?: string }[] = [];
     for (const { code, model, brand, delta: qty } of delta.qtyDeltas) {
         if (qty <= 0) continue;

@@ -9,6 +9,8 @@
 import { buildQuotationVAT }          from './pdf/buildQuotationVAT';
 import { buildQuotationNonVAT }       from './pdf/buildQuotationNonVAT';
 import { buildCommercialInvoice }     from './pdf/buildCommercialInvoice';
+import { buildCommercialQuotation }   from './pdf/buildCommercialQuotation';
+import { buildCommercialSaleOrder }   from './pdf/buildCommercialSaleOrder';
 import { buildReceipt }               from './pdf/buildReceipt';
 import { buildDeliveryNote }          from './pdf/buildDeliveryNote';
 import { buildTaxInvoice }            from './pdf/buildTaxInvoice';
@@ -24,6 +26,9 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
 
     switch (opts.type) {
         case 'Quotation': {
+            if ((hd['Tax Type'] || '') === 'Commercial Invoice') {
+                return buildCommercialQuotation(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+            }
             const isNonVat = (hd['Tax Type'] || '').toUpperCase() === 'NON-VAT';
             if (isNonVat) {
                 return buildQuotationNonVAT(
@@ -51,13 +56,16 @@ export function buildPreviewHtml(opts: PdfClientOptions): string | null {
             );
         case 'Delivery Order': {
             // NON-VAT delivery notes omit the company header, mirroring the NON-VAT Invoice template.
-            const showVat = (hd['Taxable'] || hd['Tax Type'] || '').toUpperCase() !== 'NON-VAT';
+            const showVat = !['NON-VAT', 'COMMERCIAL INVOICE'].includes((hd['Taxable'] || hd['Tax Type'] || '').toUpperCase());
             return buildDeliveryNote(
                 hd, items as any, showVat,
                 opts.signaturePadding, opts.labelPadding, opts.columnWidths,
             );
         }
         case 'Sale Order':
+            if (hd['Bill Invoice'] === 'Commercial Invoice') {
+                return buildCommercialSaleOrder(hd, items as any, totals as any, opts.currency, sym, opts.signaturePadding, opts.labelPadding);
+            }
             return buildSaleOrderClient(
                 hd, items as any, totals as any, opts.currency, sym, tax, opts.columnWidths,
                 opts.signaturePadding, opts.labelPadding,

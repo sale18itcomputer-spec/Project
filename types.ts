@@ -277,7 +277,7 @@ export interface Quotation {
   'Prepared By Position'?: string;
   'Approved By Position'?: string;
   'ItemsJSON'?: any;
-  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Tax Type'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   [key: string]: any;
 }
 
@@ -296,7 +296,7 @@ export interface SaleOrder {
   'Status': 'Pending' | 'Completed' | 'Cancel';
   'Delivery Date'?: string;
   'Payment Term'?: string;
-  'Bill Invoice'?: 'VAT' | 'NON-VAT';
+  'Bill Invoice'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   'Install Software'?: string;
   'Created By'?: string;
   'Currency'?: 'USD' | 'KHR';
@@ -325,7 +325,7 @@ export interface Invoice {
   'Email': string;
   'Amount': string | number;
   'Taxable': string;
-  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Tax Type'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   'Status': 'Draft' | 'Processing' | 'Completed' | 'Cancel';
   'Created By'?: string;
   'Currency'?: 'USD' | 'KHR';
@@ -362,7 +362,7 @@ export interface DeliveryOrder {
   'Currency'?: 'USD' | 'KHR';
   'Status': 'Pending' | 'Delivered' | 'Cancelled';
   /** Derived (not user-editable) from the linked Invoice/SO; controls whether the printed Delivery Note shows the company header. */
-  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Tax Type'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   'Payment Term'?: string;
   'Delivery Date'?: string;
   'Prepared By'?: string;
@@ -395,7 +395,7 @@ export interface Receipt {
   'Amount'?: number;
   'Currency'?: 'USD' | 'KHR';
   'Payment Method'?: 'Cash' | 'Bank Transfer' | 'Cheque' | 'ABA' | 'KHQR' | 'Other';
-  'Tax Type'?: 'VAT' | 'NON-VAT';
+  'Tax Type'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   'Status': 'Draft' | 'Issued' | 'Cancelled';
   'Payment Term'?: string;
   'Tin No'?: string;

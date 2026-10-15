@@ -123,7 +123,7 @@ const SaleOrderDashboard: React.FC<SaleOrderDashboardProps> = ({ initialPayload 
                     'Payment Term': q['Payment Term'],
                     'Status': 'Pending',
                     'Currency': q.Currency,
-                    'Bill Invoice': q['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : 'VAT',
+                    'Bill Invoice': q['Tax Type'] === 'NON-VAT' ? 'NON-VAT' : q['Tax Type'] === 'Commercial Invoice' ? 'Commercial Invoice' : 'VAT',
                     'ItemsJSON': q.ItemsJSON,
                 };
             } else if (payload?.isPipeline) {

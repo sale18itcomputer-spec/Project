@@ -25,6 +25,7 @@ import { useColumnWidths } from "../../../hooks/useColumnWidths";
 import { ColumnWidthPopover } from "./ColumnWidthPopover";
 import { readFormDraft, useFormDraft } from "../../../hooks/useFormDraft";
 import type { BuildComponent } from "./invoice/types";
+import { carryTaxType } from "../../../lib/docTaxType";
 
 interface SaleOrderCreatorProps {
     onBack: () => void;
@@ -62,7 +63,7 @@ const getTodayDateString = () => {
 };
 
 const STATUS_OPTIONS: SaleOrder['Status'][] = ['Pending', 'Completed', 'Cancel'];
-const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT'];
+const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 const SOFTWARE_OPTIONS = ["Assembly", "Office User", "Design User", "Window 11", "Window 10", "Window 8", "Window 7"];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
 
@@ -462,7 +463,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Delivery Date': getTodayDateString(),
                 'Status': 'Pending',
                 'Tax': initialData?.Tax || '0',
-                'Bill Invoice': initialData?.['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                'Bill Invoice': carryTaxType(initialData?.['Tax Type']),
                 'Created By': currentUser?.Name || '',
                 'Currency': initialData?.Currency || 'USD',
                 'Phone Number': initialData?.['Contact Number'] || '',
@@ -678,7 +679,7 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                 'Approved By': quote['Approved By'] || '',
                 'Remark': quote.Remark || '',
                 'Terms and Conditions': quote['Terms and Conditions'] || '',
-                'Bill Invoice': quote['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+                'Bill Invoice': carryTaxType(quote['Tax Type']),
                 Status: 'Pending'
             }));
             fetchQuoteItems(quoteId);

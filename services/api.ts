@@ -705,7 +705,7 @@ export const generatePosRvNo = async (): Promise<string> => {
 const invPrefixFor = (taxableType: string): string => {
     const year = new Date().getFullYear();
     if (taxableType === 'VAT') return `TI${year}-`;
-    if (taxableType === 'Commercial Invoice') return `CI${year}-`;
+    if (taxableType === 'Commercial Invoice') return `YC${year}-`; // Commercial Invoice (Yanet format)
     return `INV${year}-`;
 };
 

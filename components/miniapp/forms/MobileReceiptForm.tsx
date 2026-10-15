@@ -159,7 +159,7 @@ export default function MobileReceiptForm({ onBack, existingReceipt, initialData
             'Tin No': co?.['Tin No'] || co?.['Patent'] || p['Tin No'],
             'Payment Term': inv['Payment Term'] || p['Payment Term'],
             'Currency': inv.Currency || p['Currency'] || 'USD',
-            'Tax Type': inv.Taxable === 'VAT' ? 'VAT' : 'NON-VAT',
+            'Tax Type': inv.Taxable === 'Commercial Invoice' ? 'Commercial Invoice' : inv.Taxable === 'VAT' ? 'VAT' : 'NON-VAT',
         }));
         // pre-fill amount from invoice
         const invAmount = parseFloat(String(inv['Amount'] ?? inv['Total Amount'] ?? '0')) || 0;

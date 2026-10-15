@@ -1,5 +1,6 @@
 import React from 'react';
 import { isServiceInvoice } from '../../utils/serviceInvoice';
+import PrintableCommercialInvoice from './PrintableCommercialInvoice';
 
 interface BuildComponent {
     itemCode: string;
@@ -45,6 +46,10 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string =>
     currency === 'KHR' ? '៛' : '$';
 
 const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100, hideSerials = false }) => {
+    // Commercial Invoice (Yanet format) has its own print layout.
+    if (headerData['Taxable'] === 'Commercial Invoice') {
+        return <PrintableCommercialInvoice headerData={headerData} items={items} totals={totals} currency={currency} signaturePadding={signaturePadding} hideSerials={hideSerials} />;
+    }
     const sym = getCurrencySymbol(currency);
     const isTaxInvoice = headerData['Taxable'] === 'VAT';
     const isCommercial = headerData['Document Type'] === 'Commercial Invoice' || headerData['DocumentType'] === 'Commercial Invoice';

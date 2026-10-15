@@ -44,10 +44,17 @@ async function inventoryUpdate(id: string, upd: Record<string, any>) {
 /** The tax type a sale draws: VAT documents draw VAT stock, everything else non-VAT. */
 export const wantTaxType = (isVAT: boolean): 'VAT' | 'NON-VAT' => (isVAT ? 'VAT' : 'NON-VAT');
 
+/** Stock a document may draw. A Commercial Invoice is neither a VAT nor a Non-VAT document, so it may
+ *  draw either kind ('ANY'); VAT documents draw VAT stock; everything else draws non-VAT stock. */
+export type StockTaxWant = 'VAT' | 'NON-VAT' | 'ANY';
+export const wantTaxTypeFor = (taxable?: string | null): StockTaxWant =>
+    taxable === 'Commercial Invoice' ? 'ANY' : (taxable === 'VAT' || taxable === 'Yes') ? 'VAT' : 'NON-VAT';
+
 /** A lot is eligible for a document of `want` tax type when its own tax_type matches,
  *  or it is unclassified (NULL — legacy stock with no PO tax type). Used as a Supabase
  *  `.or()` filter fragment on the inventory query. */
-export const taxTypeOrFilter = (want: 'VAT' | 'NON-VAT'): string => `tax_type.eq.${want},tax_type.is.null`;
+export const taxTypeOrFilter = (want: StockTaxWant): string =>
+    want === 'ANY' ? 'tax_type.eq.VAT,tax_type.eq.NON-VAT,tax_type.is.null' : `tax_type.eq.${want},tax_type.is.null`;
 
 /**
  * Enforce "VAT stock sells on VAT invoices only" (and non-VAT on non-VAT).
@@ -60,8 +67,9 @@ export const taxTypeOrFilter = (want: 'VAT' | 'NON-VAT'): string => `tax_type.eq
  */
 export async function checkInventoryTaxMatch(
     items: any[],
-    isVAT: boolean,
+    isVAT: boolean | 'ANY',
 ): Promise<string | null> {
+    if (isVAT === 'ANY') return null; // Commercial Invoice: either kind of stock is fine
     const want = wantTaxType(isVAT);
     const other = want === 'VAT' ? 'NON-VAT' : 'VAT';
     const need = new Map<string, number>();

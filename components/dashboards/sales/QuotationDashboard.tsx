@@ -192,7 +192,7 @@ const QuotationDashboard: React.FC<QuotationDashboardProps> = ({ initialPayload 
       const subTotal = rows.reduce((sum: number, it: any) =>
         sum + (Number(it.amount) || (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
       const taxType = header?.['Tax Type'] || quotation['Tax Type'] || 'VAT';
-      const vat = taxType === 'NON-VAT' ? 0 : subTotal * 0.1;
+      const vat = (taxType === 'NON-VAT' || taxType === 'Commercial Invoice') ? 0 : subTotal * 0.1;
 
       await sendPdfToTelegramChat({
         type: 'Quotation',

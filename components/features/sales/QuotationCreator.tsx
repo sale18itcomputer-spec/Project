@@ -62,7 +62,7 @@ const getTodayDateString = () => {
 
 const STATUS_OPTIONS: Quotation['Status'][] = ['Open', 'Close (Win)', 'Close (Lose)', 'Cancel'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
-const TAX_TYPE_OPTIONS: ('VAT' | 'NON-VAT')[] = ['VAT', 'NON-VAT'];
+const TAX_TYPE_OPTIONS: ('VAT' | 'NON-VAT' | 'Commercial Invoice')[] = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 
 const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string => {
     switch (currency) {
@@ -399,7 +399,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
     // the company's TIN was added AFTER this quote was created, so its snapshot is
     // empty and the TIN row is hidden on the PDF. Only fills a blank; never overwrites.
     useEffect(() => {
-        if (quote['Tax Type'] === 'NON-VAT') return; // VAT TIN only applies to VAT quotes
+        if (quote['Tax Type'] === 'NON-VAT' || quote['Tax Type'] === 'Commercial Invoice') return; // VAT TIN only applies to VAT quotes
         if (quote['Tin No']) return;
         const companyName = quote['Company Name'];
         if (!companyName) return;
@@ -666,7 +666,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
             return sum + (qty * c);
         }, 0);
         // VAT and Grand Total are based on subTotal (which already includes commission)
-        const vat = quote['Tax Type'] === 'NON-VAT' ? 0 : subTotal * 0.1;
+        const vat = (quote['Tax Type'] === 'NON-VAT' || quote['Tax Type'] === 'Commercial Invoice') ? 0 : subTotal * 0.1;
         const grandTotal = subTotal + vat;
         return { subTotal, vat, grandTotal, commission };
     }, [items, quote['Tax Type']]);

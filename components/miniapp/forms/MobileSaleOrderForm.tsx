@@ -15,7 +15,7 @@ import {
 
 const STATUS_OPTIONS = ['Pending', 'Completed', 'Cancel'];
 const CURRENCY_OPTIONS = ['USD', 'KHR'];
-const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT'];
+const BILL_INVOICE_OPTIONS = ['VAT', 'NON-VAT', 'Commercial Invoice'];
 
 const today = () => {
     const d = new Date();
@@ -120,7 +120,7 @@ export default function MobileSaleOrderForm({ onBack, existingSaleOrder, initial
             'Phone Number': q['Contact Number'] || p['Phone Number'],
             'Email': q['Contact Email'] || p['Email'],
             'Payment Term': q['Payment Term'] || p['Payment Term'],
-            'Bill Invoice': q['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
+            'Bill Invoice': q['Tax Type'] === 'Commercial Invoice' ? 'Commercial Invoice' : q['Tax Type'] === 'VAT' ? 'VAT' : 'NON-VAT',
             'Currency': q.Currency || 'USD',
         }));
         try {
