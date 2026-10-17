@@ -77,7 +77,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className={`flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full transition-all duration-300 ${isShowing ? 'scale-100' : 'scale-0'} ${variant === 'danger' ? 'bg-rose-500/10' : 'bg-amber-500/10'}`}>
+            <div className={`flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full transition-[transform,opacity] duration-300 ease-out-strong ${isShowing ? 'scale-100 opacity-100' : 'scale-90 opacity-0'} ${variant === 'danger' ? 'bg-rose-500/10' : 'bg-amber-500/10'}`}>
               <AlertTriangle className={`h-6 w-6 ${variant === 'danger' ? 'text-rose-500' : 'text-amber-500'} ${isShowing ? 'animate-[check-bounce_0.4s_ease-out]' : ''}`} />
             </div>
             <div className="flex-1 pt-1">

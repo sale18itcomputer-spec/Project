@@ -1403,7 +1403,6 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                         <div className="h-full flex flex-col w-full">
                             <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-card">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-1 h-5 bg-primary rounded-full"></div>
                                     <h3 className="text-sm font-bold text-foreground">Quotation Details</h3>
                                 </div>
                                 <button

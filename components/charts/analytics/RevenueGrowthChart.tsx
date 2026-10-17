@@ -266,8 +266,6 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
 
   return (
     <div className={`${showTable ? '' : 'chart-container'} bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden`} style={{ height: showTable ? 'auto' : 'clamp(320px, 50vw, 500px)' }}>
-      {/* Top accent */}
-      <div className="h-1 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-300 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 sm:pb-3 flex-shrink-0">
@@ -279,13 +277,13 @@ const RevenueGrowthChart: React.FC<Props> = ({ data, onBarClick }) => {
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${
-              trend === 'up' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
-              trend === 'down' ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20' :
-              'bg-muted text-muted-foreground'
+            <div className={`flex items-center gap-1 text-xs font-medium ${
+              trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' :
+              trend === 'down' ? 'text-rose-600 dark:text-rose-400' :
+              'text-muted-foreground'
             }`}>
-              <TrendIcon className="w-3 h-3" />
-              <span className="hidden sm:inline">{trend === 'up' ? 'Trending Up' : trend === 'down' ? 'Trending Down' : 'Stable'}</span>
+              <TrendIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{trend === 'up' ? 'Up on previous period' : trend === 'down' ? 'Down on previous period' : 'Flat on previous period'}</span>
             </div>
           </div>
         </div>

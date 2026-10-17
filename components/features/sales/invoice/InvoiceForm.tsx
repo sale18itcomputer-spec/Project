@@ -56,7 +56,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     <div className={`bg-card border-l border-border transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[500px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                             <div className="flex items-center gap-2">
-                                <div className={`w-1 h-5 rounded-full ${isService ? 'bg-amber-500' : 'bg-brand-500'}`}></div>
                                 <h3 className="text-sm font-bold text-foreground">{isService ? 'Service Invoice Details' : 'Document Information'}</h3>
                                 {isService && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-500/10 text-amber-600 dark:text-amber-400">

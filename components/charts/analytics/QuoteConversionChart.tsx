@@ -240,8 +240,6 @@ const QuoteConversionChart: React.FC<Props> = ({ data }) => {
       className={`${showTable ? '' : 'chart-container'} bg-card rounded-2xl border shadow-sm flex flex-col overflow-hidden`}
       style={{ height: showTable ? 'auto' : '500px' }}
     >
-      {/* Top accent */}
-      <div className="h-1 bg-gradient-to-r from-brand-800 via-brand-500 to-emerald-400 flex-shrink-0" />
 
       {/* Header */}
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 flex-shrink-0">

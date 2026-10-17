@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+    /* Stronger than the built-in ease-out: starts fast so the UI feels like it heard you */
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
     --color-border: hsl(var(--border));
     --color-input: hsl(var(--input));
     --color-input-background: hsl(var(--input));
@@ -241,7 +243,7 @@
 
     @keyframes check-bounce {
         0% {
-            transform: scale(0);
+            transform: scale(0.6);
         }
 
         50% {
@@ -903,7 +905,11 @@
     select,
     textarea,
     [role="button"] {
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Named properties instead of `all`: `all` also animates layout (width, height, padding)
+           and makes every control re-run transitions on unrelated style changes. */
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, outline-color;
+        transition-duration: 0.2s;
+        transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
     }
 
     /* ── Reduced motion ────────────────────────────────────────────────

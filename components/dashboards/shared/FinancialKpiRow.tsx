@@ -12,10 +12,14 @@ import {
     paidInRange,
 } from '../../../utils/collection';
 import { parseDate } from '../../../utils/time';
-import { formatCurrencySmartly } from '../../../utils/formatters';
-import MetricCard from '../../common/MetricCard';
+import MetricCard, { StatGroup } from '../../common/MetricCard';
 
 const ACTIVE_TICKET_STATUSES = ['Open', 'In Progress', 'Pending Parts'];
+
+// A genuine zero must read $0.00. formatCurrencySmartly treats 0 as "no value" and prints "-",
+// which on a money tile looks like the figure failed to load.
+const money = (n: number): string =>
+    `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const toNum = (v: unknown): number => {
     if (typeof v === 'number') return isFinite(v) ? v : 0;
@@ -72,52 +76,45 @@ const FinancialKpiRow: React.FC = () => {
     if (!canSeeMoney && !canSeeTickets) return null;
 
     return (
-        <div className="metric-cards-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+        <StatGroup label="Finance and service" columns={canSeeMoney && canSeeTickets ? 5 : canSeeMoney ? 4 : 5}>
             {canSeeMoney && (
                 <>
+                    <MetricCard title="Invoiced (month)" value={money(kpis.invoicedMonth)} context="This calendar month" icon={<TrendingUp />} />
                     <MetricCard
-                        title="Invoiced (Month)"
-                        value={formatCurrencySmartly(kpis.invoicedMonth, 'USD')}
-                        subValue="This calendar month"
-                        icon={<TrendingUp />}
-                        accentColor="blue"
-                    />
-                    <MetricCard
-                        title="Collected (Month)"
-                        value={formatCurrencySmartly(kpis.collectedMonth, 'USD')}
-                        subValue="Payments received"
+                        title="Collected (month)"
+                        value={money(kpis.collectedMonth)}
+                        context="Payments received"
                         icon={<CheckCircle2 />}
-                        accentColor="teal"
+                        tone={kpis.collectedMonth > 0.005 ? 'good' : 'default'}
                     />
                     <MetricCard
                         title="Outstanding AR"
-                        value={formatCurrencySmartly(kpis.outstanding, 'USD')}
-                        subValue={`${kpis.openInvoices} open invoices`}
+                        value={money(kpis.outstanding)}
+                        context={`${kpis.openInvoices} open invoice${kpis.openInvoices === 1 ? '' : 's'}`}
                         icon={<Wallet />}
-                        accentColor="purple"
                         onClick={() => router.push('/collection')}
                     />
                     <MetricCard
                         title="Overdue AR"
-                        value={formatCurrencySmartly(kpis.overdue, 'USD')}
-                        subValue={kpis.overdueCount > 0 ? `${kpis.overdueCount} invoices past due` : 'All current'}
+                        value={money(kpis.overdue)}
+                        context={kpis.overdueCount > 0 ? `${kpis.overdueCount} invoice${kpis.overdueCount === 1 ? '' : 's'} past due` : 'Nothing overdue'}
                         icon={<AlertTriangle />}
-                        accentColor={kpis.overdue > 0.005 ? 'coral' : 'green'}
+                        tone={kpis.overdue > 0.005 ? 'danger' : 'default'}
                         onClick={() => router.push('/collection')}
                     />
                 </>
             )}
             {canSeeTickets && (
                 <MetricCard
-                    title="Open Tickets"
+                    title="Open tickets"
                     value={String(kpis.openTickets)}
-                    subValue="Awaiting resolution"
+                    context="Awaiting resolution"
                     icon={<Wrench />}
-                    accentColor={kpis.openTickets > 0 ? 'amber' : 'green'}
+                    tone={kpis.openTickets > 0 ? 'warn' : 'default'}
                     onClick={() => router.push('/service-tickets')}
                 />
             )}
-        </div>
+        </StatGroup>
     );
 };
 

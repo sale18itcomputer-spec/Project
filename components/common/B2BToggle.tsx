@@ -6,7 +6,7 @@ import { Building2, Users2 } from 'lucide-react';
 import ThemePicker from './ThemePicker';
 
 const B2BToggle: React.FC = () => {
-    const { mode, toggleMode, isB2B, canAccessB2B } = useB2B();
+    const { toggleMode, isB2B, canAccessB2B } = useB2B();
 
     return (
         <div className="flex items-center gap-3">
@@ -47,17 +47,6 @@ const B2BToggle: React.FC = () => {
 
             {/* Theme & Accent Picker */}
             <ThemePicker />
-
-            {/* Mode indicator badge — only meaningful when the user can be in
-                either mode. */}
-            {canAccessB2B && (
-                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/30 border border-border">
-                    <div className={`w-1.5 h-1.5 rounded-full ${isB2B ? 'bg-blue-500' : 'bg-emerald-500'} shadow-sm`} />
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-                        {mode} Active
-                    </span>
-                </div>
-            )}
         </div>
     );
 };

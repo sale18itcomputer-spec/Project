@@ -1013,7 +1013,6 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                     <div className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 ${showFormPanel ? 'w-[480px] opacity-100' : 'w-0 opacity-0 overflow-hidden border-l-0'}`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-5 bg-primary rounded-full" />
                                 <h3 className="text-sm font-bold text-foreground">Sale Order Information</h3>
                             </div>
                             <button onClick={() => setShowFormPanel(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md">

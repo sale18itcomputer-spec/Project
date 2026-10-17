@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, Suspense, useEffect } from 'react';
-import MetricCard from "../../common/MetricCard";
+import MetricCard, { StatGroup } from "../../common/MetricCard";
 import { useB2BData } from "../../../hooks/useB2BData";
 import { FilterProvider } from "../../../contexts/FilterContext";
 
@@ -31,20 +31,16 @@ const DashboardContentSkeleton = () => (
         </div>
       </div>
 
-      {/* Metric card skeletons — structured to match real cards */}
-      <div className="metric-cards-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+      {/* Metric card skeletons — same grid and card shape as the real cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="bg-card rounded-xl border border-border p-4 h-[120px] flex flex-col justify-between"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <div className="flex items-center justify-between">
+          <div key={i} className="bg-card rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between mb-2">
               <div className="h-3 w-16 bg-muted rounded animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
-              <div className="h-5 w-5 bg-muted rounded animate-pulse" style={{ animationDelay: `${i * 60 + 80}ms` }} />
+              <div className="h-4 w-4 bg-muted rounded animate-pulse" style={{ animationDelay: `${i * 60 + 80}ms` }} />
             </div>
-            <div className="h-7 w-10 bg-muted rounded animate-pulse" style={{ animationDelay: `${i * 60 + 100}ms` }} />
-            <div className="h-2.5 w-20 bg-muted/60 rounded animate-pulse" style={{ animationDelay: `${i * 60 + 150}ms` }} />
+            <div className="h-7 w-12 bg-muted rounded animate-pulse" style={{ animationDelay: `${i * 60 + 100}ms` }} />
+            <div className="mt-2 h-2.5 w-20 bg-muted/60 rounded animate-pulse" style={{ animationDelay: `${i * 60 + 150}ms` }} />
           </div>
         ))}
       </div>
@@ -114,78 +110,37 @@ const Dashboard = () => {
       <div className="dashboard-container p-3 sm:p-4 md:p-8 space-y-5 sm:space-y-8">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-tight">
-              Overview Dashboard
-            </h1>
-            <p className="hidden md:block text-muted-foreground mt-1 font-medium italic">
-              Welcome back to Limperial, ready for a high-performance session?
-            </p>
-          </div>
-        </div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-tight">
+          Overview Dashboard
+        </h1>
 
-        {/* Metric cards */}
-        <div className="metric-cards-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+        {/* Pipeline */}
+        <StatGroup label="Pipeline" columns={6}>
+          <MetricCard title="Leads" value={fmt(stats?.projectsCount)} icon={<Briefcase />} />
           <MetricCard
-            title="Leads"
-            value={fmt(stats?.projectsCount)}
-            icon={<Briefcase />}
-            accentColor="blue"
-            change={stats?.projectsCount ? `${fmt(stats.projectsCount)} active` : 'None yet'}
-            changeType={stats?.projectsCount ? 'neutral' : 'neutral'}
-          />
-          <MetricCard
-            title="Won Pipelines"
+            title="Won pipelines"
             value={fmt(stats?.wonProjectsCount)}
+            context={stats?.projectsCount ? `${Math.round(((stats?.wonProjectsCount ?? 0) / stats.projectsCount) * 100)}% of leads` : undefined}
             icon={<ClipboardList />}
-            accentColor="coral"
-            change={stats?.wonProjectsCount === 0 ? 'No wins yet' : `${fmt(stats?.wonProjectsCount)} closed`}
-            changeType={stats?.wonProjectsCount === 0 ? 'neutral' : 'increase'}
+            tone={stats?.wonProjectsCount ? 'good' : 'default'}
           />
+          <MetricCard title="Companies" value={fmt(stats?.companiesCount)} icon={<Building />} />
+          <MetricCard title="Contacts" value={fmt(stats?.contactsCount)} icon={<Users />} />
           <MetricCard
-            title="Companies"
-            value={fmt(stats?.companiesCount)}
-            icon={<Building />}
-            accentColor="teal"
-            change="Growing"
-            changeType="increase"
-          />
-          <MetricCard
-            title="Contacts"
-            value={fmt(stats?.contactsCount)}
-            icon={<Users />}
-            accentColor="purple"
-            change={stats?.contactsCount ? `${fmt(stats.contactsCount)} total` : 'None yet'}
-            changeType={stats?.contactsCount ? 'increase' : 'neutral'}
-          />
-          <MetricCard
-            title="Open Quotes"
+            title="Open quotes"
             value={fmt(stats?.openQuotesCount)}
+            context={stats?.totalQuotesCount ? `of ${fmt(stats.totalQuotesCount)} quotes` : undefined}
             icon={<MessageSquare />}
-            accentColor="amber"
-            change={
-              stats?.totalQuotesCount
-                ? `${fmt(stats.openQuotesCount)} of ${fmt(stats.totalQuotesCount)}`
-                : 'None yet'
-            }
-            changeType={stats?.openQuotesCount ? 'increase' : 'neutral'}
             isEmpty={!stats?.totalQuotesCount}
           />
           <MetricCard
-            title="Pending Orders"
+            title="Pending orders"
             value={fmt(stats?.pendingOrdersCount)}
+            context={stats?.totalOrdersCount ? `of ${fmt(stats.totalOrdersCount)} orders` : undefined}
             icon={<Calendar />}
-            accentColor="pink"
-            change={
-              stats?.totalOrdersCount
-                ? `${fmt(stats.pendingOrdersCount)} of ${fmt(stats.totalOrdersCount)}`
-                : 'None yet'
-            }
-            changeType={stats?.pendingOrdersCount ? 'increase' : 'neutral'}
             isEmpty={!stats?.totalOrdersCount}
           />
-        </div>
+        </StatGroup>
 
         {/* Financial & service KPIs */}
         <FinancialKpiRow />
