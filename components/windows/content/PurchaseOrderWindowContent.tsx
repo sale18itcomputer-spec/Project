@@ -556,7 +556,12 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 savedPoId = (data as any)[0].id;
             }
 
+            // Keep the existing lines until the new ones are safely in: delete + insert is
+            // not atomic, so a failed insert used to leave a saved PO with NO lines at all.
+            let previousItems: any[] = [];
             if (formData.id) {
+                const { data: prev } = await supabase.from('purchase_order_items').select('*').eq('po_id', savedPoId);
+                previousItems = prev ?? [];
                 await supabase.from('purchase_order_items').delete().eq('po_id', savedPoId);
             }
 
@@ -580,12 +585,27 @@ const PurchaseOrderWindowContent: React.FC<PurchaseOrderWindowContentProps> = ({
                 brand: item.brand?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Brand) || '',
                 category: item.category?.trim() || (item.is_promotion ? '' : plFor(item.item_number)?.Category) || '',
                 serial_number: item.serial_number ?? '',
-                warranty_months: item.warranty_months ?? (item.is_promotion ? null : plFor(item.item_number)?.warranty_months) ?? null,
+                // The pricelist store normalises null columns to '' — an empty string is not nullish,
+                // so it used to reach the integer column and fail the whole line insert.
+                warranty_months: (() => {
+                    const w: unknown = item.warranty_months ?? (item.is_promotion ? null : plFor(item.item_number)?.warranty_months);
+                    if (w === null || w === undefined || w === '') return null;
+                    const n = Number(w);
+                    return Number.isFinite(n) ? Math.trunc(n) : null;
+                })(),
                 is_promotion: item.is_promotion ?? false,
             }));
 
             const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsPayload);
-            if (itemsError) throw itemsError;
+            if (itemsError) {
+                if (previousItems.length > 0) {
+                    // Put the original lines back (`total` is a generated column, so it is dropped).
+                    const restore = previousItems.map(({ total: _t, ...row }) => row);
+                    const { error: restoreError } = await supabase.from('purchase_order_items').insert(restore);
+                    if (restoreError) console.error('Could not restore PO lines after a failed save:', restoreError);
+                }
+                throw itemsError;
+            }
 
             if (formData.status === 'Completed') {
                 // No JE here — accounting flows PO → Bill → JE.
