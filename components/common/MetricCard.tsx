@@ -56,15 +56,15 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, context, icon, to
   const body = (
     <>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</span>
-        {icon && <span className={cn('shrink-0 [&>svg]:h-4 [&>svg]:w-4', TONES[tone])}>{icon}</span>}
+        <span className="text-xs font-bold uppercase leading-tight tracking-wider text-muted-foreground">{title}</span>
+        {icon && <span aria-hidden="true" className={cn('shrink-0 [&>svg]:h-4 [&>svg]:w-4', TONES[tone])}>{icon}</span>}
       </div>
-      <div className={cn('text-2xl font-black tabular-nums', isEmpty ? 'text-muted-foreground/50' : TONES[tone])}>{value}</div>
+      <div className={cn('text-xl font-black tabular-nums sm:text-2xl', isEmpty ? 'text-muted-foreground/50' : TONES[tone])}>{value}</div>
       {context && <div className="mt-1 text-xs text-muted-foreground">{context}</div>}
     </>
   );
 
-  const card = 'block w-full rounded-lg border border-border bg-card p-4 text-left';
+  const card = 'block w-full min-w-0 rounded-lg border border-border bg-card p-4 text-left';
 
   return onClick ? (
     <button
