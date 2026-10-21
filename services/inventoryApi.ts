@@ -106,6 +106,15 @@ export const hasInventoryForPO = async (poId: string): Promise<boolean> => {
     return !!data && data.length > 0;
 };
 
+/** Warranty months for an integer column. The pricelist store normalises null columns to '',
+ *  and '' is not nullish, so `a ?? b` let it through to Postgres ("invalid input syntax for
+ *  type integer") and the whole inventory insert failed. Blank / non-numeric -> null. */
+function toWarrantyMonths(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
 /** Resolve one PO line item into the inventory-row shape (brand/category/model/
  *  code cascade against the pricelist + vendor pricelist). Shared by the initial
  *  conversion (insert) and the re-sync (update), so both stay identical. */
@@ -158,7 +167,7 @@ function buildInventoryRow(
         description: resolvedDesc,
         serial_number: normalizeSerials(item.serial_number),
         // PO line is the real, per-purchase value; the pricelist is the default.
-        warranty_months: item.warranty_months ?? plMatch?.warranty_months ?? null,
+        warranty_months: toWarrantyMonths(item.warranty_months) ?? toWarrantyMonths(plMatch?.warranty_months),
         qty:         item.qty,
         po_ordered_qty: item.qty, // baseline ordered qty, for edit re-sync deltas
         unit_price:  item.unit_price ?? 0,
