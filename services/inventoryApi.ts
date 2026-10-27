@@ -336,8 +336,11 @@ export const convertPurchaseOrderToInventory = async (
         const bucket = rowsByCode.get(key);
         const invRow = bucket && bucket.length ? bucket.shift() : null;
         if (!invRow) return [];
+        // Split on newlines AND commas: a PO line saved as "A,B,C" used to seed ONE serial whose
+        // value was the whole string, which showed up as a bogus extra pick in the invoice serial
+        // picker (PO-2026-050).
         const serials = (item.serial_number ?? '')
-            .split('\n')
+            .split(/[\n,]/)
             .map(s => s.trim())
             .filter(s => s.length > 0);
         const warrantyMonths = item.warranty_months ?? invRow.warranty_months ?? 12;
