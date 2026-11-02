@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { wantTaxType, taxTypeOrFilter } from '../../services/inventoryApi';
+import { parseSerials } from '../../utils/serials';
 
 interface AvailableSerial {
     id: string;
@@ -21,7 +22,8 @@ interface SerialNumberPickerProps {
     taxType?: string;
 }
 
-const splitLines = (s: string) => s.split('\n').map(l => l.trim()).filter(Boolean);
+// Newline AND comma: a comma-separated list must never be treated as one serial.
+const splitLines = parseSerials;
 
 // Picks serial numbers from real unsold inventory (stock_status = 'In Stock')
 // instead of free-typing. Falls back to a manual textarea for units never
@@ -90,21 +92,30 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
     const manualLines = currentLines.filter(l => !availableSet.has(l));
     const manualText = manualLines.join('\n');
 
+    // A line can't carry more serials than its quantity: every serial ticked here is marked
+    // sold when the document is saved, while stock is only deducted by `qty`.
+    const hasCap = qty > 0;
+    const atCap = hasCap && currentLines.length >= qty;
+    const overCap = hasCap && currentLines.length > qty;
+
     const toggleSerial = (sn: string) => {
         const isSelected = currentLines.includes(sn);
+        if (!isSelected && atCap) return;
         const next = isSelected ? currentLines.filter(l => l !== sn) : [...currentLines, sn];
         onChange(next.join('\n'));
     };
 
-    const allSelected = available.length > 0 && selectedKnown.length === available.length;
+    // Select-all only fills the remaining quantity, never past it.
+    const room = hasCap ? Math.max(0, qty - currentLines.length) : Infinity;
+    const addable = available.map(a => a.serial_number).filter(sn => !currentLines.includes(sn)).slice(0, room);
+    const canAddMore = addable.length > 0;
     const toggleAll = () => {
-        if (allSelected) {
+        if (!canAddMore) {
             // Deselect every in-stock serial, but keep any manually-typed lines.
             onChange(manualLines.join('\n'));
         } else {
-            // Select every in-stock serial (union with whatever's already there),
-            // preserving order: known serials first, manual entries after.
-            const union = [...available.map(a => a.serial_number), ...manualLines];
+            // Known serials first, manual entries after.
+            const union = [...selectedKnown, ...addable, ...manualLines];
             onChange(Array.from(new Set(union)).join('\n'));
         }
     };
@@ -126,11 +137,11 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
                             onClick={toggleAll}
                             className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-brand-500/30 text-brand-600 bg-brand-500/10 hover:bg-brand-500/20 transition-colors"
                         >
-                            {allSelected ? 'Clear all' : `Select all ${available.length}`}
+                            {canAddMore ? (addable.length === available.length ? `Select all ${available.length}` : `Select ${addable.length}`) : 'Clear all'}
                         </button>
                     )}
-                    <span className="text-[9px] text-muted-foreground">
-                        {selectedKnown.length}{qty > 0 ? `/${qty}` : ''} selected &middot; {available.length} in stock
+                    <span className={`text-[9px] ${overCap ? 'text-rose-600 font-bold' : 'text-muted-foreground'}`}>
+                        {currentLines.length}{qty > 0 ? `/${qty}` : ''} selected &middot; {available.length} in stock
                     </span>
                 </div>
             </div>
@@ -141,10 +152,12 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
                 <div className="max-h-28 overflow-y-auto vertical-scroll flex flex-wrap gap-1.5 p-2 rounded-lg border border-border bg-input mb-1.5">
                     {available.map(s => {
                         const checked = currentLines.includes(s.serial_number);
+                        const blocked = !checked && atCap;
                         return (
                             <label
                                 key={s.id}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono cursor-pointer border transition-colors ${checked
+                                title={blocked ? `Quantity is ${qty} — deselect a serial or raise the quantity first` : undefined}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono border transition-colors ${blocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${checked
                                     ? 'bg-brand-500/10 text-brand-600 border-brand-500/30'
                                     : 'bg-background text-foreground border-border hover:bg-muted'
                                     }`}
@@ -152,6 +165,7 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
                                 <input
                                     type="checkbox"
                                     checked={checked}
+                                    disabled={blocked}
                                     onChange={() => toggleSerial(s.serial_number)}
                                     className="h-3.5 w-3.5 rounded border-border bg-background text-brand-600 focus:ring-brand-500"
                                 />
@@ -173,6 +187,11 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
                 rows={2}
                 placeholder={available.length > 0 ? 'Other serial not listed above (one per line)' : `SN001\nSN002\nSN003...`}
             />
+            {overCap && (
+                <div className="text-[10px] font-semibold text-rose-600 mt-0.5">
+                    {currentLines.length} serials for quantity {qty} — deselect {currentLines.length - qty} or raise the quantity. This can&apos;t be saved as is.
+                </div>
+            )}
             {manualLines.length > 0 && (
                 <div className="text-[9px] text-amber-600 mt-0.5">
                     {manualLines.length} manually entered — not verified against in-stock inventory

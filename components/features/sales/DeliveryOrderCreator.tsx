@@ -24,6 +24,7 @@ import { generatePDF } from '@/lib/pdfClient';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { ColumnWidthPopover } from './ColumnWidthPopover';
 import { readFormDraft, useFormDraft } from '../../../hooks/useFormDraft';
+import { findSerialProblem, type SerialLine } from '@/utils/serials';
 
 const DO_STATUS_OPTIONS: DeliveryOrder['Status'][] = ['Pending', 'Delivered', 'Cancelled'];
 const CURRENCY_OPTIONS: ('USD' | 'KHR')[] = ['USD', 'KHR'];
@@ -274,6 +275,13 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
         if (!doc['DO No']?.trim()) { addToast('DO No. is required', 'error'); return; }
         if (!doc['Company Name']?.trim()) { addToast('Company Name is required', 'error'); return; }
         if (!hasLineItemContent(items)) { addToast('Add at least one line item before saving.', 'error'); return; }
+        // Serials must match quantities (each serial is marked sold on save; stock only drops by qty).
+        const serialProblem = findSerialProblem(items.map((it): SerialLine => ({
+            label: `Line ${it.no} – ${it.modelName || it.itemCode || 'item'}`,
+            qty: it.qty,
+            serialNumber: it.serialNumber,
+        })));
+        if (serialProblem) { addToast(serialProblem, 'error'); return; }
 
         setIsSubmitting(true);
         try {

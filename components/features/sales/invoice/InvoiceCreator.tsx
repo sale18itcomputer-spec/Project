@@ -40,6 +40,7 @@ import { LineItem, BuildComponent } from "./types";
 import { InvoicePreview } from "./InvoicePreview";
 import { InvoiceForm } from "./InvoiceForm";
 import { carryTaxType } from "../../../../lib/docTaxType";
+import { findSerialProblem, type SerialLine } from '@/utils/serials';
 
 
 
@@ -576,6 +577,25 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
 
         if (!hasLineItemContent(items)) {
             addToast('Add at least one line item before saving.', 'error');
+            return false;
+        }
+
+        // Serials must match quantities: every serial on a line is marked sold on save, while stock
+        // is only deducted by qty — extra serials would leave units "sold" that never left stock.
+        const serialProblem = findSerialProblem(items.flatMap((it): SerialLine[] => {
+            if (it.isPromotion) return [];
+            const name = it.modelName || it.itemCode || 'item';
+            if (it.isPCBuild) {
+                return (it.buildComponents || []).map(c => ({
+                    label: `Line ${it.no} (PC build) – ${c.modelName || c.itemCode}`,
+                    qty: c.qty,
+                    serialNumber: c.serialNumber,
+                }));
+            }
+            return [{ label: `Line ${it.no} – ${name}`, qty: it.qty, serialNumber: it.serialNumber }];
+        }));
+        if (serialProblem) {
+            addToast(serialProblem, 'error');
             return false;
         }
 
