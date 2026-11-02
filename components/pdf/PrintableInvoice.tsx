@@ -46,7 +46,7 @@ const getCurrencySymbol = (currency?: 'USD' | 'KHR'): string =>
     currency === 'KHR' ? '៛' : '$';
 
 const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, totals, currency, signaturePadding = 100, hideSerials = false }) => {
-    // Commercial Invoice (Yanet format) has its own print layout.
+    // Commercial Invoice (Yaneth format) has its own print layout.
     if (headerData['Taxable'] === 'Commercial Invoice') {
         return <PrintableCommercialInvoice headerData={headerData} items={items} totals={totals} currency={currency} signaturePadding={signaturePadding} hideSerials={hideSerials} />;
     }

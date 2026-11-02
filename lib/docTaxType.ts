@@ -1,7 +1,7 @@
 /**
  * Document tax type: 'VAT', 'NON-VAT' or 'Commercial Invoice'.
  *
- * "Commercial Invoice" is the third type (Yanet Computer Shop format, YC{year}- numbers).
+ * "Commercial Invoice" is the third type (Yaneth Computer Shop format, YC{year}- numbers).
  * It is the SAME entity as LPT (same books, same numbering engine) but it is its own document
  * type: neither a VAT nor a NON-VAT invoice, so it is never tagged or reported as either.
  * No VAT is charged on it (that is a property of the document, not a NON-VAT label).

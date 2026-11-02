@@ -2,7 +2,7 @@ import React from 'react';
 import { COMMERCIAL_SELLER, COMMERCIAL_TERMS } from '../../lib/pdf/commercialShared';
 
 /**
- * Browser-print (Ctrl+P) layout for the Commercial Invoice (Yanet format). Mirrors
+ * Browser-print (Ctrl+P) layout for the Commercial Invoice (Yaneth format). Mirrors
  * lib/pdf/buildCommercialInvoice.ts, which produces the preview / download / Telegram PDF, so
  * all of them show the same document. English only, no VAT, five columns.
  */

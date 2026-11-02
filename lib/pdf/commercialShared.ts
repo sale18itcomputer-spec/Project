@@ -1,6 +1,6 @@
 /**
  * commercialShared.ts
- * Shared pieces of the Commercial Invoice document family (Yanet Computer Shop format):
+ * Shared pieces of the Commercial Invoice document family (Yaneth Computer Shop format):
  * the Commercial Invoice, Commercial Quotation and Commercial Sale Order all print with the
  * same header, grid table, totals and signature blocks, so they look like one family.
  *
@@ -11,7 +11,7 @@ import { esc, fmtNum, PdfItem } from './shared-pure';
 
 /** Seller block printed in the header. Change here only. */
 export const COMMERCIAL_SELLER = {
-    name: 'Yanet Computer Shop',
+    name: 'Yaneth Computer Shop',
     address: 'House # 97, St 128, Phnom Penh Cambodia',
     tel: '017253399',
 };

@@ -1,6 +1,6 @@
 /**
  * buildCommercialSaleOrder.ts
- * COMMERCIAL SALE ORDER — Yanet Computer Shop format, matching the Commercial Invoice.
+ * COMMERCIAL SALE ORDER — Yaneth Computer Shop format, matching the Commercial Invoice.
  * Internal-use document: no serial numbers, no terms block; keeps the set-up software list
  * and remark that the standard sale order carries.
  */

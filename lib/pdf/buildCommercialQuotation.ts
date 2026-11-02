@@ -1,6 +1,6 @@
 /**
  * buildCommercialQuotation.ts
- * COMMERCIAL QUOTATION — Yanet Computer Shop format, matching the Commercial Invoice.
+ * COMMERCIAL QUOTATION — Yaneth Computer Shop format, matching the Commercial Invoice.
  * No VAT; total only. Fields follow the existing quotation builders so callers pass the
  * same header data.
  */

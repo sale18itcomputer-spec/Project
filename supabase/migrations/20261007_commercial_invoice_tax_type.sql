@@ -1,4 +1,4 @@
--- Commercial Invoice (Yanet format, YC{year}- numbers) is its OWN document type: neither VAT nor
+-- Commercial Invoice (Yaneth format, YC{year}- numbers) is its OWN document type: neither VAT nor
 -- NON-VAT. The tax-tag trigger only knew VAT / NON-VAT, so a Commercial invoice kept the column
 -- default — 'VAT' on b2b_invoices — and would have been mis-tagged as VAT. Tag it with its own
 -- value so VAT / NON-VAT totals never include it.

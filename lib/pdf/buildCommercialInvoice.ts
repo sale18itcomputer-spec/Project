@@ -1,6 +1,6 @@
 /**
  * buildCommercialInvoice.ts
- * COMMERCIAL INVOICE — the Yanet Computer Shop format.
+ * COMMERCIAL INVOICE — the Yaneth Computer Shop format.
  *
  * Its own document type (neither VAT nor Non-VAT), same entity as LPT. English only, no VAT,
  * no Part Number column. The Commercial Quotation and Sale Order share the same look through
