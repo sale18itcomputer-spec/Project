@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Wallet, TrendingUp, AlertTriangle, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
+import { Wallet, TrendingUp, AlertTriangle, CheckCircle2, Clock, ExternalLink, Ticket } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useNavigation } from '@/contexts/NavigationContext';
 import DataTable, { ColumnDef } from '@/components/common/DataTable';
@@ -18,6 +18,8 @@ import {
 import { formatCurrencySmartly } from '@/utils/formatters';
 import { formatDisplayDate } from '@/utils/time';
 import QuickPaymentModal from '@/components/modals/QuickPaymentModal';
+import ApplyCreditModal from '@/components/modals/ApplyCreditModal';
+import { openCreditMemos, creditsForInvoice, creditStanding, isCreditMemo } from '@/utils/creditMemo';
 import { usePermissions } from '@/hooks/usePermissions';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import DashboardHeader from '@/components/common/DashboardHeader';
@@ -87,12 +89,18 @@ const CollectionDashboard: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebouncedValue(searchQuery);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
+    const [creditTarget, setCreditTarget] = useState<InvoiceAR | null>(null);
 
     // ── Derive AR rows ────────────────────────────────────────────────────────
     const allRows = useMemo<InvoiceAR[]>(
         () => computeCollectionRows(invoices, receipts),
         [invoices, receipts],
     );
+
+    // Credit memos (negative invoices) that still have credit left to spend.
+    const openMemos = useMemo(() => openCreditMemos(invoices, receipts), [invoices, receipts]);
+    const canApplyCredit = (row: InvoiceAR) =>
+        canRecordPayment && row.outstanding > 0 && creditsForInvoice(row.invoice, openMemos).length > 0;
 
     // ── KPIs (computed before filter so cards show the full picture) ──────────
     const kpis = useMemo(() => {
@@ -219,16 +227,26 @@ const CollectionDashboard: React.FC = () => {
             accessorKey: 'outstanding',
             header: 'Outstanding',
             isSortable: true,
-            cell: (v: number, row: InvoiceAR) =>
-                v > 0
+            cell: (v: number, row: InvoiceAR) => {
+                // A credit memo owes nothing; show what is left to spend instead of a misleading $0.
+                if (isCreditMemo(row.invoice)) {
+                    const left = creditStanding(row.invoice, receipts).remaining;
+                    return left > 0.005
+                        ? <span className="text-sm font-bold tabular-nums text-violet-600 dark:text-violet-400">{formatCurrencySmartly(left, row.invoice.Currency)} credit</span>
+                        : <span className="text-sm font-bold text-muted-foreground">Credit used</span>;
+                }
+                return v > 0
                     ? <span className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">{formatCurrencySmartly(v, row.invoice.Currency)}</span>
-                    : <span className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrencySmartly(0, row.invoice.Currency)}</span>,
+                    : <span className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrencySmartly(0, row.invoice.Currency)}</span>;
+            },
         },
         {
             accessorKey: 'collectionStatus',
             header: 'Status',
             isSortable: true,
-            cell: (v: CollectionStatus) => statusBadge(v),
+            cell: (v: CollectionStatus, row: InvoiceAR) => isCreditMemo(row.invoice)
+                ? <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400">Credit Memo</span>
+                : statusBadge(v),
         },
         {
             accessorKey: 'daysPastDue',
@@ -240,13 +258,26 @@ const CollectionDashboard: React.FC = () => {
                 return <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{v}d overdue</span>;
             },
         },
-    ], [handleNavigation]);
+    ], [handleNavigation, receipts]);
 
     // ── Row actions (record-payment or "Open Invoice") ────────────────────────
     const renderRowActions = (row: InvoiceAR) => {
         const canPay = canRecordPayment && row.outstanding > 0;
         return (
             <div className="flex items-center justify-end gap-1">
+                {canApplyCredit(row) && (
+                    <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setCreditTarget(row); }}
+                        title="Apply Credit Memo"
+                        aria-label="Apply credit memo"
+                        className="font-bold"
+                    >
+                        <Ticket className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span className="hidden sm:inline">Apply Credit</span>
+                    </Button>
+                )}
                 {canPay && (
                     <Button
                         size="xs"
@@ -385,6 +416,11 @@ const CollectionDashboard: React.FC = () => {
                                         <Wallet className="mr-2 h-4 w-4" /> Record Payment
                                     </DropdownMenuItem>
                                 )}
+                                {canApplyCredit(row) && (
+                                    <DropdownMenuItem onClick={() => setCreditTarget(row)}>
+                                        <Ticket className="mr-2 h-4 w-4" /> Apply Credit Memo
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => handleNavigation({ view: 'invoices', action: 'view', id: row.invoice['Inv No'] })}>
                                     <ExternalLink className="mr-2 h-4 w-4" /> Open Invoice
                                 </DropdownMenuItem>
@@ -417,6 +453,14 @@ const CollectionDashboard: React.FC = () => {
                 <QuickPaymentModal
                     ar={paymentTarget}
                     onClose={() => setPaymentTarget(null)}
+                />
+            )}
+
+            {/* Apply credit memo modal */}
+            {creditTarget && (
+                <ApplyCreditModal
+                    ar={creditTarget}
+                    onClose={() => setCreditTarget(null)}
                 />
             )}
         </div>

@@ -10,6 +10,7 @@
  */
 import { Invoice, Receipt } from '../types';
 import { parseDate } from './time';
+import { isCreditApplication } from './creditMemo';
 
 export type CollectionStatus = 'Paid' | 'Partial' | 'Pending' | 'Overdue' | 'Cancelled' | 'Converted';
 
@@ -175,13 +176,15 @@ export function totalOutstanding(rows: InvoiceAR[]): number {
     return rows.reduce((s, r) => s + r.outstanding, 0);
 }
 
-/** Sum Paid where the receipt date falls in [from, to] inclusive. */
+/** Sum Paid where the receipt date falls in [from, to] inclusive. Credit-memo applications are
+ *  settlements, not money received, so they are excluded. */
 export function paidInRange(rows: InvoiceAR[], from: Date, to: Date): number {
     const fromMs = from.getTime();
     const toMs = to.getTime();
     let sum = 0;
     for (const row of rows) {
         for (const r of row.receipts) {
+            if (isCreditApplication(r)) continue;
             const rd = r['RV Date'] ? new Date(r['RV Date'] + 'T00:00:00').getTime() : NaN;
             if (!isFinite(rd)) continue;
             if (rd >= fromMs && rd <= toMs) sum += toNum(r.Amount);

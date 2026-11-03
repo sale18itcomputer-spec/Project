@@ -325,6 +325,7 @@ export const RECEIPT_HEADERS = [
   'Amount',
   'Currency',
   'Payment Method',
+  'credit_memo_no',
   'Tax Type',
   'Status',
   'Payment Term',

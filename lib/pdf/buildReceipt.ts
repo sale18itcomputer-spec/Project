@@ -80,7 +80,9 @@ export function buildReceipt(
     const words = currency === 'USD' ? amountInWords(grandTotal) : '';
 
     // ── Payment method checkboxes ─────────────────────────────────────────────
-    const pmOptions = ['Cash', 'Bank Transfer', 'Check'];
+    const pmOptions = payMethod.toLowerCase().includes('credit memo')
+        ? ['Cash', 'Bank Transfer', 'Check', 'Credit Memo']
+        : ['Cash', 'Bank Transfer', 'Check'];
     const checkboxes = pmOptions.map(opt => {
         const checked = payMethod.toLowerCase().includes(opt.toLowerCase());
         const box = checked

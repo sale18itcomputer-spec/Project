@@ -612,7 +612,7 @@ const ReceiptCreator: React.FC<Props> = ({ onBack, existingReceipt, initialData 
                                     <FormSelect label="Tax Type" name="Tax Type" value={doc['Tax Type']} options={TAX_TYPE_OPTIONS} onChange={handleInputChange} />
                                     <div className={monLock}>
                                         <FormSelect label="Currency" name="Currency" value={doc['Currency']} options={CURRENCY_OPTIONS} onChange={handleInputChange} />
-                                        <FormSelect label="Payment Method" name="Payment Method" value={doc['Payment Method']} options={PAYMENT_METHOD_OPTIONS} onChange={handleInputChange} />
+                                        <FormSelect label="Payment Method" name="Payment Method" value={doc['Payment Method']} options={doc['Payment Method'] === 'Credit Memo' ? [...PAYMENT_METHOD_OPTIONS, 'Credit Memo'] : PAYMENT_METHOD_OPTIONS} onChange={handleInputChange} />
                                     </div>
                                     <FormInput label="Payment Term" name="Payment Term" value={doc['Payment Term']} onChange={handleInputChange} />
                                 </FormSection>

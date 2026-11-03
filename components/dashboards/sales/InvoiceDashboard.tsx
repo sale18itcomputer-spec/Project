@@ -9,7 +9,7 @@ import { formatDisplayDate, calcDueDate } from "../../../utils/time";
 import { useNavigation } from "../../../contexts/NavigationContext";
 import { useWindowManager } from "../../../contexts/WindowManagerContext";
 import { formatCurrencySmartly } from "../../../utils/formatters";
-import { FileText, Table, Columns, Info, Pencil, Plus, Trash2, Copy, Printer, Wallet, Truck, BookOpen, Send } from 'lucide-react';
+import { FileText, Table, Columns, Info, Pencil, Plus, Trash2, Copy, Printer, Wallet, Truck, BookOpen, Send, Ticket } from 'lucide-react';
 import { DataTableColumnToggle } from "../../common/DataTableColumnToggle";
 import Spinner from "../../common/Spinner";
 import InvoiceWindowContent from "../../windows/content/InvoiceWindowContent";
@@ -29,6 +29,8 @@ import { DropdownMenuItem } from "../../ui/dropdown-menu";
 import { StatusBadge } from "../../ui/status-badge";
 import RowActionMenuItems from "../../common/RowActionMenuItems";
 import QuickPaymentModal from "../../modals/QuickPaymentModal";
+import ApplyCreditModal from "../../modals/ApplyCreditModal";
+import { openCreditMemos, creditsForInvoice } from "../../../utils/creditMemo";
 import { computeInvoiceAR, InvoiceAR } from "../../../utils/collection";
 import { isServiceInvoice } from "../../../utils/serviceInvoice";
 import { getUserTelegramChatId } from "../../../utils/telegram";
@@ -60,6 +62,8 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
     const { addToast } = useToast();
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
     const [paymentTarget, setPaymentTarget] = useState<InvoiceAR | null>(null);
+    const [creditTarget, setCreditTarget] = useState<InvoiceAR | null>(null);
+    const openMemos = useMemo(() => openCreditMemos(invoices, receipts), [invoices, receipts]);
     const [financeTarget, setFinanceTarget] = useState<Invoice | null>(null);
     const [isFinalizing, setIsFinalizing] = useState(false);
     // Invoice numbers that already have a SALE journal entry (source='invoice').
@@ -231,6 +235,10 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
 
     const handleRecordPayment = (invoice: Invoice) => {
         setPaymentTarget(computeInvoiceAR(invoice, receipts));
+    };
+
+    const handleApplyCredit = (invoice: Invoice) => {
+        setCreditTarget(computeInvoiceAR(invoice, receipts));
     };
 
     const handleCreateDeliveryOrder = (invoice: Invoice) => {
@@ -642,6 +650,11 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                                             <Wallet className="mr-2 h-4 w-4" /> Record Payment
                                         </DropdownMenuItem>
                                     )}
+                                    {canRecordPayment && creditsForInvoice(row, openMemos).length > 0 && (
+                                        <DropdownMenuItem onClick={() => handleApplyCredit(row)}>
+                                            <Ticket className="mr-2 h-4 w-4" /> Apply Credit Memo
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem onClick={() => handlePostToJournal(row)}>
                                         <BookOpen className="mr-2 h-4 w-4" /> Post to Journal
                                     </DropdownMenuItem>
@@ -820,6 +833,13 @@ const InvoiceDashboard: React.FC<InvoiceDashboardProps> = ({ initialPayload }) =
                 <QuickPaymentModal
                     ar={paymentTarget}
                     onClose={() => setPaymentTarget(null)}
+                />
+            )}
+
+            {creditTarget && (
+                <ApplyCreditModal
+                    ar={creditTarget}
+                    onClose={() => setCreditTarget(null)}
                 />
             )}
         </div>

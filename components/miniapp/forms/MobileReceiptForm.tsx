@@ -270,7 +270,7 @@ export default function MobileReceiptForm({ onBack, existingReceipt, initialData
                         <MobileSelect value={doc['Tax Type']} onChange={v => set('Tax Type', v)} options={TAX_TYPE_OPTIONS} placeholder="NON-VAT" />
                     </MobileField>
                     <MobileField label="Payment Method" last={false}>
-                        <MobileSelect value={doc['Payment Method']} onChange={v => set('Payment Method', v)} options={PAYMENT_METHODS} placeholder="Cash" />
+                        <MobileSelect value={doc['Payment Method']} onChange={v => set('Payment Method', v)} options={doc['Payment Method'] === 'Credit Memo' ? [...PAYMENT_METHODS, 'Credit Memo'] : PAYMENT_METHODS} placeholder="Cash" />
                     </MobileField>
                     <MobileField label="Invoice Ref" last={false}>
                         <MobileSearchSelect

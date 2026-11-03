@@ -394,7 +394,9 @@ export interface Receipt {
   'Email'?: string;
   'Amount'?: number;
   'Currency'?: 'USD' | 'KHR';
-  'Payment Method'?: 'Cash' | 'Bank Transfer' | 'Cheque' | 'ABA' | 'KHQR' | 'Other';
+  'Payment Method'?: 'Cash' | 'Bank Transfer' | 'Cheque' | 'ABA' | 'KHQR' | 'Other' | 'Credit Memo';
+  /** Set when Payment Method is 'Credit Memo': the negative invoice this receipt consumed. */
+  'credit_memo_no'?: string;
   'Tax Type'?: 'VAT' | 'NON-VAT' | 'Commercial Invoice';
   'Status': 'Draft' | 'Issued' | 'Cancelled';
   'Payment Term'?: string;
