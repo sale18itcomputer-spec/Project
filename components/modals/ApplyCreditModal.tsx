@@ -45,6 +45,8 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
 
     const [isShowing, setIsShowing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Two-step save: the first press only shows a summary, the second one writes.
+    const [confirming, setConfirming] = useState(false);
 
     const invoice = ar.invoice;
     const currency: 'USD' | 'KHR' = invoice.Currency === 'KHR' ? 'KHR' : 'USD';
@@ -123,6 +125,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isValid || isSubmitting || !selected) return;
+        if (!confirming) { setConfirming(true); return; }
         setIsSubmitting(true);
 
         try {
@@ -135,11 +138,13 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                     'error',
                 );
                 setIsSubmitting(false);
+                setConfirming(false);
                 return;
             }
         } catch (err: any) {
             addToast(err.message, 'error');
             setIsSubmitting(false);
+            setConfirming(false);
             return;
         }
 
@@ -225,6 +230,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
             setReceipts(prev => prev ? prev.filter(r => r['RV No'] !== nextRVNo) : null);
             addToast(`Failed to apply credit: ${err.message}`, 'error');
             setIsSubmitting(false);
+            setConfirming(false);
         }
     };
 
@@ -299,7 +305,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                                 <select
                                     value={memoNo}
                                     onChange={e => setMemoNo(e.target.value)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || confirming}
                                     className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 transition"
                                 >
                                     {credits.map(c => (
@@ -321,7 +327,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                                     min="0.01"
                                     value={amountStr}
                                     onChange={e => setAmountStr(e.target.value)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || confirming}
                                     required
                                     placeholder="0.00"
                                     className={`w-full bg-background border rounded-md px-3 py-2 text-sm font-mono tabular-nums focus:ring-2 transition ${overApply ? 'border-rose-500 focus:ring-rose-500' : 'border-border focus:ring-brand-500'}`}
@@ -329,7 +335,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                                 <button
                                     type="button"
                                     onClick={() => setAmountStr(maxApply.toFixed(2))}
-                                    disabled={isSubmitting || maxApply <= 0}
+                                    disabled={isSubmitting || confirming || maxApply <= 0}
                                     className="mt-1 text-[11px] text-brand-600 hover:text-brand-700 hover:underline disabled:opacity-40 float-right"
                                 >
                                     Fill max: {sym}{maxApply.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -344,7 +350,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                                     type="date"
                                     value={rvDate}
                                     onChange={e => setRvDate(e.target.value)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || confirming}
                                     required
                                     className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 transition"
                                 />
@@ -358,7 +364,7 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                                     type="text"
                                     value={remark}
                                     onChange={e => setRemark(e.target.value)}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || confirming}
                                     placeholder="e.g. Agreed with customer on 3 Nov"
                                     className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 transition"
                                 />
@@ -366,8 +372,30 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                         </div>
                     )}
 
+                    {/* Confirmation summary */}
+                    {confirming && selected && (
+                        <div className="mt-4 rounded-md border border-brand-500/30 bg-brand-500/5 px-3 py-3 text-sm space-y-1">
+                            <div className="font-bold text-foreground">Confirm credit application</div>
+                            <div className="text-foreground">
+                                Apply <span className="font-bold tabular-nums">{formatCurrencySmartly(amount, currency)}</span> of credit memo{' '}
+                                <span className="font-mono font-semibold">{memoNo}</span> to invoice{' '}
+                                <span className="font-mono font-semibold">{invoice['Inv No']}</span>.
+                            </div>
+                            <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
+                                <li>
+                                    Invoice balance: {formatCurrencySmartly(ar.outstanding, currency)} → {formatCurrencySmartly(Math.max(0, round2(ar.outstanding - amount)), currency)}
+                                    {!isPartial && invoice.Status !== 'Completed' && ' (invoice will be marked Completed)'}
+                                </li>
+                                <li>
+                                    Credit left on {memoNo}: {formatCurrencySmartly(selected.remaining, currency)} → {formatCurrencySmartly(Math.max(0, round2(selected.remaining - amount)), currency)}
+                                </li>
+                                <li>No cash moves and no journal entry is posted. Cancel receipt {nextRVNo} to reverse it.</li>
+                            </ul>
+                        </div>
+                    )}
+
                     {/* Hints */}
-                    <div className="mt-4 space-y-1.5">
+                    <div className={`mt-4 space-y-1.5 ${confirming ? 'hidden' : ''}`}>
                         {overApply && (
                             <div className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">
                                 <span className="font-bold">Too much</span>
@@ -403,20 +431,23 @@ const ApplyCreditModal: React.FC<Props> = ({ ar, onClose }) => {
                 <div className="flex items-center justify-end gap-2 px-6 py-4 bg-muted/30 border-t border-border rounded-b-xl">
                     <button
                         type="button"
-                        onClick={handleClose}
+                        onClick={confirming ? () => setConfirming(false) : handleClose}
                         disabled={isSubmitting}
                         className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition disabled:opacity-50"
                     >
-                        Cancel
+                        {confirming ? 'Back' : 'Cancel'}
                     </button>
                     <button
                         type="submit"
                         disabled={!isValid || isSubmitting}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary-foreground bg-primary hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition shadow-sm"
                     >
-                        {isSubmitting ? 'Applying...' : <>
+                        {isSubmitting ? 'Applying...' : confirming ? <>
                             <Ticket className="w-4 h-4" />
-                            Apply {isPartial ? 'Partial Credit' : 'Credit'}
+                            Confirm &amp; Apply
+                        </> : <>
+                            <Ticket className="w-4 h-4" />
+                            Review {isPartial ? 'Partial Credit' : 'Credit'}
                         </>}
                     </button>
                 </div>
