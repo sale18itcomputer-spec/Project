@@ -5,6 +5,7 @@
  * columnWidths param is accepted for API consistency; DO has its own 5-col schema (no price/amount).
  */
 import { esc, fmtDate, LOGO, PdfItem } from './shared-pure';
+import { serialGridApplies, serialGridChunksHtml } from './serialGrid';
 
 export function buildDeliveryNote(
     hd: Record<string, any>,
@@ -50,9 +51,12 @@ export function buildDeliveryNote(
         const sns = (item.serialNumbers && item.serialNumbers.length > 0)
             ? item.serialNumbers
             : item.serialNumber ? [item.serialNumber] : [];
-        const snCell = sns.filter(s => s.trim()).length > 0
-            ? sns.filter(s => s.trim()).map(s => `<div style="line-height:1.6;">${esc(s)}</div>`).join('')
-            : '';
+        const serialList = sns.map(s => s.trim()).filter(Boolean);
+        // A long list prints as a compact grid inside the Serial Number column
+        // (lib/pdf/serialGrid.ts) instead of one line per serial.
+        const snCell = serialGridApplies(serialList.length)
+            ? serialGridChunksHtml(serialList, false, false).join('')
+            : serialList.map(s => `<div style="line-height:1.6;">${esc(s)}</div>`).join('');
 
         // PC Build: sold as one priced line (no price shown on a DO anyway),
         // but the delivery note must list each real part being handed over —

@@ -1,6 +1,8 @@
 import React from 'react';
 import { isServiceInvoice } from '../../utils/serviceInvoice';
 import PrintableCommercialInvoice from './PrintableCommercialInvoice';
+import SerialGridChunk from './SerialGridChunk';
+import { serialGridApplies, serialGridLayout } from '../../lib/pdf/serialGrid';
 
 interface BuildComponent {
     itemCode: string;
@@ -379,6 +381,15 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                         );
                     }
 
+                    const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
+                        ? item.serialNumbers
+                        : (item.serialNumber || '').split('\n'))
+                        .map(s => s.trim()).filter(Boolean);
+                    // A long serial list prints as a compact grid inside the description cell
+                    // (lib/pdf/serialGrid.ts) instead of one line per serial.
+                    const serialGrid = serialGridApplies(serials.length);
+                    const gridLayout = serialGrid ? serialGridLayout(serials) : null;
+
                     return (
                         <React.Fragment key={item.id || idx}>
                             <tr className="break-inside-avoid" style={{ height: isCommercial ? 40 : 'auto', textAlign: 'center' }}>
@@ -391,17 +402,17 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ headerData, items, 
                                             {item.description}
                                         </div>
                                     )}
-                                    {(() => {
-                                        const serials = hideSerials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
-                                            ? item.serialNumbers
-                                            : (item.serialNumber || '').split('\n'))
-                                            .map(s => s.trim()).filter(Boolean);
-                                        return serials.length > 0 ? (
-                                            <div style={{ fontSize: 7.5, color: '#555', whiteSpace: 'pre-wrap', marginTop: 3, fontWeight: 'normal' }}>
-                                                {serials.map((s, i) => <div key={i}>S/N: {s}</div>)}
-                                            </div>
-                                        ) : null;
-                                    })()}
+                                    {gridLayout ? (
+                                        <div style={{ marginTop: 3, fontWeight: 'normal' }}>
+                                            {gridLayout.chunks.map((chunk, ci) => (
+                                                <SerialGridChunk key={ci} chunk={chunk} minCellPx={gridLayout.minCellPx} headingCount={ci === 0 ? serials.length : undefined} />
+                                            ))}
+                                        </div>
+                                    ) : serials.length > 0 && (
+                                        <div style={{ fontSize: 7.5, color: '#555', whiteSpace: 'pre-wrap', marginTop: 3, fontWeight: 'normal' }}>
+                                            {serials.map((s, i) => <div key={i}>S/N: {s}</div>)}
+                                        </div>
+                                    )}
                                 </td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>{item.qty || ''}</td>
                                 <td style={{ ...tdBorder, verticalAlign: 'top', paddingTop: 8, paddingBottom: 8 }}>

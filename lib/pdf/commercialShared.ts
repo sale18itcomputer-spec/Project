@@ -8,6 +8,7 @@
  * the client-side preview alike.
  */
 import { esc, fmtNum, PdfItem } from './shared-pure';
+import { serialGridApplies, serialGridChunksHtml } from './serialGrid';
 
 /** Seller block printed in the header. Change here only. */
 export const COMMERCIAL_SELLER = {
@@ -94,7 +95,9 @@ export function commercialItemRows(items: PdfItem[], sym: string, o: CommercialI
             (item.description ? item.description.split('\n') : []).forEach(t => subs.push({ html: esc(t) }));
             const serials = !o.serials ? [] : (item.serialNumbers && item.serialNumbers.length > 0
                 ? item.serialNumbers : (item.serialNumber || '').split('\n')).map(s => s.trim()).filter(Boolean);
-            serials.forEach(s => subs.push({ html: `S/N: ${esc(s)}`, serial: true }));
+            // A long list prints as a compact grid inside the description column (lib/pdf/serialGrid.ts).
+            if (serialGridApplies(serials.length)) serialGridChunksHtml(serials).forEach(html => subs.push({ html, serial: true }));
+            else serials.forEach(s => subs.push({ html: `S/N: ${esc(s)}`, serial: true }));
         }
 
         const head = subs.length ? open : '';

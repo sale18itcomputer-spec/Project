@@ -1,5 +1,7 @@
 import React from 'react';
 import { COMMERCIAL_SELLER, COMMERCIAL_TERMS } from '../../lib/pdf/commercialShared';
+import { serialGridApplies, serialGridLayout } from '../../lib/pdf/serialGrid';
+import SerialGridChunk from './SerialGridChunk';
 
 /**
  * Browser-print (Ctrl+P) layout for the Commercial Invoice (Yaneth format). Mirrors
@@ -97,7 +99,14 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
             (item.description ? item.description.split('\n') : []).forEach(t => subs.push({ text: t }));
             if (!hideSerials) {
                 const sns = (item.serialNumbers && item.serialNumbers.length ? item.serialNumbers : (item.serialNumber || '').split('\n')).map(s => s.trim()).filter(Boolean);
-                sns.forEach(s => subs.push({ text: `S/N: ${s}`, serial: true }));
+                // A long list prints as a compact grid inside the description column (lib/pdf/serialGrid.ts).
+                if (serialGridApplies(sns.length)) {
+                    const { minCellPx, chunks } = serialGridLayout(sns);
+                    chunks.forEach((chunk, ci) => subs.push({
+                        text: <SerialGridChunk chunk={chunk} minCellPx={minCellPx} headingCount={ci === 0 ? sns.length : undefined} />,
+                        serial: true,
+                    }));
+                } else sns.forEach(s => subs.push({ text: `S/N: ${s}`, serial: true }));
             }
         }
         const head = subs.length ? open : {};

@@ -4,6 +4,7 @@
  * columnWidths: [no%, code%, desc%, qty%, unitPrice%, amount%]  — 0 = omit column
  */
 import { esc, fmtDate, fmtNum, LOGO, PdfItem, PdfTotals, computeVatDepositFooter } from './shared-pure';
+import { serialGridApplies, serialGridChunksHtml } from './serialGrid';
 
 const DEFAULT_WIDTHS = [4, 12, 38, 14, 17, 15];
 
@@ -213,16 +214,20 @@ export function buildTaxInvoice(
         // grey). Each is its own row (break-inside-avoid) so a page break can
         // fall between lines. The LAST sub-row closes the item block.
         const descLines = item.description ? item.description.split('\n') : [];
-        const subLines: { text: string; serial: boolean }[] = [
+        // A long serial list prints as a compact grid inside the description column instead of
+        // one line per serial (see lib/pdf/serialGrid.ts); its chunks are ordinary sub-rows.
+        const subLines: { text: string; serial: boolean; html?: boolean }[] = [
             ...descLines.map(text => ({ text, serial: false })),
-            ...serials.map(s => ({ text: `S/N: ${s}`, serial: true })),
+            ...(serialGridApplies(serials.length)
+                ? serialGridChunksHtml(serials).map(text => ({ text, serial: true, html: true }))
+                : serials.map(s => ({ text: `S/N: ${s}`, serial: true }))),
         ];
         subLines.forEach((sub, idx) => {
             const isLast = idx === subLines.length - 1;
             const borderStyle = isLast ? 'border-top:none !important;' : 'border-top:none !important; border-bottom:none !important;';
             const padStyle = isLast ? 'padding-bottom:8px;' : 'padding-bottom:0;';
             const descCell = sub.serial
-                ? `<td class="text-left align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle} font-size:10px; color:#555;">${esc(sub.text)}</td>`
+                ? `<td class="text-left align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle} font-size:10px; color:#555;">${sub.html ? sub.text : esc(sub.text)}</td>`
                 : `<td class="text-left font-normal text-[12px] align-top whitespace-pre-wrap" style="${borderStyle} padding-top:2px; ${padStyle}">${esc(sub.text)}</td>`;
             rows += `
         <tr class="text-center break-inside-avoid">
