@@ -52,15 +52,18 @@ export const SerialNumberPicker: React.FC<SerialNumberPickerProps> = ({ itemCode
             // type is given, restrict to matching (or unclassified) stock so a VAT
             // invoice never lists non-VAT serials and vice-versa.
             const taxFilter = (taxType && taxType !== 'Commercial Invoice') ? taxTypeOrFilter(wantTaxType(taxType === 'VAT')) : null; // Commercial: any stock
+            // Only inventory rows that still hold stock (qty > 0): a serial left "In Stock" under a
+            // sold-out row is a stale record of a unit that already left (e.g. a serial typed on the
+            // PO after the sale), and offering it lets the same unit be picked twice.
             let invIds: string[] = [];
             if (code) {
-                let q = supabase.from('inventory').select('id').eq('code', code);
+                let q = supabase.from('inventory').select('id').eq('code', code).gt('qty', 0);
                 if (taxFilter) q = q.or(taxFilter);
                 const { data } = await q;
                 invIds = (data ?? []).map((r: any) => r.id);
             }
             if (invIds.length === 0 && model) {
-                let q = supabase.from('inventory').select('id').ilike('model_name', `%${model}%`);
+                let q = supabase.from('inventory').select('id').ilike('model_name', `%${model}%`).gt('qty', 0);
                 if (taxFilter) q = q.or(taxFilter);
                 const { data } = await q;
                 invIds = (data ?? []).map((r: any) => r.id);
