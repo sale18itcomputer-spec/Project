@@ -506,7 +506,8 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                             ...item,
                             id: `item-${Date.now()}-${Math.random()}`,
                             commission: c,
-                            amount: q * (p + c), // Force recalculate amount on load to ensure consistency
+                            // Recalculate amount on load for consistency, but a cashback/promotion row has qty 0 and stores its own (negative) amount: keep it, never recompute it to 0.
+                            amount: item.isPromotion ? (parseFloat(String(item.amount)) || 0) : q * (p + c),
                         };
                     });
                     setItems(formattedItems);

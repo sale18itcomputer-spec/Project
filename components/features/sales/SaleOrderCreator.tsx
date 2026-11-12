@@ -365,14 +365,16 @@ const SaleOrderCreator: React.FC<SaleOrderCreatorProps> = ({ onBack, existingSal
                         : [(item.modelName || '').trim(), (item.description || '').trim()].filter(Boolean).join('\n');
                     return {
                         id: `item-${Date.now()}-${index}`,
-                        no: item.no || index + 1,
+                        no: item.isPromotion ? 0 : (item.no || index + 1),
                         itemCode: item.itemCode || '',
                         modelName: item.modelName || '',
                         description: resolvedDescription,
-                        qty: item.qty || 1,
+                        qty: item.isPromotion ? 0 : (item.qty || 1),
                         unitPrice: item.unitPrice || 0,
                         commission: 0,
-                        amount: (item.qty || 1) * (item.unitPrice || 0),
+                        // Cashback/promotion rows carry their own negative amount and must stay flagged as promotions.
+                        amount: item.isPromotion ? (parseFloat(String(item.amount)) || 0) : (item.qty || 1) * (item.unitPrice || 0),
+                        ...(item.isPromotion ? { isPromotion: true } : {}),
                     };
                 });
                 setItems(newItems);
