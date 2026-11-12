@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
+import LongModelWarning from '../../common/LongModelWarning';
 import {
     ChevronLeft, Plus, Trash2, Loader2, ChevronDown,
     ChevronUp, Search, Package, X,
@@ -528,6 +529,7 @@ export function MobileLineItemCard({
                                 placeholder="Product / service name"
                                 className="w-full text-[13px] font-semibold text-foreground bg-transparent outline-none placeholder:text-muted-foreground/30 mt-0.5"
                             />
+                            <LongModelWarning modelName={item.modelName} description={item.description} className="mt-0.5 text-[10px]" />
                         </div>
 
                         {/* Description */}

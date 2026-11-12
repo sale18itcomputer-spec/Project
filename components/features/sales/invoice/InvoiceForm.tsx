@@ -1,4 +1,5 @@
 import React from 'react';
+import LongModelWarning from '../../../common/LongModelWarning';
 import { Invoice } from "../../../../types";
 import { LineItem, BuildComponent } from "./types";
 import { FormSection, FormInput, FormSelect, FormTextarea } from "../../../common/FormControls";
@@ -237,6 +238,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                                                                 placeholder={isPCBuildRow ? 'e.g. Custom Gaming PC — Ben' : ''}
                                                                 className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm "
                                                             />
+                                                            {!isPCBuildRow && <LongModelWarning modelName={item.modelName} description={item.description} />}
                                                         </div>
                                                     </div>
 

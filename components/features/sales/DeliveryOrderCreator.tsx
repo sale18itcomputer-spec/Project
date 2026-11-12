@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import LongModelWarning from '../../common/LongModelWarning';
 import { DeliveryOrder, Invoice, SaleOrder } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -846,6 +847,7 @@ const DeliveryOrderCreator: React.FC<Props> = ({ onBack, existingDO, initialData
                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
                                                                 className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all"
                                                             />
+                                                            <LongModelWarning modelName={item.modelName} description={item.description} />
                                                         </div>
                                                     </div>
 

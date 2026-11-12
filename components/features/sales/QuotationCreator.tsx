@@ -2,6 +2,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import LongModelWarning from '../../common/LongModelWarning';
 import { Quotation, PricelistItem } from "../../../types";
 import { useB2BData } from "../../../hooks/useB2BData";
 import { useB2B } from "../../../contexts/B2BContext";
@@ -1568,6 +1569,7 @@ const QuotationCreator: React.FC<QuotationCreatorProps> = ({ onBack, existingQuo
                                                                                 onChange={e => handleItemChange(item.id, 'modelName', e.target.value)}
                                                                                 className="w-full h-9 px-3 text-sm font-medium border border-border rounded-lg bg-input text-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/20 transition-all hover:border-muted-foreground/40"
                                                                             />
+                                                                            <LongModelWarning modelName={item.modelName} description={item.description} />
                                                                         </div>
                                                                     </div>
 

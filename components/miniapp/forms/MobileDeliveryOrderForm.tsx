@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import LongModelWarning from '../../common/LongModelWarning';
 import { DeliveryOrder, Invoice, SaleOrder } from '@/types';
 import { useData } from '@/contexts/MiniAppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -309,6 +310,7 @@ export default function MobileDeliveryOrderForm({ onBack, existingDO, initialDat
                                     placeholder="Model name"
                                     className="w-full text-[13px] font-semibold text-foreground bg-transparent outline-none placeholder:text-muted-foreground/30 mb-1.5"
                                 />
+                                <LongModelWarning modelName={it.modelName} description={it.description} className="mb-1.5 text-[10px]" />
                                 <textarea value={it.description}
                                     onChange={e => setItemField(it.id, 'description', e.target.value)}
                                     placeholder="Description"
