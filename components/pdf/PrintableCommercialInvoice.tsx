@@ -154,6 +154,9 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
                     <div style={{ fontWeight: 'bold', fontSize: 12, textDecoration: 'underline', marginBottom: 4 }}>Buyer :</div>
                     {kv([
                         ['Customer Name', hd['Company Name'] || hd['Customer'] || ''],
+                        ...((hd['Contact Name'] || hd['Contact Person'])
+                            ? [['Contact Person', hd['Contact Name'] || hd['Contact Person'] || ''] as [string, string]]
+                            : []),
                         ['Phone Number', hd['Phone Number'] || hd['Telephone'] || ''],
                         ['Address', hd['Company Address'] || hd['Address'] || ''],
                     ])}

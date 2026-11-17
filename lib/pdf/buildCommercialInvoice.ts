@@ -45,6 +45,10 @@ export function buildCommercialInvoice(
         leftHeading: 'Buyer :',
         leftRows: [
             ['Customer Name', esc(hd['Company Name'] || hd['Customer'] || '')],
+            // Contact person only when there is one, same as the commercial quotation / sale order.
+            ...((hd['Contact Name'] || hd['Contact Person'])
+                ? [['Contact Person', esc(hd['Contact Name'] || hd['Contact Person'] || '')] as [string, string]]
+                : []),
             ['Phone Number', esc(hd['Phone Number'] || hd['Telephone'] || '')],
             ['Address', esc(hd['Company Address'] || hd['Address'] || '')],
         ],
