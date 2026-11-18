@@ -200,9 +200,10 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 16px', marginTop: signaturePadding, breakInside: 'avoid' }}>
                 {[
                     { label: "Seller's Signature & Name", name: hd['Prepared By'], pos: hd['Prepared By Position'] },
+                    { label: "Deliverer's Signature & Name", name: '', pos: '' },
                     { label: "Customer's Signature & Name", name: '', pos: '' },
                 ].map(s => (
-                    <div key={s.label} style={{ width: '36%', textAlign: 'center' }}>
+                    <div key={s.label} style={{ width: '28%', textAlign: 'center' }}>
                         <div style={{ height: 70 }} />
                         <div style={{ borderTop: '2px solid #000', marginBottom: 6 }} />
                         {s.name ? <div style={{ fontWeight: 'bold', fontSize: 11.5 }}>{s.name}</div> : null}

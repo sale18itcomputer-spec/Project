@@ -62,6 +62,7 @@ export function buildCommercialInvoice(
         belowHtml: COMMERCIAL_TERMS_HTML,
         signatures: [
             { label: "Seller's Signature & Name", name: hd['Prepared By'] || '', position: hd['Prepared By Position'] || '' },
+            { label: "Deliverer's Signature & Name" },
             { label: "Customer's Signature & Name" },
         ],
         signaturePadding,

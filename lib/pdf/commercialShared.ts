@@ -149,8 +149,8 @@ export interface CommercialDocOptions {
     totalRowsHtml: string;
     /** Block under the table (terms, notes). */
     belowHtml: string;
-    /** Two signature blocks. */
-    signatures: [CommercialSignature, CommercialSignature];
+    /** Two signature blocks (quotation / sale order) or three (invoice: seller, deliverer, customer). */
+    signatures: CommercialSignature[];
     signaturePadding?: number;
     labelPadding?: number;
 }
@@ -206,7 +206,7 @@ export function renderCommercialDoc(o: CommercialDocOptions): string {
   .terms ul { margin: 0; padding-left: 16px; list-style-type: disc; }
   .terms li { margin-bottom: 3px; line-height: 1.4; }
   .sigs { display: flex; justify-content: space-between; padding: 0 16px; margin-top: ${o.signaturePadding ?? 0}px; page-break-inside: avoid; }
-  .sig { width: 36%; text-align: center; }
+  .sig { width: ${o.signatures.length > 2 ? 28 : 36}%; text-align: center; }
   .sig .gap { height: ${o.labelPadding ?? 70}px; }
   .sig .line { border-top: 2px solid #000; margin-bottom: 6px; }
   .sig p { margin: 0; font-size: 11.5px; }
