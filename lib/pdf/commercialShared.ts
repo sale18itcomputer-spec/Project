@@ -42,7 +42,7 @@ export interface CommercialItemRowOptions {
 }
 
 /**
- * Item rows for the 5-column table: No | Description | Qty | Unit Price | Amount.
+ * Item rows for the 6-column table: No | Part Number | Description | Qty | Unit Price | Amount.
  * Description column = model name (bold) + description lines + PC Build components + serials.
  * Sub-rows drop their inner borders so an item reads as one block; every row avoids page breaks.
  */
@@ -65,7 +65,7 @@ export function commercialItemRows(items: PdfItem[], sym: string, o: CommercialI
                 const last = i === lines.length - 1;
                 const st = lines.length === 1 ? '' : (i === 0 ? open : last ? close : inner);
                 return `<tr class="brk">
-                  ${blank(st)}
+                  ${blank(st)}${blank(st)}
                   ${cell(esc(ln), `${st}text-align:left;font-style:italic;color:#666;`, 'desc')}
                   ${blank(st)}${blank(st)}
                   ${last ? cell(money(amt, true, true), st) : blank(st)}
@@ -103,6 +103,7 @@ export function commercialItemRows(items: PdfItem[], sym: string, o: CommercialI
         const head = subs.length ? open : '';
         let out = `<tr class="brk">
           ${cell(esc(item.no), head)}
+          ${cell(esc(item.itemCode || ''), head, 'desc')}
           ${cell(`<b>${esc(item.modelName || item.itemCode || '')}</b>`, `${head}text-align:left;`, 'desc')}
           ${cell(esc(item.qty), head)}
           ${cell(priceCell, head)}
@@ -112,8 +113,8 @@ export function commercialItemRows(items: PdfItem[], sym: string, o: CommercialI
             const st = i === subs.length - 1 ? close : inner;
             const font = s.serial ? 'font-size:10px;color:#555;' : 'font-size:11px;';
             out += `<tr class="brk">
-              ${blank(st)}
-              ${cell(s.html, `${st}text-align:left;${font}white-space:pre-wrap;padding-top:1px;`, 'desc')}
+              ${blank(st)}${blank(st)}
+              ${cell(s.html,`${st}text-align:left;${font}white-space:pre-wrap;padding-top:1px;`, 'desc')}
               ${blank(st)}${blank(st)}${blank(st)}
             </tr>`;
         });
@@ -123,9 +124,9 @@ export function commercialItemRows(items: PdfItem[], sym: string, o: CommercialI
     return items.filter(i => Number(i.no) > 0 || i.isPromotion).map(rowsFor).join('');
 }
 
-/** A total / deposit row: label spans the first 4 columns, the amount sits in the last. */
+/** A total / deposit row: label spans the first 5 columns, the amount sits in the last. */
 export function commercialTotalRow(label: string, amountHtml: string): string {
-    return `<tr class="brk"><td class="lbl" colspan="4">${label}</td><td>${amountHtml}</td></tr>`;
+    return `<tr class="brk"><td class="lbl" colspan="5">${label}</td><td>${amountHtml}</td></tr>`;
 }
 
 export const commercialMoney = (sym: string, v: number | null): string =>
@@ -234,9 +235,9 @@ export function renderCommercialDoc(o: CommercialDocOptions): string {
   </div>
 
   <table class="items">
-    <colgroup><col style="width:6%"/><col style="width:50%"/><col style="width:12%"/><col style="width:16%"/><col style="width:16%"/></colgroup>
+    <colgroup><col style="width:5%"/><col style="width:15%"/><col style="width:36%"/><col style="width:9%"/><col style="width:17%"/><col style="width:18%"/></colgroup>
     <thead>
-      <tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>
+      <tr><th>No.</th><th>Part Number</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>
     </thead>
     <tbody>${o.itemRowsHtml}</tbody>
     <tfoot>${o.totalRowsHtml}</tfoot>

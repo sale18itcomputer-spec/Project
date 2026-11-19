@@ -79,7 +79,7 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
                 const st = lines.length === 1 ? {} : i === 0 ? open : last ? close : inner;
                 return (
                     <tr key={`${idx}-p${i}`} style={{ breakInside: 'avoid' }}>
-                        <td style={{ ...cell, ...st }} />
+                        <td style={{ ...cell, ...st }} /><td style={{ ...cell, ...st }} />
                         <td style={{ ...cell, ...st, textAlign: 'left', fontStyle: 'italic', color: '#666' }}>{ln}</td>
                         <td style={{ ...cell, ...st }} /><td style={{ ...cell, ...st }} />
                         <td style={{ ...cell, ...st }}>{last ? <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c00000' }}><span>{sym}</span><span>({fmt(Math.abs(num(item.amount)))})</span></div> : null}</td>
@@ -114,6 +114,7 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
             <React.Fragment key={idx}>
                 <tr style={{ breakInside: 'avoid' }}>
                     <td style={{ ...cell, ...head }}>{item.no}</td>
+                    <td style={{ ...cell, ...head, overflowWrap: 'anywhere' }}>{item.itemCode}</td>
                     <td style={{ ...cell, ...head, textAlign: 'left', fontWeight: 'bold' }}>{item.modelName || item.itemCode}</td>
                     <td style={{ ...cell, ...head }}>{item.qty}</td>
                     <td style={{ ...cell, ...head }}>{price > 0 ? money(price) : null}</td>
@@ -123,7 +124,7 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
                     const st = i === subs.length - 1 ? close : inner;
                     return (
                         <tr key={`${idx}-s${i}`} style={{ breakInside: 'avoid' }}>
-                            <td style={{ ...cell, ...st }} />
+                            <td style={{ ...cell, ...st }} /><td style={{ ...cell, ...st }} />
                             <td style={{ ...cell, ...st, textAlign: 'left', whiteSpace: 'pre-wrap', paddingTop: 1, fontSize: s.serial ? 10 : 11, color: s.serial ? '#555' : undefined }}>{s.text}</td>
                             <td style={{ ...cell, ...st }} /><td style={{ ...cell, ...st }} /><td style={{ ...cell, ...st }} />
                         </tr>
@@ -135,7 +136,7 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
 
     const totalRow = (label: string, v: number | null) => (
         <tr style={{ breakInside: 'avoid' }}>
-            <td colSpan={4} style={{ ...cell, fontWeight: 'bold', textAlign: 'right', verticalAlign: 'middle', padding: '6px 8px' }}>{label}</td>
+            <td colSpan={5} style={{ ...cell, fontWeight: 'bold', textAlign: 'right', verticalAlign: 'middle', padding: '6px 8px' }}>{label}</td>
             <td style={cell}>{money(v)}</td>
         </tr>
     );
@@ -171,10 +172,10 @@ const PrintableCommercialInvoice: React.FC<Props> = ({ headerData: hd, items, to
             </div>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <colgroup><col style={{ width: '6%' }} /><col style={{ width: '50%' }} /><col style={{ width: '12%' }} /><col style={{ width: '16%' }} /><col style={{ width: '16%' }} /></colgroup>
+                <colgroup><col style={{ width: '5%' }} /><col style={{ width: '15%' }} /><col style={{ width: '36%' }} /><col style={{ width: '9%' }} /><col style={{ width: '17%' }} /><col style={{ width: '18%' }} /></colgroup>
                 <thead>
                     <tr>
-                        {['No.', 'Description', 'Qty', 'Unit Price', 'Amount'].map(h => (
+                        {['No.', 'Part Number', 'Description', 'Qty', 'Unit Price', 'Amount'].map(h => (
                             <th key={h} style={{ background: BLUE, color: '#fff', border: '1px solid #000', padding: '7px 8px', fontSize: 12, textAlign: 'center', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>{h}</th>
                         ))}
                     </tr>
