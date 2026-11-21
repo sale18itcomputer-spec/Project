@@ -8,7 +8,7 @@ import { useB2B } from '../../contexts/B2BContext';
 import { useToast } from '../../contexts/ToastContext';
 import { generatePosInvNo, generatePosRvNo, createRecord, readRecords, getSetting } from '../../services/api';
 import { autoPostInvoiceJournal, autoPostReceiptJournal, normalizeBrand } from '../../services/accountingApi';
-import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxType } from '../../services/inventoryApi';
+import { checkInventoryTaxMatch, findStockShortfalls, stockShortfallMessage, taxTypeOrFilter, wantTaxType } from '../../services/inventoryApi';
 import { supabase } from '../../lib/supabase';
 import { formatDisplayDate } from '../../utils/time';
 import PosReceiptModal, { CompletedSale } from './PosReceiptModal';
@@ -239,6 +239,12 @@ const PosTerminal: React.FC = () => {
     // non-VAT). Block before any invoice/receipt is created.
     const posTaxBlock = await checkInventoryTaxMatch(cart.map(i => ({ itemCode: i.itemCode, qty: i.qty })), session.taxType === 'VAT');
     if (posTaxBlock) { addToast(posTaxBlock, 'error'); return; }
+
+    // Invoice ↔ inventory rule: a sale may only be rung up against stock on record.
+    let posShortfalls: Awaited<ReturnType<typeof findStockShortfalls>>;
+    try { posShortfalls = await findStockShortfalls(cart.map(i => ({ itemCode: i.itemCode, modelName: i.modelName, qty: i.qty }))); }
+    catch (e: any) { addToast(`${e?.message || 'Could not verify stock'}. The sale was NOT completed; try again.`, 'error'); return; }
+    if (posShortfalls.length > 0) { addToast(stockShortfallMessage(posShortfalls), 'error'); return; }
 
     setIsProcessing(true);
     try {

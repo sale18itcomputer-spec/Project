@@ -95,6 +95,68 @@ export async function checkInventoryTaxMatch(
     return null;
 }
 
+export interface StockShortfall { label: string; requested: number; available: number }
+
+/**
+ * Invoice ↔ inventory rule: an invoice may only be issued when every stocked line is backed
+ * by inventory (i.e. its purchase order has been converted to stock). Returns the lines that
+ * are NOT covered — empty array means the invoice may be issued.
+ *
+ * Matching mirrors the stock deduction: exact item code first, then the fuzzy model_name
+ * fallback, counting only `In Stock` rows. Demand is totalled per item first, so two lines of
+ * the same item cannot both be satisfied by one unit. Cashback/promotion lines and lines with
+ * no item code (free-text / service lines such as delivery or installation) carry no stock and
+ * are skipped; every catalogue item carries a code, so stocked goods are always checked.
+ */
+export async function findStockShortfalls(items: any[]): Promise<StockShortfall[]> {
+    const need = new Map<string, { code?: string; model?: string; qty: number; label: string }>();
+    const add = (code: string | undefined, model: string | undefined, qty: number, label: string) => {
+        const c = (code || '').trim(); const m = (model || '').trim();
+        if (!c || !(qty > 0)) return;
+        const key = c.toLowerCase();
+        const cur = need.get(key);
+        if (cur) cur.qty += qty; else need.set(key, { code: c, model: m || undefined, qty, label });
+    };
+    for (const it of items || []) {
+        if (it?.isPromotion) continue;
+        if (it?.isPCBuild) {
+            for (const comp of it.buildComponents || []) {
+                add(comp.itemCode, comp.modelName, Number(comp.qty) || 0,
+                    `${it.modelName || 'PC Build'} — ${comp.modelName || comp.itemCode || 'component'}`);
+            }
+            continue;
+        }
+        add(it?.itemCode, it?.modelName, Number(it?.qty) || 0, (it?.modelName || '').trim() || (it?.itemCode || '').trim() || 'item');
+    }
+
+    const shortfalls: StockShortfall[] = [];
+    for (const n of need.values()) {
+        let available = 0;
+        // A failed lookup must NOT read as "0 in stock" (wrong message) or as "fine" (silent pass):
+        // throw, so the caller reports that stock could not be verified and nothing is issued.
+        if (n.code) {
+            const { data, error } = await supabase.from('inventory').select('qty').eq('status', 'In Stock').eq('code', n.code);
+            if (error) throw new Error(`Could not verify stock for ${n.label}: ${error.message}`);
+            available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        }
+        if (available === 0 && n.model) {
+            const { data, error } = await supabase.from('inventory').select('qty').eq('status', 'In Stock').ilike('model_name', `%${n.model}%`);
+            if (error) throw new Error(`Could not verify stock for ${n.label}: ${error.message}`);
+            available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        }
+        if (available < n.qty) shortfalls.push({ label: n.label, requested: n.qty, available });
+    }
+    return shortfalls;
+}
+
+/** User-facing text for a blocked issue. */
+export function stockShortfallMessage(shortfalls: StockShortfall[]): string {
+    const list = shortfalls.map(s => `  • ${s.label} — need ${s.requested}, ${s.available} in stock`).join('\n');
+    return `Cannot issue: ${shortfalls.length} item(s) are not in inventory yet:\n${list}\n\n` +
+        `An invoice can only be issued against stock. Enter the purchase order and set it to Completed ` +
+        `(so it converts to inventory) first. Until then keep this invoice as Draft.`;
+}
+
 /** Returns true if any inventory rows are already linked to this PO. */
 export const hasInventoryForPO = async (poId: string): Promise<boolean> => {
     const { data, error } = await supabase

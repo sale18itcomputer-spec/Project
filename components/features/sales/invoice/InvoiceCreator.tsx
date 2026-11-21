@@ -10,7 +10,7 @@ import { reconcileIssuedInvoiceEdit, reserveInvoiceSerials } from "../../../../s
 import { usePeriodLock } from "../../../../hooks/usePeriodLock";
 import { isServiceInvoice, SERVICE_REMARK_PREFIX, SERVICE_REMARK_PLAIN } from "../../../../utils/serviceInvoice";
 import { autoPostInvoiceJournal, autoPostDepositReceiptJournal, normalizeBrand } from "../../../../services/accountingApi";
-import { checkInventoryTaxMatch, taxTypeOrFilter, wantTaxTypeFor } from "../../../../services/inventoryApi";
+import { checkInventoryTaxMatch, findStockShortfalls, stockShortfallMessage, taxTypeOrFilter, wantTaxTypeFor } from "../../../../services/inventoryApi";
 import { supabase } from "../../../../lib/supabase";
 import { formatToSheetDate, formatToInputDate, calcDueDate } from "../../../../utils/time";
 import { friendlyDbError, hasLineItemContent } from "../../../../utils/formatters";
@@ -664,66 +664,43 @@ const InvoiceCreator: React.FC<InvoiceCreatorProps> = ({ onBack, existingInvoice
                 .filter(item => item.isPromotion)
                 .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
-            // Stock guard: when issuing (Draft → non-Draft) we recognise the sale
-            // (revenue + COGS) and deduct inventory. Warn first if any line's backing
-            // stock isn't in inventory yet — issuing a pre-order before the PO is
-            // received would recognise revenue too early (see TI2026-00003).
-            if (wasDraft && isNowIssued) {
+            // Stock guard (HARD RULE, all roles): an invoice may only be issued against stock.
+            // Issuing recognises the sale (revenue + COGS) and deducts inventory, so every stocked
+            // line must already be in inventory, i.e. its purchase order converted to stock.
+            // INV2026-00045 was issued with no PO/stock behind it (the old confirm could be clicked
+            // through) and posted with no COGS. No override: enter the PO first, or keep it Draft.
+            // The one exception is a deposit invoice (see below).
+            // Cancelling a Draft is not an issue, so it is exempt; so are service invoices (no stock).
+            if (wasDraft && isNowIssued && invoice['Status'] !== 'Cancel' && !isService) {
                 // VAT integrity: a VAT invoice may only draw VAT-purchased stock (and a
                 // non-VAT invoice only non-VAT). Block BEFORE minting a number/deducting.
                 const taxBlock = await checkInventoryTaxMatch(items, invoice['Taxable'] === 'Commercial Invoice' ? 'ANY' : invoice['Taxable'] === 'VAT');
                 if (taxBlock) { addToast(taxBlock, 'error'); setIsSubmitting(false); return false; }
 
-                const shortfalls: { label: string; requested: number; available: number }[] = [];
-                const checkAvailability = async (code: string | undefined, model: string | undefined, qty: number, label: string) => {
-                    if (!code && !model) return; // service / free-text line — can't check
-                    // Sum available in-stock qty, mirroring the deduction match:
-                    // exact code first, then fuzzy model_name fallback.
-                    let available = 0;
-                    if (code) {
-                        const { data } = await supabase
-                            .from('inventory').select('qty')
-                            .eq('status', 'In Stock').eq('code', code);
-                        available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
-                    }
-                    if (available === 0 && model) {
-                        const { data } = await supabase
-                            .from('inventory').select('qty')
-                            .eq('status', 'In Stock').ilike('model_name', `%${model}%`);
-                        available = (data ?? []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
-                    }
-                    if (available < qty) {
-                        shortfalls.push({ label, requested: qty, available });
-                    }
-                };
-                for (const item of items) {
-                    if (item.isPromotion) continue;
-                    if (item.isPCBuild) {
-                        for (const comp of item.buildComponents || []) {
-                            const compQty = Number(comp.qty) || 0;
-                            if (compQty <= 0) continue;
-                            await checkAvailability(comp.itemCode?.trim(), comp.modelName?.trim(), compQty,
-                                `${item.modelName || 'PC Build'} — ${comp.modelName || comp.itemCode || 'component'}`);
-                        }
-                        continue;
-                    }
-                    const qty = Number(item.qty) || 0;
-                    if (qty <= 0) continue;
-                    await checkAvailability(item.itemCode?.trim(), item.modelName?.trim(), qty, item.modelName?.trim() || item.itemCode?.trim() || 'item');
+                let shortfalls: Awaited<ReturnType<typeof findStockShortfalls>>;
+                try { shortfalls = await findStockShortfalls(items); }
+                catch (e: any) {
+                    // Fail closed AND loud: if stock can't be verified, nothing is issued.
+                    addToast(`${e?.message || 'Could not verify stock'}. The invoice was NOT issued; try again.`, 'error');
+                    setIsSubmitting(false);
+                    return false;
                 }
-
                 if (shortfalls.length > 0) {
-                    const list = shortfalls
-                        .map(s => `  • ${s.label} — need ${s.requested}, ${s.available} in stock`)
-                        .join('\n');
-                    const ok = window.confirm(
-                        `⚠ Stock not yet received for ${shortfalls.length} item(s) on this invoice:\n\n${list}\n\n` +
-                        `Issuing now recognises the sale (revenue + COGS) before the goods are in inventory. ` +
-                        `That is correct only if the goods have already been delivered.\n\n` +
-                        `If this is a pre-order awaiting a purchase order, keep it as Draft (or take a deposit) ` +
-                        `and issue once the stock is received.\n\nIssue the invoice anyway?`
-                    );
-                    if (!ok) { setIsSubmitting(false); return false; }
+                    // Exception: a DEPOSIT invoice (Deposit > 0) may be issued before the stock
+                    // arrives (supplier lead-time orders). It still asks for a deliberate confirm;
+                    // the final invoice, issued once the goods land, is hard-blocked again.
+                    if (toNum(invoice['Deposit']) > 0.005) {
+                        const list = shortfalls.map(s => `  • ${s.label} — need ${s.requested}, ${s.available} in stock`).join('\n');
+                        const ok = window.confirm(
+                            `Deposit invoice: the stock is not in inventory yet:\n\n${list}\n\n` +
+                            `This is allowed for a deposit / lead-time order. Issue the deposit invoice?`
+                        );
+                        if (!ok) { setIsSubmitting(false); return false; }
+                    } else {
+                        addToast(stockShortfallMessage(shortfalls), 'error');
+                        setIsSubmitting(false);
+                        return false;
+                    }
                 }
             }
 

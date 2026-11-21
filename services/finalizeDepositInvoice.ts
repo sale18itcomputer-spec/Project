@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { createJournalEntry, getNextEntryNumber, normalizeBrand, BRAND_ACCOUNT_MAP } from './accountingApi';
 import { createRecord, updateRecord, generateInvNo } from './api';
 import { computeInvoiceEditDelta, markSerialsSold } from './reconcileInvoiceEdit';
-import { wantTaxType, taxTypeOrFilter } from './inventoryApi';
+import { wantTaxType, taxTypeOrFilter, findStockShortfalls, stockShortfallMessage } from './inventoryApi';
 
 /**
  * Issue the FINAL invoice for a deposit / pre-order invoice once the goods land.
@@ -43,6 +43,11 @@ export async function finalizeDepositInvoice(params: {
     if (dep['deposit_finalized_by']) {
         throw new Error(`${depositInvNo} was already finalized into ${dep['deposit_finalized_by']}.`);
     }
+
+    // ── Invoice ↔ inventory rule: the final invoice relieves stock, so every stocked line must
+    // already be in inventory (PO converted). Checked BEFORE minting a number / creating the row.
+    const shortfalls = await findStockShortfalls(params.items);
+    if (shortfalls.length > 0) throw new Error(stockShortfallMessage(shortfalls));
 
     // ── Amounts (deposit is VAT-inclusive; VAT was booked on it already) ─────
     const subtotal = params.items.reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);

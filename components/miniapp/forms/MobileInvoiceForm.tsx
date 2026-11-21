@@ -6,6 +6,7 @@ import { useData } from '@/contexts/MiniAppDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createRecord, updateRecord, generateInvNo } from '@/services/api';
+import { findStockShortfalls, stockShortfallMessage } from '@/services/inventoryApi';
 import { formatToSheetDate, formatToInputDate, calcDueDate } from '@/utils/time';
 import {
     MobileFormHeader, MobileFormSection, MobileField,
@@ -212,6 +213,24 @@ export default function MobileInvoiceForm({ onBack, existingInvoice, initialData
         if (!doc['Inv No'] || !doc['Company Name']) {
             addToast('Please fill in Inv No. and Company Name', 'error');
             return;
+        }
+        // An invoice may only be issued against stock (PO converted to inventory). Draft/Cancel
+        // saves and edits of an already-issued invoice are not an issue.
+        const targetStatus = String(doc['Status'] || 'Draft');
+        const isDeposit = (Number(doc['Deposit']) || 0) > 0.005; // deposit / lead-time orders are exempt
+        const isIssuing = targetStatus !== 'Draft' && targetStatus !== 'Cancel' && !isDeposit
+            && (!existingInvoice || existingInvoice['Status'] === 'Draft');
+        if (isIssuing) {
+            let shortfalls: Awaited<ReturnType<typeof findStockShortfalls>>;
+            try { shortfalls = await findStockShortfalls(items); }
+            catch (e: any) {
+                addToast(`${e?.message || 'Could not verify stock'}. The invoice was NOT issued; try again.`, 'error');
+                return;
+            }
+            if (shortfalls.length > 0) {
+                addToast(stockShortfallMessage(shortfalls), 'error');
+                return;
+            }
         }
         setIsSaving(true);
         try {
