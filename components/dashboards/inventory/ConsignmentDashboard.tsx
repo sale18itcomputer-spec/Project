@@ -441,8 +441,8 @@ export default function ConsignmentDashboard() {
                                                 <td className="px-4 py-2.5">
                                                     <span className="font-mono text-[12px] text-foreground">{item.item_code}</span>
                                                 </td>
-                                                <td className="px-4 py-2.5 text-[13px] text-foreground max-w-[260px]">
-                                                    <span className="line-clamp-1">{item.product_name}</span>
+                                                <td className="px-4 py-2.5 text-[13px] text-foreground min-w-[220px]" title={item.product_name}>
+                                                    {item.product_name}
                                                 </td>
                                                 <td className="px-4 py-2.5">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${brandCls}`}>{item.brand}</span>

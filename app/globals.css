@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* `dark:` utilities follow the APP theme (the `.dark` class the theme script / ThemeProvider put on
+   <html>), not the OS. Tailwind v4's default is @media (prefers-color-scheme: dark), so with the OS
+   in dark mode and the app in light, every dark: colour fired on a light page (washed-out badges). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
     /* Stronger than the built-in ease-out: starts fast so the UI feels like it heard you */
     --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
